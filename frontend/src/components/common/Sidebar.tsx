@@ -20,6 +20,7 @@ import {
   Sun,
   Moon,
   UtensilsCrossed,
+  ChefHat,
   Boxes,
   ShieldCheck,
   Search,
@@ -102,6 +103,14 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     icon: UtensilsCrossed,
     tag: 'F&B POS',
     description: 'Restaurant orders & room service',
+  },
+  {
+    id: 'our-menu',
+    name: 'Our Menu',
+    href: '/menu',
+    icon: ChefHat,
+    tag: 'MENU',
+    description: 'Dishes, pricing & portions',
   },
   {
     id: 'finance',
@@ -243,9 +252,13 @@ export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
           {/* 2-Column Grid Box Layout (Direct Normal Grid) */}
           <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {filteredOptions.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/' && pathname.startsWith(item.href.split('?')[0]));
+              const isQuery = item.href.includes('?');
+              const baseHref = item.href.split('?')[0];
+              const isActive = isQuery
+                ? pathname === baseHref
+                : item.href === '/'
+                ? pathname === '/'
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
 
               return (
