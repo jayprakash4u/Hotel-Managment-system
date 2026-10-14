@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+.dist/
+out/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
+
+# Prisma local dev database
+prisma/dev.db
+prisma/dev.db-journal

@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter: 'Inter', sans-serif;
+  --font-outfit: 'Outfit', sans-serif;
+
+  /* Brand Palette Variables */
+  --brand-primary: #0B3D32;
+  --brand-primary-hover: #145447;
+  --brand-primary-active: #072D26;
+  --brand-primary-subtle: #E8F2EE;
+
+  --brand-secondary: #A51F36;
+  --brand-secondary-hover: #8E1B2F;
+  --brand-secondary-subtle: #F9E9EC;
+
+  /* Layout Surfaces */
+  --page-bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --surface-muted: #F2F4F2;
+  --surface-hover: #F8FAF8;
+
+  /* Borders & Dividers */
+  --border-default: #DCE3DF;
+  --border-input: #CBD5D0;
+  --border-input-hover: #879B90;
+  --border-input-focus: #0B3D32;
+  --border-input-error: #B42332;
+  --divider: #E4E9E5;
+
+  /* Text & Labels */
+  --text-heading: #24352F;
+  --text-body: #43534D;
+  --text-muted: #64736C;
+  --text-placeholder: #7A8982;
+  --text-disabled: #89948E;
+}
+
+/* Default / Light Mode: Warm Ivory Background + Charcoal Green Headings */
+html.light,
+html:not(.dark) {
+  color-scheme: light;
+  background-color: #F7F5F0;
+  color: #24352F;
+}
+
+html.dark {
+  color-scheme: dark;
+  background-color: #071512;
+  color: #F1F5F9;
+}
+
+body {
+  font-family: var(--font-inter);
+  overflow-x: hidden;
+  min-height: 100vh;
+  background-color: #F7F5F0;
+  color: #43534D;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+html.dark body {
+  background-color: #071512;
+  color: #E2E8F0;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: var(--font-outfit);
+  color: #24352F;
+}
+
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark .font-heading {
+  color: #FFFFFF;
+}
+
+/* Standard Hospitality Card Surface */
+.card-standard {
+  background-color: #FFFFFF;
+  border: 1px solid #DCE3DF;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+}
+
+.dark .card-standard {
+  background-color: #0d1e19;
+  border-color: #1a332c;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Global Crisp Minimal Corner Radius Spec (Buttons, Boxes, Inputs, Badges) */
+button, input, select, textarea, .card {
+  border-radius: 3px;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5D0;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #1a332c;
+  border-radius: 9999px;
+}
+
+/* Print Styling */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printable-invoice, .printable-invoice * {
+    visibility: visible;
+  }
+  .printable-invoice {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+    padding: 20px;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
