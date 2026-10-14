@@ -25,6 +25,8 @@ import {
   ShieldCheck,
   Search,
   Table2,
+  CalendarCheck,
+  Utensils,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { cn } from '@/lib/utils';
@@ -55,6 +57,22 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     icon: Building2,
     tag: 'SETUP',
     description: 'Resort profile & room types',
+  },
+  {
+    id: 'book-now',
+    name: 'Book Now',
+    href: '/check-in',
+    icon: CalendarCheck,
+    tag: 'BOOKING',
+    description: 'Instant room reservation & check-in',
+  },
+  {
+    id: 'book-table',
+    name: 'Book Table',
+    href: '/tables?action=book',
+    icon: Utensils,
+    tag: 'TABLE',
+    description: 'Reserve dining tables & seating',
   },
   {
     id: 'front-desk',
@@ -169,6 +187,13 @@ export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentSearch, setCurrentSearch] = useState('');
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentSearch(window.location.search);
+    }
+  }, [pathname]);
 
   // Real-time search filter for navigation box widgets
   const filteredOptions = useMemo(() => {
@@ -253,19 +278,39 @@ export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
           <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {filteredOptions.map((item) => {
               const isQuery = item.href.includes('?');
-              const baseHref = item.href.split('?')[0];
-              const isActive = isQuery
-                ? pathname === baseHref
-                : item.href === '/'
-                ? pathname === '/'
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const [baseHref, queryStr] = item.href.split('?');
+
+              let isActive = false;
+              if (isQuery) {
+                isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
+              } else if (item.href === '/') {
+                isActive = pathname === '/';
+              } else if (pathname === item.href) {
+                if (item.id === 'table' && currentSearch.includes('action=book')) {
+                  isActive = false;
+                } else if (item.id === 'rooms' && currentSearch.includes('tab=housekeeping')) {
+                  isActive = false;
+                } else {
+                  isActive = true;
+                }
+              } else {
+                isActive = pathname.startsWith(`${item.href}/`);
+              }
+
               const Icon = item.icon;
 
               return (
                 <Link
                   key={item.id}
                   href={item.href}
-                  onClick={onClose}
+                  onClick={() => {
+                    if (item.href.includes('?')) {
+                      setCurrentSearch(`?${item.href.split('?')[1]}`);
+                    } else {
+                      setCurrentSearch('');
+                    }
+                    onClose();
+                  }}
                   className={cn(
                     'group relative flex flex-col items-center justify-center rounded-[3px] border p-3 pt-4 text-center transition-all duration-150 shadow-2xs',
                     'min-h-[88px] sm:min-h-[94px]',

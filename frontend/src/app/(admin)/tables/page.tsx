@@ -136,6 +136,23 @@ export default function TablesPage() {
   const [orderQuantity, setOrderQuantity] = useState(1);
   const [orderPrice, setOrderPrice] = useState('');
 
+  // Auto-open booking modal when navigated with ?action=book
+  const hasAutoOpenedRef = React.useRef(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !hasAutoOpenedRef.current) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'book') {
+        const available = tables.find((t) => t.status === 'AVAILABLE');
+        if (available) {
+          hasAutoOpenedRef.current = true;
+          setBookingTable(available);
+          setBookingName('');
+          setBookingPhone('');
+        }
+      }
+    }
+  }, [tables]);
+
   // Load from API if available
   useEffect(() => {
     async function fetchTables() {

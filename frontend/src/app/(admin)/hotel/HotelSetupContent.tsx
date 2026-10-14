@@ -1423,46 +1423,56 @@ export default function HotelSetupContent({
            ----------------------------------------------------------------------- */
         <div className="-mx-3 sm:-mx-4 lg:-mx-5 -mb-3 sm:-mb-4 lg:-mb-5 flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
           {/* STATIC Secondary Sidebar (Locked, Does NOT scroll with right side page) */}
-          <aside className="w-full lg:w-48 xl:w-52 shrink-0 border-b lg:border-b-0 lg:border-r border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] flex flex-col select-none h-full min-h-0">
+          <aside className="w-full lg:w-60 xl:w-64 shrink-0 border-b lg:border-b-0 lg:border-r border-[#DCE3DF] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#071F1A] flex flex-col select-none h-full min-h-0">
             {/* Clean Secondary Sidebar Header: Back Button, Header Name, One Search Box (STATIC) */}
-            <div className="shrink-0 p-2.5 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] space-y-1.5">
+            <div className="shrink-0 p-3 border-b border-[#E5EEE9] dark:border-[#145447] bg-white dark:bg-[#061B16] space-y-2">
               <button
                 type="button"
                 onClick={handleBackToBoxes}
-                className="group inline-flex items-center gap-1.5 text-xs font-bold text-[#4A6B5D] hover:text-[#0B3D32] dark:text-[#A4B8AE] dark:hover:text-emerald-300 transition-colors"
-                title="Back to options box view"
+                className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-bold text-[#4A6B5D] bg-[#F2F6F4] hover:bg-[#E8F2EE] hover:text-[#0B3D32] dark:bg-[#0A2E26] dark:text-[#A4B8AE] dark:hover:text-white dark:hover:bg-[#0E3B31] border border-[#DCE3DF] dark:border-[#145447] transition-all shadow-2xs"
+                title="Back to all categories view"
               >
                 <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                <span>Back</span>
+                <span>All Categories</span>
               </button>
 
-              <h3 className="text-xs sm:text-sm font-bold text-[#24352F] dark:text-white font-heading tracking-tight truncate">
-                {categoryHeaderTitle}
-              </h3>
+              <div className="flex items-center gap-2 min-w-0 pt-0.5">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-700">
+                  <activeCategory.icon className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-bold text-[#24352F] dark:text-white font-heading tracking-tight truncate">
+                    {categoryHeaderTitle}
+                  </h3>
+                  <p className="text-[10px] text-[#64736C] dark:text-[#8CA498] font-medium truncate">
+                    Master Configuration
+                  </p>
+                </div>
+              </div>
 
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#879B90] dark:text-[#647F75]" />
+              <div className="relative pt-0.5">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#879B90] dark:text-[#647F75]" />
                 <input
                   type="text"
                   value={searchOptionsQuery}
                   onChange={(e) => setSearchOptionsQuery(e.target.value)}
-                  placeholder="Search..."
-                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-1 pl-7 pr-6 text-[11px] font-medium text-[#24352F] placeholder-[#879B90] shadow-2xs transition-all focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:placeholder-[#647F75] dark:focus:border-emerald-500"
+                  placeholder="Search master list..."
+                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-1.5 pl-8 pr-7 text-xs font-medium text-[#24352F] placeholder-[#879B90] shadow-2xs transition-all focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:placeholder-[#647F75] dark:focus:border-emerald-500"
                 />
                 {searchOptionsQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchOptionsQuery('')}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
             </div>
 
             {/* SCROLLABLE Options List (Only scrolls internally within the sidebar) */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1 custom-scrollbar">
               {filteredSubBoxes.map((sub) => {
                 const SubBoxIcon = sub.icon;
                 const isSelected = selectedSubId === sub.id;
@@ -1473,41 +1483,31 @@ export default function HotelSetupContent({
                     type="button"
                     onClick={() => handleSelectSubBox(sub.id)}
                     className={cn(
-                      'w-full group flex items-center justify-between px-2 py-1.5 rounded-[3px] text-left transition-all duration-150',
+                      'w-full group flex items-center gap-2.5 px-2.5 py-2 rounded-[3px] text-left transition-all duration-150',
                       isSelected
-                        ? 'border border-[#A51F36] bg-[#FFF5F6] text-[#A51F36] ring-1 ring-[#A51F36] dark:border-rose-700 dark:bg-[#320810] dark:text-rose-200 shadow-2xs font-bold'
-                        : 'border border-transparent hover:border-[#FAD2D8] hover:bg-[#FFF9F9] text-[#24352F] dark:text-[#E5EEE9] dark:hover:border-rose-900/60 dark:hover:bg-[#1a080d]'
+                        ? 'bg-[#0B3D32] text-white shadow-2xs font-bold dark:bg-emerald-700'
+                        : 'text-[#24352F] hover:bg-white hover:text-[#0B3D32] hover:shadow-2xs dark:text-[#E5EEE9] dark:hover:bg-[#082921] dark:hover:text-emerald-300 font-medium'
                     )}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div
-                        className={cn(
-                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-[2px] transition-colors',
-                          isSelected
-                            ? 'bg-[#A51F36] text-white dark:bg-rose-700'
-                            : 'bg-[#FFF5F6] text-[#A51F36] group-hover:bg-[#FCE7E9] dark:bg-[#320810] dark:text-rose-300'
-                        )}
-                      >
-                        <SubBoxIcon className="w-3 h-3 stroke-[2]" />
-                      </div>
-
-                      <span className="text-[11px] sm:text-xs truncate">{sub.name}</span>
+                    <div
+                      className={cn(
+                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] transition-colors',
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : 'text-[#566D63] group-hover:text-[#0B3D32] dark:text-[#8CA498] dark:group-hover:text-emerald-300'
+                      )}
+                    >
+                      <SubBoxIcon className="w-3.5 h-3.5 stroke-[2]" />
                     </div>
 
-                    <ChevronRight
-                      className={cn(
-                        'w-3.5 h-3.5 shrink-0 transition-transform ml-1',
-                        isSelected
-                          ? 'text-[#A51F36] dark:text-rose-300 translate-x-0.5'
-                          : 'text-slate-400 opacity-50 group-hover:opacity-100'
-                      )}
-                    />
+                    <span className="text-xs truncate">{sub.name}</span>
                   </button>
                 );
               })}
               {filteredSubBoxes.length === 0 && (
-                <div className="py-8 text-center text-xs text-[#879B90]">
-                  No options match &quot;{searchOptionsQuery}&quot;
+                <div className="py-8 text-center text-xs text-[#879B90] dark:text-[#647F75]">
+                  <Search className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
+                  <p>No master lists match &quot;{searchOptionsQuery}&quot;</p>
                 </div>
               )}
             </div>
