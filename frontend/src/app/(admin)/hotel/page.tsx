@@ -2,40 +2,26 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Globe,
-  Building2,
-  BedDouble,
   UtensilsCrossed,
-  ChefHat,
-  Boxes,
+  Layers,
   DollarSign,
   Users,
   Sparkles,
-  HeartHandshake,
-  Bell,
-  Lock,
   UserCheck,
   Clock,
-  ShieldCheck,
   MapPin,
   Flag,
   Scale,
   Compass,
-  Tag,
-  Receipt,
-  FileText,
-  SlidersHorizontal,
-  Layers,
-  Calendar,
-  Wrench,
-  Key,
   Check,
   X,
   Search,
   Plus,
   Trash2,
+  Edit3,
   ChevronRight,
   ArrowLeft,
 } from 'lucide-react';
@@ -56,12 +42,22 @@ export interface MasterCategory {
   subBoxes: SubOptionBox[];
 }
 
+export interface QuantityPriceTier {
+  quantityId?: string;
+  quantityName: string;
+  price: number;
+  isDefault?: boolean;
+}
+
 export interface MasterItemEntry {
   id: string;
   code: string;
   name: string;
   order?: number;
   description?: string;
+  category?: string;
+  basePrice?: number;
+  quantityPrices?: QuantityPriceTier[];
   isDefault?: boolean;
   isActive?: boolean;
 }
@@ -70,7 +66,7 @@ const MASTER_CATEGORIES: MasterCategory[] = [
   {
     id: 'general',
     code: '01',
-    name: 'General Masters',
+    name: 'General Master',
     icon: Globe,
     subBoxes: [
       {
@@ -142,190 +138,29 @@ const MASTER_CATEGORIES: MasterCategory[] = [
     ],
   },
   {
-    id: 'hotel-property',
+    id: 'menu-setup',
     code: '02',
-    name: 'Hotel & Property Masters',
-    icon: Building2,
-    subBoxes: [
-      { id: 'hotel-types', name: 'Hotel Types', icon: Building2, description: 'Resort and property style classifications' },
-      { id: 'property-categories', name: 'Property Categories', icon: Layers, description: 'Star rating and brand tiers' },
-      { id: 'facilities', name: 'Hotel Facilities', icon: Sparkles, description: 'General guest and property amenities' },
-      { id: 'amenities', name: 'Amenities', icon: Tag, description: 'In-room amenities and guest comforts' },
-      { id: 'room-views', name: 'Room Views', icon: Compass, description: 'Mountain, lake, garden, and city views' },
-      { id: 'bed-types', name: 'Bed Types', icon: BedDouble, description: 'King, Queen, Twin, and Sofa bed standards' },
-      { id: 'room-types', name: 'Room Types', icon: BedDouble, description: 'Deluxe, Suite, Standard, Villa configurations' },
-      { id: 'room-classes', name: 'Room Classes', icon: Key, description: 'Pricing tier classifications' },
-      { id: 'room-features', name: 'Room Features', icon: SlidersHorizontal, description: 'Balcony, jacuzzi, and smoking policies' },
-      { id: 'housekeeping-statuses', name: 'Housekeeping Statuses', icon: Sparkles, description: 'Clean, Dirty, Inspected, Out-of-order' },
-    ],
-  },
-  {
-    id: 'room-booking',
-    code: '03',
-    name: 'Room Booking Masters',
-    icon: BedDouble,
-    subBoxes: [
-      { id: 'booking-sources', name: 'Booking Sources', icon: Globe, description: 'OTAs, Walk-in, Direct Web, Corporate' },
-      { id: 'booking-types', name: 'Booking Types', icon: Tag, description: 'Confirmed, Provisional, Waitlist' },
-      { id: 'reservation-statuses', name: 'Reservation Statuses', icon: Check, description: 'Booked, Checked-in, Checked-out, Cancelled' },
-      { id: 'stay-purposes', name: 'Stay Purposes', icon: Compass, description: 'Leisure, Business, Conference, Wedding' },
-      { id: 'rate-plans', name: 'Rate Plans', icon: DollarSign, description: 'EP, CP, MAP, AP, Non-refundable' },
-      { id: 'meal-plans', name: 'Meal Plans', icon: UtensilsCrossed, description: 'Room Only, Breakfast Included, Full Board' },
-      { id: 'cancellation-reasons', name: 'Cancellation Reasons', icon: Clock, description: 'Change of plans, Weather, Emergency' },
-      { id: 'no-show-reasons', name: 'No-Show Reasons', icon: Users, description: 'Flight delay, Emergency, Unreachable' },
-      { id: 'guest-categories', name: 'Guest Categories', icon: UserCheck, description: 'VIP, Regular, Corporate, Diplomat' },
-      { id: 'id-document-types', name: 'ID Document Types', icon: FileText, description: 'Citizenship, Passport, Driving License' },
-    ],
-  },
-  {
-    id: 'restaurant-tables',
-    code: '04',
-    name: 'Restaurant & Table Masters',
+    name: 'Menu Setup',
     icon: UtensilsCrossed,
     subBoxes: [
-      { id: 'restaurant-outlets', name: 'Restaurant Outlets', icon: UtensilsCrossed, description: 'Fine dining, Rooftop bar, Coffee lounge' },
-      { id: 'dining-areas', name: 'Dining Areas', icon: Compass, description: 'Indoor, Terrace, Garden, Poolside' },
-      { id: 'table-types', name: 'Table Types', icon: Layers, description: 'Standard 2-top, 4-top, Booth, Banquet round' },
-      { id: 'table-configurations', name: 'Table Configurations', icon: Users, description: 'Seating capacity and layout rules' },
-      { id: 'table-statuses', name: 'Table Statuses', icon: Check, description: 'Vacant, Occupied, Reserved, Billed' },
-      { id: 'seating-preferences', name: 'Seating Preferences', icon: Sparkles, description: 'Window view, Smoking, Quiet corner' },
-      { id: 'service-types', name: 'Service Types', icon: Tag, description: 'Dine-in, Takeaway, Room Delivery' },
-      { id: 'order-types', name: 'Order Types', icon: FileText, description: 'Regular, Express, Banquet, Complimentary' },
-      { id: 'order-sources', name: 'Order Sources', icon: Globe, description: 'Table POS, QR Digital Menu, Phone' },
-      { id: 'kot-types', name: 'KOT Types', icon: ChefHat, description: 'Kitchen Order Ticket routing classifications' },
-    ],
-  },
-  {
-    id: 'menu-food',
-    code: '05',
-    name: 'Menu & Food Masters',
-    icon: ChefHat,
-    subBoxes: [
-      { id: 'menu-categories', name: 'Menu Categories', icon: ChefHat, description: 'Appetizers, Mains, Desserts, Beverages' },
-      { id: 'subcategories', name: 'Subcategories', icon: Layers, description: 'Pasta, Curries, Cocktails, Mocktails' },
-      { id: 'cuisine-types', name: 'Cuisine Types', icon: Globe, description: 'Nepali, Continental, Indian, Italian, Asian' },
-      { id: 'food-types', name: 'Food Types', icon: UtensilsCrossed, description: 'Vegetarian, Non-Vegetarian, Vegan, Halal' },
-      { id: 'dietary-preferences', name: 'Dietary Preferences', icon: Sparkles, description: 'Gluten-Free, Dairy-Free, Nut-Free' },
-      { id: 'allergen-types', name: 'Allergen Types', icon: ShieldCheck, description: 'Peanuts, Shellfish, Dairy, Soy warnings' },
-      { id: 'portion-sizes', name: 'Portion Sizes', icon: Scale, description: 'Small, Regular, Large, Family pack' },
-      { id: 'add-on-groups', name: 'Add-on Groups', icon: Tag, description: 'Extra cheese, Sauce choice, Side fries' },
-      { id: 'modifier-options', name: 'Modifier Options', icon: SlidersHorizontal, description: 'Cooking style, Spice level' },
-      { id: 'menu-item-tags', name: 'Menu Item Tags', icon: Tag, description: "Chef's Special, Spicy, Recommended" },
-    ],
-  },
-  {
-    id: 'inventory-purchase',
-    code: '06',
-    name: 'Inventory & Purchase Masters',
-    icon: Boxes,
-    subBoxes: [
-      { id: 'stock-categories', name: 'Stock Categories', icon: Boxes, description: 'Food & Beverage, Linen, Amenities, Cleaning' },
-      { id: 'item-groups', name: 'Item Groups', icon: Layers, description: 'Dairy, Meat, Dry grocery, Guest toiletries' },
-      { id: 'stock-items', name: 'Stock Items', icon: Tag, description: 'Individual inventory SKU records' },
-      { id: 'stock-units', name: 'Stock Units', icon: Scale, description: 'Packaging and issuing units' },
-      { id: 'storage-locations', name: 'Storage Locations', icon: MapPin, description: 'Cold storage, Dry store, Wine cellar' },
-      { id: 'warehouses', name: 'Warehouses', icon: Building2, description: 'Main hotel store, Outlet mini-stores' },
-      { id: 'suppliers', name: 'Suppliers', icon: Users, description: 'Registered vendors and distributor profiles' },
-      { id: 'purchase-types', name: 'Purchase Types', icon: DollarSign, description: 'Direct cash, Credit PO, Contract delivery' },
-      { id: 'adjustment-reasons', name: 'Adjustment Reasons', icon: Clock, description: 'Damage, Expiry, Theft, Spill' },
-      { id: 'reorder-rules', name: 'Reorder Rules', icon: SlidersHorizontal, description: 'Min-Max reorder point automation' },
-    ],
-  },
-  {
-    id: 'finance-tax',
-    code: '07',
-    name: 'Finance & Tax Masters',
-    icon: DollarSign,
-    subBoxes: [
-      { id: 'payment-methods', name: 'Payment Methods', icon: DollarSign, description: 'Cash, Card, QR Scan, Bank Wire' },
-      { id: 'payment-gateways', name: 'Payment Gateways', icon: Globe, description: 'Fonepay, Stripe, Himalayan Bank, eSewa' },
-      { id: 'tax-categories', name: 'Tax Categories', icon: Receipt, description: 'VAT, Service Charge, Luxury Tax' },
-      { id: 'tax-rates', name: 'Tax Rates', icon: Tag, description: '13% VAT, 10% Service Charge, 0% Exempt' },
-      { id: 'charge-types', name: 'Charge Types', icon: DollarSign, description: 'Room rent, Minibar, Laundry, Airport transfer' },
-      { id: 'discount-types', name: 'Discount Types', icon: Tag, description: 'Corporate, Managerial, Seasonal promo' },
-      { id: 'expense-categories', name: 'Expense Categories', icon: Layers, description: 'Utilities, Maintenance, Kitchen supplies' },
-      { id: 'ledger-groups', name: 'Ledger Groups', icon: FileText, description: 'Assets, Liabilities, Revenue, Expenditure' },
-      { id: 'account-types', name: 'Account Types', icon: Building2, description: 'Cash drawer, Bank account, Accounts receivable' },
-      { id: 'cost-centers', name: 'Cost Centers', icon: Compass, description: 'Front desk, Restaurant, Spa, Banquet' },
-    ],
-  },
-  {
-    id: 'employee-hr',
-    code: '08',
-    name: 'Employee & HR Masters',
-    icon: Users,
-    subBoxes: [
-      { id: 'departments', name: 'Departments', icon: Building2, description: 'Front Desk, F&B, Housekeeping, Accounts' },
-      { id: 'designations', name: 'Designations', icon: ShieldCheck, description: 'General Manager, Duty Manager, Receptionist' },
-      { id: 'employment-types', name: 'Employment Types', icon: Tag, description: 'Full-time, Part-time, Seasonal, Trainee' },
-      { id: 'employee-categories', name: 'Employee Categories', icon: Users, description: 'Executive, Staff, Contractual' },
-      { id: 'shifts', name: 'Shifts', icon: Clock, description: 'Morning (06-14), Evening (14-22), Night (22-06)' },
-      { id: 'attendance-statuses', name: 'Attendance Statuses', icon: Check, description: 'Present, Absent, Late, On-Duty' },
-      { id: 'leave-types', name: 'Leave Types', icon: Calendar, description: 'Casual, Sick, Annual, Maternity' },
-      { id: 'holiday-types', name: 'Holiday Types', icon: Sparkles, description: 'National public holidays, Hotel holidays' },
-      { id: 'payroll-components', name: 'Payroll Components', icon: DollarSign, description: 'Basic salary, Allowances, PF deduction' },
-      { id: 'salary-grades', name: 'Salary Grades', icon: Layers, description: 'Pay scale grade levels and bands' },
-    ],
-  },
-  {
-    id: 'housekeeping-maintenance',
-    code: '09',
-    name: 'Housekeeping & Maintenance',
-    icon: Sparkles,
-    subBoxes: [
-      { id: 'cleaning-types', name: 'Cleaning Types', icon: Sparkles, description: 'Daily tidy, Deep clean, Check-out clean' },
-      { id: 'cleaning-statuses', name: 'Cleaning Statuses', icon: Check, description: 'Pending, In-Progress, Completed' },
-      { id: 'linen-types', name: 'Linen Types', icon: Layers, description: 'Bedsheet, Pillowcase, Bath towel, Face towel' },
-      { id: 'maintenance-categories', name: 'Maintenance Categories', icon: Wrench, description: 'Plumbing, Electrical, HVAC, Carpentry' },
-      { id: 'complaint-types', name: 'Complaint Types', icon: Tag, description: 'AC not cooling, No hot water, TV issue' },
-      { id: 'work-order-priorities', name: 'Work Order Priorities', icon: Clock, description: 'Low, Medium, High, Emergency VIP' },
-      { id: 'asset-categories', name: 'Asset Categories', icon: Boxes, description: 'Furniture, Electronics, Kitchen machinery' },
-      { id: 'lost-found-categories', name: 'Lost & Found Categories', icon: Compass, description: 'Valuables, Documents, Clothing, Electronics' },
-    ],
-  },
-  {
-    id: 'customer-loyalty',
-    code: '10',
-    name: 'Customer & Loyalty Masters',
-    icon: HeartHandshake,
-    subBoxes: [
-      { id: 'guest-categories', name: 'Guest Categories', icon: UserCheck, description: 'Repeat guest, Influencer, Corporate VIP' },
-      { id: 'customer-groups', name: 'Customer Groups', icon: Users, description: 'Wedding parties, Conference delegates' },
-      { id: 'loyalty-tiers', name: 'Loyalty Tiers', icon: Sparkles, description: 'Silver, Gold, Platinum, Diamond' },
-      { id: 'loyalty-points-rules', name: 'Loyalty Points Rules', icon: Tag, description: 'Earn 1 point per $10 spent' },
-      { id: 'feedback-categories', name: 'Feedback Categories', icon: HeartHandshake, description: 'Cleanliness, Staff courtesy, Food quality' },
-      { id: 'complaint-categories', name: 'Complaint Categories', icon: Bell, description: 'Noise disturbance, Billing discrepancy' },
-      { id: 'communication-preferences', name: 'Communication Preferences', icon: Globe, description: 'Email, WhatsApp, SMS, No Marketing' },
-    ],
-  },
-  {
-    id: 'workflow-notification',
-    code: '11',
-    name: 'Workflow & Notification Masters',
-    icon: Bell,
-    subBoxes: [
-      { id: 'approval-types', name: 'Approval Types', icon: Check, description: 'Discount approval, Complimentary room' },
-      { id: 'approval-levels', name: 'Approval Levels', icon: Layers, description: 'Supervisor, Duty Manager, General Manager' },
-      { id: 'notification-types', name: 'Notification Types', icon: Bell, description: 'Booking confirmation, Check-in alert' },
-      { id: 'alert-rules', name: 'Alert Rules', icon: Sparkles, description: 'Low stock warning, High bill alert' },
-      { id: 'booking-rules', name: 'Booking Rules', icon: BedDouble, description: 'Min stay over peak dates, deposit rules' },
-      { id: 'order-priority-levels', name: 'Order Priority Levels', icon: Clock, description: 'Standard, Rush, VIP' },
-      { id: 'reason-codes', name: 'Reason Codes', icon: Tag, description: 'Complimentary, Void item, Room upgrade' },
-    ],
-  },
-  {
-    id: 'system-security',
-    code: '12',
-    name: 'System & Security Masters',
-    icon: Lock,
-    subBoxes: [
-      { id: 'user-roles', name: 'User Roles', icon: ShieldCheck, description: 'Admin, Front Desk Agent, Cashier, HK Supervisor' },
-      { id: 'permission-groups', name: 'Permission Groups', icon: Lock, description: 'Billing access, Rate modification, Reports' },
-      { id: 'access-policies', name: 'Access Policies', icon: Key, description: 'IP restrictions, 2FA enforcement' },
-      { id: 'audit-event-categories', name: 'Audit Event Categories', icon: FileText, description: 'Login, Price override, Bill cancellation' },
-      { id: 'document-types', name: 'Document Types', icon: FileText, description: 'Invoice, Folio receipt, Registration card' },
-      { id: 'numbering-series', name: 'Numbering Series', icon: Tag, description: 'INV-2026-0001, KOT-0001 numbering patterns' },
-      { id: 'fiscal-periods', name: 'Fiscal Periods', icon: Calendar, description: 'Financial year periods and tax quarters' },
+      {
+        id: 'categories-setup',
+        name: 'Categories Setup',
+        icon: Layers,
+        description: 'Manage food & beverage categories like Appetizers, Main Course, Beverages, Desserts',
+      },
+      {
+        id: 'menu-items-setup',
+        name: 'Menu Items Setup',
+        icon: UtensilsCrossed,
+        description: 'Manage dishes, beverages, item codes, orders, and menu items',
+      },
+      {
+        id: 'quantity-setup',
+        name: 'Quantity Setup',
+        icon: Scale,
+        description: 'Manage portion quantities and serving sizes: Full, Half, Regular, Small, Large, Pieces',
+      },
     ],
   },
 ];
@@ -527,6 +362,178 @@ const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
     { id: 'un-15', code: 'NGT', name: 'Night (night)', description: 'Room billing unit per night of occupancy', isActive: true },
     { id: 'un-16', code: 'HR', name: 'Hour (hr)', description: 'Hourly rental · Meeting room, banquet hall', isActive: true },
   ],
+  'categories-setup': [
+    { id: 'cat-1', code: 'APP', name: 'Appetizers & Starters', order: 1, isDefault: true, isActive: true },
+    { id: 'cat-2', code: 'SOUP', name: 'Soups & Salads', order: 2, isActive: true },
+    { id: 'cat-3', code: 'MAIN', name: 'Main Course', order: 3, isActive: true },
+    { id: 'cat-4', code: 'RICE', name: 'Rice & Biryani', order: 4, isActive: true },
+    { id: 'cat-5', code: 'BREAD', name: 'Breads & Tandoori', order: 5, isActive: true },
+    { id: 'cat-6', code: 'PIZZA', name: 'Pizzas & Pastas', order: 6, isActive: true },
+    { id: 'cat-7', code: 'DES', name: 'Desserts & Sweets', order: 7, isActive: true },
+    { id: 'cat-8', code: 'HOTB', name: 'Hot Beverages', order: 8, isActive: true },
+    { id: 'cat-9', code: 'CLDB', name: 'Cold Beverages & Mocktails', order: 9, isActive: true },
+    { id: 'cat-10', code: 'BAR', name: 'Cocktails & Spirits', order: 10, isActive: true },
+  ],
+  'menu-items-setup': [
+    {
+      id: 'mi-1',
+      code: 'MOMO-C',
+      name: 'Chicken Steam Momo',
+      category: 'Appetizers & Starters',
+      basePrice: 280,
+      quantityPrices: [
+        { quantityName: 'Plate (10 Pcs)', price: 280, isDefault: true },
+        { quantityName: 'Half Portion', price: 160 },
+      ],
+      order: 1,
+      isDefault: true,
+      isActive: true,
+    },
+    {
+      id: 'mi-2',
+      code: 'MOMO-V',
+      name: 'Veg Fried Momo',
+      category: 'Appetizers & Starters',
+      basePrice: 220,
+      quantityPrices: [
+        { quantityName: 'Plate (10 Pcs)', price: 220, isDefault: true },
+        { quantityName: 'Half Portion', price: 130 },
+      ],
+      order: 2,
+      isActive: true,
+    },
+    {
+      id: 'mi-3',
+      code: 'PBM-01',
+      name: 'Paneer Butter Masala',
+      category: 'Main Course',
+      basePrice: 420,
+      quantityPrices: [
+        { quantityName: 'Full Portion', price: 420, isDefault: true },
+        { quantityName: 'Half Portion', price: 240 },
+      ],
+      order: 3,
+      isActive: true,
+    },
+    {
+      id: 'mi-4',
+      code: 'CTM-01',
+      name: 'Chicken Tikka Masala',
+      category: 'Main Course',
+      basePrice: 490,
+      quantityPrices: [
+        { quantityName: 'Full Portion', price: 490, isDefault: true },
+        { quantityName: 'Half Portion', price: 280 },
+      ],
+      order: 4,
+      isActive: true,
+    },
+    {
+      id: 'mi-5',
+      code: 'PIZ-MAR',
+      name: 'Margherita Pizza 12"',
+      category: 'Pizzas & Pastas',
+      basePrice: 580,
+      quantityPrices: [
+        { quantityName: 'Regular / Standard', price: 380 },
+        { quantityName: 'Large Portion', price: 580, isDefault: true },
+      ],
+      order: 5,
+      isActive: true,
+    },
+    {
+      id: 'mi-6',
+      code: 'DAL-MKH',
+      name: 'Dal Makhani Handi',
+      category: 'Main Course',
+      basePrice: 320,
+      quantityPrices: [
+        { quantityName: 'Full Portion', price: 320, isDefault: true },
+        { quantityName: 'Half Portion', price: 190 },
+      ],
+      order: 6,
+      isActive: true,
+    },
+    {
+      id: 'mi-7',
+      code: 'BRD-BTR',
+      name: 'Butter Naan',
+      category: 'Breads & Tandoori',
+      basePrice: 70,
+      quantityPrices: [
+        { quantityName: 'Single Piece (1 Pc)', price: 70, isDefault: true },
+        { quantityName: 'Plate (6 Pcs)', price: 380 },
+      ],
+      order: 7,
+      isActive: true,
+    },
+    {
+      id: 'mi-8',
+      code: 'BRY-CHK',
+      name: 'Hyderabadi Chicken Biryani',
+      category: 'Rice & Biryani',
+      basePrice: 480,
+      quantityPrices: [
+        { quantityName: 'Full Portion', price: 480, isDefault: true },
+        { quantityName: 'Half Portion', price: 280 },
+      ],
+      order: 8,
+      isActive: true,
+    },
+    {
+      id: 'mi-9',
+      code: 'DES-GJ',
+      name: 'Gulab Jamun (2 Pcs)',
+      category: 'Desserts & Sweets',
+      basePrice: 150,
+      quantityPrices: [
+        { quantityName: 'Single Piece (1 Pc)', price: 80 },
+        { quantityName: 'Regular / Standard', price: 150, isDefault: true },
+      ],
+      order: 9,
+      isActive: true,
+    },
+    {
+      id: 'mi-10',
+      code: 'COF-CAP',
+      name: 'Fresh Brewed Cappuccino',
+      category: 'Hot Beverages',
+      basePrice: 180,
+      quantityPrices: [
+        { quantityName: 'Cup / Mug', price: 180, isDefault: true },
+        { quantityName: 'Large Portion', price: 240 },
+      ],
+      order: 10,
+      isActive: true,
+    },
+    {
+      id: 'mi-11',
+      code: 'MOK-MOJ',
+      name: 'Virgin Mint Mojito',
+      category: 'Cold Beverages & Mocktails',
+      basePrice: 220,
+      quantityPrices: [
+        { quantityName: 'Glass (250ml)', price: 220, isDefault: true },
+        { quantityName: 'Platter / Family Pack', price: 650 },
+      ],
+      order: 11,
+      isActive: true,
+    },
+  ],
+  'quantity-setup': [
+    { id: 'qty-1', code: 'FULL', name: 'Full Portion', order: 1, isDefault: true, isActive: true },
+    { id: 'qty-2', code: 'HALF', name: 'Half Portion', order: 2, isActive: true },
+    { id: 'qty-3', code: 'REG', name: 'Regular / Standard', order: 3, isActive: true },
+    { id: 'qty-4', code: 'SML', name: 'Small Portion', order: 4, isActive: true },
+    { id: 'qty-5', code: 'LRG', name: 'Large Portion', order: 5, isActive: true },
+    { id: 'qty-6', code: '1PC', name: 'Single Piece (1 Pc)', order: 6, isActive: true },
+    { id: 'qty-7', code: '6PCS', name: 'Plate (6 Pcs)', order: 7, isActive: true },
+    { id: 'qty-8', code: '10PCS', name: 'Plate (10 Pcs)', order: 8, isActive: true },
+    { id: 'qty-9', code: 'PLTR', name: 'Platter / Family Pack', order: 9, isActive: true },
+    { id: 'qty-10', code: 'CUP', name: 'Cup / Mug', order: 10, isActive: true },
+    { id: 'qty-11', code: 'GLS', name: 'Glass (250ml)', order: 11, isActive: true },
+    { id: 'qty-12', code: 'BTL', name: 'Bottle (750ml)', order: 12, isActive: true },
+  ],
 };
 
 function getFallbackItemsForSubBox(subId: string, subName: string): MasterItemEntry[] {
@@ -542,6 +549,168 @@ function getFallbackItemsForSubBox(subId: string, subName: string): MasterItemEn
   ];
 }
 
+interface QuantityAutocompleteProps {
+  value: string;
+  onChange: (quantityName: string) => void;
+  availableQuantities: MasterItemEntry[];
+  placeholder?: string;
+  excludeNames?: string[];
+}
+
+function QuantityAutocomplete({
+  value,
+  onChange,
+  availableQuantities,
+  placeholder = 'Type to search quantity...',
+  excludeNames = [],
+}: QuantityAutocompleteProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync internal query when value changes externally
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setQuery(value);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [value]);
+
+  // Filter available quantities based on user input
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return availableQuantities;
+    return availableQuantities.filter((item) => {
+      const matchName = item.name.toLowerCase().includes(q);
+      const matchCode = item.code?.toLowerCase().includes(q);
+      return matchName || matchCode;
+    });
+  }, [availableQuantities, query]);
+
+  const selectItem = (name: string) => {
+    onChange(name);
+    setQuery(name);
+    setIsOpen(false);
+  };
+
+  return (
+    <div ref={containerRef} className="relative flex-1 min-w-0">
+      <div className="relative flex items-center">
+        <input
+          type="text"
+          required
+          value={query}
+          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setIsOpen(false);
+          }}
+          placeholder={placeholder}
+          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-1.5 pl-2.5 pr-8 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+        />
+
+        {/* Clear or Dropdown Chevron icon */}
+        <div className="absolute right-1.5 flex items-center gap-0.5">
+          {query && (
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => {
+                setQuery('');
+                onChange('');
+                setIsOpen(true);
+              }}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              title="Clear"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            title="Toggle suggestions"
+          >
+            <ChevronRight
+              className={cn(
+                'w-3.5 h-3.5 transition-transform duration-150',
+                isOpen ? 'rotate-90' : 'rotate-0'
+              )}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Suggestion Dropdown */}
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-52 overflow-y-auto rounded-[3px] border border-[#DCE3DF] bg-white shadow-xl dark:border-[#145447] dark:bg-[#071F1A] custom-scrollbar animate-in fade-in-50 duration-100">
+          {suggestions.length > 0 ? (
+            <div className="py-1 divide-y divide-slate-100 dark:divide-[#0e3b31]">
+              {suggestions.map((item) => {
+                const isSelected = item.name.toLowerCase() === value.toLowerCase();
+                const isUsedInOther = excludeNames.includes(item.name) && !isSelected;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => selectItem(item.name)}
+                    className={cn(
+                      'w-full flex items-center justify-between px-3 py-1.5 text-left text-xs transition-colors cursor-pointer',
+                      isSelected
+                        ? 'bg-emerald-50 text-[#0B3D32] font-bold dark:bg-emerald-950/70 dark:text-emerald-300'
+                        : 'text-[#24352F] hover:bg-[#FAFBF9] dark:text-[#E5EEE9] dark:hover:bg-[#0A2E26]',
+                      isUsedInOther && 'opacity-50'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {item.code && (
+                        <span className="font-mono text-[9px] font-bold uppercase rounded-[2px] bg-slate-100 dark:bg-[#0A2E26] px-1.5 py-0.5 text-[#0B3D32] dark:text-emerald-300 border border-slate-200 dark:border-[#145447]">
+                          {item.code}
+                        </span>
+                      )}
+                      <span className="truncate font-medium">{item.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      {isUsedInOther && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">
+                          Already added
+                        </span>
+                      )}
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="px-3 py-3 text-center text-xs text-slate-400 dark:text-slate-500">
+              No matching quantity found in Quantity Setup
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HotelSetupPage() {
   // Currently selected category (Default: 'general')
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('general');
@@ -555,17 +724,33 @@ export default function HotelSetupPage() {
   // Editable master items map
   const [masterItemsMap, setMasterItemsMap] = useState<Record<string, MasterItemEntry[]>>(INITIAL_MASTER_ITEMS);
 
-  // New item form state (Code, Display Name, Order only)
+  // New item form state (Code, Display Name, Category, Quantity Prices, Order)
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newCode, setNewCode] = useState<string>('');
   const [newName, setNewName] = useState<string>('');
+  const [newCategory, setNewCategory] = useState<string>('');
+  const [newQuantityPrices, setNewQuantityPrices] = useState<
+    Array<{ quantityName: string; price: string }>
+  >([]);
   const [newOrder, setNewOrder] = useState<string>('');
+
+  // Available categories for menu items setup
+  const availableCategories = useMemo(() => {
+    return masterItemsMap['categories-setup'] || INITIAL_MASTER_ITEMS['categories-setup'] || [];
+  }, [masterItemsMap]);
+
+  // Available quantities for quantity-based pricing
+  const availableQuantities = useMemo(() => {
+    return masterItemsMap['quantity-setup'] || INITIAL_MASTER_ITEMS['quantity-setup'] || [];
+  }, [masterItemsMap]);
 
   // Close modal on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && showAddForm) {
         setShowAddForm(false);
+        setEditingItemId(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -576,11 +761,9 @@ export default function HotelSetupPage() {
   const activeCategory =
     MASTER_CATEGORIES.find((cat) => cat.id === selectedCategoryId) || MASTER_CATEGORIES[0];
 
-  // Clean title for current category setup (e.g. "General Setup", "Hotel & Property Setup")
+  // Clean title for current category
   const categoryHeaderTitle = useMemo(() => {
-    return activeCategory.name.includes('Masters')
-      ? activeCategory.name.replace(/Masters$/, 'Setup').trim()
-      : `${activeCategory.name} Setup`;
+    return activeCategory.name;
   }, [activeCategory]);
 
   // Active sub-option box (when selectedSubId is non-null)
@@ -595,12 +778,14 @@ export default function HotelSetupPage() {
     setSelectedSubId(null); // Sub-options will show as boxes below the straight line!
     setSearchOptionsQuery('');
     setShowAddForm(false);
+    setEditingItemId(null);
   };
 
   // Handle clicking a sub-option box below the straight line -> opens Level 2 (sidebar + table)
   const handleSelectSubBox = (subId: string) => {
     setSelectedSubId(subId);
     setShowAddForm(false);
+    setEditingItemId(null);
   };
 
   // Handle clicking the Back button on the secondary sidebar -> returns to Level 1 box grid
@@ -608,6 +793,7 @@ export default function HotelSetupPage() {
     setSelectedSubId(null);
     setSearchOptionsQuery('');
     setShowAddForm(false);
+    setEditingItemId(null);
   };
 
   // Filtered sub-options inside the secondary sidebar (Level 2)
@@ -628,46 +814,130 @@ export default function HotelSetupPage() {
   // Added items on the page (clean, direct display)
   const filteredItems = currentItems;
 
-  // Add new item (Code, Display Name, Order only - no description)
+  // Open modal to add a new item
+  const handleOpenAddModal = () => {
+    setEditingItemId(null);
+    setNewCode('');
+    setNewName('');
+    setNewCategory(availableCategories[0]?.name || '');
+    setNewQuantityPrices(
+      availableQuantities.length > 0
+        ? [{ quantityName: availableQuantities[0].name, price: '' }]
+        : [{ quantityName: 'Regular / Standard', price: '' }]
+    );
+    setNewOrder(((masterItemsMap[activeSubBox.id] || currentItems).length + 1).toString());
+    setShowAddForm(true);
+  };
+
+  // Open modal to edit an existing item
+  const handleOpenEditModal = (item: MasterItemEntry) => {
+    setEditingItemId(item.id);
+    setNewCode(item.code);
+    setNewName(item.name);
+    setNewCategory(item.category || availableCategories[0]?.name || '');
+    if (item.quantityPrices && item.quantityPrices.length > 0) {
+      setNewQuantityPrices(
+        item.quantityPrices.map((qp) => ({
+          quantityName: qp.quantityName,
+          price: qp.price.toString(),
+        }))
+      );
+    } else if (item.basePrice !== undefined) {
+      setNewQuantityPrices([
+        {
+          quantityName: availableQuantities[0]?.name || 'Regular / Standard',
+          price: item.basePrice.toString(),
+        },
+      ]);
+    } else {
+      setNewQuantityPrices([
+        {
+          quantityName: availableQuantities[0]?.name || 'Regular / Standard',
+          price: '',
+        },
+      ]);
+    }
+    setNewOrder((item.order || 1).toString());
+    setShowAddForm(true);
+  };
+
+  // Save new item or update existing item
   const handleSaveNewItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
+
+    const isMenuItem = activeSubBox.id === 'menu-items-setup';
+    if (isMenuItem && !newCategory.trim() && availableCategories.length > 0) return;
 
     const code = newCode.trim().toUpperCase() || newName.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '');
     const currentList = masterItemsMap[activeSubBox.id] || currentItems;
     const parsedOrder = parseInt(newOrder, 10);
     const order = !isNaN(parsedOrder) && parsedOrder > 0 ? parsedOrder : currentList.length + 1;
 
-    const newItem: MasterItemEntry = {
-      id: `${activeSubBox.id}-${Date.now()}`,
-      code: code || 'NEW',
-      name: newName.trim(),
-      order,
-      isActive: true,
-    };
+    // Process quantity prices
+    let parsedQuantityPrices: QuantityPriceTier[] | undefined = undefined;
+    let computedBasePrice: number | undefined = undefined;
 
-    setMasterItemsMap((prev) => ({
-      ...prev,
-      [activeSubBox.id]: [...(prev[activeSubBox.id] || currentItems), newItem],
-    }));
+    if (isMenuItem) {
+      const validTiers = newQuantityPrices
+        .filter((t) => t.quantityName.trim() && !isNaN(parseFloat(t.price)))
+        .map((t) => {
+          const matched = availableQuantities.find((q) => q.name === t.quantityName);
+          return {
+            quantityId: matched?.id,
+            quantityName: t.quantityName.trim(),
+            price: parseFloat(t.price),
+          };
+        });
 
+      if (validTiers.length > 0) {
+        parsedQuantityPrices = validTiers;
+        computedBasePrice = validTiers[0].price;
+      }
+    }
+
+    if (editingItemId) {
+      setMasterItemsMap((prev) => ({
+        ...prev,
+        [activeSubBox.id]: (prev[activeSubBox.id] || currentItems).map((item) =>
+          item.id === editingItemId
+            ? {
+                ...item,
+                code: code || item.code,
+                name: newName.trim(),
+                ...(isMenuItem ? { category: newCategory.trim() || availableCategories[0]?.name || 'General' } : {}),
+                basePrice: computedBasePrice ?? item.basePrice,
+                quantityPrices: parsedQuantityPrices ?? item.quantityPrices,
+                order,
+              }
+            : item
+        ),
+      }));
+    } else {
+      const newItem: MasterItemEntry = {
+        id: `${activeSubBox.id}-${Date.now()}`,
+        code: code || 'NEW',
+        name: newName.trim(),
+        ...(isMenuItem ? { category: newCategory.trim() || availableCategories[0]?.name || 'General' } : {}),
+        basePrice: computedBasePrice,
+        quantityPrices: parsedQuantityPrices,
+        order,
+        isActive: true,
+      };
+
+      setMasterItemsMap((prev) => ({
+        ...prev,
+        [activeSubBox.id]: [...(prev[activeSubBox.id] || currentItems), newItem],
+      }));
+    }
+
+    setEditingItemId(null);
     setNewCode('');
     setNewName('');
+    setNewCategory('');
+    setNewQuantityPrices([]);
     setNewOrder('');
     setShowAddForm(false);
-  };
-
-  // Toggle active status
-  const handleToggleStatus = (itemId: string) => {
-    setMasterItemsMap((prev) => {
-      const list = prev[activeSubBox.id] || currentItems;
-      return {
-        ...prev,
-        [activeSubBox.id]: list.map((item) =>
-          item.id === itemId ? { ...item, isActive: !item.isActive } : item
-        ),
-      };
-    });
   };
 
   // Delete item
@@ -687,7 +957,7 @@ export default function HotelSetupPage() {
           1. TOP ROW: 12 MASTER CATEGORIES (STATIC - LOCKED AT TOP, NEVER SCROLLS)
           Full width above the straight line!
          ========================================================================= */}
-      <div className="shrink-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-2.5">
+      <div className="shrink-0 flex flex-wrap items-center gap-2 sm:gap-2.5">
         {MASTER_CATEGORIES.map((item) => {
           const Icon = item.icon;
           const isSelected = selectedCategoryId === item.id;
@@ -699,7 +969,7 @@ export default function HotelSetupPage() {
               onClick={() => handleSelectCategory(item.id)}
               className={cn(
                 'group relative flex flex-col items-center justify-center p-2 text-center transition-all duration-150',
-                'rounded-[3px] border shadow-2xs min-h-[66px] sm:min-h-[70px]',
+                'rounded-[3px] border shadow-2xs min-h-[66px] sm:min-h-[70px] w-36 sm:w-44',
                 isSelected
                   ? 'border-[#A51F36] bg-[#FFF5F6] text-[#A51F36] ring-1 ring-[#A51F36] dark:border-rose-700 dark:bg-[#320810] dark:text-rose-200'
                   : 'border-[#DCE3DF] bg-white text-[#24352F] hover:border-[#0B3D32] hover:bg-[#FAFBF9] hover:shadow-xs dark:border-[#145447] dark:bg-[#07241E] dark:text-[#E5EEE9] dark:hover:border-emerald-500 dark:hover:bg-[#093027]'
@@ -897,12 +1167,7 @@ export default function HotelSetupPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setNewCode('');
-                  setNewName('');
-                  setNewOrder(((masterItemsMap[activeSubBox.id] || currentItems).length + 1).toString());
-                  setShowAddForm(true);
-                }}
+                onClick={handleOpenAddModal}
                 className="flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-[#093027] transition-all dark:bg-emerald-600 dark:hover:bg-emerald-500 shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -920,9 +1185,13 @@ export default function HotelSetupPage() {
                         <th className="py-2.5 px-3.5 w-20 text-center">ORDER</th>
                         <th className="py-2.5 px-3.5 w-24">CODE</th>
                         <th className="py-2.5 px-3.5">DISPLAY NAME</th>
-                        <th className="py-2.5 px-3.5 w-28 text-center">DEFAULT</th>
-                        <th className="py-2.5 px-3.5 w-28 text-center">STATUS</th>
-                        <th className="py-2.5 px-3.5 w-20 text-right">ACTION</th>
+                        {activeSubBox.id === 'menu-items-setup' && (
+                          <>
+                            <th className="py-2.5 px-3.5 w-36">CATEGORY</th>
+                            <th className="py-2.5 px-3.5 min-w-[220px]">QUANTITY & PRICING</th>
+                          </>
+                        )}
+                        <th className="py-2.5 px-3.5 w-24 text-right">ACTION</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447] text-xs">
@@ -950,56 +1219,69 @@ export default function HotelSetupPage() {
                             {item.name}
                           </td>
 
-                          {/* Default Badge */}
-                          <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                            {item.isDefault ? (
-                              <span className="inline-block rounded-[2px] bg-[#FFF5F6] border border-[#FAD2D8] px-2 py-0.5 text-[10px] font-bold text-[#A51F36] dark:bg-[#320810] dark:border-rose-800 dark:text-rose-200">
-                                Default
+                          {/* Category (Menu Items Setup) */}
+                          {activeSubBox.id === 'menu-items-setup' && (
+                            <td className="py-2.5 px-3.5 whitespace-nowrap">
+                              <span className="inline-flex items-center rounded-[2px] bg-[#FFF5F6] border border-[#FAD2D8] px-2 py-0.5 text-[10px] font-bold text-[#A51F36] dark:bg-[#320810] dark:border-rose-800 dark:text-rose-200">
+                                {item.category || 'General'}
                               </span>
-                            ) : (
-                              <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
-                            )}
-                          </td>
+                            </td>
+                          )}
 
-                          {/* Status */}
-                          <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleStatus(item.id)}
-                              className={cn(
-                                'inline-flex items-center gap-1.5 rounded-[2px] px-2 py-0.5 text-[10px] font-semibold transition-all',
-                                item.isActive !== false
-                                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'
-                              )}
-                              title="Click to toggle status"
-                            >
-                              <span
-                                className={cn(
-                                  'w-1.5 h-1.5 rounded-full',
-                                  item.isActive !== false ? 'bg-emerald-500' : 'bg-slate-400'
+                          {/* Quantity & Pricing (Menu Items Setup) */}
+                          {activeSubBox.id === 'menu-items-setup' && (
+                            <td className="py-2.5 px-3.5">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {item.quantityPrices && item.quantityPrices.length > 0 ? (
+                                  item.quantityPrices.map((qp, qIdx) => (
+                                    <span
+                                      key={qIdx}
+                                      className="inline-flex items-center gap-1 rounded-[2px] px-2 py-0.5 text-[10px] font-semibold border bg-emerald-50/70 border-emerald-200 text-emerald-900 dark:bg-[#093027] dark:border-[#145447] dark:text-[#E5EEE9]"
+                                      title={qp.quantityName}
+                                    >
+                                      <span className="opacity-75">{qp.quantityName}:</span>
+                                      <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-300">
+                                        रू {qp.price.toLocaleString()}
+                                      </span>
+                                    </span>
+                                  ))
+                                ) : item.basePrice !== undefined ? (
+                                  <span className="inline-flex items-center gap-1 rounded-[2px] bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-800 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-200">
+                                    रू {item.basePrice.toLocaleString()}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
                                 )}
-                              />
-                              {item.isActive !== false ? 'Active' : 'Inactive'}
-                            </button>
-                          </td>
+                              </div>
+                            </td>
+                          )}
 
                           {/* Action */}
                           <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteItem(item.id)}
-                              title={`Delete ${item.name}`}
-                              className="opacity-60 group-hover:opacity-100 p-1 rounded-[2px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-all"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="inline-flex items-center gap-1 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(item)}
+                                title={`Edit ${item.name}`}
+                                className="opacity-70 group-hover:opacity-100 p-1 rounded-[2px] text-slate-500 hover:text-[#0B3D32] hover:bg-emerald-50 dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-all"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item.id)}
+                                title={`Delete ${item.name}`}
+                                className="opacity-70 group-hover:opacity-100 p-1 rounded-[2px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-all"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
                       {filteredItems.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="py-12 text-center text-xs text-[#879B90]">
+                          <td colSpan={activeSubBox.id === 'menu-items-setup' ? 6 : 4} className="py-12 text-center text-xs text-[#879B90]">
                             No {activeSubBox.name.toLowerCase()} added yet
                           </td>
                         </tr>
@@ -1024,40 +1306,70 @@ export default function HotelSetupPage() {
       )}
 
       {/* =========================================================================
-          MODAL DIALOG: ADD NEW FORM (OVERLAY MODAL POPUP - NEVER INLINE)
-          Fields: CODE, DISPLAY NAME, ORDER only (NO description!)
+          MODAL DIALOG: ADD/EDIT FORM (OVERLAY MODAL POPUP - NEVER INLINE)
+          Fields: CODE, DISPLAY NAME, CATEGORY (for menu items), QUANTITY PRICING TIERS, ORDER
          ========================================================================= */}
       {showAddForm && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setShowAddForm(false)}
+          onClick={() => {
+            setShowAddForm(false);
+            setEditingItemId(null);
+          }}
         >
           <div
-            className="w-full max-w-md rounded-[3px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            className="w-full max-w-lg rounded-[3px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16]">
               <div>
                 <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
-                  Add New {activeSubBox.name.replace(/s$/, '')}
+                  {editingItemId ? 'Edit' : 'Add New'} {activeSubBox.name.replace(/s$/, '')}
                 </h3>
                 <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
-                  Enter code, display name and order
+                  {activeSubBox.id === 'menu-items-setup'
+                    ? 'Configure category, item details, portions and quantity pricing'
+                    : 'Enter code, display name and order'}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowAddForm(false);
+                  setEditingItemId(null);
+                }}
                 className="p-1 rounded-[2px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-[#0A2E26] dark:hover:text-white transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Form Body - ONLY 3 FIELDS: CODE, DISPLAY NAME, ORDER */}
+            {/* Modal Form Body */}
             <form onSubmit={handleSaveNewItem}>
-              <div className="p-5 space-y-3.5">
+              <div className="p-5 space-y-3.5 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                {/* Category Selection for Menu Items */}
+                {activeSubBox.id === 'menu-items-setup' && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
+                      CATEGORY *
+                    </label>
+                    <select
+                      required
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                    >
+                      <option value="" disabled>-- Select Category --</option>
+                      {availableCategories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* 1. Code */}
                 <div>
                   <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
@@ -1068,8 +1380,8 @@ export default function HotelSetupPage() {
                     required
                     value={newCode}
                     onChange={(e) => setNewCode(e.target.value)}
-                    placeholder="e.g. MR"
-                    autoFocus
+                    placeholder="e.g. MOMO-CHK"
+                    autoFocus={activeSubBox.id !== 'menu-items-setup'}
                     className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-bold uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
                   />
                 </div>
@@ -1088,6 +1400,112 @@ export default function HotelSetupPage() {
                     className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
                   />
                 </div>
+
+                {/* Dynamic Quantity & Pricing Section for Menu Items (Searchable Combobox) */}
+                {activeSubBox.id === 'menu-items-setup' && (
+                  <div className="rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="block text-[11px] font-bold text-[#24352F] dark:text-white uppercase tracking-wider">
+                          Quantity & Pricing *
+                        </span>
+                        <span className="text-[10px] text-[#64736C] dark:text-[#A4B8AE]">
+                          Search and select quantities from Quantity Setup with their selling prices.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const usedNames = new Set(newQuantityPrices.map((q) => q.quantityName));
+                          const nextAvailable = availableQuantities.find((q) => !usedNames.has(q.name));
+                          setNewQuantityPrices((prev) => [
+                            ...prev,
+                            {
+                              quantityName: nextAvailable ? nextAvailable.name : '',
+                              price: '',
+                            },
+                          ]);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-[2px] bg-[#0B3D32]/10 border border-[#0B3D32]/20 px-2.5 py-1 text-[10px] font-bold text-[#0B3D32] hover:bg-[#0B3D32]/20 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-300 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Portion</span>
+                      </button>
+                    </div>
+
+                    {/* Assigned Quantities & Prices List */}
+                    <div className="space-y-2">
+                      {newQuantityPrices.map((tier, idx) => {
+                        const otherUsedNames = newQuantityPrices
+                          .filter((_, i) => i !== idx)
+                          .map((t) => t.quantityName);
+
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2 bg-white dark:bg-[#07241E] p-2 rounded-[3px] border border-[#E5EEE9] dark:border-[#145447]"
+                          >
+                            {/* Searchable Combobox Dropdown */}
+                            <div className="flex-1 min-w-0">
+                              <label className="block text-[9px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-0.5 uppercase">
+                                Quantity (Search from Setup) *
+                              </label>
+                              <QuantityAutocomplete
+                                value={tier.quantityName}
+                                onChange={(name) => {
+                                  setNewQuantityPrices((prev) =>
+                                    prev.map((t, i) => (i === idx ? { ...t, quantityName: name } : t))
+                                  );
+                                }}
+                                availableQuantities={availableQuantities}
+                                excludeNames={otherUsedNames}
+                                placeholder="Type to search e.g. Full, Half, Plate..."
+                              />
+                            </div>
+
+                            {/* Price Input */}
+                            <div className="w-32 sm:w-36">
+                              <label className="block text-[9px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-0.5 uppercase">
+                                Price (रू) *
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                required
+                                placeholder="0.00"
+                                value={tier.price}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setNewQuantityPrices((prev) =>
+                                    prev.map((t, i) => (i === idx ? { ...t, price: val } : t))
+                                  );
+                                }}
+                                className="w-full rounded-[2px] border border-[#DCE3DF] bg-white py-1.5 px-2 text-xs font-mono font-bold text-[#24352F] focus:border-[#0B3D32] focus:outline-none dark:border-[#145447] dark:bg-[#071F1A] dark:text-white"
+                              />
+                            </div>
+
+                            {/* Remove Tier Button */}
+                            {newQuantityPrices.length > 1 && (
+                              <div className="pt-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setNewQuantityPrices((prev) => prev.filter((_, i) => i !== idx));
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-[2px] hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                  title="Remove this portion"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* 3. Order */}
                 <div>
@@ -1109,17 +1527,26 @@ export default function HotelSetupPage() {
               <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16]">
                 <button
                   type="button"
-                  onClick={() => setShowAddForm(false)}
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setEditingItemId(null);
+                  }}
                   className="rounded-[3px] border border-[#DCE3DF] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#64736C] hover:bg-slate-50 dark:border-[#145447] dark:bg-[#07241E] dark:text-[#A4B8AE] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!newName.trim()}
+                  disabled={
+                    !newName.trim() ||
+                    (activeSubBox.id === 'menu-items-setup' &&
+                      ((!newCategory.trim() && availableCategories.length > 0) ||
+                        newQuantityPrices.length === 0 ||
+                        newQuantityPrices.some((t) => !t.quantityName.trim() || !t.price.trim())))
+                  }
                   className="rounded-[3px] bg-[#0B3D32] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#093027] disabled:opacity-40 transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500"
                 >
-                  Save Entry
+                  {editingItemId ? 'Update Entry' : 'Save Entry'}
                 </button>
               </div>
             </form>
