@@ -89,10 +89,48 @@ export default function RoomsPage() {
   const [newRoomNumber, setNewRoomNumber] = useState('');
   const [newFloor, setNewFloor] = useState('1');
   const [newType, setNewType] = useState('Deluxe Suite');
+  const [newBedType, setNewBedType] = useState('King Bed');
   const [newPrice, setNewPrice] = useState('300');
 
-  // Load from API if available
+  // Load from API or Hotel Setup localStorage
   useEffect(() => {
+    // Check if custom rooms have been configured in Hotel Setup
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hotel_rooms_setup');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRooms(
+              parsed.map((r: any) => {
+                let fl = 1;
+                if (typeof r.floorLevel === 'string') {
+                  const num = parseInt(r.floorLevel.replace(/\D/g, ''), 10);
+                  if (!isNaN(num)) fl = num;
+                  else if (r.floorLevel.toLowerCase().includes('ground')) fl = 0;
+                } else if (typeof r.floor === 'number') {
+                  fl = r.floor;
+                }
+                return {
+                  id: r.id,
+                  number: r.roomNumber || r.code || r.number || '101',
+                  floor: fl,
+                  type: r.roomType || r.type || 'Standard Room',
+                  bedType: r.bedType || 'King Bed',
+                  pricePerNight: r.basePrice || r.pricePerNight || 250,
+                  capacity: r.capacity || 2,
+                  status: (r.status as RoomItem['status']) || 'AVAILABLE',
+                  guestName: r.guestName,
+                  guestPhone: r.guestPhone,
+                };
+              })
+            );
+            return;
+          }
+        }
+      } catch (e) {}
+    }
+
     async function fetchRooms() {
       try {
         const res = await api.getRooms();
@@ -204,6 +242,7 @@ export default function RoomsPage() {
       number: newRoomNumber.trim(),
       floor: parseInt(newFloor, 10) || 1,
       type: newType.trim(),
+      bedType: newBedType,
       pricePerNight: parseFloat(newPrice) || 250,
       status: 'AVAILABLE',
     };
@@ -511,18 +550,40 @@ export default function RoomsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
-                  ROOM TYPE *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Deluxe Suite"
-                  value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
-                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
+                    ROOM TYPE *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Deluxe Suite"
+                    value={newType}
+                    onChange={(e) => setNewType(e.target.value)}
+                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
+                    BED TYPE *
+                  </label>
+                  <select
+                    value={newBedType}
+                    onChange={(e) => setNewBedType(e.target.value)}
+                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  >
+                    <option value="King Bed">King Bed</option>
+                    <option value="Queen Bed">Queen Bed</option>
+                    <option value="2 Queen Beds">2 Queen Beds</option>
+                    <option value="Super King Bed">Super King Bed</option>
+                    <option value="Emperor Bed">Emperor Bed</option>
+                    <option value="Single Bed">Single Bed</option>
+                    <option value="Double Bed">Double Bed</option>
+                    <option value="Twin Beds">Twin Beds</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E5EEE9] dark:border-[#145447]">

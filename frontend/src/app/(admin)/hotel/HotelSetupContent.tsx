@@ -24,6 +24,13 @@ import {
   Edit3,
   ChevronRight,
   ArrowLeft,
+  BedDouble,
+  BedSingle,
+  Building2,
+  Coffee,
+  Snowflake,
+  Armchair,
+  DoorOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,6 +67,16 @@ export interface MasterItemEntry {
   quantityPrices?: QuantityPriceTier[];
   isDefault?: boolean;
   isActive?: boolean;
+  roomNumber?: string;
+  floorLevel?: string;
+  roomType?: string;
+  acType?: string;
+  bedType?: string;
+  capacity?: number;
+  status?: 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'MAINTENANCE';
+  facilities?: string[];
+  guestName?: string;
+  guestPhone?: string;
 }
 
 const MASTER_CATEGORIES: MasterCategory[] = [
@@ -160,6 +177,56 @@ const MASTER_CATEGORIES: MasterCategory[] = [
         name: 'Quantity Setup',
         icon: Scale,
         description: 'Manage portion quantities and serving sizes: Full, Half, Regular, Small, Large, Pieces',
+      },
+    ],
+  },
+  {
+    id: 'room-setup',
+    code: '03',
+    name: 'Room Setup',
+    icon: BedDouble,
+    subBoxes: [
+      {
+        id: 'add-room-setup',
+        name: 'Add Room',
+        icon: DoorOpen,
+        description: 'Register and configure hotel rooms, room types, floor levels, AC types, bed types, fare, and facilities',
+      },
+      {
+        id: 'room-type-master',
+        name: 'Room Types',
+        icon: BedDouble,
+        description: 'Configure hotel room categories, deluxe suites, standard rooms, and fares',
+      },
+      {
+        id: 'ac-type-master',
+        name: 'AC Types',
+        icon: Snowflake,
+        description: 'Configure air-conditioned (AC) and non-AC climate options',
+      },
+      {
+        id: 'bed-type-master',
+        name: 'Bed Types',
+        icon: BedSingle,
+        description: 'Configure bed configurations: Single, Double, Queen, King, and Twin beds',
+      },
+      {
+        id: 'floor-master',
+        name: 'Floor Levels',
+        icon: Building2,
+        description: 'Configure hotel floors and building levels: Ground, 1st, 2nd, 3rd floors',
+      },
+      {
+        id: 'facility-category-master',
+        name: 'Facility Categories',
+        icon: Layers,
+        description: 'Manage amenity classifications: Furniture, Bathroom, Electronics',
+      },
+      {
+        id: 'facility-master',
+        name: 'Room Facilities',
+        icon: Armchair,
+        description: 'Manage in-room items & amenities: Work Desk, Smart TV, Shower, Toilet',
       },
     ],
   },
@@ -534,6 +601,244 @@ const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
     { id: 'qty-11', code: 'GLS', name: 'Glass (250ml)', order: 11, isActive: true },
     { id: 'qty-12', code: 'BTL', name: 'Bottle (750ml)', order: 12, isActive: true },
   ],
+  'room-type-master': [
+    { id: 'rtm-1', code: 'STD', name: 'Standard Room', description: 'Standard hotel room with essential comforts and ensuite bathroom', basePrice: 200, order: 1, isDefault: true, isActive: true },
+    { id: 'rtm-2', code: 'DLX', name: 'Deluxe Room', description: 'Deluxe room category with upgraded amenities, view, and seating lounge', basePrice: 350, order: 2, isActive: true },
+    { id: 'rtm-3', code: 'SUT', name: 'Executive Suite', description: 'Spacious luxury suite with separate master living area and panoramic vista', basePrice: 550, order: 3, isActive: true },
+  ],
+  'ac-type-master': [
+    { id: 'act-1', code: 'AC', name: 'Air Conditioned (AC)', description: 'Automated individual climate control cooling and heating unit', order: 1, isDefault: true, isActive: true },
+    { id: 'act-2', code: 'NON-AC', name: 'Non-Air Conditioned (Non-AC)', description: 'Naturally ventilated guest room with high-efficiency ceiling fan', order: 2, isActive: true },
+  ],
+  'bed-type-master': [
+    { id: 'btm-1', code: 'SGL', name: 'Single Bed', description: '38 in × 75 in (97 cm × 191 cm) · Compact solo traveler accommodation', order: 1, isActive: true },
+    { id: 'btm-2', code: 'DBL', name: 'Double Bed', description: '54 in × 75 in (137 cm × 191 cm) · Full double occupancy standard', order: 2, isActive: true },
+    { id: 'btm-3', code: 'QEN', name: 'Queen Bed', description: '60 in × 80 in (152 cm × 203 cm) · Superior guest comfort mattress', order: 3, isActive: true },
+    { id: 'btm-4', code: 'KNG', name: 'King Bed', description: '76 in × 80 in (193 cm × 203 cm) · Premium luxury master king bed', order: 4, isDefault: true, isActive: true },
+    { id: 'btm-5', code: 'TWN', name: 'Twin Beds', description: 'Two matched individual single beds for flexible twin sharing', order: 5, isActive: true },
+  ],
+  'floor-master': [
+    { id: 'flm-1', code: 'GND', name: 'Ground Floor', description: 'Lobby level · Reception proximity & direct garden terrace access', order: 1, isDefault: true, isActive: true },
+    { id: 'flm-2', code: '1ST', name: '1st Floor', description: 'First floor accommodation level · Elevator & stairway access', order: 2, isActive: true },
+    { id: 'flm-3', code: '2ND', name: '2nd Floor', description: 'Second floor accommodation level with elevated garden views', order: 3, isActive: true },
+    { id: 'flm-4', code: '3RD', name: '3rd Floor', description: 'Third floor accommodation level · Quiet executive suites wing', order: 4, isActive: true },
+  ],
+  'facility-category-master': [
+    { id: 'fcm-1', code: 'FUR', name: 'Room Furniture', description: 'Study desks, wardrobes, bedside tables & vanity seating', order: 1, isDefault: true, isActive: true },
+    { id: 'fcm-2', code: 'BTH', name: 'Bathroom & Sanitary', description: 'Sanitary fixtures, rainfall showers, commodes & bath amenities', order: 2, isActive: true },
+    { id: 'fcm-3', code: 'ELE', name: 'Electronics & Appliances', description: 'Smart UHD televisions, digital safes, minibars & kettles', order: 3, isActive: true },
+  ],
+  'facility-master': [
+    // Room Furniture
+    { id: 'fm-1', code: 'TBL', name: 'Work Desk & Study Table', category: 'Room Furniture', description: 'Solid wood ergonomic study desk with executive chair', order: 1, isActive: true },
+    { id: 'fm-2', code: 'WDR', name: 'Wardrobe & Luggage Rack', category: 'Room Furniture', description: 'Full-height wooden wardrobe with hangers and luggage stand', order: 2, isActive: true },
+    { id: 'fm-3', code: 'VNT', name: 'Dressing Vanity Mirror', category: 'Room Furniture', description: 'Full-length illuminated vanity mirror with beauty shelf', order: 3, isActive: true },
+    { id: 'fm-4', code: 'NST', name: 'Bedside Nightstand & Lamp', category: 'Room Furniture', description: 'Dual bedside tables with touch-controlled reading lamps', order: 4, isActive: true },
+    { id: 'fm-5', code: 'CHR', name: 'Executive Chair', category: 'Room Furniture', description: 'Ergonomic cushioned high-back executive room chair', order: 5, isActive: true },
+
+    // Bathroom & Sanitary
+    { id: 'fm-6', code: 'WTL', name: 'Western Commode Toilet', category: 'Bathroom & Sanitary', description: 'Ceramic dual-flush hygienic western commode installation', order: 6, isDefault: true, isActive: true },
+    { id: 'fm-7', code: 'SHW', name: 'Rainfall Shower Set', category: 'Bathroom & Sanitary', description: 'Thermostatic overhead rainfall and handheld shower wand', order: 7, isActive: true },
+    { id: 'fm-8', code: 'HWT', name: '24h Hot & Cold Water Supply', category: 'Bathroom & Sanitary', description: 'Continuous pressurized instant hot and cold water system', order: 8, isActive: true },
+    { id: 'fm-9', code: 'HDR', name: 'Hair Dryer & Shaving Socket', category: 'Bathroom & Sanitary', description: '1800W wall-mounted hair dryer with dual voltage socket', order: 9, isActive: true },
+    { id: 'fm-10', code: 'AMN', name: 'Luxury Toiletries Kit', category: 'Bathroom & Sanitary', description: 'Organic shampoo, conditioner, dental kit, soap and towels', order: 10, isActive: true },
+
+    // Electronics & Appliances
+    { id: 'fm-11', code: 'TV', name: 'Smart LED TV 55"', category: 'Electronics & Appliances', description: '55" Ultra HD 4K smart television with streaming apps', order: 11, isActive: true },
+    { id: 'fm-12', code: 'WFI', name: 'High-Speed WiFi Access', category: 'Electronics & Appliances', description: 'Dedicated in-room gigabit fiber Wi-Fi network coverage', order: 12, isActive: true },
+    { id: 'fm-13', code: 'FRG', name: 'Mini Refrigerator', category: 'Electronics & Appliances', description: 'Silent absorption minibar chiller for beverages and snacks', order: 13, isActive: true },
+    { id: 'fm-14', code: 'KTL', name: 'Electric Kettle & Tea Kit', category: 'Electronics & Appliances', description: 'Fast boil kettle with complimentary tea, coffee and mugs', order: 14, isActive: true },
+    { id: 'fm-15', code: 'SFE', name: 'Digital Electronic Safe', category: 'Electronics & Appliances', description: 'Motorized digital keypad safe box for valuables and laptops', order: 15, isActive: true },
+  ],
+  'add-room-setup': [
+    {
+      id: 'rm-101',
+      code: '101',
+      roomNumber: '101',
+      name: 'Room 101',
+      floorLevel: '1st Floor',
+      roomType: 'Deluxe Room',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'King Bed',
+      basePrice: 350,
+      capacity: 2,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Rainfall Shower Set', 'Western Commode Toilet', 'Work Desk & Study Table'],
+      description: 'Deluxe garden view king room with ensuite shower and study desk',
+      order: 1,
+      isActive: true,
+    },
+    {
+      id: 'rm-102',
+      code: '102',
+      roomNumber: '102',
+      name: 'Room 102',
+      floorLevel: '1st Floor',
+      roomType: 'Deluxe Room',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'King Bed',
+      basePrice: 350,
+      capacity: 2,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Rainfall Shower Set', 'Western Commode Toilet', 'Work Desk & Study Table'],
+      description: 'Deluxe garden view king room with executive furnishings',
+      order: 2,
+      isActive: true,
+    },
+    {
+      id: 'rm-103',
+      code: '103',
+      roomNumber: '103',
+      name: 'Room 103',
+      floorLevel: '1st Floor',
+      roomType: 'Standard Room',
+      acType: 'Non-Air Conditioned (Non-AC)',
+      bedType: 'Twin Beds',
+      basePrice: 200,
+      capacity: 2,
+      status: 'AVAILABLE',
+      facilities: ['Rainfall Shower Set', 'Western Commode Toilet', 'Work Desk & Study Table'],
+      description: 'Standard comfortable twin sharing bedroom',
+      order: 3,
+      isActive: true,
+    },
+    {
+      id: 'rm-104',
+      code: '104',
+      roomNumber: '104',
+      name: 'Room 104',
+      floorLevel: '1st Floor',
+      roomType: 'Standard Room',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'Double Bed',
+      basePrice: 220,
+      capacity: 2,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Rainfall Shower Set', 'Western Commode Toilet'],
+      description: 'Standard double bed with climate control',
+      order: 4,
+      isActive: true,
+    },
+    {
+      id: 'rm-105',
+      code: '105',
+      roomNumber: '105',
+      name: 'Room 105',
+      floorLevel: '1st Floor',
+      roomType: 'Standard Room',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'Single Bed',
+      basePrice: 180,
+      capacity: 1,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Western Commode Toilet'],
+      description: 'Compact solo traveler accommodation with smart TV',
+      order: 5,
+      isActive: true,
+    },
+    {
+      id: 'rm-201',
+      code: '201',
+      roomNumber: '201',
+      name: 'Room 201',
+      floorLevel: '2nd Floor',
+      roomType: 'Executive Suite',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'King Bed',
+      basePrice: 550,
+      capacity: 3,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Rainfall Shower Set', 'Western Commode Toilet', 'Work Desk & Study Table'],
+      description: 'Second floor executive suite with living area and ocean view',
+      order: 6,
+      isActive: true,
+    },
+    {
+      id: 'rm-202',
+      code: '202',
+      roomNumber: '202',
+      name: 'Room 202',
+      floorLevel: '2nd Floor',
+      roomType: 'Deluxe Room',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'Queen Bed',
+      basePrice: 350,
+      capacity: 2,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Rainfall Shower Set', 'Western Commode Toilet', 'Work Desk & Study Table'],
+      description: 'Second floor deluxe queen room with private balcony',
+      order: 7,
+      isActive: true,
+    },
+    {
+      id: 'rm-203',
+      code: '203',
+      roomNumber: '203',
+      name: 'Room 203',
+      floorLevel: '2nd Floor',
+      roomType: 'Executive Suite',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'King Bed',
+      basePrice: 550,
+      capacity: 3,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Rainfall Shower Set', 'Western Commode Toilet', 'Work Desk & Study Table'],
+      description: 'Executive suite with master bedroom and lounge',
+      order: 8,
+      isActive: true,
+    },
+    {
+      id: 'rm-301',
+      code: '301',
+      roomNumber: '301',
+      name: 'Room 301',
+      floorLevel: '3rd Floor',
+      roomType: 'Executive Suite',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'King Bed',
+      basePrice: 550,
+      capacity: 4,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Rainfall Shower Set', 'Western Commode Toilet', 'Work Desk & Study Table'],
+      description: 'Top floor executive suite with premium furnishings',
+      order: 9,
+      isActive: true,
+    },
+    {
+      id: 'rm-302',
+      code: '302',
+      roomNumber: '302',
+      name: 'Room 302',
+      floorLevel: '3rd Floor',
+      roomType: 'Deluxe Room',
+      acType: 'Air Conditioned (AC)',
+      bedType: 'King Bed',
+      basePrice: 350,
+      capacity: 2,
+      status: 'AVAILABLE',
+      facilities: ['Smart LED TV 55"', 'Rainfall Shower Set', 'Western Commode Toilet', 'Work Desk & Study Table'],
+      description: 'Quiet third floor deluxe king accommodation',
+      order: 10,
+      isActive: true,
+    },
+    {
+      id: 'rm-001',
+      code: '001',
+      roomNumber: '001',
+      name: 'Room 001',
+      floorLevel: 'Ground Floor',
+      roomType: 'Standard Room',
+      acType: 'Non-Air Conditioned (Non-AC)',
+      bedType: 'Queen Bed',
+      basePrice: 200,
+      capacity: 2,
+      status: 'AVAILABLE',
+      facilities: ['Rainfall Shower Set', 'Western Commode Toilet'],
+      description: 'Ground floor accessible room with direct garden path',
+      order: 11,
+      isActive: true,
+    },
+  ],
 };
 
 function getFallbackItemsForSubBox(subId: string, subName: string): MasterItemEntry[] {
@@ -550,10 +855,24 @@ function getFallbackItemsForSubBox(subId: string, subName: string): MasterItemEn
 }
 
 function getSubBoxEntityName(box: { id: string; name: string }): string {
+  if (box.id === 'add-room-setup') return 'Room';
   if (box.id === 'menu-items-setup') return 'Menu Item';
   if (box.id === 'categories-setup') return 'Menu Category';
   if (box.id === 'quantity-setup') return 'Portion / Unit';
-  let clean = box.name.replace(/\s+Setup$/i, '').trim();
+  if (box.id === 'room-type-master' || box.id === 'room-types-setup') return 'Room Type';
+  if (box.id === 'ac-type-master') return 'AC Type';
+  if (box.id === 'bed-type-master' || box.id === 'bed-types-setup') return 'Bed Type';
+  if (box.id === 'floor-master' || box.id === 'floors-wings-setup') return 'Floor Level';
+  if (box.id === 'facility-category-master') return 'Facility Category';
+  if (box.id === 'facility-master') return 'Room Facility';
+  if (box.id === 'room-amenities-setup') return 'Room Amenity';
+  if (box.id === 'room-plans-setup') return 'Meal Plan';
+  if (box.id === 'housekeeping-status-setup') return 'Room Status';
+  let clean = box.name
+    .replace(/\s+Master$/i, '')
+    .replace(/\s+\(optional\)$/i, '')
+    .replace(/\s+Setup$/i, '')
+    .trim();
   if (clean.endsWith('ies')) clean = clean.slice(0, -3) + 'y';
   else if (clean.endsWith('es') && !clean.endsWith('ses')) clean = clean.slice(0, -2);
   else if (clean.endsWith('s') && !clean.endsWith('ss')) clean = clean.slice(0, -1);
@@ -980,6 +1299,337 @@ function QuantityAutocomplete({
   );
 }
 
+interface RoomFacilitiesCategoryPickerProps {
+  selectedFacilities: string[];
+  onChange: (facilities: string[]) => void;
+  availableFacilities: MasterItemEntry[];
+  availableCategories: MasterItemEntry[];
+  onAddNewFacility?: (facilityName: string, categoryName: string) => void;
+}
+
+function RoomFacilitiesCategoryPicker({
+  selectedFacilities,
+  onChange,
+  availableFacilities,
+  availableCategories,
+  onAddNewFacility,
+}: RoomFacilitiesCategoryPickerProps) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [customCategory, setCustomCategory] = useState<string>(
+    availableCategories[0]?.name || 'Room Furniture'
+  );
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  // Filter available facilities that aren't already selected
+  const unselectedFacilities = useMemo(() => {
+    return availableFacilities.filter((f) => !selectedFacilities.includes(f.name));
+  }, [availableFacilities, selectedFacilities]);
+
+  // Suggestions based on search query
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return unselectedFacilities;
+    return unselectedFacilities.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        (f.category && f.category.toLowerCase().includes(q)) ||
+        (f.code && f.code.toLowerCase().includes(q))
+    );
+  }, [unselectedFacilities, query]);
+
+
+  // Add a facility
+  const handleAddFacility = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || selectedFacilities.includes(trimmed)) return;
+    onChange([...selectedFacilities, trimmed]);
+    setQuery('');
+    setIsOpen(false);
+    setHighlightedIndex(0);
+    inputRef.current?.focus();
+  };
+
+  // Add custom facility not currently in master
+  const handleAddCustom = (name: string, category: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (onAddNewFacility) {
+      onAddNewFacility(trimmed, category);
+    } else {
+      handleAddFacility(trimmed);
+    }
+    setQuery('');
+    setIsOpen(false);
+    inputRef.current?.focus();
+  };
+
+  // Remove a facility
+  const handleRemoveFacility = (name: string) => {
+    onChange(selectedFacilities.filter((f) => f !== name));
+  };
+
+  // Clear all facilities in a specific category
+  const handleClearCategory = (categoryName: string) => {
+    const toRemove = new Set(
+      availableFacilities
+        .filter((f) => (f.category || 'General') === categoryName)
+        .map((f) => f.name)
+    );
+    onChange(selectedFacilities.filter((f) => !toRemove.has(f)));
+  };
+
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+      } else {
+        setHighlightedIndex((prev) => (prev + 1 < suggestions.length ? prev + 1 : 0));
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+      } else {
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (isOpen && suggestions[highlightedIndex]) {
+        handleAddFacility(suggestions[highlightedIndex].name);
+      } else if (query.trim()) {
+        const exactMatch = availableFacilities.find(
+          (f) => f.name.toLowerCase() === query.trim().toLowerCase()
+        );
+        if (exactMatch) {
+          handleAddFacility(exactMatch.name);
+        } else {
+          handleAddCustom(query.trim(), customCategory);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  // AUTOMATICALLY GROUP SELECTED FACILITIES CATEGORY-WISE
+  const selectedCategoryGroups = useMemo(() => {
+    const catMap = new Map<string, string[]>();
+
+    // Seed categories from availableCategories
+    availableCategories.forEach((cat) => {
+      if (cat.name) catMap.set(cat.name, []);
+    });
+
+    // Populate selected facilities into their categories
+    selectedFacilities.forEach((facName) => {
+      const matched = availableFacilities.find(
+        (f) => f.name.toLowerCase() === facName.toLowerCase()
+      );
+      const cat = matched?.category?.trim() || 'Room Furniture';
+      if (!catMap.has(cat)) {
+        catMap.set(cat, []);
+      }
+      catMap.get(cat)!.push(facName);
+    });
+
+    const groups: { category: string; items: string[] }[] = [];
+    catMap.forEach((items, category) => {
+      if (items.length > 0) {
+        groups.push({ category, items });
+      }
+    });
+
+    return groups;
+  }, [selectedFacilities, availableFacilities, availableCategories]);
+
+  return (
+    <div className="space-y-2 pt-1">
+      {/* Header with counter and clear button */}
+      <div className="flex items-center justify-between">
+        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+          Room Facilities {selectedFacilities.length > 0 && `(${selectedFacilities.length})`}
+        </label>
+        {selectedFacilities.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-[11px] font-semibold text-rose-600 hover:underline dark:text-rose-400 cursor-pointer"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+
+      {/* Search Input with Autocomplete Dropdown */}
+      <div ref={containerRef} className="relative">
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setIsOpen(true);
+              setHighlightedIndex(0);
+            }}
+            onFocus={() => setIsOpen(true)}
+            onKeyDown={handleKeyDown}
+            placeholder="Search facility (e.g. Chair, TV, Shower)..."
+            className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-8 pr-8 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                setIsOpen(false);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Suggestion Popover Dropdown */}
+        {isOpen && (
+          <div className="absolute left-0 right-0 top-full mt-1 z-30 max-h-56 overflow-y-auto rounded-[3px] border border-[#DCE3DF] bg-white shadow-xl dark:border-[#145447] dark:bg-[#071F1A] custom-scrollbar">
+            {suggestions.length > 0 ? (
+              <div className="p-1 divide-y divide-[#F0F4F2] dark:divide-[#0E3B31]">
+                {suggestions.map((item, idx) => {
+                  const isHighlighted = idx === highlightedIndex;
+                  return (
+                    <button
+                      key={item.id || item.name}
+                      type="button"
+                      onClick={() => handleAddFacility(item.name)}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      className={cn(
+                        'w-full flex items-center justify-between px-3 py-2 text-left text-xs rounded-[2px] transition-colors cursor-pointer',
+                        isHighlighted
+                          ? 'bg-[#EEF4F1] text-[#0B3D32] font-semibold dark:bg-[#0A2E26] dark:text-emerald-300'
+                          : 'text-[#24352F] hover:bg-[#FAFBF9] dark:text-[#E5EEE9] dark:hover:bg-[#0A2E26]'
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Plus className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400 shrink-0" />
+                        <span className="truncate font-medium">{item.name}</span>
+                      </div>
+                      {item.category && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-[2px] bg-[#F2F6F4] text-[#4A6458] border border-[#DCE3DF] dark:bg-[#082820] dark:text-emerald-300 dark:border-[#145447] shrink-0 ml-2">
+                          {item.category}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {/* Custom facility creation if query has text not in list */}
+            {query.trim() && !availableFacilities.some((f) => f.name.toLowerCase() === query.trim().toLowerCase()) && (
+              <div className="p-2 border-t border-[#F0F4F2] dark:border-[#0E3B31] bg-[#FAFBF9] dark:bg-[#061B16] flex items-center justify-between gap-2">
+                <div className="text-xs font-semibold text-[#0B3D32] dark:text-emerald-300 truncate">
+                  Add &ldquo;{query.trim()}&rdquo; to:
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <select
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    className="rounded-[2px] border border-[#DCE3DF] bg-white px-2 py-1 text-[11px] font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  >
+                    {availableCategories.map((c) => (
+                      <option key={c.id || c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCustom(query.trim(), customCategory)}
+                    className="px-2.5 py-1 rounded-[2px] bg-[#0B3D32] text-white text-xs font-bold hover:bg-[#093027] transition-all cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Added Facilities: AUTOMATICALLY ORGANIZED CATEGORY-WISE */}
+      {selectedCategoryGroups.length > 0 && (
+        <div className="space-y-2 pt-1 max-h-52 overflow-y-auto pr-0.5 custom-scrollbar">
+          {selectedCategoryGroups.map((group) => (
+            <div
+              key={group.category}
+              className="p-2.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] space-y-1.5"
+            >
+              {/* Category Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#355245] dark:text-emerald-300">
+                    {group.category}
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-400">
+                    ({group.items.length})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleClearCategory(group.category)}
+                  className="text-[10px] text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 font-medium cursor-pointer"
+                >
+                  Clear {group.category}
+                </button>
+              </div>
+
+              {/* Facility Chips */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {group.items.map((fac) => (
+                  <span
+                    key={fac}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-semibold bg-white dark:bg-[#0A2E26] text-[#0B3D32] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447] shadow-2xs group animate-in fade-in duration-100"
+                  >
+                    <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>{fac}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFacility(fac)}
+                      className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-300 rounded-[2px] p-0.5 transition-colors cursor-pointer"
+                      title={`Remove ${fac}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HotelSetupContent({
   initialCategory = 'general',
   initialSub = null,
@@ -1006,14 +1656,48 @@ export default function HotelSetupContent({
   const [tableSearchQuery, setTableSearchQuery] = useState<string>('');
   const [tableCategoryFilter, setTableCategoryFilter] = useState<string>('all');
 
+  // Room-specific filter states for Level 2 Room Inventory
+  const [roomTypeFilter, setRoomTypeFilter] = useState<string>('all');
+  const [roomFloorFilter, setRoomFloorFilter] = useState<string>('all');
+
   // Editable master items map
   const [masterItemsMap, setMasterItemsMap] = useState<Record<string, MasterItemEntry[]>>(INITIAL_MASTER_ITEMS);
 
-  // New item form state (Code, Display Name, Category, Quantity Prices, Order)
+  // Room modal form state
+  const [roomNumber, setRoomNumber] = useState<string>('');
+  const [roomFloor, setRoomFloor] = useState<string>('1st Floor');
+  const [roomType, setRoomType] = useState<string>('Standard Room');
+  const [roomACType, setRoomACType] = useState<string>('Air Conditioned (AC)');
+  const [roomBedType, setRoomBedType] = useState<string>('King Bed');
+  const [roomPrice, setRoomPrice] = useState<string>('200');
+  const [roomCapacity, setRoomCapacity] = useState<string>('2');
+  const [roomFacilities, setRoomFacilities] = useState<string[]>([]);
+  const [roomNotes, setRoomNotes] = useState<string>('');
+
+  // Hydrate custom rooms setup from localStorage if available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hotel_rooms_setup');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMasterItemsMap((prev) => ({
+              ...prev,
+              'add-room-setup': parsed,
+            }));
+          }
+        }
+      } catch (err) {}
+    }
+  }, []);
+
+  // New item form state (Code, Display Name, Description, Category, Quantity Prices, Order)
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newCode, setNewCode] = useState<string>('');
   const [newName, setNewName] = useState<string>('');
+  const [newDescription, setNewDescription] = useState<string>('');
   const [newCategory, setNewCategory] = useState<string>('');
   const [newQuantityPrices, setNewQuantityPrices] = useState<
     Array<{ quantityName: string; price: string }>
@@ -1025,9 +1709,43 @@ export default function HotelSetupContent({
     return masterItemsMap['categories-setup'] || INITIAL_MASTER_ITEMS['categories-setup'] || [];
   }, [masterItemsMap]);
 
+  // Available categories for facility master
+  const availableFacilityCategories = useMemo(() => {
+    return (
+      masterItemsMap['facility-category-master'] ||
+      INITIAL_MASTER_ITEMS['facility-category-master'] ||
+      []
+    );
+  }, [masterItemsMap]);
+
   // Available quantities for quantity-based pricing
   const availableQuantities = useMemo(() => {
     return masterItemsMap['quantity-setup'] || INITIAL_MASTER_ITEMS['quantity-setup'] || [];
+  }, [masterItemsMap]);
+
+  // Available room types from room-type-master
+  const availableRoomTypes = useMemo(() => {
+    return masterItemsMap['room-type-master'] || INITIAL_MASTER_ITEMS['room-type-master'] || [];
+  }, [masterItemsMap]);
+
+  // Available AC types from ac-type-master
+  const availableACTypes = useMemo(() => {
+    return masterItemsMap['ac-type-master'] || INITIAL_MASTER_ITEMS['ac-type-master'] || [];
+  }, [masterItemsMap]);
+
+  // Available bed types from bed-type-master
+  const availableBedTypes = useMemo(() => {
+    return masterItemsMap['bed-type-master'] || INITIAL_MASTER_ITEMS['bed-type-master'] || [];
+  }, [masterItemsMap]);
+
+  // Available floor levels from floor-master
+  const availableFloors = useMemo(() => {
+    return masterItemsMap['floor-master'] || INITIAL_MASTER_ITEMS['floor-master'] || [];
+  }, [masterItemsMap]);
+
+  // Available facilities from facility-master
+  const availableFacilities = useMemo(() => {
+    return masterItemsMap['facility-master'] || INITIAL_MASTER_ITEMS['facility-master'] || [];
   }, [masterItemsMap]);
 
   // Close modal on Escape key press
@@ -1102,23 +1820,60 @@ export default function HotelSetupContent({
     return getFallbackItemsForSubBox(activeSubBox.id, activeSubBox.name);
   }, [activeSubBox, masterItemsMap]);
 
+  const isRoomSetup = activeSubBox.id === 'add-room-setup';
+  const isMenuItem = activeSubBox.id === 'menu-items-setup';
+  const isFacilityItem = activeSubBox.id === 'facility-master';
+  const hasCategory = isMenuItem || isFacilityItem;
+
+  const currentCategoryList = useMemo(() => {
+    if (isFacilityItem) return availableFacilityCategories;
+    return availableCategories;
+  }, [isFacilityItem, availableFacilityCategories, availableCategories]);
+
   // Available unique categories for the table filter dropdown
   const tableCategoryOptions = useMemo(() => {
     const set = new Set<string>();
-    availableCategories.forEach((c) => {
+    currentCategoryList.forEach((c) => {
       if (c.name) set.add(c.name);
     });
     currentItems.forEach((item) => {
       if (item.category) set.add(item.category);
     });
     return Array.from(set);
-  }, [availableCategories, currentItems]);
+  }, [currentCategoryList, currentItems]);
 
-  // Filtered items in the table (search + category filter)
+  // Filtered items in the table (search + category filter or room filters)
   const filteredItems = useMemo(() => {
     let items = currentItems;
 
-    if (activeSubBox.id === 'menu-items-setup' && tableCategoryFilter !== 'all') {
+    if (isRoomSetup) {
+      if (roomTypeFilter !== 'all') {
+        items = items.filter(
+          (item) => (item.roomType || '').toLowerCase() === roomTypeFilter.toLowerCase()
+        );
+      }
+      if (roomFloorFilter !== 'all') {
+        items = items.filter(
+          (item) => (item.floorLevel || '').toLowerCase() === roomFloorFilter.toLowerCase()
+        );
+      }
+      if (tableSearchQuery.trim()) {
+        const q = tableSearchQuery.toLowerCase().trim();
+        items = items.filter(
+          (item) =>
+            (item.roomNumber || item.code || '').toLowerCase().includes(q) ||
+            (item.name || '').toLowerCase().includes(q) ||
+            (item.roomType || '').toLowerCase().includes(q) ||
+            (item.floorLevel || '').toLowerCase().includes(q) ||
+            (item.bedType || '').toLowerCase().includes(q) ||
+            (item.acType || '').toLowerCase().includes(q) ||
+            (item.facilities || []).some((fac) => fac.toLowerCase().includes(q))
+        );
+      }
+      return items;
+    }
+
+    if (hasCategory && tableCategoryFilter !== 'all') {
       items = items.filter(
         (item) => (item.category || '').toLowerCase() === tableCategoryFilter.toLowerCase()
       );
@@ -1131,20 +1886,44 @@ export default function HotelSetupContent({
           item.name.toLowerCase().includes(q) ||
           item.code.toLowerCase().includes(q) ||
           (item.category && item.category.toLowerCase().includes(q)) ||
+          (item.description && item.description.toLowerCase().includes(q)) ||
           (item.quantityPrices &&
             item.quantityPrices.some((qp) => qp.quantityName.toLowerCase().includes(q)))
       );
     }
 
     return items;
-  }, [currentItems, activeSubBox.id, tableCategoryFilter, tableSearchQuery]);
+  }, [currentItems, hasCategory, isRoomSetup, roomTypeFilter, roomFloorFilter, tableCategoryFilter, tableSearchQuery]);
 
   // Open modal to add a new item
   const handleOpenAddModal = () => {
     setEditingItemId(null);
+    if (isRoomSetup) {
+      setRoomNumber('');
+      setRoomFloor(availableFloors[0]?.name || '1st Floor');
+      const defaultType = availableRoomTypes[0]?.name || 'Standard Room';
+      setRoomType(defaultType);
+      const matchedType = availableRoomTypes.find((t) => t.name === defaultType);
+      setRoomPrice(matchedType?.basePrice?.toString() || '200');
+      setRoomACType(availableACTypes[0]?.name || 'Air Conditioned (AC)');
+      setRoomBedType(availableBedTypes[0]?.name || 'King Bed');
+      setRoomCapacity('2');
+      const defaultFacs = availableFacilities.filter((f) => f.isDefault).map((f) => f.name);
+      setRoomFacilities(defaultFacs.length > 0 ? defaultFacs : ['Western Commode Toilet']);
+      setRoomNotes('');
+      setNewOrder(((masterItemsMap['add-room-setup'] || currentItems).length + 1).toString());
+      setShowAddForm(true);
+      return;
+    }
+
     setNewCode('');
     setNewName('');
-    setNewCategory(availableCategories[0]?.name || '');
+    setNewDescription('');
+    setNewCategory(
+      activeSubBox.id === 'facility-master'
+        ? availableFacilityCategories[0]?.name || 'Room Furniture'
+        : availableCategories[0]?.name || ''
+    );
     setNewQuantityPrices(
       availableQuantities.length > 0
         ? [{ quantityName: availableQuantities[0].name, price: '' }]
@@ -1157,9 +1936,25 @@ export default function HotelSetupContent({
   // Open modal to edit an existing item
   const handleOpenEditModal = (item: MasterItemEntry) => {
     setEditingItemId(item.id);
+    if (isRoomSetup) {
+      setRoomNumber(item.roomNumber || item.code || '');
+      setRoomFloor(item.floorLevel || availableFloors[0]?.name || '1st Floor');
+      setRoomType(item.roomType || availableRoomTypes[0]?.name || 'Standard Room');
+      setRoomACType(item.acType || availableACTypes[0]?.name || 'Air Conditioned (AC)');
+      setRoomBedType(item.bedType || availableBedTypes[0]?.name || 'King Bed');
+      setRoomPrice((item.basePrice ?? 200).toString());
+      setRoomCapacity((item.capacity ?? 2).toString());
+      setRoomFacilities(item.facilities || []);
+      setRoomNotes(item.description || '');
+      setNewOrder((item.order || 1).toString());
+      setShowAddForm(true);
+      return;
+    }
+
     setNewCode(item.code);
     setNewName(item.name);
-    setNewCategory(item.category || availableCategories[0]?.name || '');
+    setNewDescription(item.description || '');
+    setNewCategory(item.category || '');
     if (item.quantityPrices && item.quantityPrices.length > 0) {
       setNewQuantityPrices(
         item.quantityPrices.map((qp) => ({
@@ -1191,7 +1986,39 @@ export default function HotelSetupContent({
     const trimmed = catName.trim();
     if (!trimmed) return;
 
-    // Check if already exists (case-insensitive)
+    if (activeSubBox.id === 'facility-master') {
+      const existing = availableFacilityCategories.find(
+        (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (existing) {
+        setNewCategory(existing.name);
+        return;
+      }
+
+      const code =
+        trimmed.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '') ||
+        `FAC${availableFacilityCategories.length + 1}`;
+
+      const newCatEntry: MasterItemEntry = {
+        id: `fcm-${Date.now()}`,
+        code,
+        name: trimmed,
+        order: availableFacilityCategories.length + 1,
+        isActive: true,
+      };
+
+      setMasterItemsMap((prev) => ({
+        ...prev,
+        'facility-category-master': [
+          ...(prev['facility-category-master'] || availableFacilityCategories),
+          newCatEntry,
+        ],
+      }));
+      setNewCategory(trimmed);
+      return;
+    }
+
+    // Default menu category
     const existing = availableCategories.find(
       (c) => c.name.toLowerCase() === trimmed.toLowerCase()
     );
@@ -1219,12 +2046,124 @@ export default function HotelSetupContent({
     setNewCategory(trimmed);
   };
 
+  // Add new facility with category (called directly from Add Room modal inline picker)
+  const handleAddNewFacilityWithCategory = (facilityName: string, categoryName: string) => {
+    const trimmed = facilityName.trim();
+    if (!trimmed) return;
+
+    // Check if facility already exists
+    const existing = availableFacilities.find(
+      (f) => f.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      if (!roomFacilities.includes(existing.name)) {
+        setRoomFacilities((prev) => [...prev, existing.name]);
+      }
+      return;
+    }
+
+    const code =
+      trimmed.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '') ||
+      `FAC${availableFacilities.length + 1}`;
+
+    const newFacEntry: MasterItemEntry = {
+      id: `fm-${Date.now()}`,
+      code,
+      name: trimmed,
+      category: categoryName || 'Room Furniture',
+      order: availableFacilities.length + 1,
+      isActive: true,
+    };
+
+    setMasterItemsMap((prev) => ({
+      ...prev,
+      'facility-master': [
+        ...(prev['facility-master'] || availableFacilities),
+        newFacEntry,
+      ],
+    }));
+
+    // Auto-select for the current room
+    setRoomFacilities((prev) => [...prev, trimmed]);
+  };
+
   // Save new item or update existing item
   const handleSaveNewItem = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isRoomSetup) {
+      if (!roomNumber.trim()) return;
+
+      const parsedPrice = parseFloat(roomPrice) || 0;
+      const parsedCap = parseInt(roomCapacity, 10) || 2;
+      const parsedOrder = parseInt(newOrder, 10);
+      const currentList = masterItemsMap['add-room-setup'] || currentItems;
+      const order = !isNaN(parsedOrder) && parsedOrder > 0 ? parsedOrder : currentList.length + 1;
+
+      let updatedRooms: MasterItemEntry[];
+      if (editingItemId) {
+        updatedRooms = currentList.map((item) =>
+          item.id === editingItemId
+            ? {
+                ...item,
+                code: roomNumber.trim(),
+                roomNumber: roomNumber.trim(),
+                name: `Room ${roomNumber.trim()} (${roomType})`,
+                floorLevel: roomFloor,
+                roomType,
+                acType: roomACType,
+                bedType: roomBedType,
+                basePrice: parsedPrice,
+                capacity: parsedCap,
+                status: item.status || 'AVAILABLE',
+                facilities: roomFacilities,
+                description: roomNotes.trim() || undefined,
+                order,
+              }
+            : item
+        );
+      } else {
+        const newRoom: MasterItemEntry = {
+          id: `rm-${Date.now()}`,
+          code: roomNumber.trim(),
+          roomNumber: roomNumber.trim(),
+          name: `Room ${roomNumber.trim()} (${roomType})`,
+          floorLevel: roomFloor,
+          roomType,
+          acType: roomACType,
+          bedType: roomBedType,
+          basePrice: parsedPrice,
+          capacity: parsedCap,
+          status: 'AVAILABLE',
+          facilities: roomFacilities,
+          description: roomNotes.trim() || undefined,
+          order,
+          isActive: true,
+        };
+        updatedRooms = [...currentList, newRoom];
+      }
+
+      setMasterItemsMap((prev) => ({
+        ...prev,
+        'add-room-setup': updatedRooms,
+      }));
+
+      // Synchronize to localStorage for /rooms and booking flows
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hotel_rooms_setup', JSON.stringify(updatedRooms));
+        } catch (err) {}
+      }
+
+      setShowAddForm(false);
+      setEditingItemId(null);
+      return;
+    }
+
     if (!newName.trim()) return;
 
     const isMenuItem = activeSubBox.id === 'menu-items-setup';
+    const isFacilityItem = activeSubBox.id === 'facility-master';
     if (isMenuItem && !newCategory.trim() && availableCategories.length > 0) return;
 
     const code = newCode.trim().toUpperCase() || newName.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1263,7 +2202,10 @@ export default function HotelSetupContent({
                 ...item,
                 code: code || item.code,
                 name: newName.trim(),
-                ...(isMenuItem ? { category: newCategory.trim() || availableCategories[0]?.name || 'General' } : {}),
+                description: newDescription.trim() || undefined,
+                ...(isMenuItem || isFacilityItem
+                  ? { category: newCategory.trim() || (isFacilityItem ? 'Room Furniture' : 'General') }
+                  : {}),
                 basePrice: computedBasePrice ?? item.basePrice,
                 quantityPrices: parsedQuantityPrices ?? item.quantityPrices,
                 order,
@@ -1276,7 +2218,10 @@ export default function HotelSetupContent({
         id: `${activeSubBox.id}-${Date.now()}`,
         code: code || 'NEW',
         name: newName.trim(),
-        ...(isMenuItem ? { category: newCategory.trim() || availableCategories[0]?.name || 'General' } : {}),
+        description: newDescription.trim() || undefined,
+        ...(isMenuItem || isFacilityItem
+          ? { category: newCategory.trim() || (isFacilityItem ? 'Room Furniture' : 'General') }
+          : {}),
         basePrice: computedBasePrice,
         quantityPrices: parsedQuantityPrices,
         order,
@@ -1292,6 +2237,7 @@ export default function HotelSetupContent({
     setEditingItemId(null);
     setNewCode('');
     setNewName('');
+    setNewDescription('');
     setNewCategory('');
     setNewQuantityPrices([]);
     setNewOrder('');
@@ -1302,9 +2248,15 @@ export default function HotelSetupContent({
   const handleDeleteItem = (itemId: string) => {
     setMasterItemsMap((prev) => {
       const list = prev[activeSubBox.id] || currentItems;
+      const updatedList = list.filter((item) => item.id !== itemId);
+      if (activeSubBox.id === 'add-room-setup' && typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hotel_rooms_setup', JSON.stringify(updatedList));
+        } catch (err) {}
+      }
       return {
         ...prev,
-        [activeSubBox.id]: list.filter((item) => item.id !== itemId),
+        [activeSubBox.id]: updatedList,
       };
     });
   };
@@ -1517,16 +2469,23 @@ export default function HotelSetupContent({
               RIGHT AREA: INDEPENDENT SCROLLING TABLE FOR THE SELECTED OPTION
              ----------------------------------------------------------------------- */}
           <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-[#F7F5F0] dark:bg-[#071512] overflow-hidden">
-            {/* Header Bar: Title, Count, Search & Filter Controls, Add Button */}
+            {/* Header Bar: Title, Count, Status Chips, Search & Filter Controls, Add Button */}
             <div className="shrink-0 px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#E5EEE9] dark:border-[#145447]/60 bg-white/60 dark:bg-[#071F1A]/60 backdrop-blur-xs">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <h2 className="text-base sm:text-lg font-bold text-[#24352F] dark:text-white font-heading tracking-tight">
                   {activeSubBox.name}
                 </h2>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-[3px] text-[11px] font-semibold bg-[#F0F4F2] text-[#4D6358] border border-[#DCE3DF] dark:bg-[#0A2E26] dark:text-emerald-300 dark:border-[#145447]">
-                  {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
-                  {filteredItems.length !== currentItems.length && ` (of ${currentItems.length})`}
-                </span>
+                {isRoomSetup ? (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-[3px] text-[11px] font-bold bg-[#EEF4F1] text-[#0B3D32] border border-[#DCE3DF] dark:bg-[#0A2E26] dark:text-emerald-300 dark:border-[#145447]">
+                    {filteredItems.length} {filteredItems.length === 1 ? 'Room' : 'Rooms'} Configured
+                    {filteredItems.length !== currentItems.length && ` (of ${currentItems.length})`}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-[3px] text-[11px] font-semibold bg-[#F0F4F2] text-[#4D6358] border border-[#DCE3DF] dark:bg-[#0A2E26] dark:text-emerald-300 dark:border-[#145447]">
+                    {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
+                    {filteredItems.length !== currentItems.length && ` (of ${currentItems.length})`}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -1537,7 +2496,11 @@ export default function HotelSetupContent({
                     type="text"
                     value={tableSearchQuery}
                     onChange={(e) => setTableSearchQuery(e.target.value)}
-                    placeholder={`Search ${activeSubBox.name.toLowerCase()}...`}
+                    placeholder={
+                      isRoomSetup
+                        ? 'Search room no., type, floor...'
+                        : `Search ${activeSubBox.name.toLowerCase()}...`
+                    }
                     className="w-40 sm:w-52 pl-8 pr-7 py-1.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] placeholder-[#879B90] focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500"
                   />
                   {tableSearchQuery && (
@@ -1552,8 +2515,40 @@ export default function HotelSetupContent({
                   )}
                 </div>
 
-                {/* Category Dropdown Filter (Menu Items Setup) */}
-                {activeSubBox.id === 'menu-items-setup' && tableCategoryOptions.length > 0 && (
+                {/* Room Setup Type Filter */}
+                {isRoomSetup && availableRoomTypes.length > 0 && (
+                  <select
+                    value={roomTypeFilter}
+                    onChange={(e) => setRoomTypeFilter(e.target.value)}
+                    className="py-1.5 px-2.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-medium focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="all">All Room Types</option>
+                    {availableRoomTypes.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Room Setup Floor Filter */}
+                {isRoomSetup && availableFloors.length > 0 && (
+                  <select
+                    value={roomFloorFilter}
+                    onChange={(e) => setRoomFloorFilter(e.target.value)}
+                    className="py-1.5 px-2.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-medium focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="all">All Floors</option>
+                    {availableFloors.map((f) => (
+                      <option key={f.id} value={f.name}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Category Dropdown Filter (Menu Items Setup & Facility Master) */}
+                {!isRoomSetup && hasCategory && tableCategoryOptions.length > 0 && (
                   <select
                     value={tableCategoryFilter}
                     onChange={(e) => setTableCategoryFilter(e.target.value)}
@@ -1569,14 +2564,20 @@ export default function HotelSetupContent({
                 )}
 
                 {/* Clear filters button if filtering */}
-                {(tableSearchQuery || (activeSubBox.id === 'menu-items-setup' && tableCategoryFilter !== 'all')) && (
+                {(tableSearchQuery ||
+                  (isRoomSetup &&
+                    (roomTypeFilter !== 'all' ||
+                      roomFloorFilter !== 'all')) ||
+                  (!isRoomSetup && hasCategory && tableCategoryFilter !== 'all')) && (
                   <button
                     type="button"
                     onClick={() => {
                       setTableSearchQuery('');
+                      setRoomTypeFilter('all');
+                      setRoomFloorFilter('all');
                       setTableCategoryFilter('all');
                     }}
-                    className="text-xs text-[#0B3D32] hover:underline dark:text-emerald-400 font-semibold px-1"
+                    className="text-xs text-[#0B3D32] hover:underline dark:text-emerald-400 font-semibold px-1 cursor-pointer"
                   >
                     Reset
                   </button>
@@ -1586,7 +2587,7 @@ export default function HotelSetupContent({
                 <button
                   type="button"
                   onClick={handleOpenAddModal}
-                  className="flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-[#093027] transition-all dark:bg-emerald-600 dark:hover:bg-emerald-500 shrink-0"
+                  className="flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-[#093027] transition-all dark:bg-emerald-600 dark:hover:bg-emerald-500 shrink-0 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add {getSubBoxEntityName(activeSubBox)}</span>
@@ -1600,126 +2601,276 @@ export default function HotelSetupContent({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 z-10 shadow-2xs">
-                      <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
-                        <th className="py-2.5 px-3 w-14 sm:w-16 text-center border-r border-[#E5EEE9] dark:border-[#145447]">#</th>
-                        <th className="py-2.5 px-3.5 w-24 sm:w-28 border-r border-[#E5EEE9] dark:border-[#145447]">CODE</th>
-                        <th className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
-                          {activeSubBox.id === 'menu-items-setup' ? 'ITEM NAME' : 'DISPLAY NAME'}
-                        </th>
-                        {activeSubBox.id === 'menu-items-setup' && (
-                          <>
+                      {isRoomSetup ? (
+                        <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
+                          <th className="py-2.5 px-3 w-12 text-center border-r border-[#E5EEE9] dark:border-[#145447]">#</th>
+                          <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">ROOM NO.</th>
+                          <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">ROOM TYPE</th>
+                          <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">FLOOR</th>
+                          <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">AC TYPE</th>
+                          <th className="py-2.5 px-3.5 w-32 border-r border-[#E5EEE9] dark:border-[#145447]">BED TYPE</th>
+                          <th className="py-2.5 px-3.5 w-24 border-r border-[#E5EEE9] dark:border-[#145447]">CAPACITY</th>
+                          <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">FARE</th>
+                          <th className="py-2.5 px-3.5 min-w-[220px] border-r border-[#E5EEE9] dark:border-[#145447]">FACILITIES</th>
+                          <th className="py-2.5 px-3 w-20 text-center">ACTION</th>
+                        </tr>
+                      ) : (
+                        <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
+                          <th className="py-2.5 px-3 w-14 sm:w-16 text-center border-r border-[#E5EEE9] dark:border-[#145447]">#</th>
+                          <th className="py-2.5 px-3.5 w-24 sm:w-28 border-r border-[#E5EEE9] dark:border-[#145447]">CODE</th>
+                          <th className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
+                            {isMenuItem ? 'ITEM NAME' : isFacilityItem ? 'FACILITY NAME' : 'DISPLAY NAME'}
+                          </th>
+                          {hasCategory && (
                             <th className="py-2.5 px-3.5 w-36 sm:w-44 border-r border-[#E5EEE9] dark:border-[#145447]">CATEGORY</th>
+                          )}
+                          {isMenuItem && (
                             <th className="py-2.5 px-3.5 min-w-[220px] border-r border-[#E5EEE9] dark:border-[#145447]">UNIT & PRICING</th>
-                          </>
-                        )}
-                        <th className="py-2.5 px-3 w-20 text-center">ACTION</th>
-                      </tr>
+                          )}
+                          <th className="py-2.5 px-3 w-20 text-center">ACTION</th>
+                        </tr>
+                      )}
                     </thead>
                     <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447] text-xs">
-                      {filteredItems.map((item, index) => (
-                        <tr
-                          key={item.id}
-                          className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
-                        >
-                          {/* Order / Index */}
-                          <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
-                            <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
-                              {item.order ?? (index + 1)}
-                            </span>
-                          </td>
+                      {isRoomSetup ? (
+                        filteredItems.map((item, index) => {
+                          const isAC =
+                            (item.acType || '').toLowerCase().includes('ac') &&
+                            !(item.acType || '').toLowerCase().includes('non');
 
-                          {/* Code */}
-                          <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                            <span className="inline-block rounded-[2px] bg-[#EEF4F1] dark:bg-[#0D362C] px-2 py-0.5 text-[11px] font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-[#D8E6DF] dark:border-[#145447]">
-                              {item.code}
-                            </span>
-                          </td>
+                          return (
+                            <tr
+                              key={item.id}
+                              className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
+                            >
+                              {/* Index */}
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
+                                <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
+                                  {item.order ?? (index + 1)}
+                                </span>
+                              </td>
 
-                          {/* Item / Display Name */}
-                          <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] font-semibold text-xs text-[#24352F] dark:text-white">
-                            {item.name}
-                          </td>
+                              {/* Room Number */}
+                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#EEF4F1] dark:bg-[#0D362C] border border-[#D8E6DF] dark:border-[#145447]">
+                                  <DoorOpen className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400 shrink-0" />
+                                  <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
+                                    {item.roomNumber || item.code}
+                                  </span>
+                                </div>
+                              </td>
 
-                          {/* Category (Menu Items Setup) */}
-                          {activeSubBox.id === 'menu-items-setup' && (
-                            <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                              <span className="inline-flex items-center rounded-[2px] bg-[#F4F7F5] dark:bg-[#0A2E26] px-2 py-0.5 text-[11px] font-medium text-[#33463E] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447]">
-                                {item.category || 'General'}
+                              {/* Room Type */}
+                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <div className="font-semibold text-xs text-[#24352F] dark:text-white">
+                                  {item.roomType || 'Standard Room'}
+                                </div>
+                              </td>
+
+                              {/* Floor Level */}
+                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <span className="inline-flex items-center rounded-[2px] bg-[#F4F7F5] dark:bg-[#0A2E26] px-2 py-0.5 text-[11px] font-medium text-[#33463E] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447]">
+                                  {item.floorLevel || '1st Floor'}
+                                </span>
+                              </td>
+
+                              {/* Climate / AC Type */}
+                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center gap-1 rounded-[2px] px-2 py-0.5 text-[11px] font-medium border',
+                                    isAC
+                                      ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-700'
+                                  )}
+                                >
+                                  <Snowflake className="w-3 h-3" />
+                                  <span>{item.acType || (isAC ? 'AC' : 'Non-AC')}</span>
+                                </span>
+                              </td>
+
+                              {/* Bed Type */}
+                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <span className="text-xs font-medium text-[#24352F] dark:text-slate-200">
+                                  {item.bedType || 'King Bed'}
+                                </span>
+                              </td>
+
+                              {/* Capacity */}
+                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <span className="font-mono text-xs font-semibold text-[#4D6358] dark:text-emerald-300">
+                                  {item.capacity || 2} Guests
+                                </span>
+                              </td>
+
+                              {/* Fare */}
+                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <span className="inline-flex items-center rounded-[2px] bg-emerald-50/70 dark:bg-emerald-950/40 px-2 py-0.5 text-xs font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                  रू {Number(item.basePrice ?? 200).toLocaleString()}
+                                </span>
+                              </td>
+
+                              {/* Facilities Tag Pills */}
+                              <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <div className="flex flex-wrap items-center gap-1 max-w-md">
+                                  {item.facilities && item.facilities.length > 0 ? (
+                                    item.facilities.map((fac, fIdx) => (
+                                      <span
+                                        key={fIdx}
+                                        className="inline-block rounded-[2px] bg-[#F7F9F8] dark:bg-[#082820] px-1.5 py-0.5 text-[10px] font-medium text-[#4A6458] dark:text-[#A4B8AE] border border-[#DEE6E2] dark:border-[#145447]"
+                                      >
+                                        {fac}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-[#879B90] text-xs">—</span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Action */}
+                              <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
+                                <div className="inline-flex items-center gap-1 justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditModal(item)}
+                                    title={`Edit Room ${item.roomNumber || item.code}`}
+                                    className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteItem(item.id)}
+                                    title={`Delete Room ${item.roomNumber || item.code}`}
+                                    className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        filteredItems.map((item, index) => (
+                          <tr
+                            key={item.id}
+                            className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
+                          >
+                            {/* Order / Index */}
+                            <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
+                              <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
+                                {item.order ?? (index + 1)}
                               </span>
                             </td>
-                          )}
 
-                          {/* Unit & Pricing (Menu Items Setup - divided table-like pill) */}
-                          {activeSubBox.id === 'menu-items-setup' && (
+                            {/* Code */}
+                            <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                              <span className="inline-block rounded-[2px] bg-[#EEF4F1] dark:bg-[#0D362C] px-2 py-0.5 text-[11px] font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-[#D8E6DF] dark:border-[#145447]">
+                                {item.code}
+                              </span>
+                            </td>
+
+                            {/* Item / Display Name */}
                             <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {item.quantityPrices && item.quantityPrices.length > 0 ? (
-                                  item.quantityPrices.map((qp, qIdx) => (
-                                    <span
-                                      key={qIdx}
-                                      className="inline-flex items-stretch rounded-[2px] border border-[#D5E0DB] dark:border-[#145447] bg-white dark:bg-[#061B16] text-[11px] overflow-hidden shadow-2xs"
-                                      title={`${qp.quantityName}: रू ${qp.price.toLocaleString()}`}
-                                    >
+                              <div className="font-semibold text-xs text-[#24352F] dark:text-white">
+                                {item.name}
+                              </div>
+                              {item.description && (
+                                <div className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] font-normal truncate max-w-sm mt-0.5">
+                                  {item.description}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Category (Menu Items Setup & Facility Master) */}
+                            {hasCategory && (
+                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <span className="inline-flex items-center rounded-[2px] bg-[#F4F7F5] dark:bg-[#0A2E26] px-2 py-0.5 text-[11px] font-medium text-[#33463E] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447]">
+                                  {item.category || (isFacilityItem ? 'Room Furniture' : 'General')}
+                                </span>
+                              </td>
+                            )}
+
+                            {/* Unit & Pricing (Menu Items Setup - divided table-like pill) */}
+                            {isMenuItem && (
+                              <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {item.quantityPrices && item.quantityPrices.length > 0 ? (
+                                    item.quantityPrices.map((qp, qIdx) => (
+                                      <span
+                                        key={qIdx}
+                                        className="inline-flex items-stretch rounded-[2px] border border-[#D5E0DB] dark:border-[#145447] bg-white dark:bg-[#061B16] text-[11px] overflow-hidden shadow-2xs"
+                                        title={`${qp.quantityName}: रू ${qp.price.toLocaleString()}`}
+                                      >
+                                        <span className="px-2 py-0.5 font-medium text-[#4D6358] dark:text-[#A4B8AE] bg-[#F7F9F8] dark:bg-[#092B23]">
+                                          {qp.quantityName}
+                                        </span>
+                                        <span className="px-2 py-0.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border-l border-[#D5E0DB] dark:border-[#145447] bg-emerald-50/50 dark:bg-emerald-950/40">
+                                          रू {Number(qp.price).toLocaleString()}
+                                        </span>
+                                      </span>
+                                    ))
+                                  ) : item.basePrice !== undefined ? (
+                                    <span className="inline-flex items-stretch rounded-[2px] border border-[#D5E0DB] dark:border-[#145447] bg-white dark:bg-[#061B16] text-[11px] overflow-hidden shadow-2xs">
                                       <span className="px-2 py-0.5 font-medium text-[#4D6358] dark:text-[#A4B8AE] bg-[#F7F9F8] dark:bg-[#092B23]">
-                                        {qp.quantityName}
+                                        Standard
                                       </span>
                                       <span className="px-2 py-0.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border-l border-[#D5E0DB] dark:border-[#145447] bg-emerald-50/50 dark:bg-emerald-950/40">
-                                        रू {Number(qp.price).toLocaleString()}
+                                        रू {Number(item.basePrice).toLocaleString()}
                                       </span>
                                     </span>
-                                  ))
-                                ) : item.basePrice !== undefined ? (
-                                  <span className="inline-flex items-stretch rounded-[2px] border border-[#D5E0DB] dark:border-[#145447] bg-white dark:bg-[#061B16] text-[11px] overflow-hidden shadow-2xs">
-                                    <span className="px-2 py-0.5 font-medium text-[#4D6358] dark:text-[#A4B8AE] bg-[#F7F9F8] dark:bg-[#092B23]">
-                                      Standard
-                                    </span>
-                                    <span className="px-2 py-0.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border-l border-[#D5E0DB] dark:border-[#145447] bg-emerald-50/50 dark:bg-emerald-950/40">
-                                      रू {Number(item.basePrice).toLocaleString()}
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className="text-[#879B90] text-xs">—</span>
-                                )}
+                                  ) : (
+                                    <span className="text-[#879B90] text-xs">—</span>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+
+                            {/* Action */}
+                            <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1 justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditModal(item)}
+                                  title={`Edit ${item.name}`}
+                                  className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  title={`Delete ${item.name}`}
+                                  className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             </td>
-                          )}
-
-                          {/* Action */}
-                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1 justify-center">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditModal(item)}
-                                title={`Edit ${item.name}`}
-                                className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteItem(item.id)}
-                                title={`Delete ${item.name}`}
-                                className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                          </tr>
+                        ))
+                      )}
                       {filteredItems.length === 0 && (
                         <tr>
                           <td
-                            colSpan={activeSubBox.id === 'menu-items-setup' ? 6 : 4}
+                            colSpan={isRoomSetup ? 10 : isMenuItem ? 6 : hasCategory ? 5 : 4}
                             className="py-12 text-center text-xs text-[#879B90]"
                           >
-                            {tableSearchQuery || (activeSubBox.id === 'menu-items-setup' && tableCategoryFilter !== 'all') ? (
+                            {tableSearchQuery ||
+                            (isRoomSetup &&
+                              (roomTypeFilter !== 'all' ||
+                                roomFloorFilter !== 'all')) ||
+                            (hasCategory && tableCategoryFilter !== 'all') ? (
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <span>No {activeSubBox.name.toLowerCase()} match your search / filter criteria</span>
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setTableSearchQuery('');
+                                    setRoomTypeFilter('all');
+                                    setRoomFloorFilter('all');
                                     setTableCategoryFilter('all');
                                   }}
                                   className="text-xs font-semibold text-[#0B3D32] hover:underline dark:text-emerald-400"
@@ -1744,7 +2895,11 @@ export default function HotelSetupContent({
                       Showing <strong className="text-[#24352F] dark:text-white">{filteredItems.length}</strong> of{' '}
                       <strong className="text-[#24352F] dark:text-white">{currentItems.length}</strong> {activeSubBox.name}
                     </span>
-                    {(tableSearchQuery || (activeSubBox.id === 'menu-items-setup' && tableCategoryFilter !== 'all')) && (
+                    {(tableSearchQuery ||
+                      (isRoomSetup &&
+                        (roomTypeFilter !== 'all' ||
+                          roomFloorFilter !== 'all')) ||
+                      (hasCategory && tableCategoryFilter !== 'all')) && (
                       <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-[2px] dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
                         Filtered
                       </span>
@@ -1773,7 +2928,10 @@ export default function HotelSetupContent({
           }}
         >
           <div
-            className="w-full max-w-xl rounded-[3px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            className={cn(
+              'w-full rounded-[3px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150',
+              isRoomSetup ? 'max-w-2xl' : 'max-w-xl'
+            )}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header: Clean and professional without boilerplate text */}
@@ -1957,6 +3115,256 @@ export default function HotelSetupContent({
                       </div>
                     </div>
                   </>
+                ) : isFacilityItem ? (
+                  <>
+                    {/* Facility Name (Primary Field) */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                        Facility Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        placeholder="e.g. Work Desk & Study Table, Smart LED TV 55&quot;, Rainfall Shower Set"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                      />
+                    </div>
+
+                    {/* Category, Facility Code & Order Grid */}
+                    <div className="grid grid-cols-12 gap-3">
+                      {/* Facility Category */}
+                      <div className="col-span-12 sm:col-span-5">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                          Facility Category <span className="text-rose-500">*</span>
+                        </label>
+                        <CategoryAutocomplete
+                          value={newCategory}
+                          onChange={(name) => setNewCategory(name)}
+                          onAddNewCategory={handleAddNewCategory}
+                          availableCategories={availableFacilityCategories}
+                          placeholder="Select category (e.g. Room Furniture)..."
+                        />
+                      </div>
+
+                      <div className="col-span-7 sm:col-span-4">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                          Facility Code <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newCode}
+                          onChange={(e) => setNewCode(e.target.value)}
+                          placeholder="e.g. TBL"
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                        />
+                      </div>
+
+                      <div className="col-span-5 sm:col-span-3">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                          Display Order
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={newOrder}
+                          onChange={(e) => setNewOrder(e.target.value)}
+                          placeholder="1"
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                        Description / Specifications (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                        placeholder="e.g. Dimensions, brand, or feature notes"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                      />
+                    </div>
+                  </>
+                ) : isRoomSetup ? (
+                  <>
+                    {/* Room Number & Floor Level */}
+                    <div className="grid grid-cols-12 gap-3">
+                      {/* Room Number */}
+                      <div className="col-span-12 sm:col-span-6">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Room Number <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <DoorOpen className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            required
+                            autoFocus
+                            value={roomNumber}
+                            onChange={(e) => setRoomNumber(e.target.value)}
+                            placeholder="e.g. 101, 102, 205, 301"
+                            className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-9 pr-3 text-xs font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Floor Level (From floor-master) */}
+                      <div className="col-span-12 sm:col-span-6">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Floor Level <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={roomFloor}
+                          onChange={(e) => setRoomFloor(e.target.value)}
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+                        >
+                          {availableFloors.map((floor) => (
+                            <option key={floor.id} value={floor.name}>
+                              {floor.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Room Type, AC Type & Bed Type */}
+                    <div className="grid grid-cols-12 gap-3">
+                      {/* Room Type (From room-type-master, auto-sync price) */}
+                      <div className="col-span-12 sm:col-span-4">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Room Type <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={roomType}
+                          onChange={(e) => {
+                            const selected = e.target.value;
+                            setRoomType(selected);
+                            const matched = availableRoomTypes.find((t) => t.name === selected);
+                            if (matched && matched.basePrice) {
+                              setRoomPrice(matched.basePrice.toString());
+                            }
+                          }}
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+                        >
+                          {availableRoomTypes.map((type) => (
+                            <option key={type.id} value={type.name}>
+                              {type.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* AC / Non-AC Climate (From ac-type-master) */}
+                      <div className="col-span-12 sm:col-span-4">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          AC Type <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={roomACType}
+                          onChange={(e) => setRoomACType(e.target.value)}
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+                        >
+                          {availableACTypes.map((ac) => (
+                            <option key={ac.id} value={ac.name}>
+                              {ac.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Bed Configuration (From bed-type-master) */}
+                      <div className="col-span-12 sm:col-span-4">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Bed Type <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={roomBedType}
+                          onChange={(e) => setRoomBedType(e.target.value)}
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+                        >
+                          {availableBedTypes.map((bed) => (
+                            <option key={bed.id} value={bed.name}>
+                              {bed.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Fare & Capacity Grid */}
+                    <div className="grid grid-cols-12 gap-3">
+                      {/* Room Fare */}
+                      <div className="col-span-12 sm:col-span-6">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Fare (रू) <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500 pointer-events-none select-none">
+                            रू
+                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="any"
+                            required
+                            value={roomPrice}
+                            onChange={(e) => setRoomPrice(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-7 pr-3 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Guest Capacity */}
+                      <div className="col-span-12 sm:col-span-6">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Guest Capacity <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={roomCapacity}
+                          onChange={(e) => setRoomCapacity(e.target.value)}
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+                        >
+                          <option value="1">1 Guest</option>
+                          <option value="2">2 Guests</option>
+                          <option value="3">3 Guests</option>
+                          <option value="4">4 Guests</option>
+                          <option value="5">5 Guests</option>
+                          <option value="6">6 Guests</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Room Facilities: Clean Category-Grouped Amenity Selector with Search Suggestions */}
+                    <RoomFacilitiesCategoryPicker
+                      selectedFacilities={roomFacilities}
+                      onChange={setRoomFacilities}
+                      availableFacilities={availableFacilities}
+                      availableCategories={availableFacilityCategories}
+                      onAddNewFacility={handleAddNewFacilityWithCategory}
+                    />
+
+                    {/* Room Notes & Features */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Room Notes / Specifications (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={roomNotes}
+                        onChange={(e) => setRoomNotes(e.target.value)}
+                        placeholder="Optional room notes or specifications..."
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
+                      />
+                    </div>
+                  </>
                 ) : (
                   <>
                     {/* Standard non-menu items setup */}
@@ -1971,6 +3379,19 @@ export default function HotelSetupContent({
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                         placeholder={`e.g. ${getSubBoxEntityName(activeSubBox)} Name`}
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                        Description / Details (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                        placeholder="e.g. Specifications, dimensions, or details"
                         className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
                       />
                     </div>
@@ -2023,13 +3444,16 @@ export default function HotelSetupContent({
                 <button
                   type="submit"
                   disabled={
-                    !newName.trim() ||
-                    (activeSubBox.id === 'menu-items-setup' &&
-                      ((!newCategory.trim() && availableCategories.length > 0) ||
-                        newQuantityPrices.length === 0 ||
-                        newQuantityPrices.some((t) => !t.quantityName.trim() || !t.price.trim())))
+                    isRoomSetup
+                      ? !roomNumber.trim() || !roomPrice.trim() || !roomType.trim()
+                      : !newName.trim() ||
+                        (isMenuItem &&
+                          ((!newCategory.trim() && availableCategories.length > 0) ||
+                            newQuantityPrices.length === 0 ||
+                            newQuantityPrices.some((t) => !t.quantityName.trim() || !t.price.trim()))) ||
+                        (isFacilityItem && !newCategory.trim() && availableFacilityCategories.length > 0)
                   }
-                  className="inline-flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#093027] disabled:opacity-40 transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                  className="inline-flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#093027] disabled:opacity-40 transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>
