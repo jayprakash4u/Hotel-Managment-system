@@ -14,7 +14,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useRole } from '@/context/RoleContext';
 import { api } from '@/lib/api';
 
-export const Header: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleSidebar }) => {
+export const Header: React.FC<{
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+}> = ({ isSidebarOpen = true, onToggleSidebar }) => {
   const toast = useToast();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -40,13 +43,15 @@ export const Header: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleSid
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b px-4 sm:px-6 backdrop-blur-md transition-all bg-white/95 border-[#DCE3DF] text-[#24352F] dark:bg-[#071512]/90 dark:border-[#1a332c] dark:text-white shadow-2xs">
-      {/* Left side: Hamburger + Breadcrumbs */}
-      <div className="flex items-center gap-4">
+      {/* Left side: Mobile menu toggle (< lg) + Breadcrumbs */}
+      <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={onToggleSidebar}
-          className="lg:hidden p-2 rounded-lg bg-[#F2F4F2] text-[#43534D] hover:text-[#24352F] border border-[#CBD5D0] dark:bg-[#0B3D32]/40 dark:text-[#E5EEE9] dark:hover:text-white dark:border-[#145447] transition-colors"
+          className="flex lg:hidden items-center justify-center h-8.5 w-8.5 rounded-[3px] bg-[#EEF4F1] hover:bg-[#DDE9E3] border border-[#CBD5D0] text-[#0B3D32] dark:bg-[#0B3D32]/40 dark:border-[#145447] dark:text-[#E5EEE9] dark:hover:text-white dark:hover:bg-[#0B3D32] transition-all shadow-2xs cursor-pointer"
+          aria-label="Open mobile navigation"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4.5 h-4.5" />
         </button>
 
         <div className="hidden sm:block">
