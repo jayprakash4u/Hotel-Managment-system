@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -25,8 +25,11 @@ import {
   Table2,
   CalendarCheck,
   Utensils,
+  LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ConciergeBell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,23 +58,23 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     href: '/hotel',
     icon: Building2,
     tag: 'SETUP',
-    description: 'Resort profile & room types',
+    description: 'Resort profile, masters & setup',
   },
   {
-    id: 'room-bookings',
-    name: 'Room Bookings',
-    href: '/reservations',
-    icon: CalendarCheck,
-    tag: 'BOOKINGS',
-    description: 'Customer bookings, stays & folios',
+    id: 'front-desk',
+    name: 'Front Desk',
+    href: '/front-desk',
+    icon: ConciergeBell,
+    tag: 'DESK',
+    description: 'Check-in Desk, Check-In List, Reservation List & Check-Out List',
   },
   {
-    id: 'book-now',
-    name: 'Book Now',
-    href: '/check-in',
-    icon: LogIn,
-    tag: 'BOOKING',
-    description: 'Instant room reservation & check-in',
+    id: 'rooms',
+    name: 'Room Management',
+    href: '/rooms',
+    icon: BedDouble,
+    tag: 'ROOMS',
+    description: 'Room availability, cleaning & maintenance',
   },
   {
     id: 'book-table',
@@ -80,46 +83,6 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     icon: Utensils,
     tag: 'TABLE',
     description: 'Reserve dining tables & seating',
-  },
-  {
-    id: 'front-desk',
-    name: 'Check-In Desk',
-    href: '/front-desk',
-    icon: LogIn,
-    tag: 'FRONT DESK',
-    description: 'Arrivals & key issuance',
-  },
-  {
-    id: 'active-stays',
-    name: 'In-House Guests',
-    href: '/active-stays',
-    icon: Users,
-    tag: 'LIVE',
-    description: 'Active staying guests & folios',
-  },
-  {
-    id: 'rooms',
-    name: 'Rooms',
-    href: '/rooms',
-    icon: BedDouble,
-    tag: 'ROOMS',
-    description: 'Live occupancy & floor grid',
-  },
-  {
-    id: 'table',
-    name: 'Tables',
-    href: '/tables',
-    icon: Table2,
-    tag: 'TABLES',
-    description: 'Clean dining tables & layout cards',
-  },
-  {
-    id: 'guests',
-    name: 'Guest CRM',
-    href: '/guests',
-    icon: UserCheck,
-    tag: 'GUESTS',
-    description: 'VIP profiles & guest history',
   },
   {
     id: 'cafe',
@@ -200,7 +163,7 @@ export const Sidebar: React.FC<{
   const [searchQuery, setSearchQuery] = useState('');
   const [currentSearch, setCurrentSearch] = useState('');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       setCurrentSearch(window.location.search);
     }
@@ -210,12 +173,12 @@ export const Sidebar: React.FC<{
   const filteredOptions = useMemo(() => {
     if (!searchQuery.trim()) return HOTEL_MODULE_OPTIONS;
     const q = searchQuery.toLowerCase().trim();
-    return HOTEL_MODULE_OPTIONS.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        item.tag.toLowerCase().includes(q) ||
-        (item.description && item.description.toLowerCase().includes(q))
-    );
+    return HOTEL_MODULE_OPTIONS.filter((item) => {
+      const matchName = item.name.toLowerCase().includes(q);
+      const matchTag = item.tag.toLowerCase().includes(q);
+      const matchDesc = item.description && item.description.toLowerCase().includes(q);
+      return matchName || matchTag || matchDesc;
+    });
   }, [searchQuery]);
 
   const [hoveredItem, setHoveredItem] = useState<{
@@ -226,7 +189,7 @@ export const Sidebar: React.FC<{
 
   return (
     <>
-      {/* Mobile Backdrop (when drawer is open on mobile screens) */}
+      {/* Mobile Backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-[#24352F]/70 backdrop-blur-sm lg:hidden transition-opacity"
@@ -261,7 +224,6 @@ export const Sidebar: React.FC<{
               </div>
             </Link>
 
-            {/* Mobile close button only (no desktop toggle here) */}
             <button
               type="button"
               onClick={onClose}
@@ -283,14 +245,14 @@ export const Sidebar: React.FC<{
           </div>
         )}
 
-        {/* ===================== SEARCH BAR (Expanded only) ===================== */}
+        {/* ===================== SEARCH BAR ===================== */}
         {isOpen && (
           <div className="p-3 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#879B90] dark:text-[#647F75]" />
               <input
                 type="text"
-                placeholder="Search widgets..."
+                placeholder="Search widgets & lists..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-9 pr-8 text-xs font-medium text-[#24352F] placeholder-[#879B90] shadow-2xs transition-all focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:placeholder-[#647F75] dark:focus:border-emerald-500"
@@ -309,15 +271,16 @@ export const Sidebar: React.FC<{
 
         {/* ===================== NAVIGATION CONTENT ===================== */}
         {isOpen ? (
-          /* EXPANDED: 2-Column Grid Box Layout */
-          <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+          /* EXPANDED: 2-Column Grid Box Layout with Sub-Options Accordion */
+          <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
               {filteredOptions.map((item) => {
                 const isQuery = item.href.includes('?');
                 const [baseHref, queryStr] = item.href.split('?');
 
                 let isActive = false;
-                if (isQuery) {
+                if (item.id === 'front-desk') {
+                  isActive = ['/front-desk', '/check-in', '/checkout', '/reservations'].some((p) => pathname.startsWith(p));
+                } else if (isQuery) {
                   isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
                 } else if (item.href === '/') {
                   isActive = pathname === '/';
@@ -422,7 +385,9 @@ export const Sidebar: React.FC<{
               const [baseHref, queryStr] = item.href.split('?');
 
               let isActive = false;
-              if (isQuery) {
+              if (item.id === 'front-desk') {
+                isActive = ['/front-desk', '/check-in', '/checkout', '/reservations'].some((p) => pathname.startsWith(p));
+              } else if (isQuery) {
                 isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
               } else if (item.href === '/') {
                 isActive = pathname === '/';
@@ -464,15 +429,13 @@ export const Sidebar: React.FC<{
                   className={cn(
                     'relative flex h-11 w-11 items-center justify-center rounded-lg border transition-all duration-150 group shrink-0',
                     isActive
-                      ? 'border-[#A51F36] bg-[#FFF5F6] text-[#A51F36] shadow-xs ring-1 ring-[#A51F36]/30 dark:border-rose-700 dark:bg-[#320810] dark:text-rose-200'
-                      : 'border-transparent text-[#64736C] hover:border-[#DCE3DF] hover:bg-[#F2F4F2] hover:text-[#0B3D32] dark:text-[#8CA498] dark:hover:border-[#145447] dark:hover:bg-[#0B3D32]/50 dark:hover:text-white'
+                      ? 'border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] shadow-xs ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-[#0E362C] dark:text-emerald-200'
+                      : 'border-transparent text-[#64736C] hover:border-[#DCE3DF] hover:bg-white hover:text-[#24352F] dark:text-[#A4B8AE] dark:hover:border-[#145447] dark:hover:bg-[#07241E] dark:hover:text-white'
                   )}
-                  aria-label={item.name}
                 >
-                  <Icon className="w-5 h-5 stroke-[1.8] group-hover:scale-110 transition-transform" />
-                  {/* Subtle active dot on left edge */}
+                  <Icon className="w-5 h-5" />
                   {isActive && (
-                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[#A51F36] dark:bg-rose-400" />
+                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[#0B3D32] dark:bg-emerald-400" />
                   )}
                 </Link>
               );
@@ -480,7 +443,7 @@ export const Sidebar: React.FC<{
           </div>
         )}
 
-        {/* ===================== FOOTER: BOTTOM RIGHT CORNER TOGGLE BUTTON ===================== */}
+        {/* ===================== FOOTER TOGGLE BUTTON ===================== */}
         <div
           className={cn(
             'border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] shrink-0 p-2.5',
@@ -511,21 +474,22 @@ export const Sidebar: React.FC<{
       </aside>
 
       {/* ===================== FLOATING HOVER TOOLTIPS FOR MINI RAIL ===================== */}
-      {/* 1. Module Item Hover Card: Displays name, tag & description */}
       {!isOpen && hoveredItem && (
         <div
-          className="fixed z-50 pointer-events-none transition-all duration-100 ease-out"
+          className="fixed z-50 transition-all duration-100 ease-out"
           style={{
             left: '74px',
             top: `${hoveredItem.top}px`,
             transform: 'translateY(-50%)',
           }}
+          onMouseEnter={() => setHoveredItem(hoveredItem)}
+          onMouseLeave={() => setHoveredItem(null)}
         >
-          <div className="relative rounded-lg border border-[#CBD5D0] bg-white px-3.5 py-2.5 shadow-xl dark:border-[#145447] dark:bg-[#07241E] whitespace-nowrap min-w-[170px] max-w-[270px] animate-in fade-in zoom-in-95 duration-100">
+          <div className="relative rounded-lg border border-[#CBD5D0] bg-white px-3.5 py-2.5 shadow-xl dark:border-[#145447] dark:bg-[#07241E] whitespace-nowrap min-w-[200px] max-w-[290px] animate-in fade-in zoom-in-95 duration-100">
             {/* Notch pointing left to the icon */}
             <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rotate-45 border-l border-b border-[#CBD5D0] bg-white dark:border-[#145447] dark:bg-[#07241E]" />
 
-            <div className="relative z-10 flex flex-col gap-0.5">
+            <div className="relative z-10 flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-bold text-xs text-[#24352F] dark:text-white">
                   {hoveredItem.item.name}
@@ -535,7 +499,7 @@ export const Sidebar: React.FC<{
                 </span>
               </div>
               {hoveredItem.item.description && (
-                <p className="text-[10px] text-[#64736C] dark:text-[#9FB5AB] leading-tight mt-0.5 whitespace-normal">
+                <p className="text-[10px] text-[#64736C] dark:text-[#9FB5AB] leading-tight whitespace-normal">
                   {hoveredItem.item.description}
                 </p>
               )}
@@ -554,11 +518,9 @@ export const Sidebar: React.FC<{
             transform: 'translateY(-50%)',
           }}
         >
-          <div className="relative rounded-md border border-[#CBD5D0] bg-white px-2.5 py-1.5 shadow-xl dark:border-[#145447] dark:bg-[#07241E] whitespace-nowrap animate-in fade-in zoom-in-95 duration-100">
+          <div className="relative rounded-md border border-[#CBD5D0] bg-white px-2.5 py-1 shadow-lg dark:border-[#145447] dark:bg-[#07241E] whitespace-nowrap text-[11px] font-medium text-[#24352F] dark:text-white">
             <div className="absolute -left-1 top-1/2 -translate-y-1/2 h-2 w-2 rotate-45 border-l border-b border-[#CBD5D0] bg-white dark:border-[#145447] dark:bg-[#07241E]" />
-            <span className="relative z-10 font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
-              Expand sidebar (&gt;)
-            </span>
+            Expand sidebar
           </div>
         </div>
       )}

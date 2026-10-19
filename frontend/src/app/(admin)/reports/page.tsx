@@ -14,6 +14,20 @@ import {
   RefreshCw,
   Eye,
   X,
+  Filter,
+  Calendar,
+  Utensils,
+  Receipt,
+  DoorOpen,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Printer,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
@@ -21,13 +35,13 @@ import {
   loadBookingsFromStorage,
   loadCancellationsFromStorage,
   getAllStayRecords,
-  getAllCafeOrders,
   getAllPaymentTransactions,
   calculateHotelRevenueMetrics,
+  getBookingFinancials,
+  getRelativeDate,
   RoomBooking,
   CancellationRecord,
   ConsolidatedStayRecord,
-  ConsolidatedOrderRecord,
   ConsolidatedPaymentRecord,
   AVAILABLE_ROOMS_CATALOG,
 } from '../reservations/reservationsData';
@@ -58,6 +72,8 @@ function formatDisplayDates(checkIn: string, checkOut: string): string {
   return `${checkIn} – ${checkOut}`;
 }
 
+type DateRangeOption = 'ALL' | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM';
+
 export default function StayHistoryAndReportsPage() {
   const toast = useToast();
 
@@ -65,7 +81,7 @@ export default function StayHistoryAndReportsPage() {
   const [cancellations, setCancellations] = useState<CancellationRecord[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Active top tab: stays | payments | cancellations | revenue (NO separate orders tab)
+  // Active top tab: stays | payments | cancellations | revenue
   const [activeTab, setActiveTab] = useState<'stays' | 'payments' | 'cancellations' | 'revenue'>('stays');
 
   // Search & Filter state
@@ -73,7 +89,16 @@ export default function StayHistoryAndReportsPage() {
   const [selectedRoom, setSelectedRoom] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedMethod, setSelectedMethod] = useState<string>('ALL');
-  const [dateFilter, setDateFilter] = useState<'ALL' | 'OCT_2026' | 'SEP_2026'>('ALL');
+
+  // Date Range Filters
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeOption>('ALL');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+  // Selected Booking for In-Place "View Details" Modal
+  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<RoomBooking | null>(null);
+
+  const todayStr = useMemo(() => getRelativeDate(0), []);
 
   // Load from local storage
   const reloadData = () => {
@@ -93,16 +118,37 @@ export default function StayHistoryAndReportsPage() {
   const allPayments = useMemo(() => getAllPaymentTransactions(bookings), [bookings]);
   const revenueMetrics = useMemo(() => calculateHotelRevenueMetrics(bookings, cancellations), [bookings, cancellations]);
 
-  // Filtered Stays
+  // Filtered Stays with Date Range Filtering
   const filteredStays = useMemo(() => {
     return allStays.filter((stay) => {
+      // Room filter
       if (selectedRoom !== 'ALL' && stay.roomNumber !== selectedRoom) return false;
+
+      // Status filter
       if (selectedStatus !== 'ALL' && stay.status !== selectedStatus) return false;
 
-      if (dateFilter === 'OCT_2026') {
-        if (!stay.checkIn.includes('2026-10') && !stay.checkOut.includes('2026-10')) return false;
+      // Date Range Filter
+      if (dateRangeFilter === 'TODAY') {
+        const touchesToday =
+          stay.checkIn === todayStr ||
+          stay.checkOut === todayStr ||
+          (stay.checkIn <= todayStr && stay.checkOut >= todayStr);
+        if (!touchesToday) return false;
+      } else if (dateRangeFilter === 'THIS_WEEK') {
+        const weekEndStr = getRelativeDate(7);
+        const inThisWeek = stay.checkIn <= weekEndStr && stay.checkOut >= todayStr;
+        if (!inThisWeek) return false;
+      } else if (dateRangeFilter === 'THIS_MONTH') {
+        const currentYearMonth = todayStr.substring(0, 7);
+        const inThisMonth =
+          stay.checkIn.startsWith(currentYearMonth) || stay.checkOut.startsWith(currentYearMonth);
+        if (!inThisMonth) return false;
+      } else if (dateRangeFilter === 'CUSTOM') {
+        if (customStartDate && stay.checkOut < customStartDate) return false;
+        if (customEndDate && stay.checkIn > customEndDate) return false;
       }
 
+      // Text search
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
       return (
@@ -113,7 +159,7 @@ export default function StayHistoryAndReportsPage() {
         stay.roomType.toLowerCase().includes(q)
       );
     });
-  }, [allStays, selectedRoom, selectedStatus, dateFilter, searchQuery]);
+  }, [allStays, selectedRoom, selectedStatus, dateRangeFilter, customStartDate, customEndDate, searchQuery, todayStr]);
 
   // Filtered Payments
   const filteredPayments = useMemo(() => {
@@ -159,183 +205,58 @@ export default function StayHistoryAndReportsPage() {
         acc.cafeTotal += s.cafeTotal;
         acc.totalCharges += s.totalCharges;
         acc.totalPaid += s.totalPaid;
+        acc.balanceDue += s.balanceDue;
         return acc;
       },
-      { roomCharges: 0, cafeTotal: 0, totalCharges: 0, totalPaid: 0 }
+      { roomCharges: 0, cafeTotal: 0, totalCharges: 0, totalPaid: 0, balanceDue: 0 }
     );
   }, [filteredStays]);
 
-  const paymentTotal = useMemo(() => {
-    return filteredPayments.reduce((sum, p) => sum + p.amount, 0);
-  }, [filteredPayments]);
-
-  const cancellationTotal = useMemo(() => {
-    return filteredCancellations.reduce((sum, c) => sum + c.originalAmount, 0);
-  }, [filteredCancellations]);
-
-  // CSV Export Handler
+  // Export CSV
   const handleExportCSV = () => {
-    let filename = '';
-    let rows: string[][] = [];
-
     if (activeTab === 'stays') {
-      filename = `hotel_stay_history_${new Date().toISOString().split('T')[0]}.csv`;
-      rows.push([
-        'Booking Code',
-        'Guest Name',
-        'Guest Phone',
-        'Room Number',
-        'Room Type',
-        'Check-In Date',
-        'Check-Out Date',
-        'Nights',
-        'Room Fare (Rs.)',
-        'Cafe Orders Total (Rs.)',
-        'Total Folio (Rs.)',
-        'Total Paid (Rs.)',
-        'Partially Paid / Balance Due (Rs.)',
-        'Payment Status',
-        'Stay Status',
-      ]);
-      filteredStays.forEach((s) => {
-        const paymentLabel = s.balanceDue === 0 ? 'Paid in Full' : s.totalPaid > 0 ? 'Partially Paid' : 'Unpaid';
-        rows.push([
-          s.bookingCode,
-          s.guestName,
-          s.guestPhone,
-          s.roomNumber,
-          s.roomType,
-          s.checkIn,
-          s.checkOut,
-          s.nights.toString(),
-          s.roomCharges.toString(),
-          s.cafeTotal.toString(),
-          s.totalCharges.toString(),
-          s.totalPaid.toString(),
-          s.balanceDue.toString(),
-          paymentLabel,
-          s.status,
-        ]);
-      });
-    } else if (activeTab === 'payments') {
-      filename = `hotel_cashiering_payments_${new Date().toISOString().split('T')[0]}.csv`;
-      rows.push(['Receipt Number', 'Date', 'Booking Code', 'Room', 'Guest', 'Amount (Rs.)', 'Payment Method', 'Payment Type', 'Notes']);
-      filteredPayments.forEach((p) => {
-        rows.push([
-          p.receiptNo,
-          p.date,
-          p.bookingCode,
-          p.roomNumber,
-          p.guestName,
-          p.amount.toString(),
-          p.method,
-          p.type,
-          p.notes || '',
-        ]);
-      });
-    } else if (activeTab === 'cancellations') {
-      filename = `hotel_cancellations_log_${new Date().toISOString().split('T')[0]}.csv`;
-      rows.push([
-        'Booking Code',
-        'Guest Name',
-        'Guest Phone',
-        'Room Number',
-        'Room Type',
-        'Scheduled Check-In',
-        'Scheduled Check-Out',
-        'Cancelled At',
-        'Cancellation Reason',
-        'Original Value (Rs.)',
-        'Deposit Paid (Rs.)',
-        'Refund Status',
-        'Refund Amount (Rs.)',
-      ]);
-      filteredCancellations.forEach((c) => {
-        rows.push([
-          c.bookingCode,
-          c.guestName,
-          c.guestPhone,
-          c.roomNumber,
-          c.roomType,
-          c.checkIn,
-          c.checkOut,
-          c.cancelledAt,
-          c.reason,
-          c.originalAmount.toString(),
-          c.depositPaid.toString(),
-          c.refundStatus,
-          c.refundAmount.toString(),
-        ]);
-      });
-    } else {
-      filename = `hotel_revenue_summary_${new Date().toISOString().split('T')[0]}.csv`;
-      rows.push(['KPI Metric', 'Value', 'Notes']);
-      rows.push(['Gross Hotel Revenue', `Rs. ${revenueMetrics.totalGrossRevenue.toLocaleString()}`, 'Lodging + Dining total']);
-      rows.push(['Room Lodging Revenue', `Rs. ${revenueMetrics.roomRevenue.toLocaleString()}`, 'Room night charges']);
-      rows.push(['Cafe & Dining Revenue', `Rs. ${revenueMetrics.cafeRevenue.toLocaleString()}`, 'F&B room service']);
-      rows.push(['Average Daily Rate (ADR)', `Rs. ${revenueMetrics.averageDailyRate.toLocaleString()}`, 'Avg rate per room night']);
-      rows.push(['RevPAR', `Rs. ${revenueMetrics.revPar.toLocaleString()}`, 'Revenue per available room']);
-      rows.push(['Occupancy Rate', `${revenueMetrics.occupancyRate}%`, 'Active occupied rooms']);
-      rows.push(['Completed Stays', revenueMetrics.completedStays.toString(), 'Checked-out stays']);
-      rows.push(['Active In-House Stays', revenueMetrics.inHouseStays.toString(), 'In-house guests']);
-      rows.push(['Total Cancellations', revenueMetrics.totalCancellations.toString(), `${revenueMetrics.cancellationRate}% cancellation rate`]);
+      const headers = ['Booking ID,Guest Name,Phone,Room,Check In,Check Out,Nights,Room Fare,Orders,Total,Paid,Balance Due,Status'];
+      const rows = filteredStays.map((s) =>
+        `"${s.bookingCode}","${s.guestName}","${s.guestPhone}","Room ${s.roomNumber}","${s.checkIn}","${s.checkOut}",${s.nights},${s.roomCharges},${s.cafeTotal},${s.totalCharges},${s.totalPaid},${s.balanceDue},"${s.status}"`
+      );
+      const csv = [headers, ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `hotel-stay-history-${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.celebrate('Report Exported', 'Stay history downloaded as CSV file.');
     }
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.map((cell) => `"${(cell || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast.success('Report Exported', `${filename} generated successfully.`);
   };
 
-  if (!isLoaded) {
-    return (
-      <div className="space-y-4 max-w-7xl mx-auto p-4 md:p-6">
-        <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-        <div className="h-72 bg-slate-100 dark:bg-slate-900 rounded-[4px] animate-pulse" />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-5 max-w-7xl mx-auto p-2 sm:p-4 md:p-6">
+    <div className="space-y-4 max-w-7xl mx-auto pb-12 select-none">
       {/* -----------------------------------------------------------------------
-          TOP HEADER
+          PAGE HEADER
           ----------------------------------------------------------------------- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#DCE3DF] dark:border-[#145447]">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-700">
-            <BarChart3 className="w-5 h-5 text-white" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DCE3DF] dark:border-[#145447]">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-700">
+            <BarChart3 className="w-4 h-4 text-white" />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-[#24352F] dark:text-white font-heading">
               Stay History & Reports
             </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Historical ledger of guest stays, room fares, orders, and settlements
+            </p>
           </div>
         </div>
 
-        {/* Top Controls: Period filter, Export CSV, Refresh */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value as any)}
-            className="h-8.5 text-xs font-semibold px-2.5 rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-          >
-            <option value="ALL">All Records</option>
-            <option value="OCT_2026">October 2026</option>
-            <option value="SEP_2026">September 2026</option>
-          </select>
-
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={reloadData}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-bold text-[#0B3D32] hover:bg-[#F2F6F4] transition-all dark:border-[#145447] dark:bg-[#07241E] dark:text-emerald-300 cursor-pointer"
-            title="Refresh records"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-semibold text-[#24352F] hover:bg-[#F2F6F4] transition-all dark:border-[#145447] dark:bg-[#07241E] dark:text-slate-200 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Refresh</span>
@@ -344,7 +265,7 @@ export default function StayHistoryAndReportsPage() {
           <button
             type="button"
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] text-white text-xs font-bold hover:bg-[#093027] transition-all shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] text-white text-xs font-bold hover:bg-[#093027] transition-all shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
@@ -353,7 +274,7 @@ export default function StayHistoryAndReportsPage() {
       </div>
 
       {/* -----------------------------------------------------------------------
-          NAVIGATION TABS (Separate & Clean - Orders included inside Stay History)
+          NAVIGATION TABS
           ----------------------------------------------------------------------- */}
       <div className="flex items-center gap-1.5 p-1 bg-[#EEF4F1] dark:bg-[#061B16] border border-[#DCE3DF] dark:border-[#145447] rounded-[4px] overflow-x-auto">
         {[
@@ -390,65 +311,128 @@ export default function StayHistoryAndReportsPage() {
       </div>
 
       {/* =======================================================================
-          TAB 1: STAY HISTORY (Previous Guests, Room Fare, Orders, Paid & Settlement)
+          TAB 1: STAY HISTORY
+          Table with: Guest, Room, Dates, Room Fare, Orders, Total, Paid, Status, View Details
           ======================================================================= */}
       {activeTab === 'stays' && (
-        <div className="space-y-4">
-          {/* Filter Bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-[#071F1A] p-2.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447]">
-            {/* Search Box - Professional enclosed input with search icon & clear X */}
-            <div className="relative w-full md:w-80 lg:w-96">
-              <Search className="w-4 h-4 text-[#879B90] dark:text-[#647F75] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search guest name, room, or booking code..."
-                className="w-full h-8.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] py-1.5 pl-9 pr-8 text-xs font-medium text-[#24352F] shadow-2xs transition-all placeholder:text-[#879B90] focus:border-[#0B3D32] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:placeholder:text-[#647F75] dark:focus:border-emerald-500"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 rounded cursor-pointer"
-                  title="Clear search"
-                  aria-label="Clear search"
+        <div className="space-y-3.5">
+          {/* Filter Bar: Search + Date Range Presets + Room & Status Selectors */}
+          <div className="flex flex-col gap-2.5 bg-white dark:bg-[#071F1A] p-3 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Search Box */}
+              <div className="relative w-full md:w-80">
+                <Search className="w-4 h-4 text-[#879B90] dark:text-[#647F75] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search guest, phone, room, or code..."
+                  className="w-full h-8.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] py-1.5 pl-9 pr-8 text-xs font-medium text-[#24352F] shadow-2xs transition-all placeholder:text-[#879B90] focus:border-[#0B3D32] focus:bg-white focus:outline-none dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Room & Status Selectors */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={selectedRoom}
+                  onChange={(e) => setSelectedRoom(e.target.value)}
+                  className="h-8.5 text-xs font-semibold px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] shadow-2xs dark:border-[#145447] dark:bg-[#061B16] dark:text-white cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+                  <option value="ALL">All Rooms</option>
+                  {AVAILABLE_ROOMS_CATALOG.map((r) => (
+                    <option key={r.id} value={r.number}>
+                      Room {r.number}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="h-8.5 text-xs font-semibold px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] shadow-2xs dark:border-[#145447] dark:bg-[#061B16] dark:text-white cursor-pointer"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="CHECKED_IN">In-House</option>
+                  <option value="CHECKED_OUT">Completed</option>
+                  <option value="RESERVED">Reserved</option>
+                  <option value="CANCELLED">Cancelled</option>
+                  <option value="NO_SHOW">No-Show</option>
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Room filter */}
-              <select
-                value={selectedRoom}
-                onChange={(e) => setSelectedRoom(e.target.value)}
-                className="h-8.5 text-xs font-medium px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white cursor-pointer"
-              >
-                <option value="ALL">All Rooms</option>
-                {AVAILABLE_ROOMS_CATALOG.map((r) => (
-                  <option key={r.id} value={r.number}>
-                    Room {r.number}
-                  </option>
-                ))}
-              </select>
+            {/* Date Range Strip */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F0F4F2] dark:border-[#103D33] text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+                  <span>Date Range:</span>
+                </span>
 
-              {/* Status filter */}
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="h-8.5 text-xs font-medium px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white cursor-pointer"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="CHECKED_IN">In-House</option>
-                <option value="CHECKED_OUT">Completed</option>
-                <option value="RESERVED">Reserved</option>
-              </select>
+                {(
+                  [
+                    { id: 'ALL', label: 'All Time' },
+                    { id: 'TODAY', label: 'Today' },
+                    { id: 'THIS_WEEK', label: 'Next 7 Days' },
+                    { id: 'THIS_MONTH', label: 'This Month' },
+                    { id: 'CUSTOM', label: 'Custom' },
+                  ] as const
+                ).map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDateRangeFilter(d.id)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-[3px] text-xs font-semibold transition-colors cursor-pointer',
+                      dateRangeFilter === d.id
+                        ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                        : 'bg-[#FAFBF9] dark:bg-[#061B16] border border-[#DCE3DF] dark:border-[#145447] text-slate-600 dark:text-slate-300 hover:bg-[#F2F6F4]'
+                    )}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+
+              {dateRangeFilter === 'CUSTOM' && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <span className="text-slate-500">From:</span>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="px-2 py-0.5 rounded-[2px] border border-[#DCE3DF] dark:border-[#145447] text-xs font-mono"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <span className="text-slate-500">To:</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="px-2 py-0.5 rounded-[2px] border border-[#DCE3DF] dark:border-[#145447] text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-auto">
+                Showing <strong className="text-[#0B3D32] dark:text-emerald-400">{filteredStays.length}</strong> records
+              </span>
             </div>
           </div>
 
-          {/* Stays Table (Clean, human-designed divided ledger format) */}
+          {/* Stays Ledger Table */}
           <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -462,7 +446,7 @@ export default function StayHistoryAndReportsPage() {
                     <th className="py-2.5 px-3 text-right border-r border-[#DCE3DF] dark:border-[#145447]">TOTAL</th>
                     <th className="py-2.5 px-3 text-right border-r border-[#DCE3DF] dark:border-[#145447]">PAID</th>
                     <th className="py-2.5 px-3 text-center border-r border-[#DCE3DF] dark:border-[#145447]">STATUS</th>
-                    <th className="py-2.5 px-3 text-right w-12"><span className="sr-only">Actions</span></th>
+                    <th className="py-2.5 px-3 text-center w-28">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8EFEA] dark:divide-[#103D33]">
@@ -477,25 +461,30 @@ export default function StayHistoryAndReportsPage() {
                       const isCheckedIn = stay.status === 'CHECKED_IN';
                       const isReserved = stay.status === 'RESERVED';
                       const isCheckedOut = stay.status === 'CHECKED_OUT';
+                      const isCancelled = stay.status === 'CANCELLED';
+                      const isNoShow = stay.status === 'NO_SHOW';
 
                       return (
-                        <tr key={stay.bookingId} className="hover:bg-[#F2F7F4] dark:hover:bg-[#0A2E26] even:bg-[#FAFBF9]/80 dark:even:bg-[#061B16]/60 transition-colors">
-                          {/* Column 1: Guest */}
+                        <tr
+                          key={stay.bookingId}
+                          className="hover:bg-[#F2F7F4] dark:hover:bg-[#0A2E26] even:bg-[#FAFBF9]/80 dark:even:bg-[#061B16]/60 transition-colors"
+                        >
+                          {/* 1. Guest */}
                           <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
                             <div className="font-semibold text-[#1F2E28] dark:text-white flex items-center gap-1.5">
                               <span>{stay.guestName}</span>
                               {stay.vipTier === 'GOLD' && (
-                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-[2px] bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-[2px] bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
                                   VIP
                                 </span>
                               )}
                             </div>
                             <div className="text-[11px] font-mono text-[#64736C] dark:text-[#A4B8AE]">
-                              {stay.bookingCode}
+                              {stay.bookingCode} · {stay.guestPhone}
                             </div>
                           </td>
 
-                          {/* Column 2: Room */}
+                          {/* 2. Room */}
                           <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
                             <div className="font-semibold text-[#1F2E28] dark:text-white">
                               Room {stay.roomNumber}
@@ -505,7 +494,7 @@ export default function StayHistoryAndReportsPage() {
                             </div>
                           </td>
 
-                          {/* Column 3: Dates */}
+                          {/* 3. Dates */}
                           <td className="py-2.5 px-3 whitespace-nowrap border-r border-[#E8EFEA] dark:border-[#103D33]">
                             <div className="text-xs text-[#1F2E28] dark:text-white font-medium">
                               {formatDisplayDates(stay.checkIn, stay.checkOut)}
@@ -515,15 +504,15 @@ export default function StayHistoryAndReportsPage() {
                             </div>
                           </td>
 
-                          {/* Column 4: Room Fare */}
+                          {/* 4. Room Fare */}
                           <td className="py-2.5 px-3 text-right font-mono text-xs font-medium text-[#1F2E28] dark:text-white border-r border-[#E8EFEA] dark:border-[#103D33]">
                             Rs. {stay.roomCharges.toLocaleString()}
                           </td>
 
-                          {/* Column 5: Room Orders */}
+                          {/* 5. Orders */}
                           <td className="py-2.5 px-3 text-right font-mono text-xs font-medium border-r border-[#E8EFEA] dark:border-[#103D33]">
                             {stay.cafeTotal > 0 ? (
-                              <span className="text-[#0B3D32] dark:text-emerald-400">
+                              <span className="text-[#0B3D32] dark:text-emerald-400 font-bold">
                                 Rs. {stay.cafeTotal.toLocaleString()}
                               </span>
                             ) : (
@@ -531,90 +520,98 @@ export default function StayHistoryAndReportsPage() {
                             )}
                           </td>
 
-                          {/* Column 6: Total */}
+                          {/* 6. Total */}
                           <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#1F2E28] dark:text-white border-r border-[#E8EFEA] dark:border-[#103D33]">
                             Rs. {stay.totalCharges.toLocaleString()}
                           </td>
 
-                          {/* Column 7: Paid & Balance */}
+                          {/* 7. Paid & Balance */}
                           <td className="py-2.5 px-3 text-right whitespace-nowrap border-r border-[#E8EFEA] dark:border-[#103D33]">
                             <div className="font-mono text-xs font-medium text-[#1F2E28] dark:text-white">
                               Rs. {stay.totalPaid.toLocaleString()}
                             </div>
                             {stay.balanceDue === 0 ? (
-                              <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                                 Paid
                               </span>
-                            ) : stay.totalPaid > 0 ? (
-                              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                                Due: Rs. {stay.balanceDue.toLocaleString()}
-                              </span>
                             ) : (
-                              <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
-                                Due: Rs. {stay.totalCharges.toLocaleString()}
+                              <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                                Due: Rs. {stay.balanceDue.toLocaleString()}
                               </span>
                             )}
                           </td>
 
-                          {/* Column 8: Status */}
+                          {/* 8. Status */}
                           <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E8EFEA] dark:border-[#103D33]">
                             {isCheckedIn && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-[#0E362C] dark:text-emerald-300 dark:border-[#145447]">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-[#0E362C] dark:text-emerald-300">
                                 In-House
                               </span>
                             )}
                             {isReserved && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
                                 Reserved
                               </span>
                             )}
                             {isCheckedOut && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300">
                                 Completed
+                              </span>
+                            )}
+                            {isCancelled && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300">
+                                Cancelled
+                              </span>
+                            )}
+                            {isNoShow && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300">
+                                No-Show
                               </span>
                             )}
                           </td>
 
-                          {/* Column 9: Action */}
-                          <td className="py-2 px-3 text-right">
-                            <Link
-                              href={`/reservations/${stay.bookingId}`}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] border border-[#CBD5D0] bg-[#EEF4F1] hover:bg-[#DDE9E3] text-[#0B3D32] hover:border-[#0B3D32] dark:border-[#145447] dark:bg-[#0B3D32]/40 dark:text-[#E5EEE9] dark:hover:text-white dark:hover:bg-[#0B3D32] transition-colors shadow-2xs group"
-                              title="View stay details & folio"
-                              aria-label="View Details"
+                          {/* 9. View Details Action (In-Place Modal) */}
+                          <td className="py-2 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const fullBooking = bookings.find((b) => b.id === stay.bookingId);
+                                setSelectedBookingForDetails(fullBooking || null);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#EEF4F1] hover:bg-[#0B3D32] hover:text-white text-[#0B3D32] text-xs font-bold transition-all shadow-2xs dark:bg-[#0B3D32]/40 dark:text-emerald-300 dark:hover:bg-emerald-600 dark:hover:text-white cursor-pointer"
                             >
-                              <Eye className="w-4 h-4 transition-transform group-hover:scale-110 text-[#0B3D32] dark:text-[#E5EEE9]" />
-                            </Link>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View Details</span>
+                            </button>
                           </td>
                         </tr>
                       );
                     })
                   )}
                 </tbody>
+
+                {/* Ledger Summary Footer */}
                 {filteredStays.length > 0 && (
-                  <tfoot className="bg-[#FAFBF9] dark:bg-[#061B16] border-t-2 border-[#DCE3DF] dark:border-[#145447] text-[#1F2E28] dark:text-white font-bold text-xs">
+                  <tfoot className="bg-[#FAFBF9] dark:bg-[#061B16] font-bold text-xs border-t-2 border-[#DCE3DF] dark:border-[#145447]">
                     <tr>
-                      <td colSpan={3} className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">
-                        <span className="text-[#64736C] dark:text-[#A4B8AE] text-[11px] uppercase tracking-wider font-semibold">
-                          Total ({filteredStays.length} {filteredStays.length === 1 ? 'Stay' : 'Stays'})
-                        </span>
+                      <td colSpan={3} className="py-2.5 px-3 text-[#24352F] dark:text-white border-r border-[#DCE3DF] dark:border-[#145447]">
+                        TOTAL ({filteredStays.length} Stays)
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono border-r border-[#DCE3DF] dark:border-[#145447]">
+                      <td className="py-2.5 px-3 text-right font-mono text-[#24352F] dark:text-white border-r border-[#DCE3DF] dark:border-[#145447]">
                         Rs. {stayTotals.roomCharges.toLocaleString()}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono border-r border-[#DCE3DF] dark:border-[#145447] text-[#0B3D32] dark:text-emerald-400">
+                      <td className="py-2.5 px-3 text-right font-mono text-[#0B3D32] dark:text-emerald-400 border-r border-[#DCE3DF] dark:border-[#145447]">
                         Rs. {stayTotals.cafeTotal.toLocaleString()}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono border-r border-[#DCE3DF] dark:border-[#145447]">
+                      <td className="py-2.5 px-3 text-right font-mono text-[#24352F] dark:text-white border-r border-[#DCE3DF] dark:border-[#145447]">
                         Rs. {stayTotals.totalCharges.toLocaleString()}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono border-r border-[#DCE3DF] dark:border-[#145447] text-emerald-700 dark:text-emerald-400">
+                      <td className="py-2.5 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400 border-r border-[#DCE3DF] dark:border-[#145447]">
                         Rs. {stayTotals.totalPaid.toLocaleString()}
                       </td>
-                      <td className="py-2.5 px-3 text-center border-r border-[#DCE3DF] dark:border-[#145447] text-[#64736C] dark:text-[#A4B8AE] text-[11px] font-normal">
-                        —
+                      <td colSpan={2} className="py-2.5 px-3 text-center text-xs font-semibold text-rose-600 dark:text-rose-400">
+                        {stayTotals.balanceDue > 0 ? `Rs. ${stayTotals.balanceDue.toLocaleString()} Due` : 'Fully Settled'}
                       </td>
-                      <td className="py-2.5 px-3"></td>
                     </tr>
                   </tfoot>
                 )}
@@ -625,423 +622,79 @@ export default function StayHistoryAndReportsPage() {
       )}
 
       {/* =======================================================================
-          TAB 2: PAYMENT HISTORY (CASHIERING AUDIT TRAIL)
+          TAB 2: PAYMENT HISTORY
           ======================================================================= */}
       {activeTab === 'payments' && (
         <div className="space-y-4">
-          {/* Filter Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-[#071F1A] p-2.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447]">
-            {/* Search Box - Professional enclosed input with search icon & clear X */}
-            <div className="relative w-full md:w-80 lg:w-96">
-              <Search className="w-4 h-4 text-[#879B90] dark:text-[#647F75] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="relative w-full md:w-80">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search receipt #, guest, room, or note..."
-                className="w-full h-8.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] py-1.5 pl-9 pr-8 text-xs font-medium text-[#24352F] shadow-2xs transition-all placeholder:text-[#879B90] focus:border-[#0B3D32] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:placeholder:text-[#647F75] dark:focus:border-emerald-500"
+                placeholder="Search receipt, guest, room, notes..."
+                className="w-full h-8.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] py-1.5 pl-9 pr-3 text-xs font-medium dark:border-[#145447] dark:bg-[#061B16] dark:text-white"
               />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 rounded cursor-pointer"
-                  title="Clear search"
-                  aria-label="Clear search"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Payment Method Filter */}
+            <div className="flex items-center gap-2">
               <select
                 value={selectedMethod}
                 onChange={(e) => setSelectedMethod(e.target.value)}
-                className="h-8.5 text-xs font-medium px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white cursor-pointer"
+                className="h-8.5 text-xs font-semibold px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] dark:border-[#145447] dark:bg-[#061B16] dark:text-white"
               >
-                <option value="ALL">All Methods</option>
+                <option value="ALL">All Payment Methods</option>
                 <option value="CASH">Cash</option>
-                <option value="CARD">Debit / Credit Card</option>
-                <option value="UPI_QR">UPI / QR</option>
+                <option value="CARD">Credit/Debit Card</option>
+                <option value="UPI_QR">UPI / Fonepay QR</option>
                 <option value="ESEWA_KHALTI">eSewa / Khalti</option>
                 <option value="BANK_TRANSFER">Bank Transfer</option>
               </select>
-
-              {/* Transaction Type Filter */}
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="h-8.5 text-xs font-medium px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white cursor-pointer"
-              >
-                <option value="ALL">All Types</option>
-                <option value="ADVANCE">Advance Deposit</option>
-                <option value="SETTLEMENT">Final Settlement</option>
-                <option value="PARTIAL">Partial Payment</option>
-              </select>
             </div>
           </div>
 
-          {/* Payments Table */}
           <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-[#FAFBF9] dark:bg-[#061B16] border-b border-[#DCE3DF] dark:border-[#145447] text-[#64736C] dark:text-[#A4B8AE] font-semibold uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">RECEIPT</th>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">GUEST & ROOM</th>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">METHOD</th>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">TYPE</th>
-                    <th className="py-2.5 px-3 text-right border-r border-[#DCE3DF] dark:border-[#145447]">AMOUNT</th>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">NOTES</th>
-                    <th className="py-2.5 px-3 text-right w-12"><span className="sr-only">Actions</span></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E8EFEA] dark:divide-[#103D33]">
-                  {filteredPayments.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                        No payment transactions found matching search criteria.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredPayments.map((p) => (
-                      <tr key={p.id} className="hover:bg-[#F2F7F4] dark:hover:bg-[#0A2E26] even:bg-[#FAFBF9]/80 dark:even:bg-[#061B16]/60 transition-colors">
-                        <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          <span className="font-mono font-medium text-[#1F2E28] dark:text-white block">
-                            {p.receiptNo}
-                          </span>
-                          <span className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">{p.date}</span>
-                        </td>
-
-                        <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          <div className="font-semibold text-[#1F2E28] dark:text-white">
-                            {p.guestName}
-                          </div>
-                          <span className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
-                            Room {p.roomNumber} • <span className="font-mono">{p.bookingCode}</span>
-                          </span>
-                        </td>
-
-                        <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] bg-[#EEF4F1] border border-[#DCE3DF] dark:bg-[#0E362C] dark:border-[#145447] text-[11px] font-medium text-[#24352F] dark:text-slate-200">
-                            {p.method === 'CASH' && 'Cash'}
-                            {p.method === 'CARD' && 'Card'}
-                            {p.method === 'UPI_QR' && 'UPI / QR'}
-                            {p.method === 'ESEWA_KHALTI' && 'eSewa / Khalti'}
-                            {p.method === 'BANK_TRANSFER' && 'Bank Transfer'}
-                          </span>
-                        </td>
-
-                        <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          <span
-                            className={cn(
-                              'inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-semibold',
-                              p.type === 'SETTLEMENT'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                                : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
-                            )}
-                          >
-                            {p.type === 'SETTLEMENT' ? 'Settlement' : p.type === 'ADVANCE' ? 'Advance' : 'Partial'}
-                          </span>
-                        </td>
-
-                        <td className="py-2.5 px-3 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-400 border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          Rs. {p.amount.toLocaleString()}
-                        </td>
-
-                        <td className="py-2.5 px-3 text-[#64736C] dark:text-[#A4B8AE] max-w-xs truncate border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          {p.notes || '—'}
-                        </td>
-
-                        <td className="py-2 px-3 text-right">
-                          <Link
-                            href={`/reservations/${p.bookingId}`}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] border border-[#CBD5D0] bg-[#EEF4F1] hover:bg-[#DDE9E3] text-[#0B3D32] hover:border-[#0B3D32] dark:border-[#145447] dark:bg-[#0B3D32]/40 dark:text-[#E5EEE9] dark:hover:text-white dark:hover:bg-[#0B3D32] transition-all cursor-pointer shadow-2xs group"
-                            title="View transaction & folio"
-                            aria-label="View Details"
-                          >
-                            <Eye className="w-4 h-4 transition-transform group-hover:scale-110 text-[#0B3D32] dark:text-[#E5EEE9]" />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-                {filteredPayments.length > 0 && (
-                  <tfoot className="bg-[#FAFBF9] dark:bg-[#061B16] border-t-2 border-[#DCE3DF] dark:border-[#145447] text-[#1F2E28] dark:text-white font-bold text-xs">
-                    <tr>
-                      <td colSpan={4} className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">
-                        <span className="text-[#64736C] dark:text-[#A4B8AE] text-[11px] uppercase tracking-wider font-semibold">
-                          Total Collected ({filteredPayments.length} {filteredPayments.length === 1 ? 'Transaction' : 'Transactions'})
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono border-r border-[#DCE3DF] dark:border-[#145447] text-emerald-700 dark:text-emerald-400">
-                        Rs. {paymentTotal.toLocaleString()}
-                      </td>
-                      <td className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]"></td>
-                      <td className="py-2.5 px-3"></td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =======================================================================
-          TAB 3: CANCELLATIONS LOG
-          ======================================================================= */}
-      {activeTab === 'cancellations' && (
-        <div className="space-y-4">
-          {/* Filter Bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-[#071F1A] p-2.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447]">
-            {/* Search Box - Professional enclosed input with search icon & clear X */}
-            <div className="relative w-full md:w-80 lg:w-96">
-              <Search className="w-4 h-4 text-[#879B90] dark:text-[#647F75] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search booking code, guest name, room, or reason..."
-                className="w-full h-8.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] py-1.5 pl-9 pr-8 text-xs font-medium text-[#24352F] shadow-2xs transition-all placeholder:text-[#879B90] focus:border-[#0B3D32] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:placeholder:text-[#647F75] dark:focus:border-emerald-500"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 rounded cursor-pointer"
-                  title="Clear search"
-                  aria-label="Clear search"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={selectedRoom}
-                onChange={(e) => setSelectedRoom(e.target.value)}
-                className="h-8.5 text-xs font-medium px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white cursor-pointer"
-              >
-                <option value="ALL">All Rooms</option>
-                {AVAILABLE_ROOMS_CATALOG.map((r) => (
-                  <option key={r.id} value={r.number}>
-                    Room {r.number}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="h-8.5 text-xs font-medium px-2.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white cursor-pointer"
-              >
-                <option value="ALL">All Refunds</option>
-                <option value="FULL_REFUND">Full Refund</option>
-                <option value="NO_DEPOSIT">No Deposit</option>
-                <option value="NO_REFUND">Deposit Retained</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Cancellations Table */}
-          <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#FAFBF9] dark:bg-[#061B16] border-b border-[#DCE3DF] dark:border-[#145447] text-[#64736C] dark:text-[#A4B8AE] font-semibold uppercase tracking-wider text-[11px]">
-                  <tr>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">BOOKING REF</th>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">GUEST</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">RECEIPT NO</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">GUEST NAME</th>
                     <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">ROOM</th>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">DATES</th>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">CANCELLED ON</th>
-                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">REASON</th>
-                    <th className="py-2.5 px-3 text-right border-r border-[#DCE3DF] dark:border-[#145447]">ORIGINAL VALUE</th>
-                    <th className="py-2.5 px-3">REFUND RESOLUTION</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">DATE</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">METHOD</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">PAYMENT TYPE</th>
+                    <th className="py-2.5 px-3 text-right">AMOUNT (Rs.)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8EFEA] dark:divide-[#103D33]">
-                  {filteredCancellations.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-500 dark:text-slate-400">
-                        No cancellations logged matching criteria.
+                  {filteredPayments.map((p) => (
+                    <tr key={p.id} className="hover:bg-[#F2F7F4] dark:hover:bg-[#0A2E26]">
+                      <td className="py-2.5 px-3 font-mono font-bold text-[#0B3D32] dark:text-emerald-400 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        {p.receiptNo}
                       </td>
-                    </tr>
-                  ) : (
-                    filteredCancellations.map((c) => (
-                      <tr key={c.id} className="hover:bg-[#F2F7F4] dark:hover:bg-[#0A2E26] even:bg-[#FAFBF9]/80 dark:even:bg-[#061B16]/60 transition-colors">
-                        <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          <span className="font-mono font-medium text-rose-700 dark:text-rose-400 block">
-                            {c.bookingCode}
-                          </span>
-                        </td>
-
-                        <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          <span className="font-semibold text-[#1F2E28] dark:text-white block">{c.guestName}</span>
-                          <span className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">{c.guestPhone}</span>
-                        </td>
-
-                        <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          <span className="font-semibold text-[#1F2E28] dark:text-white block">Room {c.roomNumber}</span>
-                          <span className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">{c.roomType}</span>
-                        </td>
-
-                        <td className="py-2.5 px-3 whitespace-nowrap border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          <div className="text-xs text-[#1F2E28] dark:text-white font-medium">
-                            {formatDisplayDates(c.checkIn, c.checkOut)}
-                          </div>
-                          <div className="text-[11px] text-[#879B90] dark:text-[#647F75]">
-                            {c.nights} {c.nights === 1 ? 'night' : 'nights'}
-                          </div>
-                        </td>
-
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#64736C] dark:text-[#A4B8AE] border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          {c.cancelledAt}
-                        </td>
-
-                        <td className="py-2.5 px-3 text-[#24352F] dark:text-slate-200 text-xs max-w-xs border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          {c.reason}
-                        </td>
-
-                        <td className="py-2.5 px-3 text-right font-mono text-xs font-semibold text-[#64736C] dark:text-[#A4B8AE] border-r border-[#E8EFEA] dark:border-[#103D33]">
-                          Rs. {c.originalAmount.toLocaleString()}
-                        </td>
-
-                        <td className="py-2.5 px-3">
-                          {c.refundStatus === 'FULL_REFUND' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
-                              Full Refund (Rs. {c.refundAmount.toLocaleString()})
-                            </span>
-                          )}
-                          {c.refundStatus === 'NO_DEPOSIT' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                              No Deposit
-                            </span>
-                          )}
-                          {c.refundStatus === 'NO_REFUND' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
-                              Retained
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-                {filteredCancellations.length > 0 && (
-                  <tfoot className="bg-[#FAFBF9] dark:bg-[#061B16] border-t-2 border-[#DCE3DF] dark:border-[#145447] text-[#1F2E28] dark:text-white font-bold text-xs">
-                    <tr>
-                      <td colSpan={6} className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">
-                        <span className="text-[#64736C] dark:text-[#A4B8AE] text-[11px] uppercase tracking-wider font-semibold">
-                          Total ({filteredCancellations.length} {filteredCancellations.length === 1 ? 'Cancellation' : 'Cancellations'})
+                      <td className="py-2.5 px-3 font-semibold text-[#1F2E28] dark:text-white border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        {p.guestName}
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        Room {p.roomNumber}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        {p.date}
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        <span className="font-semibold text-[#24352F] dark:text-slate-200">
+                          {p.method.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono border-r border-[#DCE3DF] dark:border-[#145447] text-rose-700 dark:text-rose-400">
-                        Rs. {cancellationTotal.toLocaleString()}
+                      <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        <span className="px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          {p.type}
+                        </span>
                       </td>
-                      <td className="py-2.5 px-3"></td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =======================================================================
-          TAB 4: REVENUE REPORTS & YIELD PERFORMANCE
-          ======================================================================= */}
-      {activeTab === 'revenue' && (
-        <div className="space-y-5">
-          {/* Executive KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] shadow-2xs">
-              <span className="text-xs font-semibold text-[#64736C] dark:text-[#A4B8AE]">Total Gross Revenue</span>
-              <p className="text-2xl font-bold font-mono text-[#0B3D32] dark:text-emerald-400 mt-1">
-                Rs. {revenueMetrics.totalGrossRevenue.toLocaleString()}
-              </p>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-1.5">
-                +14.2% vs previous period
-              </span>
-            </div>
-
-            <div className="p-4 rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] shadow-2xs">
-              <span className="text-xs font-semibold text-[#64736C] dark:text-[#A4B8AE]">Room Lodging Revenue</span>
-              <p className="text-2xl font-bold font-mono text-[#24352F] dark:text-white mt-1">
-                Rs. {revenueMetrics.roomRevenue.toLocaleString()}
-              </p>
-              <span className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] block mt-1.5">
-                {Math.round((revenueMetrics.roomRevenue / (revenueMetrics.totalGrossRevenue || 1)) * 100)}% of total gross
-              </span>
-            </div>
-
-            <div className="p-4 rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] shadow-2xs">
-              <span className="text-xs font-semibold text-[#64736C] dark:text-[#A4B8AE]">Café & Dining Revenue</span>
-              <p className="text-2xl font-bold font-mono text-[#24352F] dark:text-white mt-1">
-                Rs. {revenueMetrics.cafeRevenue.toLocaleString()}
-              </p>
-              <span className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] block mt-1.5">
-                {Math.round((revenueMetrics.cafeRevenue / (revenueMetrics.totalGrossRevenue || 1)) * 100)}% of total gross
-              </span>
-            </div>
-
-            <div className="p-4 rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] shadow-2xs">
-              <span className="text-xs font-semibold text-[#64736C] dark:text-[#A4B8AE]">Average Daily Rate (ADR)</span>
-              <p className="text-2xl font-bold font-mono text-amber-700 dark:text-amber-400 mt-1">
-                Rs. {revenueMetrics.averageDailyRate.toLocaleString()}
-              </p>
-              <span className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] block mt-1.5">
-                RevPAR: Rs. {revenueMetrics.revPar.toLocaleString()} • {revenueMetrics.occupancyRate}% Occupancy
-              </span>
-            </div>
-          </div>
-
-          {/* Revenue Breakdown by Category */}
-          <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] p-4 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
-                  Revenue Yield by Room Category
-                </h3>
-                <p className="text-xs text-[#64736C] dark:text-[#A4B8AE]">
-                  Category performance, nights sold, and lodging yield.
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#FAFBF9] dark:bg-[#061B16] border-y border-[#DCE3DF] dark:border-[#145447] text-[#64736C] dark:text-[#A4B8AE] font-semibold uppercase tracking-wider text-[11px]">
-                  <tr>
-                    <th className="py-2.5 px-3">ROOM CATEGORY</th>
-                    <th className="py-2.5 px-3">INVENTORY ROOMS</th>
-                    <th className="py-2.5 px-3">NIGHTS LODGED</th>
-                    <th className="py-2.5 px-3">AVG RATE / NIGHT</th>
-                    <th className="py-2.5 px-3 text-right">CATEGORY REVENUE</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F0F4F2] dark:divide-[#103D33]">
-                  {revenueMetrics.categoryBreakdown.map((cat) => (
-                    <tr key={cat.category} className="hover:bg-[#FAFBF9] dark:hover:bg-[#0A2E26]/50">
-                      <td className="py-3 px-3 font-bold text-[#24352F] dark:text-white">
-                        {cat.category}
-                      </td>
-                      <td className="py-3 px-3 text-[#64736C] dark:text-[#A4B8AE]">
-                        {cat.roomsCount} Suites
-                      </td>
-                      <td className="py-3 px-3 font-mono font-medium text-[#24352F] dark:text-white">
-                        {cat.nightsSold} Nights
-                      </td>
-                      <td className="py-3 px-3 font-mono text-[#64736C] dark:text-[#A4B8AE]">
-                        Rs. {cat.avgRate.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold text-right text-emerald-700 dark:text-emerald-400">
-                        Rs. {cat.roomRevenue.toLocaleString()}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                        Rs. {p.amount.toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -1049,87 +702,365 @@ export default function StayHistoryAndReportsPage() {
               </table>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Payment Collection Channels Breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] shadow-2xs space-y-3">
-              <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
-                Cashiering Channel Split
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center py-1.5 border-b border-[#F0F4F2] dark:border-[#103D33]">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">Cash Collections</span>
-                  <span className="font-mono font-bold text-[#24352F] dark:text-white">
-                    Rs. {revenueMetrics.paymentMethodBreakdown.cash.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-[#F0F4F2] dark:border-[#103D33]">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">Bank Transfers</span>
-                  <span className="font-mono font-bold text-[#24352F] dark:text-white">
-                    Rs. {revenueMetrics.paymentMethodBreakdown.bankTransfer.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-[#F0F4F2] dark:border-[#103D33]">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">Credit / Debit Card (POS)</span>
-                  <span className="font-mono font-bold text-[#24352F] dark:text-white">
-                    Rs. {revenueMetrics.paymentMethodBreakdown.card.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-[#F0F4F2] dark:border-[#103D33]">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">UPI / Fonepay QR</span>
-                  <span className="font-mono font-bold text-[#24352F] dark:text-white">
-                    Rs. {revenueMetrics.paymentMethodBreakdown.upiQr.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1.5">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">eSewa / Khalti Wallets</span>
-                  <span className="font-mono font-bold text-[#24352F] dark:text-white">
-                    Rs. {revenueMetrics.paymentMethodBreakdown.esewaKhalti.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] shadow-2xs space-y-3">
-              <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
-                Operational Audit Snapshot
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center py-1.5 border-b border-[#F0F4F2] dark:border-[#103D33]">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">Total Checked-out Guests</span>
-                  <span className="font-mono font-bold text-[#24352F] dark:text-white">
-                    {revenueMetrics.completedStays} Stays
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-[#F0F4F2] dark:border-[#103D33]">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">Current In-House Stays</span>
-                  <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                    {revenueMetrics.inHouseStays} Active
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-[#F0F4F2] dark:border-[#103D33]">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">Upcoming Reservations</span>
-                  <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
-                    {revenueMetrics.reservedStays} Booked
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-[#F0F4F2] dark:border-[#103D33]">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">Cancelled Bookings Log</span>
-                  <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
-                    {revenueMetrics.totalCancellations} Cancelled ({revenueMetrics.cancellationRate}%)
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1.5">
-                  <span className="text-[#64736C] dark:text-[#A4B8AE]">Total Refunds Disbursed</span>
-                  <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                    Rs. {revenueMetrics.totalRefunds.toLocaleString()}
-                  </span>
-                </div>
-              </div>
+      {/* =======================================================================
+          TAB 3: CANCELLATIONS
+          ======================================================================= */}
+      {activeTab === 'cancellations' && (
+        <div className="space-y-4">
+          <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] overflow-hidden shadow-2xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#FAFBF9] dark:bg-[#061B16] border-b border-[#DCE3DF] dark:border-[#145447] text-[#64736C] dark:text-[#A4B8AE] font-semibold uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">BOOKING ID</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">GUEST NAME</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">ROOM</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">ORIGINAL DATES</th>
+                    <th className="py-2.5 px-3 border-r border-[#DCE3DF] dark:border-[#145447]">REASON</th>
+                    <th className="py-2.5 px-3 text-right border-r border-[#DCE3DF] dark:border-[#145447]">REFUND</th>
+                    <th className="py-2.5 px-3 text-center">REFUND STATUS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E8EFEA] dark:divide-[#103D33]">
+                  {filteredCancellations.map((c) => (
+                    <tr key={c.id} className="hover:bg-[#F2F7F4] dark:hover:bg-[#0A2E26]">
+                      <td className="py-2.5 px-3 font-mono font-bold text-rose-700 dark:text-rose-400 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        {c.bookingCode}
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-[#1F2E28] dark:text-white border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        {c.guestName}
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        Room {c.roomNumber}
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        {c.checkIn} – {c.checkOut}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        {c.reason}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-[#1F2E28] dark:text-white border-r border-[#E8EFEA] dark:border-[#103D33]">
+                        Rs. {c.refundAmount.toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          {c.refundStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
+
+      {/* =======================================================================
+          TAB 4: REVENUE REPORTS & KPI DASHBOARD
+          ======================================================================= */}
+      {activeTab === 'revenue' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E]">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Gross Invoiced
+              </span>
+              <span className="text-xl font-bold font-mono text-[#0B3D32] dark:text-emerald-400 mt-1 block">
+                Rs. {revenueMetrics.totalGrossRevenue.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E]">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Total Collections
+              </span>
+              <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">
+                Rs. {revenueMetrics.totalCollected.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E]">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Balance Due
+              </span>
+              <span className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-1 block">
+                Rs. {revenueMetrics.totalBalanceDue.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E]">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Occupancy Rate
+              </span>
+              <span className="text-xl font-bold font-mono text-[#24352F] dark:text-white mt-1 block">
+                {revenueMetrics.occupancyRate}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =======================================================================
+          IN-PLACE "VIEW DETAILS" MODAL
+          Shows Complete Stay, Food Orders, and Payment History without leaving page
+          ======================================================================= */}
+      {selectedBookingForDetails && (() => {
+        const b = selectedBookingForDetails;
+        const fin = getBookingFinancials(b);
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xs animate-in fade-in duration-150"
+            onClick={() => setSelectedBookingForDetails(null)}
+          >
+            <div
+              className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-[4px] bg-white dark:bg-[#07241E] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Top Header */}
+              <div className="p-4 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white">
+                    <Receipt className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
+                        Stay Folio: {b.guest.firstName} {b.guest.lastName}
+                      </h3>
+                      <span className="font-mono text-xs font-bold text-[#0B3D32] dark:text-emerald-400">
+                        {b.bookingCode}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Room {b.room.number} ({b.room.type}) · {b.checkIn} to {b.checkOut} ({b.nights} {b.nights === 1 ? 'night' : 'nights'})
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/reservations/${b.id}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] bg-[#EEF4F1] hover:bg-[#E2ECE7] text-[#0B3D32] text-xs font-bold transition-colors dark:bg-[#0E362C] dark:hover:bg-[#144A3C] dark:text-emerald-300"
+                  >
+                    <span>Full Folio</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBookingForDetails(null)}
+                    className="p-1 rounded-[2px] text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body: Scrollable */}
+              <div className="p-4 overflow-y-auto space-y-4 custom-scrollbar text-xs">
+                {/* Financial Summary Cards Strip */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="p-2.5 rounded-[3px] bg-[#FAFBF9] dark:bg-[#061B16] border border-[#E5EEE9] dark:border-[#145447]">
+                    <span className="text-[10px] text-slate-400 block font-semibold">ROOM FARE</span>
+                    <span className="font-mono font-bold text-sm text-[#24352F] dark:text-white">
+                      Rs. {fin.roomCharges.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-[3px] bg-[#FAFBF9] dark:bg-[#061B16] border border-[#E5EEE9] dark:border-[#145447]">
+                    <span className="text-[10px] text-slate-400 block font-semibold">FOOD & ORDERS</span>
+                    <span className="font-mono font-bold text-sm text-[#0B3D32] dark:text-emerald-400">
+                      Rs. {fin.cafeTotal.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-[3px] bg-[#FAFBF9] dark:bg-[#061B16] border border-[#E5EEE9] dark:border-[#145447]">
+                    <span className="text-[10px] text-slate-400 block font-semibold">TOTAL CHARGES</span>
+                    <span className="font-mono font-bold text-sm text-[#24352F] dark:text-white">
+                      Rs. {fin.totalCharges.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-[3px] bg-[#FAFBF9] dark:bg-[#061B16] border border-[#E5EEE9] dark:border-[#145447]">
+                    <span className="text-[10px] text-slate-400 block font-semibold">BALANCE DUE</span>
+                    {fin.balanceDue > 0 ? (
+                      <span className="font-mono font-bold text-sm text-rose-600 dark:text-rose-400">
+                        Rs. {fin.balanceDue.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                        Settled (Paid)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Section 1: Guest & Room Details */}
+                <div className="p-3 rounded-[3px] border border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] space-y-2">
+                  <h4 className="text-[11px] font-bold text-[#0B3D32] dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5" />
+                    <span>Guest & Stay Information</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">Full Name:</span>
+                      <strong className="text-[#24352F] dark:text-white">{b.guest.firstName} {b.guest.lastName}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">Phone:</span>
+                      <span className="font-mono text-[#24352F] dark:text-white">{b.guest.phone}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">Email:</span>
+                      <span className="text-[#24352F] dark:text-white truncate block">{b.guest.email}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">Room Rate:</span>
+                      <span className="font-mono font-semibold">Rs. {b.room.pricePerNight.toLocaleString()}/night</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">AC / Bed:</span>
+                      <span>{b.room.acType} · {b.room.bedType}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">Status:</span>
+                      <span className="font-bold text-[#0B3D32] dark:text-emerald-300">{b.status}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Complete Food & Cafe Orders History */}
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-bold text-[#0B3D32] dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Utensils className="w-3.5 h-3.5" />
+                    <span>Room Service & Food Orders ({(b.cafeOrders || []).length})</span>
+                  </h4>
+
+                  {(!b.cafeOrders || b.cafeOrders.length === 0) ? (
+                    <div className="p-3 text-center text-slate-400 border border-dashed border-[#E5EEE9] dark:border-[#145447] rounded-[3px]">
+                      No food or room service orders placed during this stay.
+                    </div>
+                  ) : (
+                    <div className="rounded-[3px] border border-[#E5EEE9] dark:border-[#145447] overflow-hidden">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#FAFBF9] dark:bg-[#061B16] border-b border-[#E5EEE9] dark:border-[#145447] text-[10px] font-bold text-slate-500 uppercase">
+                          <tr>
+                            <th className="py-1.5 px-2.5">ORDER NO</th>
+                            <th className="py-1.5 px-2.5">TIME</th>
+                            <th className="py-1.5 px-2.5">ITEMS ORDERED</th>
+                            <th className="py-1.5 px-2.5 text-right">TOTAL</th>
+                            <th className="py-1.5 px-2.5 text-center">STATUS</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447]">
+                          {b.cafeOrders.map((ord) => (
+                            <tr key={ord.id}>
+                              <td className="py-2 px-2.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
+                                {ord.orderNumber}
+                              </td>
+                              <td className="py-2 px-2.5 text-slate-500 text-[11px]">
+                                {ord.timestamp}
+                              </td>
+                              <td className="py-2 px-2.5">
+                                {ord.items.map((i) => `${i.name} (×${i.quantity})`).join(', ')}
+                              </td>
+                              <td className="py-2 px-2.5 text-right font-mono font-semibold">
+                                Rs. {ord.subtotal.toLocaleString()}
+                              </td>
+                              <td className="py-2 px-2.5 text-center">
+                                <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                  {ord.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 3: Complete Payment & Transaction History */}
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-bold text-[#0B3D32] dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Receipt className="w-3.5 h-3.5" />
+                    <span>Payment & Settlement History ({(b.payments || []).length})</span>
+                  </h4>
+
+                  {(!b.payments || b.payments.length === 0) ? (
+                    <div className="p-3 text-center text-slate-400 border border-dashed border-[#E5EEE9] dark:border-[#145447] rounded-[3px]">
+                      No payments recorded yet for this booking.
+                    </div>
+                  ) : (
+                    <div className="rounded-[3px] border border-[#E5EEE9] dark:border-[#145447] overflow-hidden">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#FAFBF9] dark:bg-[#061B16] border-b border-[#E5EEE9] dark:border-[#145447] text-[10px] font-bold text-slate-500 uppercase">
+                          <tr>
+                            <th className="py-1.5 px-2.5">RECEIPT</th>
+                            <th className="py-1.5 px-2.5">DATE</th>
+                            <th className="py-1.5 px-2.5">METHOD</th>
+                            <th className="py-1.5 px-2.5">TYPE</th>
+                            <th className="py-1.5 px-2.5 text-right">AMOUNT PAID</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447]">
+                          {b.payments.map((p) => (
+                            <tr key={p.id}>
+                              <td className="py-2 px-2.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
+                                {p.receiptNo}
+                              </td>
+                              <td className="py-2 px-2.5 text-slate-500 text-[11px]">{p.date}</td>
+                              <td className="py-2 px-2.5 font-medium">{p.method.replace('_', ' ')}</td>
+                              <td className="py-2 px-2.5">
+                                <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                  {p.type}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2.5 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                                Rs. {p.amount.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-3 border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] flex items-center justify-between shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.info('Printing Stay Receipt', 'Sent to printer dialog.');
+                    window.print();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-semibold text-[#24352F] hover:bg-[#F2F6F4] dark:border-[#145447] dark:bg-[#07241E] dark:text-slate-200 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Receipt</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBookingForDetails(null)}
+                    className="px-4 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

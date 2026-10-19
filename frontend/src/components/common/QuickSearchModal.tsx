@@ -183,7 +183,7 @@ export const QuickSearchModal: React.FC<{ isOpen: boolean; onClose: () => void }
                     key={g.id}
                     onClick={() => {
                       onClose();
-                      router.push(`/guests?search=${encodeURIComponent(g.lastName)}`);
+                      router.push(`/reports?search=${encodeURIComponent(g.lastName)}`);
                     }}
                     className="flex items-center justify-between p-3 rounded-lg bg-[#F2F4F2] hover:bg-[#E8F2EE] border border-[#DCE3DF] dark:bg-[#071512]/60 dark:hover:bg-[#072D26] dark:border-[#145447] transition-all text-left group"
                   >

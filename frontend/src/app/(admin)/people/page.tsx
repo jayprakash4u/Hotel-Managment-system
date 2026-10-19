@@ -9,10 +9,10 @@ function PeopleRedirectContent() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/guests');
+    router.replace('/reports');
   }, [router]);
 
-  return <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-xs">Redirecting to Guests...</div>;
+  return <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-xs">Redirecting to Stay History & Reports...</div>;
 }
 
 export default function PeoplePage() {

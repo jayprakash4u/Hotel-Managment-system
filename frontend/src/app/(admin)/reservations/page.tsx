@@ -12,25 +12,34 @@ import {
   DoorOpen,
   Calendar,
   CheckCircle2,
+  XCircle,
+  AlertCircle,
   X,
   Eye,
   LayoutGrid,
   List,
   ArrowRight,
-  User,
-  Clock,
-  Sparkles,
+  Filter,
   BarChart3,
+  UserCheck,
+  UserX,
+  LogOut,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
+import { FrontDeskNavBoxes } from '@/components/common/FrontDeskNavBoxes';
 import {
   RoomBooking,
-  AVAILABLE_ROOMS_CATALOG,
   loadBookingsFromStorage,
   saveBookingsToStorage,
   getBookingFinancials,
+  getRelativeDate,
+  markBookingAsNoShow,
 } from './reservationsData';
+import { GuidedBookingModal } from '@/components/business/GuidedBookingModal';
+
+type StatusFilter = 'ALL' | 'RESERVED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
+type DateFilter = 'ALL' | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM';
 
 function RoomBookingsContent() {
   const router = useRouter();
@@ -40,31 +49,24 @@ function RoomBookingsContent() {
   const [bookings, setBookings] = useState<RoomBooking[]>(() => loadBookingsFromStorage());
 
   // Filter & Search states
-  const [activeTab, setActiveTab] = useState<'ALL' | 'CHECKED_IN' | 'RESERVED' | 'CHECKED_OUT'>('ALL');
+  const [activeTab, setActiveTab] = useState<StatusFilter>('ALL');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('ALL');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
-  // Modals
-  const [showNewBookingModal, setShowNewBookingModal] = useState(false);
+  // Guided Booking Modal State
+  const [showGuidedBookingModal, setShowGuidedBookingModal] = useState(false);
 
-  // New Booking Form States
-  const [newGuestName, setNewGuestName] = useState('');
-  const [newGuestPhone, setNewGuestPhone] = useState('');
-  const [newGuestEmail, setNewGuestEmail] = useState('');
-  const [newGuestAddress, setNewGuestAddress] = useState('');
-  const [newRoomId, setNewRoomId] = useState('rm-101');
-  const [newCheckIn, setNewCheckIn] = useState('2026-10-15');
-  const [newCheckOut, setNewCheckOut] = useState('2026-10-17');
-  const [newInitialStatus, setNewInitialStatus] = useState<'RESERVED' | 'CHECKED_IN'>('RESERVED');
-  const [newAdvancePaid, setNewAdvancePaid] = useState<string>('2000');
-  const [newPaymentMethod, setNewPaymentMethod] = useState<'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI'>('CASH');
+  const todayStr = useMemo(() => getRelativeDate(0), []);
 
-  // Persist bookings to localStorage
+  // Persist bookings to localStorage whenever they change
   useEffect(() => {
     saveBookingsToStorage(bookings);
   }, [bookings]);
 
-  // Navigate directly to dedicated page if query parameter 'code' exists
+  // Navigate directly to dedicated folio page if query parameter 'code' exists
   useEffect(() => {
     const codeParam = searchParams.get('code');
     if (codeParam) {
@@ -75,25 +77,48 @@ function RoomBookingsContent() {
     }
   }, [searchParams, bookings, router]);
 
-  // Tab counts
+  // Counts for each status tab
   const counts = useMemo(() => {
     return {
       all: bookings.length,
-      checkedIn: bookings.filter((b) => b.status === 'CHECKED_IN').length,
       reserved: bookings.filter((b) => b.status === 'RESERVED').length,
+      checkedIn: bookings.filter((b) => b.status === 'CHECKED_IN').length,
       checkedOut: bookings.filter((b) => b.status === 'CHECKED_OUT').length,
+      cancelled: bookings.filter((b) => b.status === 'CANCELLED').length,
+      noShow: bookings.filter((b) => b.status === 'NO_SHOW').length,
     };
   }, [bookings]);
 
   // Filtered Bookings List
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
-      // Tab filter
-      if (activeTab === 'CHECKED_IN' && b.status !== 'CHECKED_IN') return false;
-      if (activeTab === 'RESERVED' && b.status !== 'RESERVED') return false;
-      if (activeTab === 'CHECKED_OUT' && b.status !== 'CHECKED_OUT') return false;
+      // 1. Status Filter
+      if (activeTab !== 'ALL' && b.status !== activeTab) {
+        return false;
+      }
 
-      // Search query
+      // 2. Date Filter
+      if (dateFilter === 'TODAY') {
+        const touchesToday =
+          b.checkIn === todayStr ||
+          b.checkOut === todayStr ||
+          (b.checkIn <= todayStr && b.checkOut >= todayStr);
+        if (!touchesToday) return false;
+      } else if (dateFilter === 'THIS_WEEK') {
+        const weekEndStr = getRelativeDate(7);
+        const inThisWeek = b.checkIn <= weekEndStr && b.checkOut >= todayStr;
+        if (!inThisWeek) return false;
+      } else if (dateFilter === 'THIS_MONTH') {
+        const currentYearMonth = todayStr.substring(0, 7);
+        const inThisMonth =
+          b.checkIn.startsWith(currentYearMonth) || b.checkOut.startsWith(currentYearMonth);
+        if (!inThisMonth) return false;
+      } else if (dateFilter === 'CUSTOM') {
+        if (customStartDate && b.checkOut < customStartDate) return false;
+        if (customEndDate && b.checkIn > customEndDate) return false;
+      }
+
+      // 3. Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const fullName = `${b.guest.firstName} ${b.guest.lastName}`.toLowerCase();
@@ -110,7 +135,7 @@ function RoomBookingsContent() {
 
       return true;
     });
-  }, [bookings, activeTab, searchQuery]);
+  }, [bookings, activeTab, dateFilter, customStartDate, customEndDate, searchQuery, todayStr]);
 
   // Actions on Bookings
   const handleCheckInGuest = (bookingId: string) => {
@@ -150,89 +175,66 @@ function RoomBookingsContent() {
     toast.celebrate('Guest Checked Out!', 'Reservation settled and completed.');
   };
 
-  // Create New Booking Submit
-  const handleCreateNewBooking = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newGuestName.trim() || !newGuestPhone.trim()) {
-      toast.error('Required Fields Missing', 'Please enter customer name and phone number.');
-      return;
-    }
+  const handleMarkNoShow = (bookingId: string) => {
+    const updated = markBookingAsNoShow(bookings, bookingId);
+    setBookings(updated);
+    toast.warning('Marked as No-Show', 'Guest did not arrive. Room released for new bookings.');
+  };
 
-    const roomObj = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === newRoomId) || AVAILABLE_ROOMS_CATALOG[0];
-    const nights = Math.max(
-      1,
-      Math.ceil((new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24))
+  const handleCancelBooking = (bookingId: string) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, status: 'CANCELLED' as const } : b))
     );
-    const roomCharges = roomObj.pricePerNight * nights;
-    const advance = parseFloat(newAdvancePaid) || 0;
+    toast.info('Booking Cancelled', 'Reservation status updated to Cancelled.');
+  };
 
-    const nextCodeNum = 1000 + bookings.length + 1;
-    const newBookingCode = `BK-${nextCodeNum}`;
-
-    const names = newGuestName.trim().split(' ');
-    const firstName = names[0];
-    const lastName = names.slice(1).join(' ') || 'Guest';
-
-    const newBooking: RoomBooking = {
-      id: `bk-${Date.now()}`,
-      bookingCode: newBookingCode,
-      status: newInitialStatus,
-      guest: {
-        id: `gst-${Date.now()}`,
-        firstName,
-        lastName,
-        phone: newGuestPhone.trim(),
-        email: newGuestEmail.trim() || `${newGuestPhone.trim()}@guest.hotel`,
-        address: newGuestAddress.trim() || 'Kathmandu, Nepal',
-        idType: 'Citizenship',
-        idNumber: 'Pending',
-        country: 'Nepal',
-        vipTier: 'STANDARD',
-      },
-      room: {
-        id: roomObj.id,
-        number: roomObj.number,
-        type: roomObj.type,
-        acType: roomObj.acType,
-        bedType: roomObj.bedType,
-        floorLevel: roomObj.floorLevel,
-        pricePerNight: roomObj.pricePerNight,
-      },
-      checkIn: newCheckIn,
-      checkOut: newCheckOut,
-      nights,
-      roomCharges,
-      cafeOrders: [],
-      payments:
-        advance > 0
-          ? [
-              {
-                id: `pay-${Date.now()}`,
-                receiptNo: `REC-${nextCodeNum}-A`,
-                date: 'Today, Advance',
-                amount: advance,
-                method: newPaymentMethod,
-                type: 'ADVANCE',
-                notes: 'Advance deposit at booking',
-              },
-            ]
-          : [],
-      bookingHistory: [],
-    };
-
-    setBookings((prev) => [newBooking, ...prev]);
-    setShowNewBookingModal(false);
-    // Reset form
-    setNewGuestName('');
-    setNewGuestPhone('');
-    setNewGuestEmail('');
-    setNewGuestAddress('');
-    setNewAdvancePaid('2000');
-    toast.celebrate('Booking Created!', `Assigned ${newBooking.room.number} (${newBookingCode}) to ${firstName} ${lastName}.`);
+  const renderStatusBadge = (status: RoomBooking['status']) => {
+    switch (status) {
+      case 'CHECKED_IN':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11px] font-bold bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-[#0E362C] dark:text-emerald-300 dark:border-[#145447]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Checked In
+          </span>
+        );
+      case 'RESERVED':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            Reserved
+          </span>
+        );
+      case 'CHECKED_OUT':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+            <CheckCircle2 className="w-3 h-3 text-slate-500" />
+            Checked Out
+          </span>
+        );
+      case 'CANCELLED':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+            <XCircle className="w-3 h-3 text-rose-500" />
+            Cancelled
+          </span>
+        );
+      case 'NO_SHOW':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
+            <AlertCircle className="w-3 h-3 text-purple-500" />
+            No-Show
+          </span>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-12 select-none">
+    <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
+      {/* Front Desk Option Boxes (Matching Hotel Setup) */}
+      <FrontDeskNavBoxes activeId="reservations" />
+
       {/* -----------------------------------------------------------------------
           TOP HEADER: Clean, Professional Page Title & Actions
           ----------------------------------------------------------------------- */}
@@ -241,13 +243,18 @@ function RoomBookingsContent() {
           <div className="flex h-8 w-8 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-700">
             <CalendarCheck className="w-4 h-4 text-white" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-[#24352F] dark:text-white font-heading">
-            Room Bookings
-          </h1>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-[#24352F] dark:text-white font-heading">
+              Bookings & Reservations
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Manage all reservations: reserved, checked in, checked out, cancelled, and no-shows
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* View switcher */}
+          {/* View switcher: Cards vs Table */}
           <div className="flex items-center rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] p-0.5 dark:border-[#145447] dark:bg-[#061B16]">
             <button
               type="button"
@@ -288,10 +295,10 @@ function RoomBookingsContent() {
             <span>Stay History & Reports</span>
           </Link>
 
-          {/* New Booking Button */}
+          {/* New Booking Button (Triggers Guided Flow) */}
           <button
             type="button"
-            onClick={() => setShowNewBookingModal(true)}
+            onClick={() => setShowGuidedBookingModal(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] text-white text-xs font-bold hover:bg-[#093027] transition-all shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -302,7 +309,7 @@ function RoomBookingsContent() {
 
       {/* -----------------------------------------------------------------------
           STATUS FILTER TABS & SEARCH BAR
-          Tabs: All, Checked In, Reserved, Checked Out
+          Supports: ALL, RESERVED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW
           ----------------------------------------------------------------------- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-[#071F1A] p-2.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
         {/* Status Filter Tabs */}
@@ -322,20 +329,6 @@ function RoomBookingsContent() {
 
           <button
             type="button"
-            onClick={() => setActiveTab('CHECKED_IN')}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold transition-colors cursor-pointer',
-              activeTab === 'CHECKED_IN'
-                ? 'bg-emerald-700 text-white shadow-2xs'
-                : 'text-[#4A6458] hover:bg-[#F0F4F2] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26]'
-            )}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            <span>Checked In ({counts.checkedIn})</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveTab('RESERVED')}
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold transition-colors cursor-pointer',
@@ -350,6 +343,20 @@ function RoomBookingsContent() {
 
           <button
             type="button"
+            onClick={() => setActiveTab('CHECKED_IN')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold transition-colors cursor-pointer',
+              activeTab === 'CHECKED_IN'
+                ? 'bg-emerald-700 text-white shadow-2xs'
+                : 'text-[#4A6458] hover:bg-[#F0F4F2] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26]'
+            )}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            <span>Checked In ({counts.checkedIn})</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('CHECKED_OUT')}
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold transition-colors cursor-pointer',
@@ -360,6 +367,34 @@ function RoomBookingsContent() {
           >
             <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
             <span>Checked Out ({counts.checkedOut})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('CANCELLED')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold transition-colors cursor-pointer',
+              activeTab === 'CANCELLED'
+                ? 'bg-rose-700 text-white shadow-2xs'
+                : 'text-[#4A6458] hover:bg-[#F0F4F2] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26]'
+            )}
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
+            <span>Cancelled ({counts.cancelled})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('NO_SHOW')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold transition-colors cursor-pointer',
+              activeTab === 'NO_SHOW'
+                ? 'bg-purple-700 text-white shadow-2xs'
+                : 'text-[#4A6458] hover:bg-[#F0F4F2] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26]'
+            )}
+          >
+            <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
+            <span>No-Show ({counts.noShow})</span>
           </button>
         </div>
 
@@ -386,7 +421,87 @@ function RoomBookingsContent() {
       </div>
 
       {/* -----------------------------------------------------------------------
-          ROOM BOOKING LIST: CARDS VIEW (Clean, Professional Page Navigation)
+          DATE FILTERS STRIP
+          Filters by: All Dates, Today, Next 7 Days, This Month, Custom Range
+          ----------------------------------------------------------------------- */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-[#FAFBF9] dark:bg-[#061B16] px-3 py-2 rounded-[3px] border border-[#E0E7E3] dark:border-[#145447] text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
+            <Filter className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+            <span>Stay Dates:</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {(
+              [
+                { id: 'ALL', label: 'All Dates' },
+                { id: 'TODAY', label: 'Today' },
+                { id: 'THIS_WEEK', label: 'Next 7 Days' },
+                { id: 'THIS_MONTH', label: 'This Month' },
+                { id: 'CUSTOM', label: 'Custom Range' },
+              ] as const
+            ).map((df) => (
+              <button
+                key={df.id}
+                type="button"
+                onClick={() => setDateFilter(df.id)}
+                className={cn(
+                  'px-2.5 py-1 rounded-[3px] text-xs font-semibold transition-colors cursor-pointer',
+                  dateFilter === df.id
+                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                    : 'bg-white dark:bg-[#07241E] text-slate-600 dark:text-slate-300 border border-[#DCE3DF] dark:border-[#145447] hover:bg-[#F2F6F4]'
+                )}
+              >
+                {df.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Custom Date Range Pickers (shown when 'CUSTOM' selected) */}
+        {dateFilter === 'CUSTOM' && (
+          <div className="flex items-center gap-2 animate-in fade-in duration-150">
+            <div className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300">
+              <span className="font-medium">From:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-2 py-0.5 rounded-[2px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] text-xs font-mono"
+              />
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300">
+              <span className="font-medium">To:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-2 py-0.5 rounded-[2px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] text-xs font-mono"
+              />
+            </div>
+            {(customStartDate || customEndDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                }}
+                className="text-[11px] text-slate-400 hover:text-slate-700 dark:hover:text-white underline cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="text-[11px] text-slate-500 dark:text-slate-400 ml-auto font-medium">
+          Showing <span className="font-bold text-[#0B3D32] dark:text-emerald-400">{filteredBookings.length}</span> of{' '}
+          {bookings.length} reservations
+        </div>
+      </div>
+
+      {/* -----------------------------------------------------------------------
+          ROOM BOOKING LIST: CARDS VIEW
           ----------------------------------------------------------------------- */}
       {viewMode === 'cards' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -394,7 +509,6 @@ function RoomBookingsContent() {
             const financials = getBookingFinancials(booking);
             const isCheckedIn = booking.status === 'CHECKED_IN';
             const isReserved = booking.status === 'RESERVED';
-            const isCheckedOut = booking.status === 'CHECKED_OUT';
 
             return (
               <div
@@ -429,26 +543,7 @@ function RoomBookingsContent() {
                     </div>
 
                     {/* Status Badge */}
-                    <div className="shrink-0">
-                      {isCheckedIn && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11px] font-bold bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-[#0E362C] dark:text-emerald-300 dark:border-[#145447]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Checked In
-                        </span>
-                      )}
-                      {isReserved && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                          Reserved
-                        </span>
-                      )}
-                      {isCheckedOut && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                          <CheckCircle2 className="w-3 h-3 text-slate-500" />
-                          Checked Out
-                        </span>
-                      )}
-                    </div>
+                    <div className="shrink-0">{renderStatusBadge(booking.status)}</div>
                   </div>
 
                   {/* Room Details Row */}
@@ -471,8 +566,17 @@ function RoomBookingsContent() {
                     <div className="flex items-center gap-1.5 text-xs text-[#52685E] dark:text-[#A4B8AE]">
                       <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span>
-                        {new Date(booking.checkIn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} –{' '}
-                        {new Date(booking.checkOut).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(booking.checkIn).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}{' '}
+                        –{' '}
+                        {new Date(booking.checkOut).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
                       </span>
                       <span className="font-semibold text-[#0B3D32] dark:text-emerald-400 ml-auto">
                         ({booking.nights} {booking.nights === 1 ? 'night' : 'nights'})
@@ -505,35 +609,59 @@ function RoomBookingsContent() {
                 </div>
 
                 {/* Footer Action: Dedicated Page Link + Quick Actions */}
-                <div className="pt-3 mt-3 border-t border-[#F0F4F2] dark:border-[#103D33] flex items-center gap-2">
+                <div className="pt-3 mt-3 border-t border-[#F0F4F2] dark:border-[#103D33] flex items-center gap-1.5 flex-wrap">
                   <Link
                     href={`/reservations/${booking.id}`}
-                    className="flex-1 py-1.5 px-3 rounded-[3px] bg-[#EEF4F1] hover:bg-[#E2ECE7] text-[#0B3D32] text-xs font-bold transition-colors dark:bg-[#0E362C] dark:hover:bg-[#144A3C] dark:text-emerald-300 flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 min-w-[100px] py-1.5 px-3 rounded-[3px] bg-[#EEF4F1] hover:bg-[#E2ECE7] text-[#0B3D32] text-xs font-bold transition-colors dark:bg-[#0E362C] dark:hover:bg-[#144A3C] dark:text-emerald-300 flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>View Details</span>
                     <ArrowRight className="w-3 h-3 text-[#0B3D32]/60 dark:text-emerald-300/60 ml-auto group-hover:translate-x-0.5 transition-transform" />
                   </Link>
 
-                  {/* Fast Action button based on status */}
+                  {/* Reserved Actions: Check In, No-Show, Cancel */}
                   {isReserved && (
-                    <button
-                      type="button"
-                      onClick={() => handleCheckInGuest(booking.id)}
-                      className="py-1.5 px-2.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
-                      title="Quick Check-In"
-                    >
-                      Check In
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleCheckInGuest(booking.id)}
+                        className="py-1.5 px-2.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer flex items-center gap-1"
+                        title="Check in guest today"
+                      >
+                        <UserCheck className="w-3 h-3" />
+                        <span>Check In</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleMarkNoShow(booking.id)}
+                        className="py-1.5 px-2 rounded-[3px] border border-purple-200 text-purple-700 hover:bg-purple-50 text-[11px] font-semibold transition-colors dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-950/40 cursor-pointer"
+                        title="Mark guest as No-Show"
+                      >
+                        No-Show
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCancelBooking(booking.id)}
+                        className="py-1.5 px-2 rounded-[3px] border border-rose-200 text-rose-600 hover:bg-rose-50 text-[11px] font-semibold transition-colors dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40 cursor-pointer"
+                        title="Cancel this reservation"
+                      >
+                        Cancel
+                      </button>
+                    </>
                   )}
+
+                  {/* Checked In Actions: Check Out */}
                   {isCheckedIn && (
                     <button
                       type="button"
                       onClick={() => handleCheckOutGuest(booking.id)}
-                      className="py-1.5 px-2.5 rounded-[3px] bg-slate-800 hover:bg-black text-white text-xs font-bold transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 cursor-pointer"
+                      className="py-1.5 px-3 rounded-[3px] bg-slate-800 hover:bg-black text-white text-xs font-bold transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 cursor-pointer flex items-center gap-1"
                       title="Quick Checkout & Settle"
                     >
-                      Check Out
+                      <LogOut className="w-3 h-3" />
+                      <span>Check Out</span>
                     </button>
                   )}
                 </div>
@@ -543,7 +671,7 @@ function RoomBookingsContent() {
 
           {filteredBookings.length === 0 && (
             <div className="col-span-full py-12 text-center text-xs text-slate-400 border border-dashed border-[#DCE3DF] dark:border-[#145447] rounded-[3px]">
-              No room bookings found matching &ldquo;{searchQuery}&rdquo;.
+              No room bookings found matching your selected filters.
             </div>
           )}
         </div>
@@ -564,8 +692,8 @@ function RoomBookingsContent() {
                   <th className="py-2.5 px-3 w-20 text-center border-r border-[#E5EEE9] dark:border-[#145447]">NIGHTS</th>
                   <th className="py-2.5 px-3.5 text-right border-r border-[#E5EEE9] dark:border-[#145447]">CHARGES</th>
                   <th className="py-2.5 px-3.5 text-right border-r border-[#E5EEE9] dark:border-[#145447]">BALANCE DUE</th>
-                  <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">STATUS</th>
-                  <th className="py-2.5 px-3 w-36 text-center">ACTION</th>
+                  <th className="py-2.5 px-3.5 w-32 border-r border-[#E5EEE9] dark:border-[#145447]">STATUS</th>
+                  <th className="py-2.5 px-3 w-44 text-center">ACTION</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447]">
@@ -623,29 +751,47 @@ function RoomBookingsContent() {
                         )}
                       </td>
                       <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                        {booking.status === 'CHECKED_IN' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-[#0E362C] dark:text-emerald-300">
-                            Checked In
-                          </span>
-                        )}
-                        {booking.status === 'RESERVED' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
-                            Reserved
-                          </span>
-                        )}
-                        {booking.status === 'CHECKED_OUT' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300">
-                            Checked Out
-                          </span>
-                        )}
+                        {renderStatusBadge(booking.status)}
                       </td>
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                        <Link
-                          href={`/reservations/${booking.id}`}
-                          className="inline-block px-2.5 py-1 rounded-[2px] bg-[#EEF4F1] hover:bg-[#E2ECE7] text-[#0B3D32] text-xs font-bold transition-colors dark:bg-[#0E362C] dark:hover:bg-[#144A3C] dark:text-emerald-300 cursor-pointer"
-                        >
-                          View Details
-                        </Link>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Link
+                            href={`/reservations/${booking.id}`}
+                            className="inline-block px-2 py-1 rounded-[2px] bg-[#EEF4F1] hover:bg-[#E2ECE7] text-[#0B3D32] text-xs font-bold transition-colors dark:bg-[#0E362C] dark:hover:bg-[#144A3C] dark:text-emerald-300 cursor-pointer"
+                          >
+                            Details
+                          </Link>
+
+                          {booking.status === 'RESERVED' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleCheckInGuest(booking.id)}
+                                className="px-2 py-1 rounded-[2px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
+                              >
+                                Check In
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMarkNoShow(booking.id)}
+                                className="px-1.5 py-1 rounded-[2px] text-purple-700 border border-purple-200 hover:bg-purple-50 text-[11px] font-semibold transition-colors cursor-pointer"
+                                title="No-Show"
+                              >
+                                No-Show
+                              </button>
+                            </>
+                          )}
+
+                          {booking.status === 'CHECKED_IN' && (
+                            <button
+                              type="button"
+                              onClick={() => handleCheckOutGuest(booking.id)}
+                              className="px-2 py-1 rounded-[2px] bg-slate-800 hover:bg-black text-white text-xs font-bold transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 cursor-pointer"
+                            >
+                              Check Out
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -657,159 +803,16 @@ function RoomBookingsContent() {
       )}
 
       {/* -----------------------------------------------------------------------
-          MODAL: + NEW BOOKING (Fast Front Desk Entry)
+          GUIDED BOOKING MODAL (Step 1-4 Flow)
           ----------------------------------------------------------------------- */}
-      {showNewBookingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xs animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-[4px] bg-white dark:bg-[#07241E] border border-[#DCE3DF] dark:border-[#145447] shadow-xl overflow-hidden">
-            <div className="p-4 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] flex items-center justify-between">
-              <h3 className="text-sm font-bold text-[#24352F] dark:text-white uppercase tracking-wider font-heading">
-                Create Room Booking
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowNewBookingModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateNewBooking} className="p-4 space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Customer Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    placeholder="e.g. Ramesh Karki"
-                    value={newGuestName}
-                    onChange={(e) => setNewGuestName(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+977 98XXXXXXXX"
-                    value={newGuestPhone}
-                    onChange={(e) => setNewGuestPhone(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="customer@email.com"
-                    value={newGuestEmail}
-                    onChange={(e) => setNewGuestEmail(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Select Room *
-                  </label>
-                  <select
-                    value={newRoomId}
-                    onChange={(e) => setNewRoomId(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  >
-                    {AVAILABLE_ROOMS_CATALOG.map((room) => (
-                      <option key={room.id} value={room.id}>
-                        Room {room.number} — {room.type} ({room.acType}, {room.bedType}) · Rs. {room.pricePerNight}/night
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Check-In Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={newCheckIn}
-                    onChange={(e) => setNewCheckIn(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Check-Out Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={newCheckOut}
-                    onChange={(e) => setNewCheckOut(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Initial Status
-                  </label>
-                  <select
-                    value={newInitialStatus}
-                    onChange={(e) => setNewInitialStatus(e.target.value as any)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  >
-                    <option value="RESERVED">Reserved</option>
-                    <option value="CHECKED_IN">Checked In Immediately</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Advance Deposit (Rs.)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={newAdvancePaid}
-                    onChange={(e) => setNewAdvancePaid(e.target.value)}
-                    placeholder="0"
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-bold text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#E5EEE9] dark:border-[#145447] flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowNewBookingModal(false)}
-                  className="px-3.5 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-semibold text-slate-600 dark:border-[#145447] dark:bg-[#07241E] dark:text-[#A4B8AE]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold shadow-2xs dark:bg-emerald-600 cursor-pointer"
-                >
-                  Confirm Booking
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <GuidedBookingModal
+        isOpen={showGuidedBookingModal}
+        onClose={() => setShowGuidedBookingModal(false)}
+        onSuccess={(_newBooking, _isCheckedIn) => {
+          setBookings(loadBookingsFromStorage());
+          setShowGuidedBookingModal(false);
+        }}
+      />
     </div>
   );
 }

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, RefreshCw, Menu, Sun, Moon, ShieldCheck } from 'lucide-react';
+import { Search, Plus, RefreshCw, Menu, Sun, Moon, ShieldCheck, LogIn } from 'lucide-react';
 import { Breadcrumbs } from './Breadcrumbs';
 import { QuickSearchModal } from './QuickSearchModal';
 import { Button } from '@/components/ui/Button';
@@ -98,15 +98,15 @@ export const Header: React.FC<{
           Reset Demo
         </Button>
 
-        {/* Check-In Shortcut (Primary Action: Forest Green #0B3D32) */}
-        <Link href="/check-in">
+        {/* Check-In Desk Shortcut (Primary Action: Forest Green #0B3D32) */}
+        <Link href="/front-desk">
           <Button
             variant="primary"
             size="sm"
-            leftIcon={<Plus className="w-4 h-4" />}
+            leftIcon={<LogIn className="w-4 h-4" />}
             className="text-xs px-3.5 py-1.5 h-9 font-bold shadow-xs"
           >
-            New Check-In
+            Check-in Desk
           </Button>
         </Link>
 

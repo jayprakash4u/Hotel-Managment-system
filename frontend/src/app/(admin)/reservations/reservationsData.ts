@@ -1,5 +1,14 @@
 // Shared types, mock data, and storage helpers for Room Reservations
 
+export function getRelativeDate(offsetDays: number = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export interface CafeOrderItem {
   id: string;
   name: string;
@@ -39,7 +48,7 @@ export interface PastBookingRecord {
 export interface RoomBooking {
   id: string;
   bookingCode: string; // e.g. BK-1001
-  status: 'CHECKED_IN' | 'RESERVED' | 'CHECKED_OUT' | 'CANCELLED';
+  status: 'CHECKED_IN' | 'RESERVED' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
   guest: {
     id: string;
     firstName: string;
@@ -75,7 +84,7 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
   {
     id: 'bk-1001',
     bookingCode: 'BK-1001',
-    status: 'CHECKED_IN',
+    status: 'RESERVED',
     guest: {
       id: 'gst-1',
       firstName: 'Ram',
@@ -97,15 +106,15 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       floorLevel: '1st Floor',
       pricePerNight: 3500,
     },
-    checkIn: '2026-10-15',
-    checkOut: '2026-10-17',
+    checkIn: getRelativeDate(0),
+    checkOut: getRelativeDate(2),
     nights: 2,
     roomCharges: 7000,
     cafeOrders: [
       {
         id: 'ord-101',
         orderNumber: 'CO-201',
-        timestamp: '15 Oct 2026, 02:45 PM',
+        timestamp: 'Today, 02:45 PM',
         status: 'DELIVERED',
         subtotal: 850,
         items: [
@@ -119,11 +128,11 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       {
         id: 'pay-1',
         receiptNo: 'REC-1001-A',
-        date: '15 Oct 2026, 11:30 AM',
-        amount: 3000,
+        date: 'Today, Advance Deposit',
+        amount: 2000,
         method: 'CASH',
         type: 'ADVANCE',
-        notes: 'Advance deposit paid at check-in counter',
+        notes: 'Reservation advance deposit paid at booking',
       },
     ],
     bookingHistory: [
@@ -171,8 +180,8 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       floorLevel: '1st Floor',
       pricePerNight: 2000,
     },
-    checkIn: '2026-10-16',
-    checkOut: '2026-10-18',
+    checkIn: getRelativeDate(0),
+    checkOut: getRelativeDate(2),
     nights: 2,
     roomCharges: 4000,
     cafeOrders: [],
@@ -180,7 +189,7 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       {
         id: 'pay-2',
         receiptNo: 'REC-1002-A',
-        date: '14 Oct 2026, 04:15 PM',
+        date: 'Today, Advance',
         amount: 1500,
         method: 'ESEWA_KHALTI',
         type: 'ADVANCE',
@@ -289,15 +298,15 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       floorLevel: '1st Floor',
       pricePerNight: 2000,
     },
-    checkIn: '2026-10-13',
-    checkOut: '2026-10-16',
-    nights: 3,
-    roomCharges: 6000,
+    checkIn: getRelativeDate(-1),
+    checkOut: getRelativeDate(1),
+    nights: 2,
+    roomCharges: 4000,
     cafeOrders: [
       {
         id: 'ord-103',
         orderNumber: 'CO-195',
-        timestamp: '14 Oct 2026, 09:10 AM',
+        timestamp: 'Yesterday, 09:10 AM',
         status: 'DELIVERED',
         subtotal: 650,
         items: [
@@ -310,7 +319,7 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       {
         id: 'pay-5',
         receiptNo: 'REC-1004-A',
-        date: '13 Oct 2026, 02:00 PM',
+        date: 'Yesterday, Advance',
         amount: 3000,
         method: 'UPI_QR',
         type: 'ADVANCE',
@@ -354,8 +363,8 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       floorLevel: '1st Floor',
       pricePerNight: 3500,
     },
-    checkIn: '2026-10-18',
-    checkOut: '2026-10-20',
+    checkIn: getRelativeDate(2),
+    checkOut: getRelativeDate(4),
     nights: 2,
     roomCharges: 7000,
     cafeOrders: [],
@@ -667,11 +676,26 @@ export const INITIAL_CANCELLATIONS: CancellationRecord[] = [
   },
 ];
 
-export const AVAILABLE_ROOMS_CATALOG = [
-  { id: 'rm-101', number: '101', type: 'Deluxe Room', acType: 'AC' as const, bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500 },
-  { id: 'rm-102', number: '102', type: 'Deluxe Room', acType: 'AC' as const, bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500 },
-  { id: 'rm-103', number: '103', type: 'Standard Room', acType: 'Non-AC' as const, bedType: 'Twin Beds', floorLevel: '1st Floor', pricePerNight: 2000 },
-  { id: 'rm-104', number: '104', type: 'Standard Room', acType: 'Non-AC' as const, bedType: 'Twin Beds', floorLevel: '1st Floor', pricePerNight: 2000 },
+export interface AvailableRoomOption {
+  id: string;
+  number: string;
+  type: string;
+  acType: 'AC' | 'Non-AC';
+  bedType: string;
+  floorLevel: string;
+  pricePerNight: number;
+  status: 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'MAINTENANCE';
+  cleaningStatus: 'CLEAN' | 'DIRTY' | 'IN_CLEANING';
+}
+
+export const AVAILABLE_ROOMS_CATALOG: AvailableRoomOption[] = [
+  { id: 'rm-101', number: '101', type: 'Deluxe Room', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'rm-102', number: '102', type: 'Deluxe Room', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'rm-103', number: '103', type: 'Standard Room', acType: 'Non-AC', bedType: 'Twin Beds', floorLevel: '1st Floor', pricePerNight: 2000, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'rm-104', number: '104', type: 'Standard Room', acType: 'Non-AC', bedType: 'Twin Beds', floorLevel: '1st Floor', pricePerNight: 2000, status: 'OCCUPIED', cleaningStatus: 'CLEAN' },
+  { id: 'rm-105', number: '105', type: 'Deluxe Room', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, status: 'DIRTY', cleaningStatus: 'DIRTY' },
+  { id: 'rm-201', number: '201', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'Super King Bed', floorLevel: '2nd Floor', pricePerNight: 5500, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'rm-202', number: '202', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'Super King Bed', floorLevel: '2nd Floor', pricePerNight: 5500, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
 ];
 
 export const CAFE_MENU_ITEMS = [
@@ -688,6 +712,13 @@ export const CAFE_MENU_ITEMS = [
 export const RESERVATIONS_STORAGE_KEY = 'hotel_room_bookings_list';
 export const CANCELLATIONS_STORAGE_KEY = 'hotel_cancellations_list';
 
+export function resetBookingsToInitial(): RoomBooking[] {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(INITIAL_BOOKINGS));
+  }
+  return INITIAL_BOOKINGS;
+}
+
 export function loadBookingsFromStorage(): RoomBooking[] {
   if (typeof window === 'undefined') return INITIAL_BOOKINGS;
   try {
@@ -695,13 +726,12 @@ export function loadBookingsFromStorage(): RoomBooking[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Ensure new seed bookings are present if missing
-        const existingIds = new Set(parsed.map((b: RoomBooking) => b.id));
-        const missingSeeds = INITIAL_BOOKINGS.filter((seed) => !existingIds.has(seed.id));
-        if (missingSeeds.length > 0) {
-          const merged = [...parsed, ...missingSeeds];
-          localStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(merged));
-          return merged;
+        // Auto-heal old static dates for Ram Sharma if previously stored
+        const ram = parsed.find((b: RoomBooking) => b.id === 'bk-1001');
+        if (ram && ram.checkIn === '2026-10-15') {
+          ram.checkIn = getRelativeDate(0);
+          ram.checkOut = getRelativeDate(2);
+          localStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(parsed));
         }
         return parsed;
       }
@@ -719,6 +749,280 @@ export function saveBookingsToStorage(bookings: RoomBooking[]): void {
   } catch (err) {
     console.warn('Failed to save bookings to localStorage', err);
   }
+}
+
+export function performCheckIn(
+  bookings: RoomBooking[],
+  bookingId: string,
+  params?: {
+    assignedRoomId?: string;
+    depositAmount?: number;
+    paymentMethod?: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER';
+    verifiedGuest?: Partial<RoomBooking['guest']>;
+  }
+): { updatedBookings: RoomBooking[]; checkedInBooking: RoomBooking | undefined } {
+  let checkedIn: RoomBooking | undefined;
+
+  const next = bookings.map((b) => {
+    if (b.id !== bookingId) return b;
+
+    let targetRoom = b.room;
+    if (params?.assignedRoomId) {
+      const foundCatalog = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === params.assignedRoomId);
+      if (foundCatalog) {
+        targetRoom = {
+          id: foundCatalog.id,
+          number: foundCatalog.number,
+          type: foundCatalog.type,
+          acType: foundCatalog.acType,
+          bedType: foundCatalog.bedType,
+          floorLevel: foundCatalog.floorLevel,
+          pricePerNight: foundCatalog.pricePerNight,
+        };
+      }
+    }
+
+    const newPayments = [...(b.payments || [])];
+    if (params?.depositAmount && params.depositAmount > 0) {
+      newPayments.push({
+        id: `pay-${Date.now()}`,
+        receiptNo: `REC-${b.bookingCode}-DEP`,
+        date: 'Today, Check-in Deposit',
+        amount: params.depositAmount,
+        method: params.paymentMethod || 'CASH',
+        type: 'ADVANCE',
+        notes: 'Deposit received during Check-in Desk processing',
+      });
+    }
+
+    const updated: RoomBooking = {
+      ...b,
+      status: 'CHECKED_IN',
+      room: targetRoom,
+      guest: {
+        ...b.guest,
+        ...(params?.verifiedGuest || {}),
+      },
+      payments: newPayments,
+    };
+    checkedIn = updated;
+    return updated;
+  });
+
+  saveBookingsToStorage(next);
+  syncRoomStatuses(next);
+  return { updatedBookings: next, checkedInBooking: checkedIn };
+}
+
+export function performCheckOut(
+  bookings: RoomBooking[],
+  bookingId: string,
+  params?: {
+    settlementAmount?: number;
+    paymentMethod?: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER';
+    housekeepingNotes?: string;
+  }
+): { updatedBookings: RoomBooking[]; checkedOutBooking: RoomBooking | undefined } {
+  let checkedOut: RoomBooking | undefined;
+
+  const next = bookings.map((b) => {
+    if (b.id !== bookingId) return b;
+
+    const newPayments = [...(b.payments || [])];
+    if (params?.settlementAmount && params.settlementAmount > 0) {
+      newPayments.push({
+        id: `pay-${Date.now()}`,
+        receiptNo: `REC-${b.bookingCode}-SETTLE`,
+        date: 'Today, Checkout Settle',
+        amount: params.settlementAmount,
+        method: params.paymentMethod || 'CASH',
+        type: 'SETTLEMENT',
+        notes: 'Final settlement payment collected at Check-in Desk',
+      });
+    }
+
+    const updated: RoomBooking = {
+      ...b,
+      status: 'CHECKED_OUT',
+      payments: newPayments,
+      notes: params?.housekeepingNotes
+        ? `${b.notes ? b.notes + ' | ' : ''}${params.housekeepingNotes}`
+        : b.notes,
+    };
+    checkedOut = updated;
+    return updated;
+  });
+
+  saveBookingsToStorage(next);
+  syncRoomStatuses(next);
+  return { updatedBookings: next, checkedOutBooking: checkedOut };
+}
+
+export function addCafeOrderToBooking(
+  bookings: RoomBooking[],
+  bookingId: string,
+  items: { name: string; quantity: number; price: number }[]
+): RoomBooking[] {
+  const next = bookings.map((b) => {
+    if (b.id !== bookingId) return b;
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+    const newOrder: CafeOrder = {
+      id: `ord-${Date.now()}`,
+      orderNumber: `CO-${Math.floor(100 + Math.random() * 900)}`,
+      timestamp: 'Today, Dining Order',
+      status: 'DELIVERED',
+      items: items.map((item, idx) => ({
+        id: `item-${Date.now()}-${idx}`,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        total: item.quantity * item.price,
+      })),
+      subtotal,
+    };
+
+    return {
+      ...b,
+      cafeOrders: [...(b.cafeOrders || []), newOrder],
+    };
+  });
+
+  saveBookingsToStorage(next);
+  return next;
+}
+
+export function syncRoomStatuses(bookings: RoomBooking[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem('hotel_rooms_setup');
+    let roomsList: any[] = raw ? JSON.parse(raw) : [];
+
+    const activeRoomsMap = new Map<string, string>();
+    const checkoutRooms = new Set<string>();
+
+    bookings.forEach((b) => {
+      if (b.status === 'CHECKED_IN') {
+        activeRoomsMap.set(b.room.number, `${b.guest.firstName} ${b.guest.lastName}`);
+      } else if (b.status === 'CHECKED_OUT') {
+        checkoutRooms.add(b.room.number);
+      }
+    });
+
+    if (roomsList.length > 0) {
+      roomsList = roomsList.map((r: any) => {
+        const roomNum = r.roomNumber || r.number;
+        if (activeRoomsMap.has(roomNum)) {
+          return { ...r, status: 'OCCUPIED', guestName: activeRoomsMap.get(roomNum) };
+        }
+        if (checkoutRooms.has(roomNum) && r.status !== 'OCCUPIED') {
+          return { ...r, status: 'DIRTY', guestName: undefined };
+        }
+        return r;
+      });
+      localStorage.setItem('hotel_rooms_setup', JSON.stringify(roomsList));
+    }
+  } catch (err) {
+    console.warn('Failed to sync room statuses with hotel_rooms_setup', err);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Date-Based Room Availability & Occupancy Functions (Overlap Calculation)
+// -----------------------------------------------------------------------------
+
+export function doDatesOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
+  return start1 < end2 && end1 > start2;
+}
+
+export function isRoomAvailableForDates(
+  roomNumber: string,
+  checkIn: string,
+  checkOut: string,
+  bookings: RoomBooking[],
+  excludeBookingId?: string
+): boolean {
+  if (!checkIn || !checkOut || checkIn >= checkOut) return false;
+
+  const hasConflict = bookings.some((b) => {
+    if (excludeBookingId && b.id === excludeBookingId) return false;
+    if (b.status === 'CHECKED_OUT' || b.status === 'CANCELLED' || b.status === 'NO_SHOW') return false;
+    if (b.room.number !== roomNumber) return false;
+
+    return doDatesOverlap(b.checkIn, b.checkOut, checkIn, checkOut);
+  });
+
+  return !hasConflict;
+}
+
+export interface RoomAvailabilityResult extends AvailableRoomOption {
+  isAvailableForDates: boolean;
+  conflictBooking?: RoomBooking;
+}
+
+export function getAvailableRoomsForDates(
+  checkIn: string,
+  checkOut: string,
+  bookings: RoomBooking[],
+  catalog: AvailableRoomOption[] = AVAILABLE_ROOMS_CATALOG
+): RoomAvailabilityResult[] {
+  return catalog.map((room) => {
+    const conflictBooking = bookings.find((b) => {
+      if (b.status === 'CHECKED_OUT' || b.status === 'CANCELLED' || b.status === 'NO_SHOW') return false;
+      if (b.room.number !== room.number) return false;
+      return doDatesOverlap(b.checkIn, b.checkOut, checkIn, checkOut);
+    });
+
+    const isAvailableForDates = !conflictBooking && room.status !== 'MAINTENANCE';
+
+    return {
+      ...room,
+      isAvailableForDates,
+      conflictBooking,
+    };
+  });
+}
+
+export function getRoomOccupancyInfo(
+  roomNumber: string,
+  bookings: RoomBooking[],
+  todayStr: string = getRelativeDate(0)
+) {
+  // Currently staying (in-house right now)
+  const currentOccupant = bookings.find(
+    (b) => b.room.number === roomNumber && b.status === 'CHECKED_IN'
+  );
+
+  // Future reservations (arriving on or after today)
+  const futureBookings = bookings
+    .filter(
+      (b) =>
+        b.room.number === roomNumber &&
+        b.status === 'RESERVED' &&
+        b.checkIn >= todayStr
+    )
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+
+  const nextBooking = futureBookings[0];
+
+  return {
+    currentOccupant,
+    nextBooking,
+    futureBookings,
+  };
+}
+
+export function markBookingAsNoShow(bookings: RoomBooking[], bookingId: string): RoomBooking[] {
+  const next = bookings.map((b) => {
+    if (b.id !== bookingId) return b;
+    return {
+      ...b,
+      status: 'NO_SHOW' as const,
+      notes: `${b.notes ? b.notes + ' | ' : ''}Guest marked as No-Show on ${getRelativeDate(0)}`,
+    };
+  });
+  saveBookingsToStorage(next);
+  syncRoomStatuses(next);
+  return next;
 }
 
 export function loadCancellationsFromStorage(): CancellationRecord[] {
@@ -797,7 +1101,7 @@ export interface ConsolidatedStayRecord {
   totalCharges: number;
   totalPaid: number;
   balanceDue: number;
-  status: 'CHECKED_IN' | 'RESERVED' | 'CHECKED_OUT' | 'CANCELLED';
+  status: 'CHECKED_IN' | 'RESERVED' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
   notes?: string;
 }
 
