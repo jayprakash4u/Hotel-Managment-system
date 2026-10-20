@@ -594,6 +594,50 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
     bookingHistory: [],
     notes: 'Tour guide organizer. Key returned on checkout.',
   },
+  {
+    id: 'bk-1010',
+    bookingCode: 'BK-1010',
+    status: 'RESERVED',
+    guest: {
+      id: 'gst-10',
+      firstName: 'Rahul',
+      lastName: 'Gupta',
+      phone: '+977 9841987654',
+      email: 'rahul.gupta@gmail.com',
+      address: 'Birgunj, Nepal',
+      idType: 'Citizenship',
+      idNumber: 'CT-34-02-76-1122',
+      country: 'Nepal',
+      vipTier: 'SILVER',
+    },
+    room: {
+      id: 'rm-102',
+      number: '102',
+      type: 'Non AC Room',
+      acType: 'Non-AC',
+      bedType: 'Queen Bed',
+      floorLevel: '1st Floor',
+      pricePerNight: 2000,
+    },
+    checkIn: getRelativeDate(1),
+    checkOut: getRelativeDate(4),
+    nights: 3,
+    roomCharges: 6000,
+    cafeOrders: [],
+    payments: [
+      {
+        id: 'pay-12',
+        receiptNo: 'REC-1010-A',
+        date: 'Today, Advance',
+        amount: 2000,
+        method: 'CASH',
+        type: 'ADVANCE',
+        notes: 'Advance reservation deposit',
+      },
+    ],
+    bookingHistory: [],
+    notes: '3-night stay hold. Non-AC room requested.',
+  },
 ];
 
 export interface CancellationRecord {
@@ -728,9 +772,20 @@ export function loadBookingsFromStorage(): RoomBooking[] {
       if (Array.isArray(parsed) && parsed.length > 0) {
         // Auto-heal old static dates for Ram Sharma if previously stored
         const ram = parsed.find((b: RoomBooking) => b.id === 'bk-1001');
+        let modified = false;
         if (ram && ram.checkIn === '2026-10-15') {
           ram.checkIn = getRelativeDate(0);
           ram.checkOut = getRelativeDate(2);
+          modified = true;
+        }
+        if (!parsed.some((b: RoomBooking) => b.id === 'bk-1010')) {
+          const rahul = INITIAL_BOOKINGS.find((b) => b.id === 'bk-1010');
+          if (rahul) {
+            parsed.push(rahul);
+            modified = true;
+          }
+        }
+        if (modified) {
           localStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(parsed));
         }
         return parsed;
