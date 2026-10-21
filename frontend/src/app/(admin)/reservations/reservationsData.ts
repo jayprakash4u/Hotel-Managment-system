@@ -45,6 +45,15 @@ export interface PastBookingRecord {
   status: string;
 }
 
+export interface AccompanyingGuest {
+  id?: string;
+  name: string;
+  age?: number | string;
+  gender?: string;
+  relation?: string;
+  idNumber?: string;
+}
+
 export interface RoomBooking {
   id: string;
   bookingCode: string; // e.g. BK-1001
@@ -60,6 +69,19 @@ export interface RoomBooking {
     idNumber: string;
     country: string;
     vipTier: 'STANDARD' | 'SILVER' | 'GOLD' | 'PLATINUM';
+    // Extended KYC & verification fields
+    idIssueDate?: string;
+    idExpiryDate?: string;
+    idIssuePlace?: string;
+    idDocumentImage?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    purposeOfVisit?: string;
+    arrivedFrom?: string;
+    proceedingTo?: string;
+    vehicleNumber?: string;
+    accompanyingGuests?: AccompanyingGuest[];
   };
   room: {
     id: string;
@@ -78,6 +100,13 @@ export interface RoomBooking {
   payments: PaymentEntry[];
   bookingHistory: PastBookingRecord[];
   notes?: string;
+  // Extended Check-in physical allocation fields
+  keyCardNumber?: string;
+  keyCardsIssued?: number;
+  luggageCount?: number;
+  luggageTag?: string;
+  checkInTime?: string;
+  securityDeposit?: number;
 }
 
 export const INITIAL_BOOKINGS: RoomBooking[] = [
@@ -814,6 +843,13 @@ export function performCheckIn(
     depositAmount?: number;
     paymentMethod?: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER';
     verifiedGuest?: Partial<RoomBooking['guest']>;
+    keyCardNumber?: string;
+    keyCardsIssued?: number;
+    luggageCount?: number;
+    luggageTag?: string;
+    checkInTime?: string;
+    securityDeposit?: number;
+    notes?: string;
   }
 ): { updatedBookings: RoomBooking[]; checkedInBooking: RoomBooking | undefined } {
   let checkedIn: RoomBooking | undefined;
@@ -841,12 +877,14 @@ export function performCheckIn(
     if (params?.depositAmount && params.depositAmount > 0) {
       newPayments.push({
         id: `pay-${Date.now()}`,
-        receiptNo: `REC-${b.bookingCode}-DEP`,
-        date: 'Today, Check-in Deposit',
+        receiptNo: `REC-${b.bookingCode}-CHK`,
+        date: 'Today, Check-in Payment',
         amount: params.depositAmount,
         method: params.paymentMethod || 'CASH',
         type: 'ADVANCE',
-        notes: 'Deposit received during Check-in Desk processing',
+        notes: params.securityDeposit && params.securityDeposit > 0
+          ? `Check-in deposit & security collected: Rs. ${params.depositAmount}`
+          : 'Payment received during Front Desk check-in',
       });
     }
 
@@ -859,6 +897,13 @@ export function performCheckIn(
         ...(params?.verifiedGuest || {}),
       },
       payments: newPayments,
+      keyCardNumber: params?.keyCardNumber || b.keyCardNumber,
+      keyCardsIssued: params?.keyCardsIssued ?? b.keyCardsIssued,
+      luggageCount: params?.luggageCount ?? b.luggageCount,
+      luggageTag: params?.luggageTag || b.luggageTag,
+      checkInTime: params?.checkInTime || b.checkInTime || 'Today, Front Desk',
+      securityDeposit: params?.securityDeposit ?? b.securityDeposit,
+      notes: params?.notes !== undefined ? params.notes : b.notes,
     };
     checkedIn = updated;
     return updated;
@@ -867,6 +912,71 @@ export function performCheckIn(
   saveBookingsToStorage(next);
   syncRoomStatuses(next);
   return { updatedBookings: next, checkedInBooking: checkedIn };
+}
+
+export function performDirectCheckIn(
+  bookings: RoomBooking[],
+  payload: {
+    guest: RoomBooking['guest'];
+    room: RoomBooking['room'];
+    checkIn: string;
+    checkOut: string;
+    nights: number;
+    roomCharges: number;
+    payments?: PaymentEntry[];
+    depositAmount?: number;
+    paymentMethod?: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER';
+    keyCardNumber?: string;
+    keyCardsIssued?: number;
+    luggageCount?: number;
+    luggageTag?: string;
+    checkInTime?: string;
+    securityDeposit?: number;
+    notes?: string;
+  }
+): { updatedBookings: RoomBooking[]; checkedInBooking: RoomBooking } {
+  const newBookingId = `bk-${Date.now().toString().slice(-4)}`;
+  const newBookingCode = `BK-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const payments: PaymentEntry[] = [...(payload.payments || [])];
+  if (payload.depositAmount && payload.depositAmount > 0) {
+    payments.push({
+      id: `pay-${Date.now()}`,
+      receiptNo: `REC-${newBookingCode}-CHK`,
+      date: 'Today, Check-in Payment',
+      amount: payload.depositAmount,
+      method: payload.paymentMethod || 'CASH',
+      type: payload.depositAmount >= payload.roomCharges ? 'SETTLEMENT' : 'ADVANCE',
+      notes: 'Direct Walk-In check-in payment collected at front desk',
+    });
+  }
+
+  const newBooking: RoomBooking = {
+    id: newBookingId,
+    bookingCode: newBookingCode,
+    status: 'CHECKED_IN',
+    guest: payload.guest,
+    room: payload.room,
+    checkIn: payload.checkIn,
+    checkOut: payload.checkOut,
+    nights: payload.nights,
+    roomCharges: payload.roomCharges,
+    cafeOrders: [],
+    payments,
+    bookingHistory: [],
+    notes: payload.notes,
+    keyCardNumber: payload.keyCardNumber,
+    keyCardsIssued: payload.keyCardsIssued,
+    luggageCount: payload.luggageCount,
+    luggageTag: payload.luggageTag,
+    checkInTime: payload.checkInTime || 'Today, Front Desk',
+    securityDeposit: payload.securityDeposit,
+  };
+
+  const next = [newBooking, ...bookings];
+  saveBookingsToStorage(next);
+  syncRoomStatuses(next);
+  return { updatedBookings: next, checkedInBooking: newBooking };
 }
 
 export function performCheckOut(

@@ -18,6 +18,17 @@ import {
   User,
   Mail,
   Search,
+  ShieldCheck,
+  Luggage,
+  UserCheck,
+  UploadCloud,
+  FileCheck,
+  Trash2,
+  Plus,
+  Receipt,
+  UserPlus,
+  CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
@@ -31,6 +42,7 @@ import {
   AVAILABLE_ROOMS_CATALOG,
   AvailableRoomOption,
   getBookingFinancials,
+  AccompanyingGuest,
 } from '../reservations/reservationsData';
 
 // Registered Guest Interface for search/autocomplete
@@ -47,6 +59,41 @@ const DEFAULT_GUESTS: RegisteredGuest[] = [
   { id: 'gst-3', name: 'Rajesh Hamal', phone: '+977 9801998877', email: 'rajesh.hamal@kollywood.np' },
   { id: 'gst-4', name: 'Maya Gurung', phone: '+977 9813445566', email: 'maya.gurung@annapurna.org' },
   { id: 'gst-5', name: 'Johnathan Doe', phone: '+1 415 555 2671', email: 'john.doe@techcorp.io' },
+];
+
+const ID_DOCUMENT_TYPES = [
+  'Citizenship Card',
+  'Passport',
+  'Driving License',
+  'National ID Card',
+  'Voter ID Card',
+  'PAN Card',
+  'Diplomatic / Official ID',
+];
+
+const NATIONALITY_OPTIONS = [
+  'Nepal',
+  'India',
+  'United States',
+  'United Kingdom',
+  'Australia',
+  'Canada',
+  'Germany',
+  'France',
+  'China',
+  'Japan',
+  'Other / International',
+];
+
+const PURPOSE_OF_VISIT_OPTIONS = [
+  'Tourism / Leisure',
+  'Business / Corporate',
+  'Transit / Airport Layover',
+  'Conference / Seminar',
+  'Family / Social Event',
+  'Medical / Health',
+  'Official / Diplomatic',
+  'Other',
 ];
 
 function loadRegisteredGuests(): RegisteredGuest[] {
@@ -67,6 +114,7 @@ function NewRoomBookingContent() {
   const paramRoomId = searchParams.get('roomId');
   const paramCheckIn = searchParams.get('checkIn');
   const paramCheckOut = searchParams.get('checkOut');
+  const paramMode = searchParams.get('mode');
   const fromParam = searchParams.get('from');
 
   const todayStr = useMemo(() => getRelativeDate(0), []);
@@ -74,6 +122,16 @@ function NewRoomBookingContent() {
 
   const [bookings, setBookings] = useState<RoomBooking[]>(() => loadBookingsFromStorage());
   const [registeredGuests] = useState<RegisteredGuest[]>(() => loadRegisteredGuests());
+
+  // ---------------------------------------------------------------------------
+  // 0. FORM MODE: 'BOOKING' (Quick Book Now) vs 'CHECK_IN' (Full Check-In Desk)
+  // ---------------------------------------------------------------------------
+  const [formMode, setFormMode] = useState<'BOOKING' | 'CHECK_IN'>(() => {
+    if (paramBookingId || fromParam === 'check-in' || paramMode === 'walkin' || paramMode === 'walk-in' || paramMode === 'checkin') {
+      return 'CHECK_IN';
+    }
+    return 'BOOKING';
+  });
 
   // ---------------------------------------------------------------------------
   // 1. STAY SCHEDULE STATE
@@ -110,13 +168,47 @@ function NewRoomBookingContent() {
   };
 
   // ---------------------------------------------------------------------------
-  // 2. GUEST DETAILS STATE
+  // 2. GUEST DETAILS & KYC STATE (Includes extended check-in fields)
   // ---------------------------------------------------------------------------
   const [guestSearchQuery, setGuestSearchQuery] = useState<string>('');
   const [showGuestSuggestions, setShowGuestSuggestions] = useState<boolean>(false);
   const [guestName, setGuestName] = useState<string>('Ram Sharma');
   const [guestPhone, setGuestPhone] = useState<string>('+977 9841234567');
   const [guestEmail, setGuestEmail] = useState<string>('ram.sharma@gmail.com');
+  const [guestNationality, setGuestNationality] = useState<string>('Nepal');
+  const [guestAddress, setGuestAddress] = useState<string>('New Baneshwor, Kathmandu');
+  const [guestCity, setGuestCity] = useState<string>('Kathmandu');
+
+  // KYC Fields (Identification)
+  const [idType, setIdType] = useState<string>('Citizenship Card');
+  const [idNumber, setIdNumber] = useState<string>('27-01-72-0451');
+  const [idIssuePlace, setIdIssuePlace] = useState<string>('Kathmandu');
+  const [idIssueDate, setIdIssueDate] = useState<string>('');
+  const [idExpiryDate, setIdExpiryDate] = useState<string>('');
+  const [idDocumentImage, setIdDocumentImage] = useState<string | null>(null);
+  const [isIdVerified, setIsIdVerified] = useState<boolean>(true);
+
+  // Accompanying Guests & Travel Purpose
+  const [purposeOfVisit, setPurposeOfVisit] = useState<string>('Tourism / Leisure');
+  const [arrivedFrom, setArrivedFrom] = useState<string>('');
+  const [proceedingTo, setProceedingTo] = useState<string>('');
+  const [vehicleNumber, setVehicleNumber] = useState<string>('');
+  const [accompanyingGuests, setAccompanyingGuests] = useState<AccompanyingGuest[]>([]);
+  const [newAccName, setNewAccName] = useState<string>('');
+  const [newAccAge, setNewAccAge] = useState<string>('');
+  const [newAccGender, setNewAccGender] = useState<string>('M');
+  const [newAccRelation, setNewAccRelation] = useState<string>('Spouse');
+
+  // Key Card & Luggage
+  const [keyCardNumber, setKeyCardNumber] = useState<string>('KC-101-A');
+  const [luggageCount, setLuggageCount] = useState<number>(1);
+
+  // Existing Reservation Search & Auto-Fill (when in Check-In mode)
+  const [resSearchQuery, setResSearchQuery] = useState<string>('');
+  const [showResSuggestions, setShowResSuggestions] = useState<boolean>(false);
+  const [linkedBooking, setLinkedBooking] = useState<RoomBooking | null>(null);
+  const [advancePaidAtBooking, setAdvancePaidAtBooking] = useState<number>(0);
+  const [advanceReceiptInfo, setAdvanceReceiptInfo] = useState<string>('');
 
   const guestSuggestions = useMemo(() => {
     if (!guestSearchQuery.trim()) return [];
@@ -132,6 +224,82 @@ function NewRoomBookingContent() {
     if (g.email) setGuestEmail(g.email);
     setGuestSearchQuery('');
     setShowGuestSuggestions(false);
+  };
+
+  // Reservation Search for Auto-Fill
+  const reservationSearchResults = useMemo(() => {
+    if (!resSearchQuery.trim()) return [];
+    const q = resSearchQuery.toLowerCase().trim();
+    return bookings.filter((b) => {
+      const fullName = `${b.guest.firstName} ${b.guest.lastName}`.toLowerCase();
+      return (
+        b.bookingCode.toLowerCase().includes(q) ||
+        fullName.includes(q) ||
+        b.guest.phone.toLowerCase().includes(q) ||
+        b.room.number.toLowerCase().includes(q)
+      );
+    });
+  }, [bookings, resSearchQuery]);
+
+  const handleSelectReservationToAutoFill = (b: RoomBooking) => {
+    setLinkedBooking(b);
+    setGuestName(`${b.guest.firstName} ${b.guest.lastName}`.trim());
+    setGuestPhone(b.guest.phone || '');
+    setGuestEmail(b.guest.email || '');
+    setGuestAddress(b.guest.address || 'Kathmandu, Nepal');
+    setGuestNationality(b.guest.country || 'Nepal');
+    if (b.guest.city) setGuestCity(b.guest.city);
+    if (b.guest.idType && b.guest.idType !== 'Citizenship') setIdType(b.guest.idType);
+    if (b.guest.idNumber && !b.guest.idNumber.toLowerCase().includes('to be collected')) {
+      setIdNumber(b.guest.idNumber);
+    }
+    setCheckInDate(b.checkIn);
+    setCheckOutDate(b.checkOut);
+    setSelectedRoomId(b.room.id);
+    setCustomRate(b.room.pricePerNight);
+    setKeyCardNumber(b.keyCardNumber || `KC-${b.room.number}-A`);
+    if (b.guest.accompanyingGuests) setAccompanyingGuests(b.guest.accompanyingGuests);
+
+    // Calculate advance paid
+    const fin = getBookingFinancials(b);
+    const totalPaid = (b.payments || []).reduce((sum, p) => sum + p.amount, 0);
+    setAdvancePaidAtBooking(totalPaid || fin.totalPaid || 0);
+    if (b.payments && b.payments[0]) {
+      setAdvanceReceiptInfo(`Receipt: ${b.payments[0].receiptNo} (${b.payments[0].method})`);
+    }
+
+    setResSearchQuery('');
+    setShowResSuggestions(false);
+
+    toast.info(
+      'Reservation Auto-Filled!',
+      `Loaded booking ${b.bookingCode} for ${b.guest.firstName} ${b.guest.lastName}. Advance paid: Rs. ${(totalPaid || fin.totalPaid || 0).toLocaleString()}.`
+    );
+  };
+
+  // Add / Remove Accompanying Guest
+  const handleAddAccompanyingGuest = () => {
+    if (!newAccName.trim()) {
+      toast.error('Name Required', 'Please enter accompanying guest name.');
+      return;
+    }
+    const newGuest: AccompanyingGuest = {
+      id: `acc-${Date.now()}`,
+      name: newAccName.trim(),
+      age: newAccAge ? Number(newAccAge) : undefined,
+      gender: newAccGender,
+      relation: newAccRelation,
+    };
+    setAccompanyingGuests([...accompanyingGuests, newGuest]);
+    setNewAccName('');
+    setNewAccAge('');
+    setAdultsCount((prev) => prev + 1);
+    toast.success('Guest Added', `${newGuest.name} added to accompanying manifest.`);
+  };
+
+  const handleRemoveAccompanyingGuest = (id?: string) => {
+    setAccompanyingGuests(accompanyingGuests.filter((g) => g.id !== id));
+    setAdultsCount((prev) => Math.max(1, prev - 1));
   };
 
   // ---------------------------------------------------------------------------
@@ -150,6 +318,7 @@ function NewRoomBookingContent() {
   useEffect(() => {
     if (selectedRoomObj) {
       setCustomRate(selectedRoomObj.pricePerNight);
+      setKeyCardNumber(`KC-${selectedRoomObj.number}-A`);
     }
   }, [selectedRoomObj]);
 
@@ -161,6 +330,11 @@ function NewRoomBookingContent() {
   const totalPayable = useMemo(() => {
     return Math.max(0, subtotal - (Number(discount) || 0));
   }, [subtotal, discount]);
+
+  // Remaining Balance Due after advance
+  const remainingDue = useMemo(() => {
+    return Math.max(0, totalPayable - advancePaidAtBooking);
+  }, [totalPayable, advancePaidAtBooking]);
 
   // ---------------------------------------------------------------------------
   // 4. NOTIFICATIONS, REMARKS & PAYMENT STATE
@@ -176,48 +350,38 @@ function NewRoomBookingContent() {
 
   // Keep advance synced with total payable when total changes
   useEffect(() => {
-    if (paymentChoice === 'FULL') {
-      setAdvancedAmount(totalPayable);
-    } else if (paymentChoice === 'LATER') {
-      setAdvancedAmount(0);
+    if (formMode === 'CHECK_IN' && advancePaidAtBooking > 0) {
+      if (paymentChoice === 'FULL') {
+        setAdvancedAmount(remainingDue);
+      } else if (paymentChoice === 'LATER') {
+        setAdvancedAmount(0);
+      }
     } else {
-      setAdvancedAmount((prev) => (prev > totalPayable ? totalPayable : prev === 0 ? Math.min(2000, totalPayable) : prev));
+      if (paymentChoice === 'FULL') {
+        setAdvancedAmount(totalPayable);
+      } else if (paymentChoice === 'LATER') {
+        setAdvancedAmount(0);
+      } else {
+        setAdvancedAmount((prev) => (prev > totalPayable ? totalPayable : prev === 0 ? Math.min(2000, totalPayable) : prev));
+      }
     }
-  }, [totalPayable, paymentChoice]);
+  }, [totalPayable, paymentChoice, formMode, remainingDue, advancePaidAtBooking]);
 
   const dueAmount = useMemo(() => {
-    if (paymentChoice === 'LATER') return totalPayable;
-    return Math.max(0, totalPayable - (Number(advancedAmount) || 0));
-  }, [totalPayable, advancedAmount, paymentChoice]);
+    if (paymentChoice === 'LATER') return remainingDue;
+    return Math.max(0, remainingDue - (Number(advancedAmount) || 0));
+  }, [remainingDue, advancedAmount, paymentChoice]);
 
   // Registration Card Modal state
   const [selectedBookingForRegCard, setSelectedBookingForRegCard] = useState<RoomBooking | null>(null);
 
-  // Pre-fill if editing an existing booking
+  // Pre-fill if editing an existing booking or check-in param
   useEffect(() => {
     if (paramBookingId) {
       const b = bookings.find((item) => item.id === paramBookingId);
       if (b) {
-        setGuestName(`${b.guest.firstName} ${b.guest.lastName}`.trim());
-        setGuestPhone(b.guest.phone || '');
-        setGuestEmail(b.guest.email || '');
-        setCheckInDate(b.checkIn);
-        setCheckOutDate(b.checkOut);
-        setSelectedRoomId(b.room.id);
-        setCustomRate(b.room.pricePerNight);
-        setBookingNotes(b.notes || '');
-
-        const totalPaid = (b.payments || []).reduce((sum, p) => sum + p.amount, 0);
-        if (totalPaid === 0) {
-          setPaymentChoice('LATER');
-          setAdvancedAmount(0);
-        } else if (totalPaid >= b.roomCharges) {
-          setPaymentChoice('FULL');
-          setAdvancedAmount(totalPaid);
-        } else {
-          setPaymentChoice('ADVANCE');
-          setAdvancedAmount(totalPaid);
-        }
+        handleSelectReservationToAutoFill(b);
+        setFormMode('CHECK_IN');
       }
     }
   }, [paramBookingId, bookings]);
@@ -237,14 +401,17 @@ function NewRoomBookingContent() {
 
   const activeNavBoxId = fromParam === 'reservations' ? 'reservations' : fromParam === 'check-in' ? 'check-in' : 'desk';
 
-  // ---------------------------------------------------------------------------
-  // RESET FORM
-  // ---------------------------------------------------------------------------
+  // Reset form
   const handleResetForm = () => {
+    setLinkedBooking(null);
+    setAdvancePaidAtBooking(0);
+    setAdvanceReceiptInfo('');
     setGuestName('');
     setGuestPhone('');
     setGuestEmail('');
     setBookingNotes('');
+    setIdNumber('');
+    setAccompanyingGuests([]);
     setDiscount(0);
     setCheckInDate(todayStr);
     setCheckOutDate(tomorrowStr);
@@ -258,11 +425,11 @@ function NewRoomBookingContent() {
     }
     setPaymentChoice('FULL');
     setPaymentMethod('CASH');
-    toast.info('Form Reset', 'All booking fields have been reset.');
+    toast.info('Form Reset', 'All booking & check-in fields have been cleared.');
   };
 
   // ---------------------------------------------------------------------------
-  // SAVE BOOKING (Reserved vs Checked In)
+  // SAVE BOOKING OR CHECK IN
   // ---------------------------------------------------------------------------
   const handleSaveBooking = (shouldCheckInNow: boolean) => {
     if (!guestName.trim()) {
@@ -273,6 +440,10 @@ function NewRoomBookingContent() {
       toast.error('Phone Required', 'Please enter mobile number.');
       return;
     }
+    if (shouldCheckInNow && !idNumber.trim()) {
+      toast.error('ID Required', 'Check-in requires a valid ID document number (Citizenship / Passport / License).');
+      return;
+    }
 
     const [first, ...rest] = guestName.trim().split(' ');
     const firstName = first || 'Guest';
@@ -280,20 +451,21 @@ function NewRoomBookingContent() {
 
     const paidNow = paymentChoice === 'LATER' ? 0 : Math.min(Number(advancedAmount) || 0, totalPayable);
 
-    const paymentRecords: PaymentEntry[] = paidNow > 0 ? [
-      {
+    const paymentRecords: PaymentEntry[] = [...(linkedBooking?.payments || [])];
+    if (paidNow > 0) {
+      paymentRecords.push({
         id: `pay-${Date.now()}`,
         receiptNo: `REC-${Date.now().toString().slice(-4)}`,
         date: 'Today',
         amount: paidNow,
         method: (paymentMethod === 'PAY_LATER' ? 'CASH' : paymentMethod) as any,
-        type: paidNow >= totalPayable ? 'SETTLEMENT' : 'ADVANCE',
-        notes: paidNow >= totalPayable ? 'Full payment received at booking' : 'Advance deposit received at booking',
-      },
-    ] : [];
+        type: paidNow >= remainingDue ? 'SETTLEMENT' : 'ADVANCE',
+        notes: shouldCheckInNow ? 'Check-in desk payment received' : 'Advance deposit received at booking',
+      });
+    }
 
-    const newBookingId = paramBookingId || `bk-${Date.now().toString().slice(-4)}`;
-    const newBookingCode = `BK-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newBookingId = paramBookingId || linkedBooking?.id || `bk-${Date.now().toString().slice(-4)}`;
+    const newBookingCode = linkedBooking?.bookingCode || `BK-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const currentBookings = loadBookingsFromStorage();
 
@@ -315,26 +487,38 @@ function NewRoomBookingContent() {
         pricePerNight: Number(customRate) || selectedRoomObj.pricePerNight,
       },
       guest: {
-        id: `gst-${Date.now()}`,
+        id: linkedBooking?.guest.id || `gst-${Date.now()}`,
         firstName,
         lastName,
         phone: guestPhone.trim(),
         email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
-        address: 'Kathmandu, Nepal',
-        idType: 'Citizenship',
-        idNumber: 'To be collected at check-in',
-        country: 'Nepal',
-        vipTier: 'STANDARD',
+        address: guestAddress,
+        city: guestCity,
+        country: guestNationality,
+        idType,
+        idNumber: idNumber.trim() || 'To be collected at check-in',
+        idIssuePlace,
+        idIssueDate,
+        idExpiryDate,
+        idDocumentImage: idDocumentImage || undefined,
+        purposeOfVisit,
+        arrivedFrom,
+        proceedingTo,
+        vehicleNumber,
+        accompanyingGuests,
+        vipTier: linkedBooking?.guest.vipTier || 'STANDARD',
       },
-      cafeOrders: [],
+      cafeOrders: linkedBooking?.cafeOrders || [],
       payments: paymentRecords,
-      bookingHistory: [],
+      bookingHistory: linkedBooking?.bookingHistory || [],
       notes: bookingNotes.trim() || undefined,
+      keyCardNumber,
+      luggageCount,
     };
 
     let updated: RoomBooking[];
-    if (paramBookingId && currentBookings.some((b) => b.id === paramBookingId)) {
-      updated = currentBookings.map((b) => (b.id === paramBookingId ? bookingPayload : b));
+    if (currentBookings.some((b) => b.id === newBookingId)) {
+      updated = currentBookings.map((b) => (b.id === newBookingId ? bookingPayload : b));
     } else {
       updated = [bookingPayload, ...currentBookings];
     }
@@ -345,7 +529,7 @@ function NewRoomBookingContent() {
     if (printRegCard) {
       setSelectedBookingForRegCard(bookingPayload);
       if (shouldCheckInNow) {
-        toast.celebrate('Guest Checked In!', `Room ${selectedRoomObj.number} assigned to ${guestName.trim()}. Room marked Occupied.`);
+        toast.celebrate('Guest Checked In!', `Room ${selectedRoomObj.number} assigned to ${guestName.trim()}. Key Card ${keyCardNumber} issued.`);
       } else {
         toast.success('Booking Saved!', `Reservation ${newBookingCode} confirmed for ${guestName.trim()}. Room held.`);
       }
@@ -371,40 +555,140 @@ function NewRoomBookingContent() {
   };
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-16 select-none font-sans text-slate-900 dark:text-neutral-100">
-      {/* Front Desk Top Navigation Boxes */}
+    <div className="space-y-4 max-w-6xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
+      {/* Front Desk Category Option Boxes */}
       <FrontDeskNavBoxes activeId={activeNavBoxId} />
 
-      {/* Main Container Card: Clean & Professional */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-xl border border-slate-200 dark:border-[#145447] shadow-sm overflow-hidden">
+      {/* Main Booking Container Card */}
+      <div className="bg-white dark:bg-[#071F1A] rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] shadow-sm overflow-hidden">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] gap-3">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
-              New Room Booking
-            </h1>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
+                {formMode === 'CHECK_IN' ? 'Guest Check-In' : 'New Room Booking'}
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {formMode === 'CHECK_IN'
+                  ? 'Verify guest details, assign room key, and settle payment'
+                  : 'Reserve a room, schedule stay dates, and enter guest details'}
+              </p>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleBackNavigation}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 border-[#DCE3DF] dark:border-[#145447] hover:bg-[#F2F6F4]"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>
-              {fromParam === 'reservations'
-                ? 'Back to Reservation List'
-                : fromParam === 'check-in'
-                ? 'Back to Check-In List'
-                : fromParam === 'rooms'
-                ? 'Back to Rooms'
-                : 'Back to Front Desk'}
-            </span>
-          </button>
+          {/* Mode Switcher Buttons */}
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] p-0.5">
+              <button
+                type="button"
+                onClick={() => setFormMode('BOOKING')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
+                  formMode === 'BOOKING'
+                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                )}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Book Now</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/check-in')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
+                  formMode === 'CHECK_IN'
+                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                )}
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Check-In Desk</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleBackNavigation}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 border-[#DCE3DF] dark:border-[#145447] hover:bg-[#F2F6F4]"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 lg:p-8 space-y-8">
+        <div className="p-6 lg:p-8 space-y-6">
+          {/* SEARCH RESERVATION BAR (Shown in Check-In Mode) */}
+          {formMode === 'CHECK_IN' && (
+            <div className="space-y-2 max-w-xl">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={resSearchQuery}
+                  onChange={(e) => {
+                    setResSearchQuery(e.target.value);
+                    setShowResSuggestions(true);
+                  }}
+                  onFocus={() => setShowResSuggestions(true)}
+                  placeholder="Search reservation by code, guest name, phone, or room..."
+                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] text-xs font-medium text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#0B3D32] focus:bg-white dark:focus:bg-[#071F1A] transition-all"
+                />
+                {resSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResSearchQuery('');
+                      setShowResSuggestions(false);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Suggestions Dropdown */}
+                {showResSuggestions && reservationSearchResults.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] shadow-xl overflow-hidden divide-y divide-[#E5EEE9] dark:divide-[#145447] max-h-60 overflow-y-auto">
+                    {reservationSearchResults.map((b) => {
+                      const fin = getBookingFinancials(b);
+                      return (
+                        <div
+                          key={b.id}
+                          onClick={() => handleSelectReservationToAutoFill(b)}
+                          className="p-3 hover:bg-[#F2F6F4] dark:hover:bg-[#093027] cursor-pointer flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                              <span>{b.guest.firstName} {b.guest.lastName}</span>
+                              <span className="font-mono text-slate-400">({b.bookingCode})</span>
+                              <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                Room {b.room.number}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              {b.guest.phone} · {b.checkIn} to {b.checkOut} ({b.nights}n)
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-slate-800 dark:text-white block">
+                              Rs. {fin.totalCharges.toLocaleString()}
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-600 block">
+                              {fin.totalPaid > 0 ? `Adv Paid: Rs. ${fin.totalPaid.toLocaleString()}` : 'No Advance'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ===============================================================
               SECTION 1: GUEST & STAY DURATION
               =============================================================== */}
@@ -452,106 +736,78 @@ function NewRoomBookingContent() {
                 </div>
               </div>
 
-              {/* Adults & Children */}
+              {/* Adults & Children Count */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
                     Adults
                   </label>
-                  <div className="relative">
-                    <select
-                      value={adultsCount}
-                      onChange={(e) => setAdultsCount(Number(e.target.value))}
-                      className="w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32] cursor-pointer pr-8"
-                    >
-                      <option value={1}>1 Adult</option>
-                      <option value={2}>2 Adults</option>
-                      <option value={3}>3 Adults</option>
-                      <option value={4}>4 Adults</option>
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={adultsCount}
+                    onChange={(e) => setAdultsCount(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                  />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
                     Children
                   </label>
-                  <div className="relative">
-                    <select
-                      value={childrenCount}
-                      onChange={(e) => setChildrenCount(Number(e.target.value))}
-                      className="w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32] cursor-pointer pr-8"
-                    >
-                      <option value={0}>0 Children</option>
-                      <option value={1}>1 Child</option>
-                      <option value={2}>2 Children</option>
-                      <option value={3}>3 Children</option>
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={childrenCount}
+                    onChange={(e) => setChildrenCount(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                  />
                 </div>
               </div>
+
+              {/* Physical Key Card Assignment in Check-In Mode */}
+              {formMode === 'CHECK_IN' && (
+                <div className="p-3 bg-slate-50 dark:bg-[#061B16] rounded border border-[#DCE3DF] dark:border-[#145447] grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1 flex items-center gap-1">
+                      <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Key Card #</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={keyCardNumber}
+                      onChange={(e) => setKeyCardNumber(e.target.value)}
+                      placeholder="e.g. KC-101-A"
+                      className="w-full px-2 py-1.5 font-mono font-bold text-xs rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1 flex items-center gap-1">
+                      <Luggage className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Luggage Pieces</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={luggageCount}
+                      onChange={(e) => setLuggageCount(Math.max(0, Number(e.target.value)))}
+                      className="w-full px-2 py-1.5 font-mono font-bold text-xs rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] dark:text-white"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Guest Details (Reduced width, compact & professional) */}
-            <div className="lg:col-span-7 space-y-4 max-w-lg">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300 block">
-                Search guest
-              </span>
-
-              {/* Fast Autocomplete Guest Search */}
-              <div className="relative">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={guestSearchQuery}
-                    onChange={(e) => {
-                      setGuestSearchQuery(e.target.value);
-                      setShowGuestSuggestions(true);
-                    }}
-                    onFocus={() => setShowGuestSuggestions(true)}
-                    className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                  />
-                  {guestSearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGuestSearchQuery('');
-                        setShowGuestSuggestions(false);
-                      }}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Suggestions Dropdown */}
-                {showGuestSuggestions && guestSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-slate-200 dark:border-[#145447] bg-white dark:bg-[#07241E] shadow-xl overflow-hidden py-1">
-                    {guestSuggestions.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => handleSelectGuestSuggestion(g)}
-                        className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-[#093027] flex items-center justify-between text-xs cursor-pointer border-b border-slate-100 dark:border-[#145447]/40 last:border-0"
-                      >
-                        <div>
-                          <span className="font-semibold text-slate-900 dark:text-white block">{g.name}</span>
-                          <span className="text-[11px] text-slate-500 font-mono">{g.phone}</span>
-                        </div>
-                        <span className="text-[10px] text-[#0B3D32] dark:text-emerald-400 font-semibold uppercase tracking-wider">
-                          Autofill
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {/* Guest Details (7 cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
+                  Guest Information
+                </span>
               </div>
 
-              {/* Guest Fields: Name, Phone & Email in a balanced 2-column grid */}
+              {/* Guest Fields: Name, Phone & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
@@ -602,9 +858,188 @@ function NewRoomBookingContent() {
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    Nationality / Country
+                  </label>
+                  <select
+                    value={guestNationality}
+                    onChange={(e) => setGuestNationality(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                  >
+                    {NATIONALITY_OPTIONS.map((nat) => (
+                      <option key={nat} value={nat}>{nat}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* ===============================================================
+              SECTION 1.5: MANDATORY IDENTIFICATION & KYC (Expanded Check-In)
+              =============================================================== */}
+          {formMode === 'CHECK_IN' && (
+            <div className="space-y-4 border-b border-slate-100 dark:border-[#145447] pb-8 bg-emerald-50/30 dark:bg-[#061B16] p-4 rounded-lg border border-emerald-200 dark:border-emerald-900/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#A51F36] dark:text-rose-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    Mandatory Guest Identification & KYC Document
+                  </span>
+                </div>
+                <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded border border-rose-200">
+                  Required for Check-In
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    ID Document Type <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={idType}
+                    onChange={(e) => setIdType(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#071F1A] text-xs font-medium text-slate-900 dark:text-white outline-none"
+                  >
+                    {ID_DOCUMENT_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    ID Document Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={idNumber}
+                    onChange={(e) => setIdNumber(e.target.value)}
+                    placeholder="e.g. 27-01-72-0451 or PA-908123"
+                    className="w-full px-3 py-2 font-mono font-bold rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#071F1A] text-xs text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Place of Issue / Authority
+                  </label>
+                  <input
+                    type="text"
+                    value={idIssuePlace}
+                    onChange={(e) => setIdIssuePlace(e.target.value)}
+                    placeholder="e.g. DAO Kathmandu"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#071F1A] text-xs text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Document Scan / File Preview */}
+              <div className="p-3 bg-white dark:bg-[#071F1A] rounded border border-dashed border-[#DCE3DF] dark:border-[#145447] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <UploadCloud className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    ID Document Scan Attachment:
+                  </span>
+                  {idDocumentImage ? (
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
+                      <FileCheck className="w-3.5 h-3.5" /> Attached
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 italic">No document attached</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdDocumentImage('attached');
+                      toast.success('Document Attached', 'Citizenship scan sample attached.');
+                    }}
+                    className="px-2 py-1 rounded text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-white cursor-pointer"
+                  >
+                    + Sample ID Scan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdDocumentImage('passport');
+                      toast.success('Document Attached', 'Passport page sample attached.');
+                    }}
+                    className="px-2 py-1 rounded text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-white cursor-pointer"
+                  >
+                    + Sample Passport
+                  </button>
+                </div>
+              </div>
+
+              {/* Accompanying Guests Dynamic List */}
+              <div className="pt-2 border-t border-[#E5EEE9] dark:border-[#145447] space-y-2">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  Accompanying Secondary Guests ({accompanyingGuests.length}):
+                </span>
+                {accompanyingGuests.length > 0 && (
+                  <div className="space-y-1">
+                    {accompanyingGuests.map((acc, idx) => (
+                      <div
+                        key={acc.id || idx}
+                        className="flex items-center justify-between p-2 rounded bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] text-xs"
+                      >
+                        <span>
+                          {idx + 1}. <strong>{acc.name}</strong> ({acc.relation || 'Guest'} · Age: {acc.age || 'N/A'})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAccompanyingGuest(acc.id)}
+                          className="text-slate-400 hover:text-rose-600 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={newAccName}
+                    onChange={(e) => setNewAccName(e.target.value)}
+                    placeholder="Accompanying Guest Full Name"
+                    className="h-8 px-2.5 text-xs rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] dark:text-white flex-1 min-w-[140px]"
+                  />
+                  <input
+                    type="number"
+                    value={newAccAge}
+                    onChange={(e) => setNewAccAge(e.target.value)}
+                    placeholder="Age"
+                    className="h-8 w-16 px-2 text-xs rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] dark:text-white"
+                  />
+                  <select
+                    value={newAccRelation}
+                    onChange={(e) => setNewAccRelation(e.target.value)}
+                    className="h-8 px-2 text-xs rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] dark:text-white"
+                  >
+                    <option value="Spouse">Spouse</option>
+                    <option value="Child">Child</option>
+                    <option value="Friend">Friend</option>
+                    <option value="Colleague">Colleague</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddAccompanyingGuest}
+                    className="h-8 px-3 rounded bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all dark:bg-emerald-600 cursor-pointer"
+                  >
+                    + Add Guest
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ===============================================================
               SECTION 2: ROOM INFORMATION (Exact Match of User Specification)
@@ -666,7 +1101,7 @@ function NewRoomBookingContent() {
                       </div>
                     </td>
 
-                    {/* Assigned Room (Fixed / Read-Only as room is already selected) */}
+                    {/* Assigned Room */}
                     <td className="py-3.5 px-4 border-r border-slate-200 dark:border-[#145447]">
                       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#C5D5CC] dark:border-[#145447] bg-[#F4F7F5] dark:bg-[#06241D] text-xs font-bold text-[#0B3D32] dark:text-emerald-300 shadow-2xs">
                         <Bed className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400 shrink-0" />
@@ -747,197 +1182,224 @@ function NewRoomBookingContent() {
                 <span>Print Registration Card on Save</span>
               </label>
             </div>
+          </div>
 
-            {/* Bottom Split: Remarks (Left) & Accounting / Payment (Right) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 items-start">
-              {/* Left Column: Special Notes / Remarks */}
-              <div className="lg:col-span-7 space-y-1.5">
-                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Special Notes / Remarks
-                </label>
-                <textarea
-                  rows={4}
-                  value={bookingNotes}
-                  onChange={(e) => setBookingNotes(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32] resize-none"
-                />
+          {/* ===============================================================
+              SECTION 3: REMARKS & BILLING / ADVANCE RECONCILIATION
+              =============================================================== */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-t border-slate-100 dark:border-[#145447] pt-8">
+            {/* Left: Remarks */}
+            <div className="lg:col-span-6 space-y-4">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
+                  Remarks / Special Requests
+                </span>
+              </div>
+              <textarea
+                rows={4}
+                value={bookingNotes}
+                onChange={(e) => setBookingNotes(e.target.value)}
+                placeholder="Airport pickup, high floor requested, dietary preferences..."
+                className="w-full p-3 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+              />
+            </div>
+
+            {/* Right: Structured Billing & Advance Reconcile Table */}
+            <div className="lg:col-span-6 space-y-4">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
+                  Billing & Settlement
+                </span>
               </div>
 
-              {/* Right Column: Financial Breakdown & Payment (Compact & Balanced) */}
-              <div className="lg:col-span-5 space-y-2.5 font-sans max-w-sm ml-auto w-full">
-                {/* Options: Pay later / Advance payment / Full payment */}
-                <div className="flex flex-wrap items-center justify-between pb-2 border-b border-slate-200 dark:border-[#145447]">
-                  <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-slate-800 dark:text-neutral-200">
-                    <input
-                      type="radio"
-                      name="paymentChoice"
-                      checked={paymentChoice === 'LATER'}
-                      onChange={() => {
-                        setPaymentChoice('LATER');
-                        setAdvancedAmount(0);
-                      }}
-                      className="w-4 h-4 text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                    />
-                    <span>Pay later</span>
-                  </label>
+              {/* Billing Table */}
+              <div className="border border-slate-200 dark:border-[#145447] rounded-lg overflow-hidden bg-white dark:bg-[#071F1A]">
+                <table className="w-full text-xs table-fixed">
+                  <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
+                    {/* Subtotal */}
+                    <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
+                      <td className="w-1/2 py-2 px-3 text-slate-600 dark:text-slate-400 font-medium border-r border-slate-200 dark:border-[#145447]">
+                        Subtotal
+                      </td>
+                      <td className="w-1/2 py-2 px-3 text-right font-bold text-slate-900 dark:text-white tabular-nums">
+                        Rs. {subtotal.toLocaleString()}
+                      </td>
+                    </tr>
 
-                  <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-slate-800 dark:text-neutral-200">
-                    <input
-                      type="radio"
-                      name="paymentChoice"
-                      checked={paymentChoice === 'ADVANCE'}
-                      onChange={() => {
-                        setPaymentChoice('ADVANCE');
-                        const defaultAdv = Math.min(2000, totalPayable);
-                        setAdvancedAmount(defaultAdv > 0 ? defaultAdv : Math.round(totalPayable / 2));
-                      }}
-                      className="w-4 h-4 text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                    />
-                    <span>Advance payment</span>
-                  </label>
+                    {/* Total Room Charges */}
+                    <tr className="bg-[#FAFBF9] dark:bg-[#061B16] font-bold">
+                      <td className="w-1/2 py-2 px-3 text-slate-900 dark:text-white border-r border-slate-200 dark:border-[#145447]">
+                        Total Room Charges
+                      </td>
+                      <td className="w-1/2 py-2 px-3 text-right text-sm text-[#0B3D32] dark:text-emerald-400 tabular-nums">
+                        Rs. {totalPayable.toLocaleString()}
+                      </td>
+                    </tr>
 
-                  <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-slate-800 dark:text-neutral-200">
-                    <input
-                      type="radio"
-                      name="paymentChoice"
-                      checked={paymentChoice === 'FULL'}
-                      onChange={() => {
-                        setPaymentChoice('FULL');
-                        setAdvancedAmount(totalPayable);
-                      }}
-                      className="w-4 h-4 text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                    />
-                    <span>Full payment</span>
-                  </label>
-                </div>
-
-                {/* Billing & Payment Table (Compact & Structured) */}
-                <div className="border border-slate-200 dark:border-[#145447] rounded-lg overflow-hidden bg-white dark:bg-[#071F1A]">
-                  <table className="w-full text-xs table-fixed">
-                    <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
-                      {/* Subtotal */}
-                      <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                        <td className="w-1/2 py-2 px-3 text-slate-600 dark:text-slate-400 font-medium border-r border-slate-200 dark:border-[#145447]">
-                          Subtotal
+                    {/* ADVANCE PAID AT BOOKING (Highlighted in Emerald when advance exists) */}
+                    {advancePaidAtBooking > 0 && (
+                      <tr className="bg-emerald-50/70 dark:bg-emerald-950/40">
+                        <td className="w-1/2 py-2 px-3 text-emerald-800 dark:text-emerald-300 font-bold border-r border-slate-200 dark:border-[#145447] flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Advance Paid at Booking</span>
                         </td>
-                        <td className="w-1/2 py-2 px-3 text-right font-bold text-slate-900 dark:text-white tabular-nums">
-                          Rs. {subtotal.toLocaleString()}
+                        <td className="w-1/2 py-2 px-3 text-right font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
+                          - Rs. {advancePaidAtBooking.toLocaleString()}
                         </td>
                       </tr>
+                    )}
 
-                      {/* Total Payable */}
-                      <tr className="bg-[#FAFBF9] dark:bg-[#061B16] font-bold">
-                        <td className="w-1/2 py-2 px-3 text-slate-900 dark:text-white border-r border-slate-200 dark:border-[#145447]">
-                          Total Payable
+                    {/* REMAINING DUE AMOUNT */}
+                    {advancePaidAtBooking > 0 && (
+                      <tr className="font-bold">
+                        <td className="w-1/2 py-2 px-3 text-slate-800 dark:text-white border-r border-slate-200 dark:border-[#145447]">
+                          Remaining Balance Due
                         </td>
-                        <td className="w-1/2 py-2 px-3 text-right text-sm text-[#0B3D32] dark:text-emerald-400 tabular-nums">
-                          Rs. {totalPayable.toLocaleString()}
+                        <td className="w-1/2 py-2 px-3 text-right text-amber-700 dark:text-amber-400 tabular-nums">
+                          Rs. {remainingDue.toLocaleString()}
                         </td>
                       </tr>
+                    )}
 
-                      {/* Payment Fields based on Choice */}
-                      {paymentChoice !== 'LATER' ? (
-                        <>
-                          {/* Amount Received / Advanced Amount */}
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              {paymentChoice === 'FULL' ? 'Amount Received' : 'Advanced Amount'} <span className="text-emerald-600 font-bold">*</span>
-                            </td>
-                            <td className="w-1/2 py-1.5 px-3 text-right">
-                              <input
-                                type="number"
-                                min={0}
-                                max={totalPayable}
-                                value={advancedAmount}
-                                onChange={(e) => {
-                                  const val = Math.max(0, Number(e.target.value) || 0);
-                                  setAdvancedAmount(val);
-                                  if (val >= totalPayable && paymentChoice === 'ADVANCE') {
-                                    setPaymentChoice('FULL');
-                                  }
-                                }}
-                                className="w-28 text-right font-bold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                              />
-                            </td>
-                          </tr>
+                    {/* Payment Strategy Choice */}
+                    <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
+                      <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
+                        Payment Option
+                      </td>
+                      <td className="w-1/2 py-1.5 px-3 text-right">
+                        <div className="inline-flex gap-2 text-xs">
+                          <label className="inline-flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="payOption"
+                              checked={paymentChoice === 'FULL'}
+                              onChange={() => setPaymentChoice('FULL')}
+                              className="accent-[#0B3D32]"
+                            />
+                            <span>{formMode === 'CHECK_IN' ? 'Pay Balance' : 'Pay Full'}</span>
+                          </label>
+                          <label className="inline-flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="payOption"
+                              checked={paymentChoice === 'ADVANCE'}
+                              onChange={() => setPaymentChoice('ADVANCE')}
+                              className="accent-[#0B3D32]"
+                            />
+                            <span>Advance</span>
+                          </label>
+                          <label className="inline-flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="payOption"
+                              checked={paymentChoice === 'LATER'}
+                              onChange={() => setPaymentChoice('LATER')}
+                              className="accent-[#0B3D32]"
+                            />
+                            <span>Pay Later</span>
+                          </label>
+                        </div>
+                      </td>
+                    </tr>
 
-                          {/* Due Amount */}
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Due Amount
-                            </td>
-                            <td className="w-1/2 py-2 px-3 text-right">
-                              <span
-                                className={cn(
-                                  'inline-block font-bold px-2 py-0.5 rounded text-xs tabular-nums',
-                                  dueAmount === 0
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                    : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300'
-                                )}
-                              >
-                                Rs. {dueAmount.toLocaleString()}
-                              </span>
-                            </td>
-                          </tr>
+                    {paymentChoice !== 'LATER' && (
+                      <>
+                        <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
+                          <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
+                            Amount Collected Now <span className="text-emerald-600 font-bold">*</span>
+                          </td>
+                          <td className="w-1/2 py-1.5 px-3 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              value={advancedAmount}
+                              onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
+                              className="w-32 text-right font-bold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                            />
+                          </td>
+                        </tr>
 
-                          {/* Payment Method */}
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Payment Method
-                            </td>
-                            <td className="w-1/2 py-1.5 px-3 text-right">
-                              <div className="relative inline-block w-36">
-                                <select
-                                  value={paymentMethod}
-                                  onChange={(e) => setPaymentMethod(e.target.value)}
-                                  className="w-full appearance-none px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-[#0B3D32] cursor-pointer pr-6 text-left"
-                                >
-                                  <option value="CASH">Cash at Desk</option>
-                                  <option value="CARD">Credit / Debit Card</option>
-                                  <option value="UPI_QR">Mobile Banking / QR</option>
-                                  <option value="ESEWA_KHALTI">eSewa / Khalti</option>
-                                  <option value="BANK_TRANSFER">Bank Transfer</option>
-                                </select>
-                                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                              </div>
-                            </td>
-                          </tr>
-                        </>
-                      ) : (
-                        <>
-                          {/* Due Amount when Pay Later */}
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Due Amount
-                            </td>
-                            <td className="w-1/2 py-2 px-3 text-right">
-                              <span className="inline-block font-bold px-2 py-0.5 rounded text-xs tabular-nums bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300">
-                                Rs. {totalPayable.toLocaleString()}
-                              </span>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td colSpan={2} className="py-2 px-3 text-[11px] text-slate-500 dark:text-neutral-400 italic bg-[#FAFBF9] dark:bg-[#061B16]">
-                              Payment will be collected and settled upon arrival or checkout.
-                            </td>
-                          </tr>
-                        </>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
+                          <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
+                            Due Amount at Checkout
+                          </td>
+                          <td className="w-1/2 py-2 px-3 text-right">
+                            <span
+                              className={cn(
+                                'inline-block font-bold px-2 py-0.5 rounded text-xs tabular-nums',
+                                dueAmount > 0
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              )}
+                            >
+                              Rs. {dueAmount.toLocaleString()}
+                            </span>
+                          </td>
+                        </tr>
 
-                {/* Action Button: Only Save Booking */}
-                <div className="flex items-center justify-end pt-2.5">
+                        <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
+                          <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
+                            Payment Method
+                          </td>
+                          <td className="w-1/2 py-1.5 px-3 text-right">
+                            <select
+                              value={paymentMethod}
+                              onChange={(e) => setPaymentMethod(e.target.value)}
+                              className="w-36 text-xs font-semibold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none"
+                            >
+                              <option value="CASH">Cash</option>
+                              <option value="CARD">Credit / Debit Card</option>
+                              <option value="UPI_QR">UPI / Fonepay QR</option>
+                              <option value="ESEWA_KHALTI">eSewa / Khalti</option>
+                              <option value="BANK_TRANSFER">Bank Transfer</option>
+                            </select>
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Action Buttons: Save Booking vs Check In */}
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="px-3.5 py-2 rounded-md border border-slate-300 dark:border-[#145447] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer"
+                >
+                  Reset
+                </button>
+
+                {formMode === 'CHECK_IN' ? (
                   <button
                     type="button"
-                    onClick={() => handleSaveBooking(false)}
-                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded-md bg-[#0B3D32] hover:bg-[#07241E] text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
+                    onClick={() => handleSaveBooking(true)}
+                    className="inline-flex items-center gap-1.5 px-6 py-2 rounded-md bg-[#0B3D32] hover:bg-[#07241E] text-white text-xs font-bold cursor-pointer transition-all shadow-sm dark:bg-emerald-600 dark:hover:bg-emerald-500"
                   >
-                    <Check className="w-4 h-4" />
-                    <span>Save Booking</span>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Complete Check-In & Issue Key</span>
                   </button>
-                </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveBooking(false)}
+                      className="inline-flex items-center gap-1.5 px-5 py-2 rounded-md bg-[#0B3D32] hover:bg-[#07241E] text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Save Booking (Hold Room)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormMode('CHECK_IN')}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md border border-[#0B3D32] text-[#0B3D32] hover:bg-emerald-50 text-xs font-bold cursor-pointer transition-all dark:border-emerald-500 dark:text-emerald-400"
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      <span>Check In Now →</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -952,7 +1414,7 @@ function NewRoomBookingContent() {
         const fin = getBookingFinancials(b);
         return (
           <div
-            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-2xs"
             onClick={handleCloseRegCardModal}
           >
             <div
@@ -968,7 +1430,7 @@ function NewRoomBookingContent() {
                   Kathmandu, Nepal · Tel: +977-1-4455667 · info@auragrandhotel.com
                 </p>
                 <div className="mt-2 inline-block px-3 py-0.5 border border-black text-xs font-bold uppercase tracking-wider">
-                  Guest Registration Card
+                  Guest Registration Card (KYC Verified)
                 </div>
               </div>
 
@@ -980,8 +1442,10 @@ function NewRoomBookingContent() {
                     <strong className="font-mono text-sm">{b.bookingCode}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Assigned Room:</span>
-                    <strong className="text-sm">Room {b.room.number} ({b.room.type})</strong>
+                    <span className="text-slate-500 text-[10px] block uppercase">Assigned Room & Key:</span>
+                    <strong className="text-sm">
+                      Room {b.room.number} ({b.room.type}) · Key: {b.keyCardNumber || `KC-${b.room.number}`}
+                    </strong>
                   </div>
                 </div>
 
@@ -991,8 +1455,10 @@ function NewRoomBookingContent() {
                     <strong className="text-sm">{b.guest.firstName} {b.guest.lastName}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Phone Number:</span>
-                    <strong className="font-mono">{b.guest.phone}</strong>
+                    <span className="text-slate-500 text-[10px] block uppercase">Phone & ID:</span>
+                    <strong className="font-mono">
+                      {b.guest.phone} · {b.guest.idType || 'ID'}: {b.guest.idNumber || 'Verified'}
+                    </strong>
                   </div>
                 </div>
 
@@ -1013,15 +1479,15 @@ function NewRoomBookingContent() {
 
                 <div className="grid grid-cols-3 gap-3 border-b border-slate-200 pb-3">
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Room Rate:</span>
-                    <strong>Rs. {b.room.pricePerNight.toLocaleString()}/night</strong>
+                    <span className="text-slate-500 text-[10px] block uppercase">Total Charges:</span>
+                    <strong>Rs. {fin.totalCharges.toLocaleString()}</strong>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[10px] block uppercase">Total Paid / Advance:</span>
                     <strong className="text-emerald-700">Rs. {fin.totalPaid.toLocaleString()}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Balance Due at Checkout:</span>
+                    <span className="text-slate-500 text-[10px] block uppercase">Balance Due:</span>
                     <strong className={fin.balanceDue > 0 ? 'text-amber-700' : 'text-emerald-700'}>
                       Rs. {fin.balanceDue.toLocaleString()}
                     </strong>

@@ -493,7 +493,7 @@ function FrontDeskContent() {
   const [checkInPaymentMethod, setCheckInPaymentMethod] = useState<'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER'>('CASH');
 
   const handleOpenCheckInModal = (booking: RoomBooking) => {
-    router.push(`/booking?bookingId=${booking.id}&from=desk`);
+    router.push(`/check-in?bookingId=${booking.id}`);
   };
 
   const handleConfirmCheckIn = () => {
@@ -675,7 +675,7 @@ function FrontDeskContent() {
             variant="primary"
             size="sm"
             onClick={() => {
-              router.push(`/booking?checkIn=${selectedDate}&mode=walkin&from=desk`);
+              router.push('/check-in?mode=walk-in');
             }}
             leftIcon={<Plus className="w-4 h-4" />}
             className="text-xs font-semibold bg-[#0B3D32] hover:bg-[#072B23] text-white cursor-pointer"
@@ -1098,7 +1098,7 @@ function FrontDeskContent() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/booking?bookingId=${activeBooking.id}&from=desk`);
+                              router.push(`/check-in?bookingId=${activeBooking.id}`);
                             }}
                             className="w-full inline-flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#072B23] text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
                           >
@@ -1144,7 +1144,7 @@ function FrontDeskContent() {
                                 type="button"
                                 onClick={() => {
                                   setOpenOptionMenuId(null);
-                                  router.push(`/booking?roomId=${room.id}&mode=walkin&from=desk`);
+                                  router.push(`/check-in?roomId=${room.id}&mode=walk-in`);
                                 }}
                                 className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
                               >
@@ -1160,7 +1160,7 @@ function FrontDeskContent() {
                               onClick={() => {
                                 setOpenOptionMenuId(null);
                                 if (activeBooking) {
-                                  router.push(`/booking?bookingId=${activeBooking.id}&from=desk`);
+                                  router.push(`/check-in?bookingId=${activeBooking.id}`);
                                 }
                               }}
                               className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"

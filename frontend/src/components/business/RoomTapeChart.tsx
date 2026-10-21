@@ -1455,7 +1455,7 @@ export function RoomTapeChart({
                   onClick={() => {
                     const b = inspectedBooking;
                     setInspectedBooking(null);
-                    router.push(`/booking?bookingId=${b.id}&from=desk`);
+                    router.push(`/check-in?bookingId=${b.id}`);
                   }}
                   className="flex-1 py-2 rounded-[3px] bg-[#0B3D32] hover:bg-[#145447] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                 >

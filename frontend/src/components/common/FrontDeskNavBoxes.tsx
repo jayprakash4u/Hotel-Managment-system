@@ -24,17 +24,17 @@ export interface FrontDeskOptionItem {
 export const FRONT_DESK_OPTIONS: FrontDeskOptionItem[] = [
   {
     id: 'desk',
-    name: 'Check-in Desk',
+    name: 'Front Desk Matrix',
     href: '/front-desk',
     icon: Building2,
-    description: 'Front desk action command center & arrivals',
+    description: 'Front desk room grid, tape chart & occupancy',
   },
   {
     id: 'check-in',
-    name: 'Check-In List',
+    name: 'Check-In Desk & Form',
     href: '/check-in',
     icon: UserCheck,
-    description: "Today's arriving guests & reg cards",
+    description: 'Guest check-in station, KYC verification & reg cards',
   },
   {
     id: 'reservations',

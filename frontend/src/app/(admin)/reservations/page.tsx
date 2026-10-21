@@ -139,7 +139,7 @@ function RoomBookingsContent() {
 
   // Actions on Bookings
   const handleCheckInGuest = (bookingId: string) => {
-    router.push(`/booking?bookingId=${bookingId}&from=reservations`);
+    router.push(`/check-in?bookingId=${bookingId}`);
   };
 
   const handleCheckOutGuest = (bookingId: string) => {
