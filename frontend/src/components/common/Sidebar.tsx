@@ -279,7 +279,7 @@ export const Sidebar: React.FC<{
 
                 let isActive = false;
                 if (item.id === 'front-desk') {
-                  isActive = ['/front-desk', '/check-in', '/checkout', '/reservations'].some((p) => pathname.startsWith(p));
+                  isActive = ['/front-desk', '/booking', '/check-in', '/checkout', '/reservations'].some((p) => pathname.startsWith(p));
                 } else if (isQuery) {
                   isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
                 } else if (item.href === '/') {
@@ -386,7 +386,7 @@ export const Sidebar: React.FC<{
 
               let isActive = false;
               if (item.id === 'front-desk') {
-                isActive = ['/front-desk', '/check-in', '/checkout', '/reservations'].some((p) => pathname.startsWith(p));
+                isActive = ['/front-desk', '/booking', '/check-in', '/checkout', '/reservations'].some((p) => pathname.startsWith(p));
               } else if (isQuery) {
                 isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
               } else if (item.href === '/') {

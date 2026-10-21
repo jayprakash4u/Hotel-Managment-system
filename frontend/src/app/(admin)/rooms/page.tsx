@@ -21,6 +21,7 @@ import {
   Layers,
   Sparkle,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import {
@@ -69,6 +70,7 @@ const INITIAL_ROOMS: RoomRecord[] = [
 ];
 
 export default function RoomsPage() {
+  const router = useRouter();
   const toast = useToast();
 
   const todayStr = useMemo(() => getRelativeDate(0), []);
@@ -82,7 +84,7 @@ export default function RoomsPage() {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return INITIAL_ROOMS;
   });
@@ -229,11 +231,10 @@ export default function RoomsPage() {
     );
   };
 
-  // Open Guided Booking Flow for a specific room
+  // Navigate directly to unified booking & check-in page for a specific room
   const handleStartBookingForRoom = (room: RoomRecord, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setSelectedRoomForBooking(room);
-    setGuidedModalOpen(true);
+    router.push(`/booking?roomId=${room.id}&checkIn=${targetCheckIn}&checkOut=${targetCheckOut}&mode=reserve&from=desk`);
   };
 
   // Add room submit
@@ -470,8 +471,8 @@ export default function RoomsPage() {
                 isUnderMaintenance
                   ? 'border-purple-200 dark:border-purple-900/60 bg-purple-50/20 dark:bg-purple-950/20'
                   : isCurrentlyInHouse
-                  ? 'border-rose-200 dark:border-rose-900/60 hover:border-rose-300'
-                  : 'border-[#DCE3DF] dark:border-[#145447] hover:border-[#0B3D32] dark:hover:border-emerald-500'
+                    ? 'border-rose-200 dark:border-rose-900/60 hover:border-rose-300'
+                    : 'border-[#DCE3DF] dark:border-[#145447] hover:border-[#0B3D32] dark:hover:border-emerald-500'
               )}
             >
               <div>
@@ -501,8 +502,8 @@ export default function RoomsPage() {
                       room.cleaningStatus === 'CLEAN'
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
                         : room.cleaningStatus === 'DIRTY'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-                        : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                          : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800'
                     )}
                   >
                     <span
@@ -511,8 +512,8 @@ export default function RoomsPage() {
                         room.cleaningStatus === 'CLEAN'
                           ? 'bg-emerald-500'
                           : room.cleaningStatus === 'DIRTY'
-                          ? 'bg-amber-500'
-                          : 'bg-sky-500 animate-pulse'
+                            ? 'bg-amber-500'
+                            : 'bg-sky-500 animate-pulse'
                       )}
                     />
                     <span>{room.cleaningStatus === 'IN_CLEANING' ? 'Cleaning' : room.cleaningStatus}</span>

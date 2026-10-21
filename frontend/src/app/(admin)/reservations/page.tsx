@@ -139,15 +139,7 @@ function RoomBookingsContent() {
 
   // Actions on Bookings
   const handleCheckInGuest = (bookingId: string) => {
-    setBookings((prev) =>
-      prev.map((b) => {
-        if (b.id === bookingId) {
-          return { ...b, status: 'CHECKED_IN' as const };
-        }
-        return b;
-      })
-    );
-    toast.celebrate('Guest Checked In!', 'Room status switched to Occupied.');
+    router.push(`/booking?bookingId=${bookingId}&from=reservations`);
   };
 
   const handleCheckOutGuest = (bookingId: string) => {

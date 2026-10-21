@@ -28,6 +28,7 @@ import {
   saveBookingsToStorage,
   getBookingFinancials,
 } from '@/app/(admin)/reservations/reservationsData';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 export interface TapeChartRoom {
@@ -146,6 +147,7 @@ export function RoomTapeChart({
   onUpdateBookings,
   onClose,
 }: RoomTapeChartProps) {
+  const router = useRouter();
   // Start date in YYYY-MM-DD
   const [startDateStr, setStartDateStr] = useState<string>(() => getRelativeDate(0));
 
@@ -353,30 +355,7 @@ export function RoomTapeChart({
       cleaningStatus: 'CLEAN' as const,
     };
 
-    setBookingModal({
-      isOpen: true,
-      room: matchedRoom,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      nights,
-      title: 'Mr.',
-      firstName: '',
-      lastName: '',
-      adults: matchedRoom.capacity || 2,
-      children: 0,
-      ratePlan: 'Seasonal Rate',
-      roomsCount: 1,
-      isAssigned: true,
-      phone: '',
-      email: '',
-      segment: 'Single',
-      showGuarantee: false,
-      idType: 'Citizenship',
-      idNumber: '',
-      depositAmount: matchedRoom.pricePerNight,
-      paymentMethod: 'CASH',
-    });
-
+    router.push(`/booking?roomId=${matchedRoom.id}&checkIn=${checkIn}&checkOut=${checkOut}&mode=reserve&from=desk`);
     setDragState(null);
   };
 
@@ -1476,7 +1455,7 @@ export function RoomTapeChart({
                   onClick={() => {
                     const b = inspectedBooking;
                     setInspectedBooking(null);
-                    onOpenCheckInModal(b);
+                    router.push(`/booking?bookingId=${b.id}&from=desk`);
                   }}
                   className="flex-1 py-2 rounded-[3px] bg-[#0B3D32] hover:bg-[#145447] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                 >

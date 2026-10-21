@@ -6,31 +6,25 @@ import {
   Users,
   BedDouble,
   Check,
-  ArrowRight,
-  ArrowLeft,
-  LogIn,
-  BookmarkCheck,
   CreditCard,
   ShieldCheck,
-  Sparkles,
-  AlertCircle,
   X,
+  UserPlus,
+  RefreshCw,
+  Plus,
+  CheckCircle2,
+  Clock,
+  User,
 } from 'lucide-react';
-import { Modal } from '@/components/ui/Modal';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
 import {
   RoomBooking,
   loadBookingsFromStorage,
   saveBookingsToStorage,
   getRelativeDate,
-  getAvailableRoomsForDates,
-  AvailableRoomOption,
   AVAILABLE_ROOMS_CATALOG,
-  syncRoomStatuses,
 } from '@/app/(admin)/reservations/reservationsData';
-import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export interface GuidedBookingModalProps {
   isOpen: boolean;
@@ -41,6 +35,25 @@ export interface GuidedBookingModalProps {
   initialRoomId?: string;
   isWalkIn?: boolean;
 }
+
+interface RegisteredGuest {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  idType?: string;
+  idNumber?: string;
+  country?: string;
+  address?: string;
+}
+
+const DEFAULT_GUESTS: RegisteredGuest[] = [
+  { id: 'gst-1', name: 'Ram Sharma', phone: '+977 9841234567', email: 'ram.sharma@gmail.com', idType: 'Citizenship', idNumber: 'CT-27-01-72-0451', country: 'Nepal', address: 'New Baneshwor, Kathmandu' },
+  { id: 'gst-2', name: 'Sita Thapa', phone: '+977 9851122334', email: 'sita.thapa@outlook.com', idType: 'Passport', idNumber: 'PP-0899214', country: 'Nepal', address: 'Pokhara-8, Kaski' },
+  { id: 'gst-3', name: 'Rajesh Hamal', phone: '+977 9801998877', email: 'rajesh.hamal@kollywood.np', idType: 'Citizenship', idNumber: 'CT-18-02-65-8891', country: 'Nepal', address: 'Baluwatar, Kathmandu' },
+  { id: 'gst-4', name: 'Maya Gurung', phone: '+977 9813445566', email: 'maya.gurung@annapurna.org', idType: 'Citizenship', idNumber: 'CT-33-04-79-1122', country: 'Nepal', address: 'Dharan-12, Sunsari' },
+  { id: 'gst-5', name: 'Johnathan Doe', phone: '+1 415 555 2671', email: 'john.doe@techcorp.io', idType: 'Passport', idNumber: 'USA-7821990', country: 'United States', address: 'San Francisco, CA' },
+];
 
 export function GuidedBookingModal({
   isOpen,
@@ -56,127 +69,168 @@ export function GuidedBookingModal({
   const todayStr = useMemo(() => getRelativeDate(0), []);
   const tomorrowStr = useMemo(() => getRelativeDate(1), []);
 
-  // Guided Steps: 1 = Dates & Guests, 2 = Select Room, 3 = Guest Details, 4 = Review & Confirm
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [registeredGuests, setRegisteredGuests] = useState<RegisteredGuest[]>(() => {
+    if (typeof window === 'undefined') return DEFAULT_GUESTS;
+    try {
+      const raw = localStorage.getItem('hotel_registered_guests');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return DEFAULT_GUESTS;
+  });
 
-  // Form State
-  const [checkIn, setCheckIn] = useState<string>(initialCheckIn || todayStr);
-  const [checkOut, setCheckOut] = useState<string>(initialCheckOut || tomorrowStr);
-  const [adults, setAdults] = useState<number>(1);
-  const [children, setChildren] = useState<number>(0);
-  const [roomTypeFilter, setRoomTypeFilter] = useState<string>('ALL');
+  // Modal: + Add New Guest
+  const [isAddGuestModalOpen, setIsAddGuestModalOpen] = useState(false);
+  const [newGuestName, setNewGuestName] = useState('');
+  const [newGuestPhone, setNewGuestPhone] = useState('');
+  const [newGuestEmail, setNewGuestEmail] = useState('');
+  const [newGuestIdType, setNewGuestIdType] = useState('Citizenship');
+  const [newGuestIdNumber, setNewGuestIdNumber] = useState('');
 
-  const [selectedRoomId, setSelectedRoomId] = useState<string>(initialRoomId || '');
+  // Top Form Fields
+  const [bookingDate, setBookingDate] = useState<string>(todayStr);
+  const [selectedGuestId, setSelectedGuestId] = useState<string>('gst-1');
+  const [guestPhone, setGuestPhone] = useState<string>('+977 9841234567');
+  const [guestEmail, setGuestEmail] = useState<string>('ram.sharma@gmail.com');
+  const [checkInDate, setCheckInDate] = useState<string>(initialCheckIn || todayStr);
+  const [checkOutDate, setCheckOutDate] = useState<string>(initialCheckOut || tomorrowStr);
+  const [bookingType, setBookingType] = useState<string>('Direct Walk-In');
+  const [paxCount, setPaxCount] = useState<number>(2);
 
-  // Guest Details
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [idType, setIdType] = useState('Citizenship');
-  const [idNumber, setIdNumber] = useState('');
-  const [address, setAddress] = useState('Kathmandu, Nepal');
-  const [vipTier, setVipTier] = useState<'STANDARD' | 'SILVER' | 'GOLD' | 'PLATINUM'>('STANDARD');
-  const [specialRequests, setSpecialRequests] = useState('');
+  // The Star Toggle: Check In Now
+  const [checkInNow, setCheckInNow] = useState<boolean>(isWalkIn);
 
-  // Payment
-  const [depositAmount, setDepositAmount] = useState<number>(2000);
+  // Room Info
+  const [selectedRoomCategory, setSelectedRoomCategory] = useState<string>('Deluxe Room');
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(initialRoomId || 'rm-101');
+  const [customRoomRate, setCustomRoomRate] = useState<number>(3500);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [breakfastIncluded, setBreakfastIncluded] = useState<boolean>(false);
+
+  // Financials
+  const [advancedAmount, setAdvancedAmount] = useState<number>(3500);
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER'>('CASH');
 
-  // Load existing bookings from storage to calculate dynamic availability
-  const [existingBookings, setExistingBookings] = useState<RoomBooking[]>([]);
-
+  // Sync on modal open
   useEffect(() => {
     if (isOpen) {
-      setExistingBookings(loadBookingsFromStorage());
-      setCurrentStep(initialRoomId ? 2 : 1);
-      if (initialCheckIn) setCheckIn(initialCheckIn);
-      if (initialCheckOut) setCheckOut(initialCheckOut);
-      if (initialRoomId) setSelectedRoomId(initialRoomId);
+      if (initialCheckIn) setCheckInDate(initialCheckIn);
+      if (initialCheckOut) setCheckOutDate(initialCheckOut);
+      if (initialRoomId) {
+        setSelectedRoomId(initialRoomId);
+        const r = AVAILABLE_ROOMS_CATALOG.find((rm) => rm.id === initialRoomId);
+        if (r) {
+          setSelectedRoomCategory(r.type);
+          setCustomRoomRate(r.pricePerNight);
+          setAdvancedAmount(r.pricePerNight);
+        }
+      }
+      setCheckInNow(isWalkIn);
     }
-  }, [isOpen, initialCheckIn, initialCheckOut, initialRoomId]);
+  }, [isOpen, initialCheckIn, initialCheckOut, initialRoomId, isWalkIn]);
 
-  // Ensure checkOut is strictly after checkIn
+  // Selected Guest Object
+  const currentGuest = useMemo(() => {
+    return registeredGuests.find((g) => g.id === selectedGuestId) || registeredGuests[0] || DEFAULT_GUESTS[0];
+  }, [registeredGuests, selectedGuestId]);
+
+  useEffect(() => {
+    if (currentGuest) {
+      setGuestPhone(currentGuest.phone || '');
+      setGuestEmail(currentGuest.email || '');
+    }
+  }, [currentGuest]);
+
+  // Selected Room Object
+  const selectedRoomObj = useMemo(() => {
+    return AVAILABLE_ROOMS_CATALOG.find((r) => r.id === selectedRoomId) || AVAILABLE_ROOMS_CATALOG[0];
+  }, [selectedRoomId]);
+
+  // Nights
   const nights = useMemo(() => {
     try {
-      const d1 = new Date(checkIn).getTime();
-      const d2 = new Date(checkOut).getTime();
-      const diff = Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24));
-      return diff > 0 ? diff : 1;
+      const inD = new Date(checkInDate).getTime();
+      const outD = new Date(checkOutDate).getTime();
+      const diff = Math.ceil((outD - inD) / (1000 * 60 * 60 * 24));
+      return Math.max(1, isNaN(diff) ? 1 : diff);
     } catch {
       return 1;
     }
-  }, [checkIn, checkOut]);
+  }, [checkInDate, checkOutDate]);
 
-  // Dynamically calculate room availability for the requested dates
-  const evaluatedRooms = useMemo(() => {
-    const list = getAvailableRoomsForDates(checkIn, checkOut, existingBookings);
-    if (roomTypeFilter === 'ALL') return list;
-    return list.filter((r) => r.type.toLowerCase().includes(roomTypeFilter.toLowerCase()));
-  }, [checkIn, checkOut, existingBookings, roomTypeFilter]);
+  // Financial Calculations
+  const roomTariffSubtotal = useMemo(() => {
+    return (Number(customRoomRate) || 0) * nights;
+  }, [customRoomRate, nights]);
 
-  // Selected Room Object
-  const selectedRoom = useMemo(() => {
-    return AVAILABLE_ROOMS_CATALOG.find((r) => r.id === selectedRoomId);
-  }, [selectedRoomId]);
+  const breakfastCost = useMemo(() => {
+    if (!breakfastIncluded) return 0;
+    return 350 * paxCount * nights;
+  }, [breakfastIncluded, paxCount, nights]);
 
-  // Tariff calculation
-  const totalTariff = (selectedRoom?.pricePerNight || 3500) * nights;
+  const totalPayable = useMemo(() => {
+    return Math.max(0, roomTariffSubtotal + breakfastCost - (Number(discountAmount) || 0));
+  }, [roomTariffSubtotal, breakfastCost, discountAmount]);
 
-  // When step 1 completes, auto-select first available room if none selected
-  const handleProceedToRooms = () => {
-    if (!checkIn || !checkOut || checkIn >= checkOut) {
-      toast.error('Invalid Dates', 'Check-out date must be after check-in date.');
+  const dueAmount = useMemo(() => {
+    return Math.max(0, totalPayable - (Number(advancedAmount) || 0));
+  }, [totalPayable, advancedAmount]);
+
+  // Add new guest in popup
+  const handleAddNewGuestSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGuestName.trim() || !newGuestPhone.trim()) {
+      toast.error('Required Fields', 'Guest name and phone are required.');
       return;
     }
-    const avail = evaluatedRooms.filter((r) => r.isAvailableForDates);
-    if (avail.length > 0 && (!selectedRoomId || !avail.some((r) => r.id === selectedRoomId))) {
-      setSelectedRoomId(avail[0].id);
-    }
-    setCurrentStep(2);
+    const created: RegisteredGuest = {
+      id: `gst-${Date.now()}`,
+      name: newGuestName.trim(),
+      phone: newGuestPhone.trim(),
+      email: newGuestEmail.trim(),
+      idType: newGuestIdType,
+      idNumber: newGuestIdNumber.trim(),
+      country: 'Nepal',
+      address: 'Kathmandu, Nepal',
+    };
+    const updated = [created, ...registeredGuests];
+    setRegisteredGuests(updated);
+    try {
+      localStorage.setItem('hotel_registered_guests', JSON.stringify(updated));
+    } catch {}
+
+    setSelectedGuestId(created.id);
+    setGuestPhone(created.phone);
+    setGuestEmail(created.email || '');
+    setIsAddGuestModalOpen(false);
+    setNewGuestName('');
+    setNewGuestPhone('');
+    setNewGuestEmail('');
+    toast.success('Guest Created', `${created.name} was added.`);
   };
 
-  const handleProceedToGuest = () => {
-    if (!selectedRoomId) {
-      toast.error('Room Selection Required', 'Please choose an available room for your stay.');
-      return;
-    }
-    setCurrentStep(3);
-  };
+  // Submit Booking / Check-in
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const handleProceedToReview = () => {
-    if (!firstName.trim()) {
-      toast.error('First Name Required', 'Please enter guest first name.');
-      return;
-    }
-    if (!phone.trim()) {
-      toast.error('Phone Required', 'Please enter guest contact number.');
-      return;
-    }
-    // Set recommended deposit (e.g. 50% or full amount)
-    setDepositAmount(Math.min(totalTariff, Math.max(1500, Math.round(totalTariff * 0.5))));
-    setCurrentStep(4);
-  };
-
-  // Final submission: either as instant check-in (if arriving today) or future reservation
-  const handleFinalSubmit = (checkInNow: boolean) => {
-    if (!selectedRoom) return;
+    const [first, ...rest] = (currentGuest.name || 'Guest').split(' ');
+    const lastName = rest.join(' ') || 'Guest';
 
     const currentBookings = loadBookingsFromStorage();
     const nextCodeNum = 1001 + currentBookings.length;
     const bookingCode = `BK-${nextCodeNum}`;
     const newBookingId = `bk-${Date.now()}`;
 
+    const paidNow = Number(advancedAmount) || 0;
     const paymentsList = [];
-    if (depositAmount > 0) {
+    if (paidNow > 0) {
       paymentsList.push({
         id: `pay-${Date.now()}`,
-        receiptNo: `REC-${nextCodeNum}-DEP`,
-        date: 'Today, Initial Deposit',
-        amount: Number(depositAmount),
+        receiptNo: `REC-${nextCodeNum}-${checkInNow ? 'CHK' : 'ADV'}`,
+        date: 'Today',
+        amount: paidNow,
         method: paymentMethod,
-        type: 'ADVANCE' as const,
-        notes: checkInNow ? 'Deposit collected during front-desk walk-in check-in' : 'Advance deposit for room booking',
+        type: (checkInNow && dueAmount === 0 ? 'SETTLEMENT' : 'ADVANCE') as any,
+        notes: checkInNow ? 'Check-in Desk Payment' : 'Advance Reservation Deposit',
       });
     }
 
@@ -185,574 +239,506 @@ export function GuidedBookingModal({
       bookingCode,
       status: checkInNow ? 'CHECKED_IN' : 'RESERVED',
       guest: {
-        id: `gst-${Date.now()}`,
-        firstName: firstName.trim(),
-        lastName: lastName.trim() || 'Guest',
-        phone: phone.trim(),
-        email: email.trim() || `${phone.trim()}@guest.hotel`,
-        address: address.trim() || 'Kathmandu, Nepal',
-        idType,
-        idNumber: idNumber.trim() || 'N/A',
-        country: 'Nepal',
-        vipTier,
+        id: currentGuest.id,
+        firstName: first,
+        lastName,
+        phone: guestPhone.trim(),
+        email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
+        address: currentGuest.address || 'Kathmandu, Nepal',
+        idType: currentGuest.idType || 'Citizenship',
+        idNumber: currentGuest.idNumber || 'N/A',
+        country: currentGuest.country || 'Nepal',
+        vipTier: 'STANDARD',
       },
       room: {
-        id: selectedRoom.id,
-        number: selectedRoom.number,
-        type: selectedRoom.type,
-        acType: selectedRoom.acType,
-        bedType: selectedRoom.bedType,
-        floorLevel: selectedRoom.floorLevel,
-        pricePerNight: selectedRoom.pricePerNight,
+        id: selectedRoomObj.id,
+        number: selectedRoomObj.number,
+        type: selectedRoomObj.type,
+        acType: selectedRoomObj.acType,
+        bedType: selectedRoomObj.bedType,
+        floorLevel: selectedRoomObj.floorLevel,
+        pricePerNight: selectedRoomObj.pricePerNight,
       },
-      checkIn,
-      checkOut,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
       nights,
-      roomCharges: totalTariff,
+      roomCharges: totalPayable,
       cafeOrders: [],
       payments: paymentsList,
       bookingHistory: [],
-      notes: specialRequests.trim() || undefined,
     };
 
     const updated = [newBooking, ...currentBookings];
     saveBookingsToStorage(updated);
-    syncRoomStatuses(updated);
 
     if (checkInNow) {
-      toast.celebrate(
-        'Guest Checked In Successfully!',
-        `${newBooking.guest.firstName} ${newBooking.guest.lastName} is now checked into Room ${newBooking.room.number}. Key issued.`
-      );
+      toast.celebrate('Checked In!', `Room ${selectedRoomObj.number} allocated to ${currentGuest.name}.`);
     } else {
-      toast.celebrate(
-        'Reservation Confirmed!',
-        `Room ${newBooking.room.number} reserved for ${newBooking.guest.firstName} (${bookingCode}).`
-      );
+      toast.success('Reservation Confirmed', `Booking ${bookingCode} saved for ${currentGuest.name}.`);
     }
 
     onSuccess(newBooking, checkInNow);
     onClose();
   };
 
-  const isCheckInToday = checkIn <= todayStr;
+  if (!isOpen) return null;
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={isWalkIn ? 'Walk-in Guest Check-In' : 'Guided Room Reservation'}
-      description="Step-by-step receptionist booking: select dates, choose verified room, enter guest info, and confirm"
-      size="lg"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-2xs"
+      onClick={onClose}
     >
-      <div className="space-y-5">
-        {/* Step Progress Stepper */}
-        <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg text-xs font-semibold">
-          {[
-            { step: 1, label: '1. Dates' },
-            { step: 2, label: '2. Room' },
-            { step: 3, label: '3. Guest' },
-            { step: 4, label: '4. Confirm' },
-          ].map((item) => (
-            <div
-              key={item.step}
-              className={cn(
-                'py-1.5 px-2 text-center rounded-md transition-all',
-                currentStep === item.step
-                  ? 'bg-[#0B3D32] text-white shadow-xs dark:bg-emerald-600'
-                  : currentStep > item.step
-                  ? 'bg-emerald-100 text-[#0B3D32] dark:bg-emerald-950 dark:text-emerald-300'
-                  : 'text-slate-400'
-              )}
-            >
-              {item.label}
+      <div
+        className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-[4px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl select-text"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#DCE3DF] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] sticky top-0 z-10">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white">
+              <Plus className="w-4 h-4 text-white" />
             </div>
-          ))}
+            <div>
+              <h2 className="text-base font-bold text-[#0B3D32] dark:text-emerald-400 font-heading">
+                Add New Booking & Check-In
+              </h2>
+              <span className="text-[11px] text-slate-500">
+                {checkInNow ? '● Instant Check-In & Room Key' : '○ Hold Room for Future Reservation'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* ----------------------------------------------------------------- */}
-        {/* STEP 1: DATES & GUEST CAPACITY                                     */}
-        {/* ----------------------------------------------------------------- */}
-        {currentStep === 1 && (
-          <div className="space-y-4">
-            <div className="p-3.5 rounded-lg bg-emerald-50/70 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-300 flex items-center gap-2">
-              <Calendar className="w-4 h-4 shrink-0 text-[#0B3D32] dark:text-emerald-400" />
-              <span>
-                Room availability and prices will be calculated dynamically for your exact stay dates.
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Check-in Date *
-                </label>
-                <Input
-                  type="date"
-                  min={todayStr}
-                  value={checkIn}
-                  onChange={(e) => {
-                    const nextIn = e.target.value;
-                    setCheckIn(nextIn);
-                    if (nextIn >= checkOut) {
-                      const nextOutDate = new Date(new Date(nextIn).getTime() + 86400000)
-                        .toISOString()
-                        .split('T')[0];
-                      setCheckOut(nextOutDate);
-                    }
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Check-out Date *
-                </label>
-                <Input
-                  type="date"
-                  min={checkIn}
-                  value={checkOut}
-                  onChange={(e) => setCheckOut(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Stay Duration
-                </label>
-                <div className="h-9 px-3 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center font-bold text-xs text-slate-800 dark:text-slate-200">
-                  {nights} {nights === 1 ? 'Night' : 'Nights'}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Adults
-                </label>
-                <select
-                  value={adults}
-                  onChange={(e) => setAdults(Number(e.target.value))}
-                  className="w-full text-xs h-9 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                >
-                  <option value={1}>1 Adult</option>
-                  <option value={2}>2 Adults</option>
-                  <option value={3}>3 Adults</option>
-                  <option value={4}>4+ Adults</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Children
-                </label>
-                <select
-                  value={children}
-                  onChange={(e) => setChildren(Number(e.target.value))}
-                  className="w-full text-xs h-9 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                >
-                  <option value={0}>0 Children</option>
-                  <option value={1}>1 Child</option>
-                  <option value={2}>2 Children</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="pt-3 flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800">
-              <Button variant="outline" size="sm" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleProceedToRooms}
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                className="font-bold"
-              >
-                Search Available Rooms
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ----------------------------------------------------------------- */}
-        {/* STEP 2: AVAILABLE ROOMS SELECTION (DATE OVERLAP SAFE)              */}
-        {/* ----------------------------------------------------------------- */}
-        {currentStep === 2 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                  Available Rooms ({formatDate(checkIn)} – {formatDate(checkOut)})
-                </h4>
-                <p className="text-xs text-slate-500">
-                  Select a room. Rooms booked for these dates are clearly marked to prevent double booking.
-                </p>
-              </div>
-
-              <select
-                value={roomTypeFilter}
-                onChange={(e) => setRoomTypeFilter(e.target.value)}
-                className="text-xs h-8 rounded border border-slate-300 bg-white px-2 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="ALL">All Categories</option>
-                <option value="Deluxe">Deluxe Rooms</option>
-                <option value="Standard">Standard Rooms</option>
-                <option value="Suite">Suites</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
-              {evaluatedRooms.map((rm) => {
-                const isSelected = selectedRoomId === rm.id;
-                const totalForRoom = rm.pricePerNight * nights;
-
-                if (!rm.isAvailableForDates) {
-                  return (
-                    <div
-                      key={rm.id}
-                      className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/40 text-xs opacity-75"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="flex items-center gap-1.5 font-bold text-slate-600 dark:text-slate-400">
-                            <span>Room {rm.number}</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold">
-                              Booked for these dates
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{rm.type}</p>
-                        </div>
-                      </div>
-                      {rm.conflictBooking && (
-                        <p className="text-[10px] text-slate-500 mt-2 border-t border-slate-200 dark:border-slate-800 pt-1">
-                          Booked by: <strong>{rm.conflictBooking.guest.firstName} {rm.conflictBooking.guest.lastName}</strong> ({formatDate(rm.conflictBooking.checkIn)} – {formatDate(rm.conflictBooking.checkOut)})
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div
-                    key={rm.id}
-                    onClick={() => setSelectedRoomId(rm.id)}
-                    className={cn(
-                      'p-3 rounded-lg border text-xs cursor-pointer transition-all flex flex-col justify-between',
-                      isSelected
-                        ? 'border-[#0B3D32] bg-emerald-50/70 dark:border-emerald-600 dark:bg-emerald-950/40 ring-1 ring-[#0B3D32]'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
-                    )}
-                  >
-                    <div>
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
-                          <BedDouble className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
-                          <span>Room {rm.number}</span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">
-                            Free for Dates
-                          </span>
-                        </div>
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          {formatCurrency(rm.pricePerNight)}/n
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        {rm.type} • {rm.bedType} • {rm.floorLevel}
-                      </p>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-2 mt-2 border-t border-slate-100 dark:border-slate-800 font-medium">
-                      <span className="text-[11px] text-slate-500">{nights} Nights Total:</span>
-                      <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                        {formatCurrency(totalForRoom)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="pt-3 flex justify-between items-center border-t border-slate-200 dark:border-slate-800">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentStep(1)}
-                leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
-              >
-                Change Dates
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleProceedToGuest}
-                disabled={!selectedRoomId}
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                className="font-bold"
-              >
-                Continue to Guest Details
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ----------------------------------------------------------------- */}
-        {/* STEP 3: GUEST INFORMATION                                          */}
-        {/* ----------------------------------------------------------------- */}
-        {currentStep === 3 && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-bold text-sm text-slate-900 dark:text-white">Guest Identification & Profile</h4>
-              <p className="text-xs text-slate-500">Enter personal and ID details for the guest register</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  First Name *
-                </label>
-                <Input
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="e.g. Ram"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Last Name
-                </label>
-                <Input
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="e.g. Sharma"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Phone Number *
-                </label>
-                <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+977 9841234567"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Email Address
-                </label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="guest@gmail.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  ID Document Type
-                </label>
-                <select
-                  value={idType}
-                  onChange={(e) => setIdType(e.target.value)}
-                  className="w-full text-xs h-9 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                >
-                  <option value="Citizenship">Citizenship</option>
-                  <option value="Passport">Passport</option>
-                  <option value="Driving License">Driving License</option>
-                  <option value="National ID">National ID</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  ID Number
-                </label>
-                <Input
-                  value={idNumber}
-                  onChange={(e) => setIdNumber(e.target.value)}
-                  placeholder="CT-27-01-72-0451"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Special Requests or Notes
-              </label>
-              <Input
-                value={specialRequests}
-                onChange={(e) => setSpecialRequests(e.target.value)}
-                placeholder="Airport pickup, high floor, quiet room, late check-in..."
-              />
-            </div>
-
-            <div className="pt-3 flex justify-between items-center border-t border-slate-200 dark:border-slate-800">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentStep(2)}
-                leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
-              >
-                Back to Rooms
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleProceedToReview}
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                className="font-bold"
-              >
-                Review & Confirm
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ----------------------------------------------------------------- */}
-        {/* STEP 4: REVIEW, DEPOSIT & IMMEDIATE CHECK-IN OFFER                 */}
-        {/* ----------------------------------------------------------------- */}
-        {currentStep === 4 && (
-          <div className="space-y-4">
-            {/* Stay & Room Summary Box */}
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5 text-xs">
-              <div className="flex justify-between items-center border-b border-slate-200/60 dark:border-slate-800 pb-2">
-                <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400">Guest</span>
-                  <p className="font-bold text-sm text-slate-900 dark:text-white">
-                    {firstName} {lastName}
-                  </p>
-                  <p className="text-[11px] text-slate-500">{phone} • ID: {idNumber || idType}</p>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">Assigned Room</span>
-                  <p className="font-bold text-sm text-[#0B3D32] dark:text-emerald-400">
-                    Room {selectedRoom?.number}
-                  </p>
-                  <p className="text-[11px] text-slate-500">{selectedRoom?.type}</p>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-slate-600 dark:text-slate-400">Stay Period:</span>
-                <span className="font-bold text-slate-900 dark:text-white">
-                  {formatDate(checkIn)} – {formatDate(checkOut)} ({nights} {nights === 1 ? 'Night' : 'Nights'})
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 dark:text-slate-400">Total Room Tariff:</span>
-                <span className="font-bold text-base text-slate-900 dark:text-white">
-                  {formatCurrency(totalTariff)}
-                </span>
-              </div>
-            </div>
-
-            {/* Deposit & Advance Payment */}
-            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Deposit & Payment Method
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    Deposit Amount Collected (Rs.)
-                  </label>
-                  <Input
-                    type="number"
-                    value={depositAmount}
-                    onChange={(e) => setDepositAmount(Number(e.target.value))}
-                    placeholder="2000"
+        {/* Unified Form */}
+        <form onSubmit={handleSave} className="p-5 space-y-5 text-xs">
+          {/* Top 2 Columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3.5">
+            {/* Left */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Booking Date *</label>
+                <div className="col-span-2">
+                  <input
+                    type="date"
+                    required
+                    value={bookingDate}
+                    onChange={(e) => setBookingDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-mono outline-none"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    Payment Method
-                  </label>
+              <div className="grid grid-cols-3 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Guest Name *</label>
+                <div className="col-span-2 flex items-center gap-1.5">
                   <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
-                    className="w-full text-xs h-9 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white font-medium"
+                    value={selectedGuestId}
+                    onChange={(e) => setSelectedGuestId(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-semibold outline-none cursor-pointer"
                   >
-                    <option value="CASH">💵 Cash</option>
-                    <option value="CARD">💳 POS / Credit / Debit Card</option>
-                    <option value="UPI_QR">📱 UPI / QR Code</option>
-                    <option value="ESEWA_KHALTI">📲 eSewa / Khalti</option>
-                    <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
+                    {registeredGuests.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({g.phone})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddGuestModalOpen(true)}
+                    className="p-1.5 rounded bg-[#0B3D32] hover:bg-[#093027] text-white shrink-0 cursor-pointer"
+                    title="Add Guest"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Check In Date *</label>
+                <div className="col-span-2">
+                  <input
+                    type="date"
+                    required
+                    value={checkInDate}
+                    onChange={(e) => setCheckInDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-mono outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Check Out Date *</label>
+                <div className="col-span-2">
+                  <input
+                    type="date"
+                    required
+                    value={checkOutDate}
+                    onChange={(e) => setCheckOutDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-mono outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* The Check In Now Toggle */}
+              <div className="grid grid-cols-3 items-center gap-2 pt-2 border-t border-[#F0F4F2] dark:border-[#103D33]">
+                <label className="font-bold text-[#0B3D32] dark:text-emerald-400">Check In Now</label>
+                <div className="col-span-2 flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setCheckInNow(!checkInNow)}
+                    className={cn(
+                      'relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
+                      checkInNow ? 'bg-[#0B3D32] dark:bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out',
+                        checkInNow ? 'translate-x-5' : 'translate-x-0'
+                      )}
+                    />
+                  </button>
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    {checkInNow ? 'Yes (Instant Key & Occupied)' : 'No (Hold as Reservation)'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Booking Type</label>
+                <div className="col-span-2">
+                  <select
+                    value={bookingType}
+                    onChange={(e) => setBookingType(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] outline-none cursor-pointer"
+                  >
+                    <option value="Direct Walk-In">Direct Walk-In</option>
+                    <option value="Front Desk Phone Call">Phone Call</option>
+                    <option value="Website / Online">Official Website</option>
+                    <option value="Corporate / Company">Corporate</option>
+                    <option value="Booking.com / OTA">OTA / Booking.com</option>
                   </select>
                 </div>
               </div>
+
+              <div className="grid grid-cols-3 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Phone Number *</label>
+                <div className="col-span-2">
+                  <input
+                    type="text"
+                    required
+                    value={guestPhone}
+                    onChange={(e) => setGuestPhone(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-mono outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Email Address</label>
+                <div className="col-span-2">
+                  <input
+                    type="email"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Booking Pax</label>
+                <div className="col-span-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={paxCount}
+                    onChange={(e) => setPaxCount(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-24 px-2 py-1 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-bold text-center outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Room Information Table */}
+          <div className="pt-3 border-t border-[#DCE3DF] dark:border-[#145447] space-y-2">
+            <h3 className="font-bold text-[#0B3D32] dark:text-emerald-400 flex items-center gap-1.5">
+              <BedDouble className="w-4 h-4" />
+              <span>Room Information</span>
+            </h3>
+
+            <div className="border border-[#DCE3DF] dark:border-[#145447] rounded overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#FAFBF9] dark:bg-[#061B16] border-b border-[#DCE3DF] text-slate-600 font-semibold text-[10px] uppercase">
+                  <tr>
+                    <th className="py-2 px-3 border-r">Room Category</th>
+                    <th className="py-2 px-3 border-r">Assigned Room</th>
+                    <th className="py-2 px-3 border-r text-right">Amount (Rs.)</th>
+                    <th className="py-2 px-3 border-r text-center">Nights</th>
+                    <th className="py-2 px-3 border-r text-right">Discount</th>
+                    <th className="py-2 px-3 text-right">Total (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-[#071F1A]">
+                  <tr>
+                    <td className="py-2.5 px-3 border-r">
+                      <div className="font-bold text-slate-900 dark:text-white text-xs">
+                        {selectedRoomObj.type}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                        {selectedRoomObj.acType} · {selectedRoomObj.bedType}
+                      </div>
+                    </td>
+
+                    <td className="py-2.5 px-3 border-r">
+                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#EBF3F0] dark:bg-[#0E3D32] border border-[#0B3D32]/25 dark:border-emerald-600/30 text-[#0B3D32] dark:text-emerald-300 font-bold text-xs">
+                        <BedDouble className="w-3.5 h-3.5 shrink-0" />
+                        <span>Room {selectedRoomObj.number}</span>
+                        <span className="text-[10px] font-normal text-slate-500">
+                          ({selectedRoomObj.floorLevel})
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="py-2 px-3 border-r text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        step={100}
+                        value={customRoomRate}
+                        onChange={(e) => setCustomRoomRate(Math.max(0, Number(e.target.value) || 0))}
+                        className="w-20 px-1.5 py-1 rounded border text-right font-mono font-bold outline-none"
+                      />
+                    </td>
+
+                    <td className="py-2 px-3 border-r text-center font-bold font-mono">{nights}</td>
+
+                    <td className="py-2 px-3 border-r text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        value={discountAmount}
+                        onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value) || 0))}
+                        className="w-16 px-1.5 py-1 rounded border text-right font-mono outline-none"
+                      />
+                    </td>
+
+                    <td className="py-2 px-3 text-right font-mono font-bold text-sm text-[#0B3D32] dark:text-emerald-400">
+                      Rs. {totalPayable.toLocaleString()}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Bottom Financial Stack */}
+          <div className="pt-3 border-t border-[#DCE3DF] dark:border-[#145447] flex flex-col sm:flex-row items-end justify-between gap-4">
+            <div className="text-[11px] text-slate-500 space-y-1">
+              <p>• If guest pays partial, balance will be collected upon check-out.</p>
+              <div className="flex items-center gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedAmount(totalPayable)}
+                  className="px-2 py-0.5 rounded border border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] font-bold text-[10px]"
+                >
+                  Pay Full
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdvancedAmount(Math.round(totalPayable * 0.5))}
+                  className="px-2 py-0.5 rounded border border-slate-300 text-[10px]"
+                >
+                  50% Advance
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdvancedAmount(0)}
+                  className="px-2 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800 text-[10px]"
+                >
+                  Pay at Checkout
+                </button>
+              </div>
             </div>
 
-            {/* Immediate Check-in Action Box */}
-            {isCheckInToday && (
-              <div className="p-3.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-900 dark:text-emerald-200">
-                  <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span>Guest is arriving today! Offer immediate check-in:</span>
-                </div>
-                <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
-                  Click <strong>Confirm & Check In Now</strong> to issue Room {selectedRoom?.number} key and add directly to In-House Guests.
-                </p>
+            <div className="w-full sm:w-80 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold border-b pb-1">
+                <span>Total Payable:</span>
+                <span className="font-mono text-sm text-[#0B3D32] dark:text-emerald-400">
+                  Rs. {totalPayable.toLocaleString()}
+                </span>
               </div>
-            )}
 
-            {/* Action Buttons */}
-            <div className="pt-3 flex flex-wrap justify-between items-center gap-2 border-t border-slate-200 dark:border-slate-800">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentStep(3)}
-                leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
-              >
-                Back
-              </Button>
+              <div className="grid grid-cols-2 items-center gap-2">
+                <label className="font-bold text-slate-700 dark:text-slate-300">Advanced Amount:</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={advancedAmount}
+                  onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full px-2 py-1 rounded border border-[#0B3D32] font-mono font-bold text-right outline-none text-[#0B3D32] dark:text-emerald-300"
+                />
+              </div>
 
-              <div className="flex items-center gap-2">
-                {isCheckInToday ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleFinalSubmit(false)}
-                      className="text-xs"
-                    >
-                      Save as Reserved
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handleFinalSubmit(true)}
-                      leftIcon={<LogIn className="w-4 h-4" />}
-                      className="font-bold px-4 shadow-sm"
-                    >
-                      Confirm & Check In Now
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleFinalSubmit(false)}
-                    leftIcon={<BookmarkCheck className="w-4 h-4" />}
-                    className="font-bold px-5 shadow-sm"
+              <div className="grid grid-cols-2 items-center gap-2">
+                <span className="font-bold text-slate-700 dark:text-slate-300">Due Amount:</span>
+                <div className="text-right">
+                  <span
+                    className={cn(
+                      'font-mono font-bold text-xs px-2 py-0.5 rounded inline-block',
+                      dueAmount === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                    )}
                   >
-                    Confirm Future Reservation
-                  </Button>
-                )}
+                    Rs. {dueAmount.toLocaleString()}
+                  </span>
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 items-center gap-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Payment Mode:</label>
+                <select
+                  value={paymentMethod}
+                  disabled={advancedAmount === 0}
+                  onChange={(e) => setPaymentMethod(e.target.value as any)}
+                  className="w-full px-2 py-1 rounded border text-xs outline-none cursor-pointer disabled:opacity-50"
+                >
+                  <option value="CASH">💵 Cash at Desk</option>
+                  <option value="CARD">💳 POS Card</option>
+                  <option value="UPI_QR">📱 Fonepay / QR</option>
+                  <option value="ESEWA_KHALTI">📲 eSewa / Khalti</option>
+                  <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="pt-3 border-t border-[#DCE3DF] dark:border-[#145447] flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              {checkInNow ? 'Save & Check In' : 'Save Booking'}
+            </button>
+          </div>
+        </form>
+
+        {/* Modal: + Add New Guest */}
+        {isAddGuestModalOpen && (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/70 backdrop-blur-2xs"
+            onClick={() => setIsAddGuestModalOpen(false)}
+          >
+            <div
+              className="w-full max-w-md rounded bg-white dark:bg-[#071F1A] border p-5 space-y-3 select-text shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2 border-b">
+                <h4 className="font-bold text-sm text-[#0B3D32] dark:text-emerald-400">Add New Guest</h4>
+                <button type="button" onClick={() => setIsAddGuestModalOpen(false)}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddNewGuestSubmit} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={newGuestName}
+                    onChange={(e) => setNewGuestName(e.target.value)}
+                    placeholder="e.g. Ram Sharma"
+                    className="w-full px-2.5 py-1.5 rounded border outline-none font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newGuestPhone}
+                    onChange={(e) => setNewGuestPhone(e.target.value)}
+                    placeholder="+977 98..."
+                    className="w-full px-2.5 py-1.5 rounded border outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={newGuestEmail}
+                    onChange={(e) => setNewGuestEmail(e.target.value)}
+                    placeholder="guest@example.com"
+                    className="w-full px-2.5 py-1.5 rounded border outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-semibold mb-1">ID Type</label>
+                    <select
+                      value={newGuestIdType}
+                      onChange={(e) => setNewGuestIdType(e.target.value)}
+                      className="w-full px-2 py-1.5 rounded border outline-none"
+                    >
+                      <option value="Citizenship">Citizenship</option>
+                      <option value="Passport">Passport</option>
+                      <option value="Driving License">Driving License</option>
+                      <option value="National ID">National ID</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1">ID Number</label>
+                    <input
+                      type="text"
+                      value={newGuestIdNumber}
+                      onChange={(e) => setNewGuestIdNumber(e.target.value)}
+                      placeholder="Doc No."
+                      className="w-full px-2 py-1.5 rounded border outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddGuestModalOpen(false)}
+                    className="px-3 py-1.5 rounded border text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 rounded bg-[#0B3D32] text-white text-xs font-bold"
+                  >
+                    Save & Select
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }
