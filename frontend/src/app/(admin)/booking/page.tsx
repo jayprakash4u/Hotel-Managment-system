@@ -813,24 +813,24 @@ function NewRoomBookingContent() {
 
                 {/* Billing & Payment Table (Compact & Structured) */}
                 <div className="border border-slate-200 dark:border-[#145447] rounded-lg overflow-hidden bg-white dark:bg-[#071F1A]">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs table-fixed">
                     <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
                       {/* Subtotal */}
                       <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                        <td className="py-2 px-3 text-slate-600 dark:text-slate-400 font-medium">
+                        <td className="w-1/2 py-2 px-3 text-slate-600 dark:text-slate-400 font-medium border-r border-slate-200 dark:border-[#145447]">
                           Subtotal
                         </td>
-                        <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white tabular-nums">
+                        <td className="w-1/2 py-2 px-3 text-right font-bold text-slate-900 dark:text-white tabular-nums">
                           Rs. {subtotal.toLocaleString()}
                         </td>
                       </tr>
 
                       {/* Total Payable */}
                       <tr className="bg-[#FAFBF9] dark:bg-[#061B16] font-bold">
-                        <td className="py-2 px-3 text-slate-900 dark:text-white">
+                        <td className="w-1/2 py-2 px-3 text-slate-900 dark:text-white border-r border-slate-200 dark:border-[#145447]">
                           Total Payable
                         </td>
-                        <td className="py-2 px-3 text-right text-sm text-[#0B3D32] dark:text-emerald-400 tabular-nums">
+                        <td className="w-1/2 py-2 px-3 text-right text-sm text-[#0B3D32] dark:text-emerald-400 tabular-nums">
                           Rs. {totalPayable.toLocaleString()}
                         </td>
                       </tr>
@@ -840,10 +840,10 @@ function NewRoomBookingContent() {
                         <>
                           {/* Amount Received / Advanced Amount */}
                           <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-medium">
+                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
                               {paymentChoice === 'FULL' ? 'Amount Received' : 'Advanced Amount'} <span className="text-emerald-600 font-bold">*</span>
                             </td>
-                            <td className="py-1.5 px-3 text-right">
+                            <td className="w-1/2 py-1.5 px-3 text-right">
                               <input
                                 type="number"
                                 min={0}
@@ -863,10 +863,10 @@ function NewRoomBookingContent() {
 
                           {/* Due Amount */}
                           <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-medium">
+                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
                               Due Amount
                             </td>
-                            <td className="py-2 px-3 text-right">
+                            <td className="w-1/2 py-2 px-3 text-right">
                               <span
                                 className={cn(
                                   'inline-block font-bold px-2 py-0.5 rounded text-xs tabular-nums',
@@ -882,10 +882,10 @@ function NewRoomBookingContent() {
 
                           {/* Payment Method */}
                           <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-medium">
+                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
                               Payment Method
                             </td>
-                            <td className="py-1.5 px-3 text-right">
+                            <td className="w-1/2 py-1.5 px-3 text-right">
                               <div className="relative inline-block w-36">
                                 <select
                                   value={paymentMethod}
@@ -907,10 +907,10 @@ function NewRoomBookingContent() {
                         <>
                           {/* Due Amount when Pay Later */}
                           <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-medium">
+                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
                               Due Amount
                             </td>
-                            <td className="py-2 px-3 text-right">
+                            <td className="w-1/2 py-2 px-3 text-right">
                               <span className="inline-block font-bold px-2 py-0.5 rounded text-xs tabular-nums bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300">
                                 Rs. {totalPayable.toLocaleString()}
                               </span>
