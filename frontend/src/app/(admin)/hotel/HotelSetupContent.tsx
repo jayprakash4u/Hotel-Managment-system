@@ -16,6 +16,7 @@ import {
   Flag,
   Scale,
   Compass,
+  ShieldCheck,
   Check,
   X,
   Search,
@@ -77,6 +78,8 @@ export interface MasterItemEntry {
   facilities?: string[];
   guestName?: string;
   guestPhone?: string;
+  contact?: string;
+  phone?: string;
 }
 
 const MASTER_CATEGORIES: MasterCategory[] = [
@@ -151,6 +154,18 @@ const MASTER_CATEGORIES: MasterCategory[] = [
         name: 'Units of Measurement',
         icon: Scale,
         description: 'Manage inventory, procurement, and billing units of measurement',
+      },
+      {
+        id: 'id-document-types',
+        name: 'ID Document Types',
+        icon: ShieldCheck,
+        description: 'Manage valid ID document types for guest KYC verification',
+      },
+      {
+        id: 'agent-setup',
+        name: 'Agent Setup',
+        icon: Users,
+        description: 'Manage travel agents and booking agents for reservations',
       },
     ],
   },
@@ -428,6 +443,21 @@ const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
     { id: 'un-14', code: 'PR', name: 'Pair (pr)', description: 'Two matched units · Guest slippers, gloves', isActive: true },
     { id: 'un-15', code: 'NGT', name: 'Night (night)', description: 'Room billing unit per night of occupancy', isActive: true },
     { id: 'un-16', code: 'HR', name: 'Hour (hr)', description: 'Hourly rental · Meeting room, banquet hall', isActive: true },
+  ],
+  'id-document-types': [
+    { id: 'idt-1', code: 'CIT', name: 'Citizenship Card', description: 'National citizenship identity document', isDefault: true, isActive: true },
+    { id: 'idt-2', code: 'PAS', name: 'Passport', description: 'International travel passport', isActive: true },
+    { id: 'idt-3', code: 'DL', name: 'Driving License', description: 'Motor vehicle driving license', isActive: true },
+    { id: 'idt-4', code: 'NID', name: 'National ID Card', description: 'Government issued national identity card', isActive: true },
+    { id: 'idt-5', code: 'VID', name: 'Voter ID Card', description: 'Election voter identification card', isActive: true },
+    { id: 'idt-6', code: 'PAN', name: 'PAN Card', description: 'Permanent account number tax card', isActive: true },
+    { id: 'idt-7', code: 'DIP', name: 'Diplomatic / Official ID', description: 'Diplomatic or official government identity document', isActive: true },
+  ],
+  'agent-setup': [
+    { id: 'agt-1', code: 'AGT-001', name: 'Himalayan Travels', description: 'Kathmandu based inbound tour operator', contact: 'info@himalayantravels.com', phone: '+977 1-4444444', isDefault: true, isActive: true },
+    { id: 'agt-2', code: 'AGT-002', name: 'Everest Holidays', description: 'Trekking and expedition booking agent', contact: 'bookings@everestholidays.com', phone: '+977 1-5555555', isActive: true },
+    { id: 'agt-3', code: 'AGT-003', name: 'Nepal Vista Tours', description: 'Cultural and heritage tour specialist', contact: 'sales@nepalvista.com', phone: '+977 1-6666666', isActive: true },
+    { id: 'agt-4', code: 'AGT-004', name: 'Walk-In Direct', description: 'Direct walk-in guest without agent', contact: '', phone: '', isActive: true },
   ],
   'categories-setup': [
     { id: 'cat-1', code: 'APP', name: 'Appetizers & Starters', order: 1, isDefault: true, isActive: true },
@@ -868,6 +898,8 @@ function getSubBoxEntityName(box: { id: string; name: string }): string {
   if (box.id === 'room-amenities-setup') return 'Room Amenity';
   if (box.id === 'room-plans-setup') return 'Meal Plan';
   if (box.id === 'housekeeping-status-setup') return 'Room Status';
+  if (box.id === 'id-document-types') return 'ID Document Type';
+  if (box.id === 'agent-setup') return 'Agent';
   let clean = box.name
     .replace(/\s+Master$/i, '')
     .replace(/\s+\(optional\)$/i, '')

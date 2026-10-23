@@ -107,6 +107,7 @@ export interface RoomBooking {
   luggageTag?: string;
   checkInTime?: string;
   securityDeposit?: number;
+  bookingAgent?: string;
 }
 
 export const INITIAL_BOOKINGS: RoomBooking[] = [

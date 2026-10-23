@@ -1053,97 +1053,104 @@ function NewRoomBookingContent() {
               </h2>
             </div>
 
-            {/* Structured Table */}
-            <div className="overflow-x-auto border border-slate-200 dark:border-[#145447] rounded-lg bg-white dark:bg-[#071F1A]">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#FAFBF9] dark:bg-[#061B16] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-[#145447]">
+            {/* Structured Table - Clean, Simple & Professional like Reference Grid */}
+            <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#071F1A]">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead className="bg-[#F4F6F8] dark:bg-[#0a231c] text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
                   <tr>
-                    <th className="py-2.5 px-3 text-center w-12 border-r border-slate-200 dark:border-[#145447]">
+                    <th className="py-2 px-2.5 text-center w-12 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       SL.
                     </th>
-                    <th className="py-2.5 px-4 min-w-[170px] border-r border-slate-200 dark:border-[#145447]">
+                    <th className="py-2 px-3 min-w-[170px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       ROOM CATEGORY
                     </th>
-                    <th className="py-2.5 px-4 min-w-[210px] border-r border-slate-200 dark:border-[#145447]">
+                    <th className="py-2 px-3 min-w-[210px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       ASSIGNED ROOM
                     </th>
-                    <th className="py-2.5 px-3 text-center w-16 border-r border-slate-200 dark:border-[#145447]">
+                    <th className="py-2 px-2.5 text-center w-16 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       GUEST
                     </th>
-                    <th className="py-2.5 px-3 text-center min-w-[110px] border-r border-slate-200 dark:border-[#145447]">
+                    <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       AMOUNT (RS.)
                     </th>
-                    <th className="py-2.5 px-3 text-center w-16 border-r border-slate-200 dark:border-[#145447]">
+                    <th className="py-2 px-2.5 text-center w-16 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       NIGHT
                     </th>
-                    <th className="py-2.5 px-3 text-center min-w-[110px] border-r border-slate-200 dark:border-[#145447]">
+                    <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       DISCOUNT (RS.)
                     </th>
-                    <th className="py-2.5 px-4 text-right min-w-[120px]">
+                    <th className="py-2 px-3 text-right w-32 font-semibold text-slate-700 dark:text-slate-200">
                       T. AMOUNT (RS.)
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
-                  <tr>
+                <tbody className="divide-y divide-slate-300 dark:divide-slate-700 bg-white dark:bg-[#071F1A]">
+                  <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
                     {/* Serial */}
-                    <td className="py-3.5 px-3 text-center text-slate-500 font-medium border-r border-slate-200 dark:border-[#145447]">
+                    <td className="py-1.5 px-2.5 text-center text-slate-600 dark:text-slate-400 font-normal border-r border-slate-300 dark:border-slate-700">
                       1
                     </td>
 
                     {/* Room Category */}
-                    <td className="py-3.5 px-4 border-r border-slate-200 dark:border-[#145447]">
-                      <div className="font-bold text-slate-900 dark:text-white text-xs">
+                    <td className="py-1.5 px-3 border-r border-slate-300 dark:border-slate-700">
+                      <div className="text-xs text-slate-800 dark:text-slate-200 font-normal">
                         {selectedRoomObj.type}
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {selectedRoomObj.acType} · {selectedRoomObj.bedType}
                       </div>
                     </td>
 
                     {/* Assigned Room */}
-                    <td className="py-3.5 px-4 border-r border-slate-200 dark:border-[#145447]">
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#C5D5CC] dark:border-[#145447] bg-[#F4F7F5] dark:bg-[#06241D] text-xs font-bold text-[#0B3D32] dark:text-emerald-300 shadow-2xs">
-                        <Bed className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400 shrink-0" />
-                        <span>Room {selectedRoomObj.number} ({selectedRoomObj.floorLevel})</span>
-                      </div>
+                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
+                      <select
+                        value={selectedRoomId}
+                        onChange={(e) => setSelectedRoomId(e.target.value)}
+                        className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#071F1A] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer"
+                      >
+                        {AVAILABLE_ROOMS_CATALOG.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            Room {r.number}
+                          </option>
+                        ))}
+                      </select>
                     </td>
 
                     {/* Guest Count */}
-                    <td className="py-3.5 px-3 text-center font-bold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-[#145447]">
+                    <td className="py-1.5 px-2.5 text-center text-xs text-slate-700 dark:text-slate-300 font-normal border-r border-slate-300 dark:border-slate-700">
                       {adultsCount + childrenCount}
                     </td>
 
-                    {/* Amount per night (Editable) */}
-                    <td className="py-3.5 px-3 text-center border-r border-slate-200 dark:border-[#145447]">
+                    {/* Amount per night (Editable with soft gray box matching reference Rate) */}
+                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
                       <input
                         type="number"
                         min={0}
                         value={customRate}
                         onChange={(e) => setCustomRate(Math.max(0, Number(e.target.value) || 0))}
-                        className="w-24 text-center font-bold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                        className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-[#071F1A] focus:border-slate-400"
                       />
                     </td>
 
                     {/* Nights */}
-                    <td className="py-3.5 px-3 text-center font-bold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-[#145447]">
+                    <td className="py-1.5 px-2.5 text-center text-xs text-slate-800 dark:text-slate-200 font-normal border-r border-slate-300 dark:border-slate-700">
                       {nights}
                     </td>
 
                     {/* Discount (Editable) */}
-                    <td className="py-3.5 px-3 text-center border-r border-slate-200 dark:border-[#145447]">
+                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
                       <input
                         type="number"
                         min={0}
                         value={discount}
                         onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
-                        className="w-20 text-center font-medium px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                        placeholder="0"
+                        className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xs outline-none focus:border-slate-400"
                       />
                     </td>
 
-                    {/* Total Amount */}
-                    <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white tabular-nums text-sm">
-                      Rs. {totalPayable.toLocaleString()}
+                    {/* Total Amount (Soft gray box matching reference Amount) */}
+                    <td className="py-1.5 px-2 text-right">
+                      <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs tabular-nums">
+                        {totalPayable.toLocaleString()}
+                      </div>
                     </td>
                   </tr>
                 </tbody>

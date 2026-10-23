@@ -84,6 +84,13 @@ const PURPOSE_OF_VISIT_OPTIONS = [
   'Other',
 ];
 
+const AGENT_OPTIONS = [
+  { id: 'agt-1', code: 'AGT-001', name: 'Himalayan Travels' },
+  { id: 'agt-2', code: 'AGT-002', name: 'Everest Holidays' },
+  { id: 'agt-3', code: 'AGT-003', name: 'Nepal Vista Tours' },
+  { id: 'agt-4', code: 'AGT-004', name: 'Walk-In Direct' },
+];
+
 function CheckInDeskContent() {
   const toast = useToast();
   const router = useRouter();
@@ -191,6 +198,9 @@ function CheckInDeskContent() {
 
   // Accompanying Guests & Travel Purpose
   const [purposeOfVisit, setPurposeOfVisit] = useState<string>('Tourism / Leisure');
+  const [bookingAgent, setBookingAgent] = useState<string>('Walk-In Direct');
+  const [agentSearchQuery, setAgentSearchQuery] = useState<string>('');
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState<boolean>(false);
   const [arrivedFrom, setArrivedFrom] = useState<string>('');
   const [proceedingTo, setProceedingTo] = useState<string>('');
   const [vehicleNumber, setVehicleNumber] = useState<string>('');
@@ -249,6 +259,9 @@ function CheckInDeskContent() {
   const [sendSms, setSendSms] = useState<boolean>(true);
   const [sendEmail, setSendEmail] = useState<boolean>(false);
   const [printRegCard, setPrintRegCard] = useState<boolean>(true);
+  const [printLabel, setPrintLabel] = useState<boolean>(false);
+  const [disableProxy, setDisableProxy] = useState<boolean>(false);
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [bookingNotes, setBookingNotes] = useState<string>('');
 
   // Keep desk collection amount synchronized with remaining balance
@@ -468,6 +481,7 @@ function CheckInDeskContent() {
       notes: bookingNotes.trim() || undefined,
       keyCardNumber,
       luggageCount,
+      bookingAgent,
     };
 
     let updated: RoomBooking[];
@@ -545,12 +559,9 @@ function CheckInDeskContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] gap-3">
           <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
-                Guest Check-In
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Verify guest details, assign room key, and settle payment
-              </p>
+<h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
+  Guest Check-In
+</h1>
             </div>
           </div>
 
@@ -597,13 +608,16 @@ function CheckInDeskContent() {
           </div>
         </div>
 
-        {/* =================================================================== */}
-        {/* VIEW 1: THE CHECK-IN FORM                                           */}
-        {/* =================================================================== */}
+        {/* =============================================================== */}
+        {/* VIEW 1: THE CHECK-IN FORM                                       */}
+        {/* =============================================================== */}
         {activeTab === 'FORM' && (
           <div className="p-6 lg:p-8 space-y-8">
-            {/* SEARCH RESERVATION TO AUTO-FILL (Constrained to clean professional width) */}
-            <div className="space-y-2 max-w-xl">
+            {/* SEARCH RESERVATION TO AUTO-FILL */}
+            <div className="space-y-2 max-w-sm">
+              <label className="block mb-1 text-xs font-bold text-slate-600 dark:text-neutral-400">
+                Search Guest
+              </label>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -614,8 +628,8 @@ function CheckInDeskContent() {
                     setShowSearchSuggestions(true);
                   }}
                   onFocus={() => setShowSearchSuggestions(true)}
-                  placeholder="Search reservation by code, guest name, phone, or room..."
-                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] text-xs font-medium text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#0B3D32] focus:bg-white dark:focus:bg-[#071F1A] transition-all"
+                  placeholder="Search by name or Mobilenumber"
+                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#145447] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#0B3D32] transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -667,30 +681,6 @@ function CheckInDeskContent() {
                   </div>
                 )}
               </div>
-
-              {/* Linked Reservation Status Banner */}
-              {linkedBooking && (
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="font-semibold text-emerald-900 dark:text-emerald-200">
-                      Loaded: <strong>{linkedBooking.bookingCode}</strong> — {linkedBooking.guest.firstName} {linkedBooking.guest.lastName} (Room {linkedBooking.room.number})
-                    </span>
-                    {advancePaidAtBooking > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 font-bold text-[11px]">
-                        Advance Paid: Rs. {advancePaidAtBooking.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleResetForm}
-                    className="text-xs text-rose-600 font-semibold hover:underline cursor-pointer ml-2"
-                  >
-                    Clear / Direct Walk-In
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* ===============================================================
@@ -1031,6 +1021,67 @@ function CheckInDeskContent() {
                   </div>
                 </div>
 
+                {/* Booking Agent */}
+                <div className="pt-1">
+                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    Booking Agent
+                  </label>
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={agentSearchQuery}
+                      onChange={(e) => setAgentSearchQuery(e.target.value)}
+                      onFocus={() => setAgentDropdownOpen(true)}
+                      placeholder="Search agent..."
+                      className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                    />
+                    {bookingAgent && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBookingAgent('');
+                          setAgentSearchQuery('');
+                          setAgentDropdownOpen(false);
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {agentDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                        <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                          Select Agent
+                        </div>
+                        <div className="divide-y divide-slate-100 dark:divide-[#145447]">
+                          {AGENT_OPTIONS.filter((a) => a.name.toLowerCase().includes(agentSearchQuery.toLowerCase())).map((agent) => (
+                            <button
+                              key={agent.id}
+                              type="button"
+                              onClick={() => {
+                                setBookingAgent(agent.name);
+                                setAgentSearchQuery('');
+                                setAgentDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center justify-between px-3 py-2 text-left text-xs transition-colors cursor-pointer hover:bg-[#FAFBF9] dark:hover:bg-[#0A2E26]"
+                            >
+                              <span className="truncate">{agent.name}</span>
+                              <span className="text-[10px] font-mono text-slate-400">{agent.code}</span>
+                            </button>
+                          ))}
+                          {AGENT_OPTIONS.filter((a) => a.name.toLowerCase().includes(agentSearchQuery.toLowerCase())).length === 0 && agentSearchQuery.trim() && (
+                            <div className="px-3 py-2 text-center text-xs text-slate-400">No agents found</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {bookingAgent && (
+                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Selected: {bookingAgent}</p>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
@@ -1141,103 +1192,88 @@ function CheckInDeskContent() {
               </div>
 
               {/* Structured Table */}
-              <div className="overflow-x-auto border border-slate-200 dark:border-[#145447] rounded-lg bg-white dark:bg-[#071F1A]">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-[#FAFBF9] dark:bg-[#061B16] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-[#145447]">
+              <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#071F1A]">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-[#F4F6F8] dark:bg-[#0a231c] text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
                     <tr>
-                      <th className="py-2.5 px-3 text-center w-12 border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-2.5 text-center w-12 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         SL.
                       </th>
-                      <th className="py-2.5 px-4 min-w-[170px] border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-3 min-w-[170px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         ROOM CATEGORY
                       </th>
-                      <th className="py-2.5 px-4 min-w-[210px] border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-3 min-w-[210px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         ASSIGNED ROOM
                       </th>
-                      <th className="py-2.5 px-3 text-center w-16 border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-2.5 text-center w-16 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         GUEST
                       </th>
-                      <th className="py-2.5 px-3 text-center min-w-[110px] border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         AMOUNT (RS.)
                       </th>
-                      <th className="py-2.5 px-3 text-center w-16 border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-2.5 text-center w-16 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         NIGHT
                       </th>
-                      <th className="py-2.5 px-3 text-center min-w-[110px] border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         DISCOUNT (RS.)
                       </th>
-                      <th className="py-2.5 px-4 text-right min-w-[120px]">
+                      <th className="py-2 px-3 text-right w-32 font-semibold text-slate-700 dark:text-slate-200">
                         T. AMOUNT (RS.)
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
-                    <tr>
-                      {/* Serial */}
-                      <td className="py-3.5 px-3 text-center text-slate-500 font-medium border-r border-slate-200 dark:border-[#145447]">
+                  <tbody className="divide-y divide-slate-300 dark:divide-slate-700 bg-white dark:bg-[#071F1A]">
+                    <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
+                      <td className="py-1.5 px-2.5 text-center text-slate-600 dark:text-slate-400 font-normal border-r border-slate-300 dark:border-slate-700">
                         1
                       </td>
-
-                      {/* Room Category */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 dark:border-[#145447]">
-                        <div className="font-bold text-slate-900 dark:text-white text-xs">
+                      <td className="py-1.5 px-3 border-r border-slate-300 dark:border-slate-700">
+                        <div className="text-xs text-slate-800 dark:text-slate-200 font-normal">
                           {selectedRoomObj.type}
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {selectedRoomObj.acType} · {selectedRoomObj.bedType}
-                        </div>
                       </td>
-
-                      {/* Assigned Room with Reassignment Dropdown */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 dark:border-[#145447]">
+                      <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
                         <select
                           value={selectedRoomId}
                           onChange={(e) => setSelectedRoomId(e.target.value)}
-                          className="px-2.5 py-1.5 rounded border border-[#C5D5CC] dark:border-[#145447] bg-[#F4F7F5] dark:bg-[#06241D] text-xs font-bold text-[#0B3D32] dark:text-emerald-300 shadow-2xs outline-none"
+                          className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#071F1A] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer"
                         >
                           {AVAILABLE_ROOMS_CATALOG.map((r) => (
                             <option key={r.id} value={r.id}>
-                              Room {r.number} ({r.floorLevel}) — {r.type}
+                              Room {r.number}
                             </option>
                           ))}
                         </select>
                       </td>
-
-                      {/* Guest Count */}
-                      <td className="py-3.5 px-3 text-center font-bold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-[#145447]">
+                      <td className="py-1.5 px-2.5 text-center text-xs text-slate-700 dark:text-slate-300 font-normal border-r border-slate-300 dark:border-slate-700">
                         {adultsCount + childrenCount}
                       </td>
-
-                      {/* Amount per night (Editable) */}
-                      <td className="py-3.5 px-3 text-center border-r border-slate-200 dark:border-[#145447]">
+                      <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
                         <input
                           type="number"
                           min={0}
                           value={customRate}
                           onChange={(e) => setCustomRate(Math.max(0, Number(e.target.value) || 0))}
-                          className="w-24 text-center font-bold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                          className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-[#071F1A] focus:border-slate-400"
                         />
                       </td>
-
-                      {/* Nights */}
-                      <td className="py-3.5 px-3 text-center font-bold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-[#145447]">
+                      <td className="py-1.5 px-2.5 text-center text-xs text-slate-800 dark:text-slate-200 font-normal border-r border-slate-300 dark:border-slate-700">
                         {nights}
                       </td>
-
-                      {/* Discount (Editable) */}
-                      <td className="py-3.5 px-3 text-center border-r border-slate-200 dark:border-[#145447]">
+                      <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
                         <input
                           type="number"
                           min={0}
                           value={discount}
                           onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
-                          className="w-20 text-center font-medium px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                          placeholder="0"
+                          className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xs outline-none focus:border-slate-400"
                         />
                       </td>
-
-                      {/* Total Amount */}
-                      <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white tabular-nums text-sm">
-                        Rs. {totalPayable.toLocaleString()}
+                      <td className="py-1.5 px-2 text-right">
+                        <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs tabular-nums">
+                          {totalPayable.toLocaleString()}
+                        </div>
                       </td>
                     </tr>
                   </tbody>
@@ -1279,200 +1315,204 @@ function CheckInDeskContent() {
             </div>
 
             {/* ===============================================================
-                SECTION 5: REMARKS & BILLING / ADVANCE RECONCILIATION (6 + 6)
+                SECTION 5: BILLING & SETTLEMENT (Boxed Container Matching Image 2)
                 =============================================================== */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-t border-slate-100 dark:border-[#145447] pt-8">
-              {/* Left: Remarks */}
-              <div className="lg:col-span-6 space-y-4">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
-                    Remarks / Notes
-                  </span>
-                </div>
-                <textarea
-                  rows={4}
-                  value={bookingNotes}
-                  onChange={(e) => setBookingNotes(e.target.value)}
-                  placeholder="Special requests or front desk notes..."
-                  className="w-full p-3 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                />
+            <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                  Billing & Settlement
+                </h2>
               </div>
 
-              {/* Right: Structured Billing & Advance Reconcile Table */}
-              <div className="lg:col-span-6 space-y-4">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
-                    Billing & Settlement
-                  </span>
+              {/* The Reference Pattern Card (Box ONLY Here) */}
+              <div className="border border-slate-300 dark:border-slate-700 rounded-md p-4 bg-white dark:bg-[#071F1A] space-y-3.5 shadow-2xs">
+                {/* Row 1: Basic Total, Dis %, Dis Amt, Tax Amt(3%), Round off, Net Amount */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Basic Total
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      {subtotal.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Dis %
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={discountPercent || ''}
+                      onChange={(e) => {
+                        const p = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                        setDiscountPercent(p);
+                        setDiscount(Math.round(((subtotal || 0) * p) / 100));
+                      }}
+                      placeholder="0"
+                      className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Dis Amt
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={discount || ''}
+                      onChange={(e) => {
+                        const d = Math.max(0, Number(e.target.value) || 0);
+                        setDiscount(d);
+                        setDiscountPercent(subtotal > 0 ? Math.round((d / subtotal) * 100) : 0);
+                      }}
+                      placeholder="0"
+                      className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Tax Amt(3%)
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      0.00
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Round off
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      0.00
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Net Amount
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      {totalPayable.toLocaleString()}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Billing Table */}
-                <div className="border border-slate-200 dark:border-[#145447] rounded-lg overflow-hidden bg-white dark:bg-[#071F1A]">
-                  <table className="w-full text-xs table-fixed">
-                    <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
-                      {/* Subtotal */}
-                      <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                        <td className="w-1/2 py-2 px-3 text-slate-600 dark:text-slate-400 font-medium border-r border-slate-200 dark:border-[#145447]">
-                          Subtotal
-                        </td>
-                        <td className="w-1/2 py-2 px-3 text-right font-bold text-slate-900 dark:text-white tabular-nums">
-                          Rs. {subtotal.toLocaleString()}
-                        </td>
-                      </tr>
+                {/* Row 2: Paid Amt., Ref. Due, Mode, Remarks, Print, Label */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                  <div className="lg:col-span-2">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Paid Amt.
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={advancedAmount}
+                      onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
+                      className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    />
+                  </div>
 
-                      {/* Total Room Charges */}
-                      <tr className="bg-[#FAFBF9] dark:bg-[#061B16] font-bold">
-                        <td className="w-1/2 py-2 px-3 text-slate-900 dark:text-white border-r border-slate-200 dark:border-[#145447]">
-                          Total Room Charges
-                        </td>
-                        <td className="w-1/2 py-2 px-3 text-right text-sm text-[#0B3D32] dark:text-emerald-400 tabular-nums">
-                          Rs. {totalPayable.toLocaleString()}
-                        </td>
-                      </tr>
+                  <div className="lg:col-span-2">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Ref. Due
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      {dueAmountAtCheckout.toLocaleString()}
+                    </div>
+                  </div>
 
-                      {/* ADVANCE PAID AT BOOKING */}
-                      {advancePaidAtBooking > 0 && (
-                        <tr className="bg-emerald-50/70 dark:bg-emerald-950/40">
-                          <td className="w-1/2 py-2 px-3 text-emerald-800 dark:text-emerald-300 font-bold border-r border-slate-200 dark:border-[#145447] flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Advance Paid at Booking</span>
-                          </td>
-                          <td className="w-1/2 py-2 px-3 text-right font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
-                            - Rs. {advancePaidAtBooking.toLocaleString()}
-                          </td>
-                        </tr>
-                      )}
+                  <div className="lg:col-span-2">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Mode
+                    </label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#061B16] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer"
+                    >
+                      <option value="CASH">Cash</option>
+                      <option value="CARD">Card</option>
+                      <option value="UPI_QR">UPI / QR</option>
+                      <option value="BANK_TRANSFER">Bank</option>
+                      <option value="CREDIT">Credit</option>
+                    </select>
+                  </div>
 
-                      {/* REMAINING BALANCE DUE */}
-                      {advancePaidAtBooking > 0 && (
-                        <tr className="font-bold">
-                          <td className="w-1/2 py-2 px-3 text-slate-800 dark:text-white border-r border-slate-200 dark:border-[#145447]">
-                            Remaining Balance Due
-                          </td>
-                          <td className="w-1/2 py-2 px-3 text-right text-amber-700 dark:text-amber-400 tabular-nums">
-                            Rs. {remainingBalanceDue.toLocaleString()}
-                          </td>
-                        </tr>
-                      )}
+                  <div className="lg:col-span-4">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Remarks
+                    </label>
+                    <input
+                      type="text"
+                      value={bookingNotes}
+                      onChange={(e) => setBookingNotes(e.target.value)}
+                      placeholder=""
+                      className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    />
+                  </div>
 
-                      {/* Payment Option Selection */}
-                      <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                        <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                          Payment Option
-                        </td>
-                        <td className="w-1/2 py-1.5 px-3 text-right">
-                          <div className="inline-flex gap-2 text-xs">
-                            <label className="inline-flex items-center gap-1 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="payChoice"
-                                checked={paymentChoice === 'FULL'}
-                                onChange={() => setPaymentChoice('FULL')}
-                                className="accent-[#0B3D32]"
-                              />
-                              <span>Pay Balance</span>
-                            </label>
-                            <label className="inline-flex items-center gap-1 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="payChoice"
-                                checked={paymentChoice === 'ADVANCE'}
-                                onChange={() => setPaymentChoice('ADVANCE')}
-                                className="accent-[#0B3D32]"
-                              />
-                              <span>Advance</span>
-                            </label>
-                            <label className="inline-flex items-center gap-1 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="payChoice"
-                                checked={paymentChoice === 'LATER'}
-                                onChange={() => setPaymentChoice('LATER')}
-                                className="accent-[#0B3D32]"
-                              />
-                              <span>Pay Later</span>
-                            </label>
-                          </div>
-                        </td>
-                      </tr>
+                  <div className="lg:col-span-1 flex flex-col items-center justify-end pb-0.5">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 text-center cursor-pointer">
+                      Print
+                    </label>
+                    <input
+                      type="checkbox"
+                      checked={printRegCard}
+                      onChange={(e) => setPrintRegCard(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 accent-blue-600 border-slate-300 cursor-pointer"
+                    />
+                  </div>
 
-                      {paymentChoice !== 'LATER' && (
-                        <>
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Amount Collected Now <span className="text-emerald-600 font-bold">*</span>
-                            </td>
-                            <td className="w-1/2 py-1.5 px-3 text-right">
-                              <input
-                                type="number"
-                                min={0}
-                                value={advancedAmount}
-                                onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
-                                className="w-32 text-right font-bold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                              />
-                            </td>
-                          </tr>
-
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Balance Due at Checkout
-                            </td>
-                            <td className="w-1/2 py-2 px-3 text-right">
-                              <span
-                                className={cn(
-                                  'inline-block font-bold px-2 py-0.5 rounded text-xs tabular-nums',
-                                  dueAmountAtCheckout > 0
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                )}
-                              >
-                                Rs. {dueAmountAtCheckout.toLocaleString()}
-                              </span>
-                            </td>
-                          </tr>
-
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Payment Method
-                            </td>
-                            <td className="w-1/2 py-1.5 px-3 text-right">
-                              <select
-                                value={paymentMethod}
-                                onChange={(e) => setPaymentMethod(e.target.value)}
-                                className="w-36 text-xs font-semibold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none"
-                              >
-                                <option value="CASH">Cash</option>
-                                <option value="CARD">Credit / Debit Card</option>
-                                <option value="UPI_QR">UPI / Fonepay QR</option>
-                                <option value="ESEWA_KHALTI">eSewa / Khalti</option>
-                                <option value="BANK_TRANSFER">Bank Transfer</option>
-                              </select>
-                            </td>
-                          </tr>
-                        </>
-                      )}
-                    </tbody>
-                  </table>
+                  <div className="lg:col-span-1 flex flex-col items-center justify-end pb-0.5">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 text-center cursor-pointer">
+                      Label
+                    </label>
+                    <input
+                      type="checkbox"
+                      checked={printLabel}
+                      onChange={(e) => setPrintLabel(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 accent-blue-600 border-slate-300 cursor-pointer"
+                    />
+                  </div>
                 </div>
 
-                {/* Action Buttons: Reset & Complete Check-In */}
-                <div className="flex items-center justify-end gap-3 pt-3">
-                  <button
-                    type="button"
-                    onClick={handleResetForm}
-                    className="px-3.5 py-2 rounded-md border border-slate-300 dark:border-[#145447] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer"
-                  >
-                    Reset Form
-                  </button>
+                {/* Row 3: Disable proxy & Save */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end pt-1">
+                  <div className="lg:col-span-2 flex flex-col items-start">
+                    <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Disable proxy
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={disableProxy}
+                      onChange={(e) => setDisableProxy(e.target.checked)}
+                      className="w-4 h-4 rounded text-slate-600 border-slate-300 cursor-pointer"
+                    />
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={handleCompleteCheckIn}
-                    className="inline-flex items-center gap-1.5 px-6 py-2 rounded-md bg-[#0B3D32] hover:bg-[#07241E] text-white text-xs font-bold cursor-pointer transition-all shadow-sm dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                  >
-                    <KeyRound className="w-4 h-4" />
-                    <span>Complete Check-In & Issue Key</span>
-                  </button>
+                  <div className="lg:col-span-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCompleteCheckIn}
+                      className="h-7 px-6 rounded-xs border border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#071F1A]"
+                    >
+                      Save
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleResetForm}
+                      className="h-7 px-3.5 rounded-xs border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 text-xs font-normal cursor-pointer bg-white dark:bg-[#071F1A]"
+                    >
+                      Reset
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
