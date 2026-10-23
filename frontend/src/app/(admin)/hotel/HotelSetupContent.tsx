@@ -32,8 +32,18 @@ import {
   Snowflake,
   Armchair,
   DoorOpen,
+  HeartHandshake,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DEFAULT_RELATIONSHIPS,
+  DEFAULT_ID_DOCUMENT_TYPES,
+  DEFAULT_NATIONALITIES,
+  DEFAULT_PURPOSE_OF_VISIT,
+  getMasterItems,
+  saveMasterItems,
+  SimpleMasterItem,
+} from '@/lib/mastersData';
 
 export interface SubOptionBox {
   id: string;
@@ -167,6 +177,18 @@ const MASTER_CATEGORIES: MasterCategory[] = [
         icon: Users,
         description: 'Manage travel agents and booking agents for reservations',
       },
+      {
+        id: 'relationships',
+        name: 'Relationships',
+        icon: HeartHandshake,
+        description: 'Manage guest relationship types for accompanying and additional guests',
+      },
+      {
+        id: 'purpose-of-visit',
+        name: 'Purpose of Visit',
+        icon: Compass,
+        description: 'Manage guest travel and visit purpose categories (Tourism, Corporate, Event, etc.)',
+      },
     ],
   },
   {
@@ -248,6 +270,8 @@ const MASTER_CATEGORIES: MasterCategory[] = [
 ];
 
 const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
+  relationships: DEFAULT_RELATIONSHIPS,
+  'purpose-of-visit': DEFAULT_PURPOSE_OF_VISIT,
   salutations: [
     { id: 'sal-1', code: 'MR', name: 'Mr.', description: 'Standard adult male honorific', isDefault: true, isActive: true },
     { id: 'sal-2', code: 'MRS', name: 'Mrs.', description: 'Standard married female title', isActive: true },
@@ -900,6 +924,8 @@ function getSubBoxEntityName(box: { id: string; name: string }): string {
   if (box.id === 'housekeeping-status-setup') return 'Room Status';
   if (box.id === 'id-document-types') return 'ID Document Type';
   if (box.id === 'agent-setup') return 'Agent';
+  if (box.id === 'relationships') return 'Relationship';
+  if (box.id === 'purpose-of-visit') return 'Purpose of Visit';
   let clean = box.name
     .replace(/\s+Master$/i, '')
     .replace(/\s+\(optional\)$/i, '')
@@ -1706,7 +1732,7 @@ export default function HotelSetupContent({
   const [roomFacilities, setRoomFacilities] = useState<string[]>([]);
   const [roomNotes, setRoomNotes] = useState<string>('');
 
-  // Hydrate custom rooms setup from localStorage if available
+  // Hydrate custom rooms setup and relationships from localStorage if available
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -1720,6 +1746,15 @@ export default function HotelSetupContent({
             }));
           }
         }
+        // Hydrate masters from storage
+        setMasterItemsMap((prev) => ({
+          ...prev,
+          relationships: getMasterItems('relationships'),
+          'id-document-types': getMasterItems('idDocumentTypes'),
+          nationalities: getMasterItems('nationalities'),
+          'purpose-of-visit': getMasterItems('purposeOfVisit'),
+          'agent-setup': getMasterItems('bookingAgents'),
+        }));
       } catch (err) {}
     }
   }, []);
@@ -2226,9 +2261,8 @@ export default function HotelSetupContent({
     }
 
     if (editingItemId) {
-      setMasterItemsMap((prev) => ({
-        ...prev,
-        [activeSubBox.id]: (prev[activeSubBox.id] || currentItems).map((item) =>
+      setMasterItemsMap((prev) => {
+        const updatedList = (prev[activeSubBox.id] || currentItems).map((item) =>
           item.id === editingItemId
             ? {
                 ...item,
@@ -2243,8 +2277,17 @@ export default function HotelSetupContent({
                 order,
               }
             : item
-        ),
-      }));
+        );
+        if (activeSubBox.id === 'relationships') saveMasterItems('relationships', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'id-document-types') saveMasterItems('idDocumentTypes', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'nationalities') saveMasterItems('nationalities', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
+        return {
+          ...prev,
+          [activeSubBox.id]: updatedList,
+        };
+      });
     } else {
       const newItem: MasterItemEntry = {
         id: `${activeSubBox.id}-${Date.now()}`,
@@ -2260,10 +2303,18 @@ export default function HotelSetupContent({
         isActive: true,
       };
 
-      setMasterItemsMap((prev) => ({
-        ...prev,
-        [activeSubBox.id]: [...(prev[activeSubBox.id] || currentItems), newItem],
-      }));
+      setMasterItemsMap((prev) => {
+        const updatedList = [...(prev[activeSubBox.id] || currentItems), newItem];
+        if (activeSubBox.id === 'relationships') saveMasterItems('relationships', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'id-document-types') saveMasterItems('idDocumentTypes', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'nationalities') saveMasterItems('nationalities', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
+        return {
+          ...prev,
+          [activeSubBox.id]: updatedList,
+        };
+      });
     }
 
     setEditingItemId(null);
@@ -2286,6 +2337,11 @@ export default function HotelSetupContent({
           localStorage.setItem('hotel_rooms_setup', JSON.stringify(updatedList));
         } catch (err) {}
       }
+      if (activeSubBox.id === 'relationships') saveMasterItems('relationships', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'id-document-types') saveMasterItems('idDocumentTypes', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'nationalities') saveMasterItems('nationalities', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
       return {
         ...prev,
         [activeSubBox.id]: updatedList,

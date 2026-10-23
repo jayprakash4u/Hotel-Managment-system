@@ -48,6 +48,8 @@ import {
   performDirectCheckIn,
   AccompanyingGuest,
 } from '../reservations/reservationsData';
+import { useMasterOptions } from '@/lib/mastersData';
+import MasterSearchableSelect from '@/components/ui/MasterSearchableSelect';
 
 const ID_DOCUMENT_TYPES = [
   'Citizenship Card',
@@ -183,12 +185,12 @@ function CheckInDeskContent() {
   const [guestName, setGuestName] = useState<string>('Ram Sharma');
   const [guestPhone, setGuestPhone] = useState<string>('+977 9841234567');
   const [guestEmail, setGuestEmail] = useState<string>('ram.sharma@gmail.com');
-  const [guestNationality, setGuestNationality] = useState<string>('Nepal');
+  const [guestNationality, setGuestNationality] = useState<string>('');
   const [guestAddress, setGuestAddress] = useState<string>('New Baneshwor, Kathmandu');
   const [guestCity, setGuestCity] = useState<string>('Kathmandu');
 
   // KYC Fields
-  const [idType, setIdType] = useState<string>('Citizenship Card');
+  const [idType, setIdType] = useState<string>('');
   const [idNumber, setIdNumber] = useState<string>('27-01-72-0451');
   const [idIssuePlace, setIdIssuePlace] = useState<string>('Kathmandu');
   const [idIssueDate, setIdIssueDate] = useState<string>('');
@@ -197,10 +199,14 @@ function CheckInDeskContent() {
   const [isIdVerified, setIsIdVerified] = useState<boolean>(true);
 
   // Accompanying Guests & Travel Purpose
-  const [purposeOfVisit, setPurposeOfVisit] = useState<string>('Tourism / Leisure');
-  const [bookingAgent, setBookingAgent] = useState<string>('Walk-In Direct');
-  const [agentSearchQuery, setAgentSearchQuery] = useState<string>('');
-  const [agentDropdownOpen, setAgentDropdownOpen] = useState<boolean>(false);
+  const relMaster = useMasterOptions('relationships');
+  const idDocMaster = useMasterOptions('idDocumentTypes');
+  const natMaster = useMasterOptions('nationalities');
+  const povMaster = useMasterOptions('purposeOfVisit');
+  const agentMaster = useMasterOptions('bookingAgents');
+
+  const [purposeOfVisit, setPurposeOfVisit] = useState<string>('');
+  const [bookingAgent, setBookingAgent] = useState<string>('');
   const [arrivedFrom, setArrivedFrom] = useState<string>('');
   const [proceedingTo, setProceedingTo] = useState<string>('');
   const [vehicleNumber, setVehicleNumber] = useState<string>('');
@@ -208,7 +214,7 @@ function CheckInDeskContent() {
   const [newAccName, setNewAccName] = useState<string>('');
   const [newAccAge, setNewAccAge] = useState<string>('');
   const [newAccGender, setNewAccGender] = useState<string>('M');
-  const [newAccRelation, setNewAccRelation] = useState<string>('Spouse');
+  const [newAccRelation, setNewAccRelation] = useState<string>('');
 
   // Key Card & Luggage Allocation
   const [keyCardNumber, setKeyCardNumber] = useState<string>('KC-101-A');
@@ -294,12 +300,18 @@ function CheckInDeskContent() {
     setGuestPhone(b.guest.phone || '');
     setGuestEmail(b.guest.email || '');
     setGuestAddress(b.guest.address || 'Kathmandu, Nepal');
-    setGuestNationality(b.guest.country || 'Nepal');
+    setGuestNationality(b.guest.country || '');
     if (b.guest.city) setGuestCity(b.guest.city);
-    if (b.guest.idType && b.guest.idType !== 'Citizenship') setIdType(b.guest.idType);
+    if (b.guest.idType && b.guest.idType !== 'Citizenship') {
+      setIdType(b.guest.idType);
+    } else {
+      setIdType('');
+    }
     if (b.guest.idNumber && !b.guest.idNumber.toLowerCase().includes('to be collected')) {
       setIdNumber(b.guest.idNumber);
     }
+    if (b.bookingAgent) setBookingAgent(b.bookingAgent);
+    if (b.guest.purposeOfVisit) setPurposeOfVisit(b.guest.purposeOfVisit);
     setCheckInDate(b.checkIn);
     setCheckOutDate(b.checkOut);
     setSelectedRoomId(b.room.id);
@@ -353,11 +365,12 @@ function CheckInDeskContent() {
       name: newAccName.trim(),
       age: newAccAge ? Number(newAccAge) : undefined,
       gender: newAccGender,
-      relation: newAccRelation,
+      relation: newAccRelation || 'Guest',
     };
     setAccompanyingGuests([...accompanyingGuests, newGuest]);
     setNewAccName('');
     setNewAccAge('');
+    setNewAccRelation('');
     setAdultsCount((prev) => prev + 1);
     toast.success('Guest Added', `${newGuest.name} added to room manifest.`);
   };
@@ -376,7 +389,12 @@ function CheckInDeskContent() {
     setGuestPhone('');
     setGuestEmail('');
     setGuestAddress('');
+    setGuestNationality('');
+    setIdType('');
     setIdNumber('');
+    setPurposeOfVisit('');
+    setBookingAgent('');
+    setNewAccRelation('');
     setBookingNotes('');
     setAccompanyingGuests([]);
     setDiscount(0);
@@ -853,18 +871,23 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Nationality
-                    </label>
-                    <select
+                    <MasterSearchableSelect
+                      label="Nationality"
                       value={guestNationality}
-                      onChange={(e) => setGuestNationality(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    >
-                      {NATIONALITY_OPTIONS.map((nat) => (
-                        <option key={nat} value={nat}>{nat}</option>
-                      ))}
-                    </select>
+                      onChange={setGuestNationality}
+                      options={natMaster.activeItems.map((i) => ({
+                        label: i.name,
+                        value: i.name,
+                        subtext: i.description,
+                      }))}
+                      placeholder="Select Nationality"
+                      searchPlaceholder="Search nationality / country..."
+                      onAddNew={(val, desc) => {
+                        natMaster.addItem(val, desc);
+                        toast.success('Nationality Added', `"${val}" added to Nationality masters.`);
+                      }}
+                      addNewTitle="Nationality"
+                    />
                   </div>
                 </div>
 
@@ -897,18 +920,24 @@ function CheckInDeskContent() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      ID Document Type <span className="text-rose-500">*</span>
-                    </label>
-                    <select
+                    <MasterSearchableSelect
+                      label="ID Document Type"
+                      required
                       value={idType}
-                      onChange={(e) => setIdType(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    >
-                      {ID_DOCUMENT_TYPES.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
+                      onChange={setIdType}
+                      options={idDocMaster.activeItems.map((i) => ({
+                        label: i.name,
+                        value: i.name,
+                        subtext: i.description,
+                      }))}
+                      placeholder="Select ID Document Type"
+                      searchPlaceholder="Search ID type..."
+                      onAddNew={(val, desc) => {
+                        idDocMaster.addItem(val, desc);
+                        toast.success('ID Type Added', `"${val}" added to ID Document masters.`);
+                      }}
+                      addNewTitle="ID Document Type"
+                    />
                   </div>
 
                   <div>
@@ -987,24 +1016,29 @@ function CheckInDeskContent() {
               <div className="lg:col-span-6 space-y-4">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
-                    Travel & Accompanying Guests
+                    Travel & Additional Guests
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Purpose of Visit
-                    </label>
-                    <select
+                    <MasterSearchableSelect
+                      label="Purpose of Visit"
                       value={purposeOfVisit}
-                      onChange={(e) => setPurposeOfVisit(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    >
-                      {PURPOSE_OF_VISIT_OPTIONS.map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
+                      onChange={setPurposeOfVisit}
+                      options={povMaster.activeItems.map((i) => ({
+                        label: i.name,
+                        value: i.name,
+                        subtext: i.description,
+                      }))}
+                      placeholder="Select Purpose of Visit"
+                      searchPlaceholder="Search purpose..."
+                      onAddNew={(val, desc) => {
+                        povMaster.addItem(val, desc);
+                        toast.success('Purpose Added', `"${val}" added to Purpose masters.`);
+                      }}
+                      addNewTitle="Purpose of Visit"
+                    />
                   </div>
 
                   <div>
@@ -1023,63 +1057,23 @@ function CheckInDeskContent() {
 
                 {/* Booking Agent */}
                 <div className="pt-1">
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                    Booking Agent
-                  </label>
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={agentSearchQuery}
-                      onChange={(e) => setAgentSearchQuery(e.target.value)}
-                      onFocus={() => setAgentDropdownOpen(true)}
-                      placeholder="Search agent..."
-                      className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    />
-                    {bookingAgent && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBookingAgent('');
-                          setAgentSearchQuery('');
-                          setAgentDropdownOpen(false);
-                        }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {agentDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                        <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                          Select Agent
-                        </div>
-                        <div className="divide-y divide-slate-100 dark:divide-[#145447]">
-                          {AGENT_OPTIONS.filter((a) => a.name.toLowerCase().includes(agentSearchQuery.toLowerCase())).map((agent) => (
-                            <button
-                              key={agent.id}
-                              type="button"
-                              onClick={() => {
-                                setBookingAgent(agent.name);
-                                setAgentSearchQuery('');
-                                setAgentDropdownOpen(false);
-                              }}
-                              className="w-full flex items-center justify-between px-3 py-2 text-left text-xs transition-colors cursor-pointer hover:bg-[#FAFBF9] dark:hover:bg-[#0A2E26]"
-                            >
-                              <span className="truncate">{agent.name}</span>
-                              <span className="text-[10px] font-mono text-slate-400">{agent.code}</span>
-                            </button>
-                          ))}
-                          {AGENT_OPTIONS.filter((a) => a.name.toLowerCase().includes(agentSearchQuery.toLowerCase())).length === 0 && agentSearchQuery.trim() && (
-                            <div className="px-3 py-2 text-center text-xs text-slate-400">No agents found</div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {bookingAgent && (
-                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Selected: {bookingAgent}</p>
-                  )}
+                  <MasterSearchableSelect
+                    label="Booking Agent"
+                    value={bookingAgent}
+                    onChange={setBookingAgent}
+                    options={agentMaster.activeItems.map((a) => ({
+                      label: a.name,
+                      value: a.name,
+                      subtext: a.code ? `${a.code}${a.description ? ` · ${a.description}` : ''}` : a.description,
+                    }))}
+                    placeholder="Select Booking Agent"
+                    searchPlaceholder="Search booking agent..."
+                    onAddNew={(val, desc) => {
+                      agentMaster.addItem(val, desc);
+                      toast.success('Agent Added', `"${val}" added to Booking Agents master.`);
+                    }}
+                    addNewTitle="Booking Agent"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1114,7 +1108,7 @@ function CheckInDeskContent() {
                 <div className="pt-1 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Accompanying Secondary Guests ({accompanyingGuests.length})
+                      Additional Guests ({accompanyingGuests.length})
                     </span>
                   </div>
 
@@ -1157,16 +1151,26 @@ function CheckInDeskContent() {
                       placeholder="Age"
                       className="h-8 w-14 px-2 text-xs rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
-                    <select
-                      value={newAccRelation}
-                      onChange={(e) => setNewAccRelation(e.target.value)}
-                      className="h-8 px-2 text-xs rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    >
-                      <option value="Spouse">Spouse</option>
-                      <option value="Child">Child</option>
-                      <option value="Friend">Friend</option>
-                      <option value="Colleague">Colleague</option>
-                    </select>
+                    <div className="w-36 shrink-0">
+                      <MasterSearchableSelect
+                        compact
+                        value={newAccRelation}
+                        onChange={setNewAccRelation}
+                        options={relMaster.activeItems.map((r) => ({
+                          label: r.name,
+                          value: r.name,
+                          subtext: r.description,
+                        }))}
+                        placeholder="Select Relation"
+                        searchPlaceholder="Search relation..."
+                        onAddNew={(val, desc) => {
+                          relMaster.addItem(val, desc);
+                          toast.success('Relationship Added', `"${val}" added to Relationship masters.`);
+                        }}
+                        addNewTitle="Relationship"
+                        allowClear={true}
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={handleAddAccompanyingGuest}
