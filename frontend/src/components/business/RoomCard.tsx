@@ -73,31 +73,13 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onClick }) => {
         ) : null}
       </div>
 
-      <div className={`relative mt-4 pt-3 border-t min-h-[30px] flex items-center justify-between text-xs ${isOccupied ? 'border-white/20' : 'border-[#E4E9E5] dark:border-[#145447]/60'}`}>
-        {isAvailable ? (
-          <>
-            <div className="w-full flex items-center justify-between group-hover:opacity-0 transition-opacity">
-              <span className="font-bold text-[#0B3D32] dark:text-[#4ADE80]">{formatCurrency(room.pricePerNight)}/nt</span>
-              <span className="text-[11px] text-[#64736C] group-hover:text-[#24352F] dark:text-[#94A3B8] dark:group-hover:text-white flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5" /> Details
-              </span>
-            </div>
-            <div className="absolute inset-x-0 bottom-0 top-3 hidden group-hover:flex items-center justify-center">
-              <span className="w-full text-center py-1 rounded-[3px] bg-[#0B3D32] text-white font-bold text-xs shadow-xs">
-                Book Now · {formatCurrency(room.pricePerNight)}
-              </span>
-            </div>
-          </>
-        ) : (
-          <>
-            <span className={`font-bold ${isOccupied ? 'text-white' : 'text-[#0B3D32] dark:text-[#4ADE80]'}`}>
-              {formatCurrency(room.pricePerNight)}/nt
-            </span>
-            <span className={`text-[11px] flex items-center gap-1 ${isOccupied ? 'text-rose-100' : 'text-[#64736C] group-hover:text-[#24352F] dark:text-[#94A3B8] dark:group-hover:text-white'}`}>
-              <Eye className="w-3.5 h-3.5" /> Details
-            </span>
-          </>
-        )}
+      <div className={`mt-4 pt-3 border-t min-h-[30px] flex items-center justify-between text-xs ${isOccupied ? 'border-white/20' : 'border-[#E4E9E5] dark:border-[#145447]/60'}`}>
+        <span className={`font-bold ${isOccupied ? 'text-white' : 'text-[#0B3D32] dark:text-[#4ADE80]'}`}>
+          {formatCurrency(room.pricePerNight)}/nt
+        </span>
+        <span className={`text-[11px] flex items-center gap-1 ${isOccupied ? 'text-rose-100' : 'text-[#64736C] group-hover:text-[#24352F] dark:text-[#94A3B8] dark:group-hover:text-white'}`}>
+          <Eye className="w-3.5 h-3.5" /> Details
+        </span>
       </div>
     </div>
   );

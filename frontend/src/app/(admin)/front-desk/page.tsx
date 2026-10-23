@@ -81,7 +81,7 @@ interface FrontDeskRoom {
 
 const DEFAULT_FRONT_DESK_ROOMS: FrontDeskRoom[] = [
   { id: 'rm-101', number: '101', floor: 1, type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-102', number: '102', floor: 1, type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'rm-102', number: '102', floor: 1, type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'OCCUPIED', cleaningStatus: 'CLEAN' },
   { id: 'rm-103', number: '103', floor: 1, type: 'Standard Room', bedType: 'Twin Beds', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
   { id: 'rm-104', number: '104', floor: 1, type: 'Standard Room', bedType: 'Twin Beds', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
   { id: 'rm-105', number: '105', floor: 1, type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'MAINTENANCE', cleaningStatus: 'DIRTY', maintenanceReason: 'AC Servicing & Plumbing' },
@@ -193,7 +193,12 @@ function getRoomStatusForDate(
       targetDate < b.checkOut
   );
   if (reservedCovering) {
-    return { status: 'OCCUPIED', booking: reservedCovering, isDeparting: false };
+    return { status: 'ARRIVING', booking: reservedCovering, isDeparting: false };
+  }
+
+  // 5. Direct operationalStatus fallback
+  if (room.operationalStatus === 'OCCUPIED') {
+    return { status: 'OCCUPIED', booking: inHouse || null, isDeparting: false };
   }
 
   return { status: 'AVAILABLE', booking: null, isDeparting: false };
@@ -763,11 +768,11 @@ function FrontDeskContent() {
               {/* Status Summary Chips (Quick Filters - 100% Unscrollable, Always Showing All) */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 {[
-                  { id: 'ALL', label: 'All', count: countsOnDate.all, dot: null },
-                  { id: 'AVAILABLE', label: 'Available', count: countsOnDate.available, dot: 'bg-emerald-500' },
-                  { id: 'OCCUPIED', label: 'Booked', count: countsOnDate.occupied, dot: 'bg-blue-500' },
-                  { id: 'ARRIVING', label: 'Arriving', count: countsOnDate.arriving, dot: 'bg-amber-500' },
-                  { id: 'MAINTENANCE', label: 'Maintenance', count: countsOnDate.maintenance, dot: 'bg-slate-400' },
+                  { id: 'ALL', label: 'All', count: countsOnDate.all, dot: null, activeBg: 'bg-[#0B3D32]' },
+                  { id: 'AVAILABLE', label: 'Available', count: countsOnDate.available, dot: 'bg-emerald-600', activeBg: 'bg-[#107C41]' },
+                  { id: 'OCCUPIED', label: 'Occupied', count: countsOnDate.occupied, dot: 'bg-[#A51F36]', activeBg: 'bg-[#A51F36]' },
+                  { id: 'ARRIVING', label: 'Booked', count: countsOnDate.arriving, dot: 'bg-amber-500', activeBg: 'bg-[#D97706]' },
+                  { id: 'MAINTENANCE', label: 'Maintenance', count: countsOnDate.maintenance, dot: 'bg-slate-500', activeBg: 'bg-[#64748B]' },
                 ].map((pill) => {
                   const isSelected = boxStatusFilter === pill.id;
                   return (
@@ -778,11 +783,11 @@ function FrontDeskContent() {
                       className={cn(
                         'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[3px] px-2.5 py-1 text-xs font-bold transition-all cursor-pointer',
                         isSelected
-                          ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                          ? `${pill.activeBg} text-white shadow-2xs`
                           : 'bg-[#FAFBF9] border border-[#DCE3DF] text-[#4A6B5D] hover:bg-[#F2F6F4] dark:bg-[#07241E] dark:border-[#145447] dark:text-[#A4B8AE]'
                       )}
                     >
-                      {pill.dot && <span className={cn('w-1.5 h-1.5 rounded-full', pill.dot)} />}
+                      {pill.dot && <span className={cn('w-1.5 h-1.5 rounded-full', isSelected ? 'bg-white' : pill.dot)} />}
                       <span>{pill.label}</span>
                       <span
                         className={cn(
@@ -958,12 +963,21 @@ function FrontDeskContent() {
                 return (
                   <div
                     key={room.id}
+                    onClick={() => {
+                      setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
+                    }}
                     className={cn(
-                      'relative flex flex-col justify-between p-3 rounded-[3px] border transition-all duration-150 shadow-2xs select-none',
-                      openOptionMenuId === room.id ? 'z-50 shadow-sm' : 'z-0',
-                      status === 'AVAILABLE' && 'bg-white dark:bg-[#07241E] border-[#DCE3DF] dark:border-[#145447] hover:border-emerald-600 hover:shadow-xs',
-                      status === 'ARRIVING' && 'bg-[#FFFDF5] dark:bg-[#251D08] border-amber-300 dark:border-amber-700/80 hover:border-amber-500',
-                      (status === 'OCCUPIED' || status === 'DEPARTING') && 'bg-[#F9FAFC] dark:bg-[#0E1E2C] border-blue-200 dark:border-blue-900/60 hover:border-blue-400',
+                      'relative flex flex-col justify-between p-3 rounded-[3px] border transition-all duration-150 shadow-2xs select-none cursor-pointer group',
+                      openOptionMenuId === room.id ? 'z-50 shadow-sm ring-1 ring-[#0B3D32]' : 'z-0',
+                      // Available: Exactly like previous (Clean white card)
+                      status === 'AVAILABLE' && 'bg-white dark:bg-[#07241E] border-[#DCE3DF] dark:border-[#145447] hover:border-[#0B3D32] hover:shadow-xs',
+                      // Booked: Clean, slightly darker warm amber tint
+                      status === 'ARRIVING' && 'bg-[#FEF0C7] dark:bg-[#2C1F07] border-[#FDE08B] dark:border-amber-900/80 hover:border-amber-500 hover:shadow-xs',
+                      // Occupied: Brand Burgundy / Wine tint (Rich, elegant hotel brand secondary accent)
+                      status === 'OCCUPIED' && 'bg-[#FCECEF] dark:bg-[#2A0F16] border-[#F7BAC6] dark:border-[#7A1727]/80 hover:border-[#A51F36] hover:shadow-xs',
+                      // Departing
+                      status === 'DEPARTING' && 'bg-[#FFE2E5] dark:bg-[#2D1117] border-[#FECDD3] dark:border-rose-900/80 hover:border-rose-500 hover:shadow-xs',
+                      // Maintenance
                       status === 'MAINTENANCE' && 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-80'
                     )}
                   >
@@ -984,7 +998,7 @@ function FrontDeskContent() {
                           </div>
                         </div>
 
-                        {/* Right side: Status Badge + Clickable Option Trigger (Clicking right side opens options) */}
+                        {/* Right side: Status Badge + Clickable Option Trigger */}
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1001,8 +1015,8 @@ function FrontDeskContent() {
                               </span>
                             )}
                             {status === 'ARRIVING' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800 animate-pulse">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#FDE68A] text-[#92400E] border border-[#FCD34D] dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800 animate-pulse">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#D97706]" />
                                 Booked
                               </span>
                             )}
@@ -1013,8 +1027,8 @@ function FrontDeskContent() {
                               </span>
                             )}
                             {status === 'OCCUPIED' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#F9D2DA] text-[#8E1B2F] border border-[#F4A8B7] dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#A51F36]" />
                                 Occupied
                               </span>
                             )}
@@ -1046,8 +1060,8 @@ function FrontDeskContent() {
                         </div>
                       </div>
 
-                      {/* Middle: Clean, Simple & Professional Room Info Only (No guest details) */}
-                      <div className="py-2.5 flex flex-col justify-center text-xs min-h-[58px] space-y-1.5">
+                      {/* Middle: Clean, Simple & Professional Room Info Only */}
+                      <div className="py-2 flex flex-col justify-center text-xs space-y-1.5">
                         <div className="flex items-baseline justify-between">
                           <div className="font-mono font-bold text-sm text-[#0B3D32] dark:text-emerald-400">
                             Rs. {room.pricePerNight.toLocaleString()}
@@ -1073,40 +1087,6 @@ function FrontDeskContent() {
                           )}
                         </div>
                       </div>
-
-                      {/* Room Card Action: Book Now when available */}
-                      {isAvailable && (
-                        <div className="pt-2 border-t border-[#EAEFEA] dark:border-[#145447]/60">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/booking?roomId=${room.id}&checkIn=${selectedDate}&mode=reserve&from=desk`);
-                            }}
-                            className="w-full inline-flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#072B23] text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
-                          >
-                            <span>Book Now</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Room Card Action: Check In when booked */}
-                      {isBooked && activeBooking && (
-                        <div className="pt-2 border-t border-[#EAEFEA] dark:border-[#145447]/60">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/check-in?bookingId=${activeBooking.id}`);
-                            }}
-                            className="w-full inline-flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#072B23] text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer"
-                          >
-                            <UserCheck className="w-3.5 h-3.5" />
-                            <span>Check In</span>
-                          </button>
-                        </div>
-                      )}
                     </div>
 
                     {/* Floating Dropdown Menu (Anchored under 3-dots button, simple & professional) */}
@@ -1123,9 +1103,22 @@ function FrontDeskContent() {
 
                         {/* Floating Dropdown anchored right below 3-dots button */}
                         <div
-                          className="absolute right-2.5 top-10 z-50 w-44 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xl py-1 text-xs select-none animate-in fade-in-0 zoom-in-95 duration-100"
+                          className="absolute right-2.5 top-10 z-50 w-48 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xl py-1 text-xs select-none animate-in fade-in-0 zoom-in-95 duration-100"
                           onClick={(e) => e.stopPropagation()}
                         >
+                          {/* Active Guest Info Header when room has guest */}
+                          {activeBooking && (
+                            <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                              <div className="font-bold text-slate-800 dark:text-slate-100 truncate">
+                                {activeBooking.guest.firstName} {activeBooking.guest.lastName}
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                {status === 'ARRIVING'
+                                  ? `Arrives: ${formatDate(activeBooking.checkIn)}`
+                                  : `Departs: ${formatDate(activeBooking.checkOut)}`}
+                              </div>
+                            </div>
+                          )}
                           {/* Front Desk Actions based on room state */}
                           {isAvailable && (
                             <>

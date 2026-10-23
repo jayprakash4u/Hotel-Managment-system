@@ -111,6 +111,61 @@ export interface RoomBooking {
 
 export const INITIAL_BOOKINGS: RoomBooking[] = [
   {
+    id: 'bk-1002-occ',
+    bookingCode: 'BK-1020',
+    status: 'CHECKED_IN',
+    guest: {
+      id: 'gst-102',
+      firstName: 'Aarav',
+      lastName: 'Karki',
+      phone: '+977 9841234567',
+      email: 'aarav.karki@gmail.com',
+      address: 'Kathmandu, Nepal',
+      idType: 'Citizenship',
+      idNumber: 'CT-27-01-72-0451',
+      country: 'Nepal',
+      vipTier: 'GOLD',
+    },
+    room: {
+      id: 'rm-102',
+      number: '102',
+      type: 'Deluxe Room',
+      acType: 'AC',
+      bedType: 'King Bed',
+      floorLevel: '1st Floor',
+      pricePerNight: 3500,
+    },
+    checkIn: getRelativeDate(-1),
+    checkOut: getRelativeDate(2),
+    nights: 3,
+    roomCharges: 10500,
+    cafeOrders: [
+      {
+        id: 'ord-102-demo',
+        orderNumber: 'CO-205',
+        timestamp: 'Yesterday, 07:30 PM',
+        status: 'DELIVERED',
+        subtotal: 500,
+        items: [
+          { id: 'it-1', name: 'Chicken Steam Momo', quantity: 2, price: 250, total: 500 },
+        ],
+      },
+    ],
+    payments: [
+      {
+        id: 'pay-102-demo',
+        receiptNo: 'REC-1020-A',
+        date: 'Yesterday, Advance Deposit',
+        amount: 5000,
+        method: 'CASH',
+        type: 'ADVANCE',
+        notes: 'Deposit paid during check-in',
+      },
+    ],
+    bookingHistory: [],
+    notes: 'VIP Gold guest in-house. Checked in yesterday.',
+  },
+  {
     id: 'bk-1001',
     bookingCode: 'BK-1001',
     status: 'RESERVED',
@@ -811,6 +866,13 @@ export function loadBookingsFromStorage(): RoomBooking[] {
           const rahul = INITIAL_BOOKINGS.find((b) => b.id === 'bk-1010');
           if (rahul) {
             parsed.push(rahul);
+            modified = true;
+          }
+        }
+        if (!parsed.some((b: RoomBooking) => b.room.number === '102' && b.status === 'CHECKED_IN')) {
+          const occ102 = INITIAL_BOOKINGS.find((b) => b.id === 'bk-1002-occ');
+          if (occ102) {
+            parsed.unshift(occ102);
             modified = true;
           }
         }
