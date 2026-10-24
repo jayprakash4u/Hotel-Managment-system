@@ -209,16 +209,16 @@ export const Sidebar: React.FC<{
       >
         {/* ===================== BRAND HEADER ===================== */}
         {isOpen ? (
-          <div className="flex h-16 items-center justify-between px-4 border-b border-[#E5EEE9] bg-white dark:bg-[#071F1A] dark:border-[#145447] shrink-0">
+          <div className="flex h-16 items-center justify-between px-4 border-b border-[#E2E8F0] bg-white dark:bg-[#0F172A] dark:border-[#334155] shrink-0">
             <Link href="/" className="flex items-center gap-2.5 group min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B3D32] text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A73E8] text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div className="truncate">
-                <h1 className="text-sm font-black tracking-wide text-[#24352F] dark:text-white leading-tight font-heading">
+                <h1 className="text-sm font-black tracking-wide text-[#1E293B] dark:text-white leading-tight font-heading">
                   AURA GRAND
                 </h1>
-                <p className="text-[10px] font-semibold text-[#64736C] dark:text-[#B7CDC3] truncate">
+                <p className="text-[10px] font-semibold text-[#64748B] dark:text-[#94A3B8] truncate">
                   Hospitality OS · Front Desk
                 </p>
               </div>
@@ -234,11 +234,11 @@ export const Sidebar: React.FC<{
             </button>
           </div>
         ) : (
-          <div className="flex h-16 items-center justify-center border-b border-[#E5EEE9] bg-white dark:bg-[#071F1A] dark:border-[#145447] shrink-0">
+          <div className="flex h-16 items-center justify-center border-b border-[#E2E8F0] bg-white dark:bg-[#0F172A] dark:border-[#334155] shrink-0">
             <Link
               href="/"
               title="Aura Grand Hospitality OS"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B3D32] text-white shadow-xs hover:scale-105 transition-transform shrink-0"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A73E8] text-white shadow-xs hover:scale-105 transition-transform shrink-0"
             >
               <Building2 className="w-5 h-5 text-white" />
             </Link>
@@ -247,15 +247,15 @@ export const Sidebar: React.FC<{
 
         {/* ===================== SEARCH BAR ===================== */}
         {isOpen && (
-          <div className="p-3 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] shrink-0">
+          <div className="p-3 border-b border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0B1120] shrink-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#879B90] dark:text-[#647F75]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] dark:text-[#64748B]" />
               <input
                 type="text"
                 placeholder="Search widgets & lists..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-9 pr-8 text-xs font-medium text-[#24352F] placeholder-[#879B90] shadow-2xs transition-all focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:placeholder-[#647F75] dark:focus:border-emerald-500"
+                className="w-full rounded-[3px] border border-[#CBD5E1] bg-white py-2 pl-9 pr-8 text-xs font-medium text-[#1E293B] placeholder-[#94A3B8] shadow-2xs transition-all focus:border-[#1A73E8] focus:outline-none focus:ring-1 focus:ring-[#1A73E8] dark:border-[#334155] dark:bg-[#1E293B] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#1A73E8]"
               />
               {searchQuery && (
                 <button
@@ -314,8 +314,8 @@ export const Sidebar: React.FC<{
                       'group relative flex flex-col items-center justify-center rounded-[3px] border p-3 pt-4 text-center transition-all duration-150 shadow-2xs',
                       'min-h-[88px] sm:min-h-[94px]',
                       isActive
-                        ? 'border-[#A51F36] bg-[#FFF5F6] text-[#A51F36] shadow-xs ring-1 ring-[#A51F36] dark:border-rose-700 dark:bg-[#320810] dark:text-rose-200'
-                        : 'border-[#DCE3DF] bg-white text-[#24352F] hover:border-[#0B3D32] hover:bg-[#F9FAF9] hover:shadow-xs dark:border-[#145447] dark:bg-[#07241E] dark:text-[#E5EEE9] dark:hover:border-emerald-500 dark:hover:bg-[#093027]'
+                        ? 'border-[#1A73E8] bg-[#E8F0FE] text-[#1A73E8] shadow-xs ring-1 ring-[#1A73E8] dark:border-blue-600 dark:bg-[#1A73E8]/10 dark:text-blue-200'
+                        : 'border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#1A73E8] hover:bg-[#F8FAFC] hover:shadow-xs dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#E2E8F0] dark:hover:border-blue-400 dark:hover:bg-[#1E293B]/80'
                     )}
                   >
                     {/* Top-Right Widget Badge */}
@@ -323,23 +323,20 @@ export const Sidebar: React.FC<{
                       className={cn(
                         'absolute top-1.5 right-1.5 rounded-[2px] px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider',
                         isActive
-                          ? 'border border-[#A51F36]/30 bg-[#A51F36]/10 text-[#A51F36] dark:border-rose-700/50 dark:bg-rose-950 dark:text-rose-300'
-                          : 'border border-[#E5EEE9] bg-[#F7F5F0] text-[#64736C] dark:border-[#145447] dark:bg-[#041A15] dark:text-[#8CA498]'
+                          ? 'border border-[#1A73E8]/30 bg-[#1A73E8]/10 text-[#1A73E8] dark:border-blue-700/50 dark:bg-blue-950 dark:text-blue-300'
+                          : 'border border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B] dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#94A3B8]'
                       )}
                     >
                       {item.tag}
                     </span>
 
-                    {/* Centered Icon */}
+                    {/* Centered Icon - Pure Red per user specification */}
                     <div
                       className={cn(
-                        'flex items-center justify-center mb-2 transition-transform group-hover:scale-110',
-                        isActive
-                          ? 'text-[#A51F36] dark:text-rose-300'
-                          : 'text-[#A51F36] group-hover:text-[#7F1D1D] dark:text-rose-400 dark:group-hover:text-rose-300'
+                        'flex items-center justify-center mb-2 transition-transform group-hover:scale-110 text-[#DC2626] dark:text-[#EF4444]'
                       )}
                     >
-                      <Icon className="w-6 h-6 stroke-[1.8]" />
+                      <Icon className="w-6 h-6 stroke-[1.8] text-[#DC2626] dark:text-[#EF4444]" />
                     </div>
 
                     {/* Label Text Below Icon */}
@@ -347,8 +344,8 @@ export const Sidebar: React.FC<{
                       className={cn(
                         'text-xs font-semibold leading-tight line-clamp-2 px-1',
                         isActive
-                          ? 'font-bold text-[#A51F36] dark:text-rose-200'
-                          : 'text-[#24352F] group-hover:text-[#0B3D32] dark:text-white dark:group-hover:text-emerald-300'
+                          ? 'font-bold text-[#1A73E8] dark:text-blue-200'
+                          : 'text-[#1E293B] group-hover:text-[#1A73E8] dark:text-white dark:group-hover:text-blue-300'
                       )}
                     >
                       {item.name}
@@ -362,12 +359,12 @@ export const Sidebar: React.FC<{
             {filteredOptions.length === 0 && (
               <div className="py-8 text-center">
                 <Search className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-[#64736C] dark:text-[#8CA498]">
+                <p className="text-xs font-semibold text-[#64748B] dark:text-[#94A3B8]">
                   No widgets match &ldquo;{searchQuery}&rdquo;
                 </p>
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="mt-2 text-xs font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline"
+                  className="mt-2 text-xs font-bold text-[#1A73E8] dark:text-blue-400 hover:underline"
                 >
                   Clear Search
                 </button>
@@ -429,13 +426,13 @@ export const Sidebar: React.FC<{
                   className={cn(
                     'relative flex h-11 w-11 items-center justify-center rounded-lg border transition-all duration-150 group shrink-0',
                     isActive
-                      ? 'border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] shadow-xs ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-[#0E362C] dark:text-emerald-200'
-                      : 'border-transparent text-[#64736C] hover:border-[#DCE3DF] hover:bg-white hover:text-[#24352F] dark:text-[#A4B8AE] dark:hover:border-[#145447] dark:hover:bg-[#07241E] dark:hover:text-white'
+                      ? 'border-[#1A73E8] bg-[#E8F0FE] shadow-xs ring-1 ring-[#1A73E8] dark:border-blue-600 dark:bg-[#1A73E8]/20'
+                      : 'border-transparent hover:border-[#CBD5E1] hover:bg-slate-50 dark:hover:border-[#334155] dark:hover:bg-[#1E293B]'
                   )}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-5 h-5 text-[#DC2626] dark:text-[#EF4444]" />
                   {isActive && (
-                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[#0B3D32] dark:bg-emerald-400" />
+                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[#1A73E8] dark:bg-blue-400" />
                   )}
                 </Link>
               );
@@ -446,7 +443,7 @@ export const Sidebar: React.FC<{
         {/* ===================== FOOTER TOGGLE BUTTON ===================== */}
         <div
           className={cn(
-            'border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] shrink-0 p-2.5',
+            'border-t border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0B1120] shrink-0 p-2.5',
             isOpen ? 'flex justify-end' : 'flex justify-center'
           )}
         >
@@ -462,12 +459,12 @@ export const Sidebar: React.FC<{
             onMouseLeave={() => setHoveredToggle(null)}
             title={isOpen ? 'Collapse sidebar (<)' : 'Expand sidebar (>)'}
             aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5D0] bg-[#EEF4F1] hover:bg-[#DDE9E3] text-[#0B3D32] dark:border-[#145447] dark:bg-[#0B3D32]/40 dark:text-[#E5EEE9] dark:hover:text-white dark:hover:bg-[#0B3D32] transition-all cursor-pointer shadow-2xs group"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5D0] bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#1A73E8] dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#8AB4F8] transition-all cursor-pointer shadow-2xs group"
           >
             {isOpen ? (
-              <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-[#0B3D32] dark:text-[#E5EEE9]" />
+              <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-[#1A73E8] dark:text-[#8AB4F8]" />
             ) : (
-              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-[#0B3D32] dark:text-[#E5EEE9]" />
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-[#1A73E8] dark:text-[#8AB4F8]" />
             )}
           </button>
         </div>

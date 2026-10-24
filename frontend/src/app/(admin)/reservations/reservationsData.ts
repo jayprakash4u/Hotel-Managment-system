@@ -74,6 +74,7 @@ export interface RoomBooking {
     idExpiryDate?: string;
     idIssuePlace?: string;
     idDocumentImage?: string;
+    idDocumentImages?: string[];
     city?: string;
     state?: string;
     postalCode?: string;
@@ -107,6 +108,7 @@ export interface RoomBooking {
   luggageTag?: string;
   checkInTime?: string;
   securityDeposit?: number;
+  bookingAgent?: string;
 }
 
 export const INITIAL_BOOKINGS: RoomBooking[] = [

@@ -8,10 +8,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Bed,
   Calendar,
+  Clock,
   ChevronDown,
   ArrowLeft,
   X,
   Check,
+  Eye,
   KeyRound,
   RotateCcw,
   Printer,
@@ -47,7 +49,19 @@ import {
   performCheckIn,
   performDirectCheckIn,
   AccompanyingGuest,
+  doDatesOverlap,
 } from '../reservations/reservationsData';
+import { useMasterOptions } from '@/lib/mastersData';
+import MasterSearchableSelect from '@/components/ui/MasterSearchableSelect';
+
+// Form Room Row for multi-room check-in
+export interface FormRoomRow {
+  id: string;
+  roomId: string;
+  rate: number;
+  discount: number;
+  guestsCount: number;
+}
 
 const ID_DOCUMENT_TYPES = [
   'Citizenship Card',
@@ -82,6 +96,13 @@ const PURPOSE_OF_VISIT_OPTIONS = [
   'Medical / Health',
   'Official / Diplomatic',
   'Other',
+];
+
+const AGENT_OPTIONS = [
+  { id: 'agt-1', code: 'AGT-001', name: 'Himalayan Travels' },
+  { id: 'agt-2', code: 'AGT-002', name: 'Everest Holidays' },
+  { id: 'agt-3', code: 'AGT-003', name: 'Nepal Vista Tours' },
+  { id: 'agt-4', code: 'AGT-004', name: 'Walk-In Direct' },
 ];
 
 function CheckInDeskContent() {
@@ -137,10 +158,32 @@ function CheckInDeskContent() {
     return bookings.filter((b) => b.status === 'RESERVED' && b.checkIn <= todayStr);
   }, [bookings, todayStr]);
 
+  // Helper to format current local time as HH:mm
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const parseTimeToHHmm = (val?: string) => {
+    if (!val) return getCurrentTimeString();
+    const match = val.match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const mins = match[2];
+      if (val.toLowerCase().includes('pm') && hours < 12) hours += 12;
+      if (val.toLowerCase().includes('am') && hours === 12) hours = 0;
+      return `${String(hours).padStart(2, '0')}:${mins}`;
+    }
+    return getCurrentTimeString();
+  };
+
   // ---------------------------------------------------------------------------
   // 2. STAY SCHEDULE STATE
   // ---------------------------------------------------------------------------
   const [checkInDate, setCheckInDate] = useState<string>(paramCheckIn || todayStr);
+  const [checkInTime, setCheckInTime] = useState<string>(() => getCurrentTimeString());
   const [checkOutDate, setCheckOutDate] = useState<string>(paramCheckOut || tomorrowStr);
   const [adultsCount, setAdultsCount] = useState<number>(2);
   const [childrenCount, setChildrenCount] = useState<number>(0);
@@ -176,21 +219,30 @@ function CheckInDeskContent() {
   const [guestName, setGuestName] = useState<string>('Ram Sharma');
   const [guestPhone, setGuestPhone] = useState<string>('+977 9841234567');
   const [guestEmail, setGuestEmail] = useState<string>('ram.sharma@gmail.com');
-  const [guestNationality, setGuestNationality] = useState<string>('Nepal');
+  const [guestNationality, setGuestNationality] = useState<string>('');
   const [guestAddress, setGuestAddress] = useState<string>('New Baneshwor, Kathmandu');
   const [guestCity, setGuestCity] = useState<string>('Kathmandu');
 
   // KYC Fields
-  const [idType, setIdType] = useState<string>('Citizenship Card');
+  const [idType, setIdType] = useState<string>('');
   const [idNumber, setIdNumber] = useState<string>('27-01-72-0451');
   const [idIssuePlace, setIdIssuePlace] = useState<string>('Kathmandu');
   const [idIssueDate, setIdIssueDate] = useState<string>('');
   const [idExpiryDate, setIdExpiryDate] = useState<string>('');
   const [idDocumentImage, setIdDocumentImage] = useState<string | null>(null);
+  const [idDocumentPhotos, setIdDocumentPhotos] = useState<{ id: string; name: string; dataUrl: string; size?: number }[]>([]);
+  const [previewPhoto, setPreviewPhoto] = useState<{ name: string; dataUrl: string } | null>(null);
   const [isIdVerified, setIsIdVerified] = useState<boolean>(true);
 
   // Accompanying Guests & Travel Purpose
-  const [purposeOfVisit, setPurposeOfVisit] = useState<string>('Tourism / Leisure');
+  const relMaster = useMasterOptions('relationships');
+  const idDocMaster = useMasterOptions('idDocumentTypes');
+  const natMaster = useMasterOptions('nationalities');
+  const povMaster = useMasterOptions('purposeOfVisit');
+  const agentMaster = useMasterOptions('bookingAgents');
+
+  const [purposeOfVisit, setPurposeOfVisit] = useState<string>('');
+  const [bookingAgent, setBookingAgent] = useState<string>('');
   const [arrivedFrom, setArrivedFrom] = useState<string>('');
   const [proceedingTo, setProceedingTo] = useState<string>('');
   const [vehicleNumber, setVehicleNumber] = useState<string>('');
@@ -198,38 +250,241 @@ function CheckInDeskContent() {
   const [newAccName, setNewAccName] = useState<string>('');
   const [newAccAge, setNewAccAge] = useState<string>('');
   const [newAccGender, setNewAccGender] = useState<string>('M');
-  const [newAccRelation, setNewAccRelation] = useState<string>('Spouse');
+  const [newAccRelation, setNewAccRelation] = useState<string>('');
 
   // Key Card & Luggage Allocation
   const [keyCardNumber, setKeyCardNumber] = useState<string>('KC-101-A');
   const [luggageCount, setLuggageCount] = useState<number>(1);
 
   // ---------------------------------------------------------------------------
-  // 4. ROOM INFORMATION TABLE STATE (Exact match of Book Now)
+  // 4. ROOM INFORMATION TABLE STATE (Multi-Room Support matching Book Room)
   // ---------------------------------------------------------------------------
-  const [selectedRoomId, setSelectedRoomId] = useState<string>(paramRoomId || 'rm-101');
-
-  const selectedRoomObj: AvailableRoomOption = useMemo(() => {
-    return AVAILABLE_ROOMS_CATALOG.find((r) => r.id === selectedRoomId) || AVAILABLE_ROOMS_CATALOG[0];
-  }, [selectedRoomId]);
-
-  const [customRate, setCustomRate] = useState<number>(3500);
-  const [discount, setDiscount] = useState<number>(0);
-
-  useEffect(() => {
-    if (selectedRoomObj) {
-      setCustomRate(selectedRoomObj.pricePerNight);
-      setKeyCardNumber(`KC-${selectedRoomObj.number}-A`);
+  const [roomItems, setRoomItems] = useState<FormRoomRow[]>(() => {
+    const initRoomId = paramRoomId;
+    let initRoom = initRoomId ? AVAILABLE_ROOMS_CATALOG.find((r) => r.id === initRoomId) : undefined;
+    if (!initRoom || initRoom.status !== 'AVAILABLE' || initRoom.cleaningStatus === 'DIRTY') {
+      initRoom = AVAILABLE_ROOMS_CATALOG.find(
+        (r) => r.status === 'AVAILABLE' && r.cleaningStatus === 'CLEAN'
+      ) || AVAILABLE_ROOMS_CATALOG[0];
     }
-  }, [selectedRoomObj]);
+    return [
+      {
+        id: 'row-1',
+        roomId: initRoom ? initRoom.id : 'rm-101',
+        rate: initRoom ? initRoom.pricePerNight : 3500,
+        discount: 0,
+        guestsCount: 2,
+      },
+    ];
+  });
 
+  // Check room availability status for the selected stay dates
+  const checkRoomAvailability = (
+    room: AvailableRoomOption,
+    currentRowId?: string
+  ): { isAvailable: boolean; reason?: string } => {
+    // 1. Is it selected in another row in this form?
+    const isSelectedInOther = roomItems.some(
+      (item) => item.id !== currentRowId && item.roomId === room.id
+    );
+    if (isSelectedInOther) {
+      return { isAvailable: false, reason: 'ALREADY_SELECTED' };
+    }
+
+    // 2. Is it under maintenance?
+    if (room.status === 'MAINTENANCE') {
+      return { isAvailable: false, reason: 'MAINTENANCE' };
+    }
+
+    // 3. Is it dirty or currently being cleaned?
+    if (room.status === 'DIRTY' || room.cleaningStatus === 'DIRTY' || room.cleaningStatus === 'IN_CLEANING') {
+      return { isAvailable: false, reason: 'DIRTY' };
+    }
+
+    // 4. Is it occupied / checked-in in the room catalog?
+    if (room.status === 'OCCUPIED') {
+      return { isAvailable: false, reason: 'OCCUPIED' };
+    }
+
+    // 5. Does it conflict with an existing reservation or stay in storage?
+    const conflictBooking = bookings.find((b) => {
+      if (linkedBooking && b.id === linkedBooking.id) return false;
+      if (paramBookingId && b.id === paramBookingId) return false;
+      if (b.status === 'CHECKED_OUT' || b.status === 'CANCELLED' || b.status === 'NO_SHOW') return false;
+      if (b.room.number !== room.number) return false;
+      return doDatesOverlap(b.checkIn, b.checkOut, checkInDate, checkOutDate);
+    });
+
+    if (conflictBooking) {
+      return {
+        isAvailable: false,
+        reason: conflictBooking.status === 'CHECKED_IN' ? 'OCCUPIED' : 'BOOKED',
+      };
+    }
+
+    return { isAvailable: true };
+  };
+
+  // Auto-switch any room row whose assigned room is no longer available/clean for selected dates
+  useEffect(() => {
+    setRoomItems((prev) => {
+      let changed = false;
+      const updated = prev.map((item) => {
+        const roomObj = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === item.roomId);
+        const isCurrentAvail = roomObj && checkRoomAvailability(roomObj, item.id).isAvailable;
+        if (!isCurrentAvail) {
+          const replacement = AVAILABLE_ROOMS_CATALOG.find((r) => {
+            return checkRoomAvailability(r, item.id).isAvailable;
+          });
+          if (replacement && replacement.id !== item.roomId) {
+            changed = true;
+            return {
+              ...item,
+              roomId: replacement.id,
+              rate: replacement.pricePerNight,
+            };
+          }
+        }
+        return item;
+      });
+      return changed ? updated : prev;
+    });
+  }, [checkInDate, checkOutDate, bookings]);
+
+  // Calculate per-row subtotal, discount, and Total Amount
+  const roomRowsCalculated = useMemo(() => {
+    return roomItems.map((item) => {
+      const roomObj = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === item.roomId) || AVAILABLE_ROOMS_CATALOG[0];
+      const rateNum = Number(item.rate) || 0;
+      const discountNum = Number(item.discount) || 0;
+      const rowSubtotal = rateNum * nights;
+      const rowTotal = Math.max(0, rowSubtotal - discountNum);
+      const avail = checkRoomAvailability(roomObj, item.id);
+      return {
+        ...item,
+        roomObj,
+        subtotal: rowSubtotal,
+        total: rowTotal,
+        isAvailable: avail.isAvailable,
+        availabilityStatus: avail,
+      };
+    });
+  }, [roomItems, nights, bookings, checkInDate, checkOutDate, linkedBooking, paramBookingId]);
+
+  // Aggregate Totals across all room rows
   const subtotal = useMemo(() => {
-    return (Number(customRate) || 0) * nights;
-  }, [customRate, nights]);
+    return roomRowsCalculated.reduce((sum, r) => sum + r.subtotal, 0);
+  }, [roomRowsCalculated]);
+
+  const totalDiscount = useMemo(() => {
+    return roomRowsCalculated.reduce((sum, r) => sum + (Number(r.discount) || 0), 0);
+  }, [roomRowsCalculated]);
 
   const totalPayable = useMemo(() => {
-    return Math.max(0, subtotal - (Number(discount) || 0));
-  }, [subtotal, discount]);
+    return Math.max(0, subtotal - totalDiscount);
+  }, [subtotal, totalDiscount]);
+
+  const totalGuests = useMemo(() => {
+    return roomRowsCalculated.reduce((sum, r) => sum + (Number(r.guestsCount) || 1), 0);
+  }, [roomRowsCalculated]);
+
+  const discountPercent = useMemo(() => {
+    if (subtotal <= 0) return 0;
+    return Math.round((totalDiscount / subtotal) * 100);
+  }, [totalDiscount, subtotal]);
+
+  const selectedRoomObj: AvailableRoomOption = useMemo(() => {
+    return roomRowsCalculated[0]?.roomObj || AVAILABLE_ROOMS_CATALOG[0];
+  }, [roomRowsCalculated]);
+  const selectedRoomId = roomItems[0]?.roomId || 'rm-101';
+  const customRate = roomItems[0]?.rate || 3500;
+  const discount = totalDiscount;
+
+  // Add / Remove / Update Room row actions
+  const handleAddRoomRow = () => {
+    const availableRoom = AVAILABLE_ROOMS_CATALOG.find((r) => {
+      const status = checkRoomAvailability(r);
+      return status.isAvailable;
+    });
+
+    if (!availableRoom) {
+      toast.warning('No More Rooms', 'All rooms are either occupied, under maintenance, or already selected.');
+      return;
+    }
+
+    const newRowId = `row-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    setRoomItems((prev) => [
+      ...prev,
+      {
+        id: newRowId,
+        roomId: availableRoom.id,
+        rate: availableRoom.pricePerNight,
+        discount: 0,
+        guestsCount: 2,
+      },
+    ]);
+
+    toast.success('Room Added', `Room ${availableRoom.number} (${availableRoom.type}) added to check-in table.`);
+  };
+
+  const handleRemoveRoomRow = (rowId: string) => {
+    if (roomItems.length <= 1) {
+      toast.warning('Cannot Remove', 'At least one room is required for check-in.');
+      return;
+    }
+    const target = roomItems.find((r) => r.id === rowId);
+    const roomObj = target ? AVAILABLE_ROOMS_CATALOG.find((x) => x.id === target.roomId) : null;
+    setRoomItems((prev) => prev.filter((r) => r.id !== rowId));
+    toast.info('Room Removed', `Room ${roomObj?.number || ''} was removed from check-in.`);
+  };
+
+  const handleUpdateRoomRow = (rowId: string, updates: Partial<FormRoomRow>) => {
+    setRoomItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== rowId) return item;
+        return { ...item, ...updates };
+      })
+    );
+  };
+
+  const handleSelectRoomInRow = (rowId: string, newRoomId: string) => {
+    const rObj = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === newRoomId);
+    setRoomItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== rowId) return item;
+        return {
+          ...item,
+          roomId: newRoomId,
+          rate: rObj ? rObj.pricePerNight : item.rate,
+        };
+      })
+    );
+  };
+
+  const handleBillingDisAmtChange = (d: number) => {
+    const amt = Math.max(0, d);
+    if (roomItems.length === 1) {
+      setRoomItems((prev) => [{ ...prev[0], discount: amt }]);
+    } else {
+      const ratio = subtotal > 0 ? amt / subtotal : 0;
+      setRoomItems((prev) =>
+        prev.map((r) => ({
+          ...r,
+          discount: Math.round((Number(r.rate) || 0) * nights * ratio),
+        }))
+      );
+    }
+  };
+
+  const handleBillingDisPercentChange = (pct: number) => {
+    const p = Math.max(0, Math.min(100, pct));
+    setRoomItems((prev) =>
+      prev.map((r) => ({
+        ...r,
+        discount: Math.round((((Number(r.rate) || 0) * nights) * p) / 100),
+      }))
+    );
+  };
 
   // ---------------------------------------------------------------------------
   // 5. BILLING, ADVANCE PAID AT BOOKING & DESK SETTLEMENT
@@ -249,6 +504,7 @@ function CheckInDeskContent() {
   const [sendSms, setSendSms] = useState<boolean>(true);
   const [sendEmail, setSendEmail] = useState<boolean>(false);
   const [printRegCard, setPrintRegCard] = useState<boolean>(true);
+  const [printLabel, setPrintLabel] = useState<boolean>(false);
   const [bookingNotes, setBookingNotes] = useState<string>('');
 
   // Keep desk collection amount synchronized with remaining balance
@@ -281,16 +537,54 @@ function CheckInDeskContent() {
     setGuestPhone(b.guest.phone || '');
     setGuestEmail(b.guest.email || '');
     setGuestAddress(b.guest.address || 'Kathmandu, Nepal');
-    setGuestNationality(b.guest.country || 'Nepal');
+    setGuestNationality(b.guest.country || '');
     if (b.guest.city) setGuestCity(b.guest.city);
-    if (b.guest.idType && b.guest.idType !== 'Citizenship') setIdType(b.guest.idType);
+    if (b.guest.idType && b.guest.idType !== 'Citizenship') {
+      setIdType(b.guest.idType);
+    } else {
+      setIdType('');
+    }
     if (b.guest.idNumber && !b.guest.idNumber.toLowerCase().includes('to be collected')) {
       setIdNumber(b.guest.idNumber);
     }
+    if (b.guest.idDocumentImages && b.guest.idDocumentImages.length > 0) {
+      setIdDocumentPhotos(
+        b.guest.idDocumentImages.map((img, idx) => ({
+          id: `doc-${idx}-${Date.now()}`,
+          name: img.startsWith('data:') ? `KYC_Photo_${idx + 1}.png` : img,
+          dataUrl: img,
+        }))
+      );
+      setIdDocumentImage(b.guest.idDocumentImages[0]);
+    } else if (b.guest.idDocumentImage) {
+      setIdDocumentPhotos([
+        {
+          id: `doc-0-${Date.now()}`,
+          name: b.guest.idDocumentImage,
+          dataUrl: b.guest.idDocumentImage,
+        },
+      ]);
+      setIdDocumentImage(b.guest.idDocumentImage);
+    } else {
+      setIdDocumentPhotos([]);
+      setIdDocumentImage(null);
+    }
+    if (b.bookingAgent) setBookingAgent(b.bookingAgent);
+    if (b.guest.purposeOfVisit) setPurposeOfVisit(b.guest.purposeOfVisit);
     setCheckInDate(b.checkIn);
+    setCheckInTime(b.checkInTime ? parseTimeToHHmm(b.checkInTime) : getCurrentTimeString());
     setCheckOutDate(b.checkOut);
-    setSelectedRoomId(b.room.id);
-    setCustomRate(b.room.pricePerNight);
+    const roomStayTotal = (b.room.pricePerNight || 3500) * (b.nights || 1);
+    const rowDiscount = Math.max(0, roomStayTotal - (b.roomCharges || roomStayTotal));
+    setRoomItems([
+      {
+        id: 'row-1',
+        roomId: b.room.id,
+        rate: b.room.pricePerNight,
+        discount: rowDiscount,
+        guestsCount: 1 + (b.guest.accompanyingGuests?.length || 0),
+      },
+    ]);
     setKeyCardNumber(b.keyCardNumber || `KC-${b.room.number}-A`);
     if (b.notes) setBookingNotes(b.notes);
     if (b.guest.accompanyingGuests) setAccompanyingGuests(b.guest.accompanyingGuests);
@@ -320,10 +614,17 @@ function CheckInDeskContent() {
         handleSelectReservationToAutoFill(b);
       }
     } else if (paramRoomId) {
-      setSelectedRoomId(paramRoomId);
       const found = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === paramRoomId);
       if (found) {
-        setCustomRate(found.pricePerNight);
+        setRoomItems([
+          {
+            id: 'row-1',
+            roomId: found.id,
+            rate: found.pricePerNight,
+            discount: 0,
+            guestsCount: 2,
+          },
+        ]);
         setKeyCardNumber(`KC-${found.number}-A`);
       }
     }
@@ -340,11 +641,12 @@ function CheckInDeskContent() {
       name: newAccName.trim(),
       age: newAccAge ? Number(newAccAge) : undefined,
       gender: newAccGender,
-      relation: newAccRelation,
+      relation: newAccRelation || 'Guest',
     };
     setAccompanyingGuests([...accompanyingGuests, newGuest]);
     setNewAccName('');
     setNewAccAge('');
+    setNewAccRelation('');
     setAdultsCount((prev) => prev + 1);
     toast.success('Guest Added', `${newGuest.name} added to room manifest.`);
   };
@@ -352,6 +654,46 @@ function CheckInDeskContent() {
   const handleRemoveAccompanyingGuest = (id?: string) => {
     setAccompanyingGuests(accompanyingGuests.filter((g) => g.id !== id));
     setAdultsCount((prev) => Math.max(1, prev - 1));
+  };
+
+  // Multi-Photo KYC Document Handlers
+  const handleUploadPhotos = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+
+    fileArray.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        setIdDocumentPhotos((prev) => {
+          const updated = [
+            ...prev,
+            {
+              id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              name: file.name,
+              dataUrl: result,
+              size: file.size,
+            },
+          ];
+          setIdDocumentImage(updated[0]?.name || null);
+          return updated;
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+
+    toast.success(
+      'Photos Attached',
+      `${fileArray.length} photo${fileArray.length > 1 ? 's' : ''} added to KYC documentation.`
+    );
+  };
+
+  const handleRemovePhoto = (id: string) => {
+    setIdDocumentPhotos((prev) => {
+      const filtered = prev.filter((p) => p.id !== id);
+      setIdDocumentImage(filtered[0]?.name || null);
+      return filtered;
+    });
   };
 
   // Reset form
@@ -363,18 +705,32 @@ function CheckInDeskContent() {
     setGuestPhone('');
     setGuestEmail('');
     setGuestAddress('');
+    setGuestNationality('');
+    setIdType('');
     setIdNumber('');
+    setIdDocumentImage(null);
+    setIdDocumentPhotos([]);
+    setPurposeOfVisit('');
+    setBookingAgent('');
+    setNewAccRelation('');
     setBookingNotes('');
     setAccompanyingGuests([]);
-    setDiscount(0);
     setCheckInDate(todayStr);
+    setCheckInTime(getCurrentTimeString());
     setCheckOutDate(tomorrowStr);
     setAdultsCount(2);
     setChildrenCount(0);
     const defRoom = AVAILABLE_ROOMS_CATALOG[0];
     if (defRoom) {
-      setSelectedRoomId(defRoom.id);
-      setCustomRate(defRoom.pricePerNight);
+      setRoomItems([
+        {
+          id: 'row-1',
+          roomId: defRoom.id,
+          rate: defRoom.pricePerNight,
+          discount: 0,
+          guestsCount: 2,
+        },
+      ]);
       setKeyCardNumber(`KC-${defRoom.number}-A`);
     }
     setPaymentChoice('FULL');
@@ -383,7 +739,7 @@ function CheckInDeskContent() {
   };
 
   // ---------------------------------------------------------------------------
-  // COMPLETE CHECK-IN
+  // COMPLETE CHECK-IN (Multi-Room Support)
   // ---------------------------------------------------------------------------
   const handleCompleteCheckIn = () => {
     if (!guestName.trim()) {
@@ -405,86 +761,191 @@ function CheckInDeskContent() {
 
     const paidNow = paymentChoice === 'LATER' ? 0 : Math.min(Number(advancedAmount) || 0, remainingBalanceDue);
 
-    const paymentRecords: PaymentEntry[] = [...(linkedBooking?.payments || [])];
-    if (paidNow > 0) {
-      paymentRecords.push({
-        id: `pay-${Date.now()}`,
-        receiptNo: `REC-${Date.now().toString().slice(-4)}`,
-        date: 'Today',
-        amount: paidNow,
-        method: (paymentMethod === 'PAY_LATER' ? 'CASH' : paymentMethod) as any,
-        type: paidNow >= remainingBalanceDue ? 'SETTLEMENT' : 'ADVANCE',
-        notes: 'Check-in desk payment collected',
-      });
-    }
-
-    const newBookingId = linkedBooking?.id || `bk-${Date.now().toString().slice(-4)}`;
-    const newBookingCode = linkedBooking?.bookingCode || `BK-${Math.floor(1000 + Math.random() * 9000)}`;
+    const baseBookingId = linkedBooking?.id || `bk-${Date.now().toString().slice(-4)}`;
+    const baseBookingCode = linkedBooking?.bookingCode || `BK-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const currentBookings = loadBookingsFromStorage();
 
-    const bookingPayload: RoomBooking = {
-      id: newBookingId,
-      bookingCode: newBookingCode,
-      status: 'CHECKED_IN',
-      checkIn: checkInDate,
-      checkOut: checkOutDate,
-      nights,
-      roomCharges: totalPayable,
-      room: {
-        id: selectedRoomObj.id,
-        number: selectedRoomObj.number,
-        type: selectedRoomObj.type,
-        acType: selectedRoomObj.acType,
-        bedType: selectedRoomObj.bedType,
-        floorLevel: selectedRoomObj.floorLevel,
-        pricePerNight: Number(customRate) || selectedRoomObj.pricePerNight,
-      },
-      guest: {
-        id: linkedBooking?.guest.id || `gst-${Date.now()}`,
-        firstName,
-        lastName,
-        phone: guestPhone.trim(),
-        email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
-        address: guestAddress,
-        city: guestCity,
-        country: guestNationality,
-        idType,
-        idNumber: idNumber.trim(),
-        idIssuePlace,
-        idIssueDate,
-        idExpiryDate,
-        idDocumentImage: idDocumentImage || undefined,
-        purposeOfVisit,
-        arrivedFrom,
-        proceedingTo,
-        vehicleNumber,
-        accompanyingGuests,
-        vipTier: linkedBooking?.guest.vipTier || 'STANDARD',
-      },
-      cafeOrders: linkedBooking?.cafeOrders || [],
-      payments: paymentRecords,
-      bookingHistory: linkedBooking?.bookingHistory || [],
-      notes: bookingNotes.trim() || undefined,
-      keyCardNumber,
-      luggageCount,
-    };
+    const createdBookings: RoomBooking[] = roomRowsCalculated.map((rowItem, idx) => {
+      const isPrimary = idx === 0;
+      const bId = isPrimary ? baseBookingId : `${baseBookingId}-${idx + 1}`;
+      const bCode = isPrimary ? baseBookingCode : `${baseBookingCode}-${idx + 1}`;
 
-    let updated: RoomBooking[];
-    if (currentBookings.some((b) => b.id === newBookingId)) {
-      updated = currentBookings.map((b) => (b.id === newBookingId ? bookingPayload : b));
-    } else {
-      updated = [bookingPayload, ...currentBookings];
-    }
+      const paymentRecords: PaymentEntry[] = [];
+      if (isPrimary && linkedBooking?.payments) {
+        paymentRecords.push(...linkedBooking.payments);
+      }
+      if (isPrimary && paidNow > 0) {
+        paymentRecords.push({
+          id: `pay-${Date.now()}-${idx}`,
+          receiptNo: `REC-${Date.now().toString().slice(-4)}`,
+          date: 'Today',
+          amount: paidNow,
+          method: (paymentMethod === 'PAY_LATER' ? 'CASH' : paymentMethod) as any,
+          type: paidNow >= remainingBalanceDue ? 'SETTLEMENT' : 'ADVANCE',
+          notes: 'Check-in desk payment collected',
+        });
+      }
+
+      return {
+        id: bId,
+        bookingCode: bCode,
+        status: 'CHECKED_IN',
+        checkIn: checkInDate,
+        checkInTime: checkInTime || getCurrentTimeString(),
+        checkOut: checkOutDate,
+        nights,
+        roomCharges: rowItem.total,
+        room: {
+          id: rowItem.roomObj.id,
+          number: rowItem.roomObj.number,
+          type: rowItem.roomObj.type,
+          acType: rowItem.roomObj.acType,
+          bedType: rowItem.roomObj.bedType,
+          floorLevel: rowItem.roomObj.floorLevel,
+          pricePerNight: Number(rowItem.rate) || rowItem.roomObj.pricePerNight,
+        },
+        guest: {
+          id: linkedBooking?.guest.id || `gst-${Date.now()}`,
+          firstName,
+          lastName,
+          phone: guestPhone.trim(),
+          email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
+          address: guestAddress,
+          city: guestCity,
+          country: guestNationality,
+          idType,
+          idNumber: idNumber.trim(),
+          idIssuePlace,
+          idIssueDate,
+          idExpiryDate,
+          idDocumentImage: idDocumentPhotos[0]?.name || idDocumentImage || undefined,
+          idDocumentImages: idDocumentPhotos.map((p) => p.dataUrl),
+          purposeOfVisit,
+          arrivedFrom,
+          proceedingTo,
+          vehicleNumber,
+          accompanyingGuests: isPrimary ? accompanyingGuests : [],
+          vipTier: linkedBooking?.guest.vipTier || 'STANDARD',
+        },
+        cafeOrders: isPrimary ? (linkedBooking?.cafeOrders || []) : [],
+        payments: paymentRecords,
+        bookingHistory: isPrimary ? (linkedBooking?.bookingHistory || []) : [],
+        notes: bookingNotes.trim() || undefined,
+        keyCardNumber: isPrimary ? keyCardNumber : `KC-${rowItem.roomObj.number}-A`,
+        luggageCount: isPrimary ? luggageCount : 0,
+        bookingAgent,
+      };
+    });
+
+    let updated = [...currentBookings];
+    createdBookings.forEach((newB) => {
+      const idx = updated.findIndex((b) => b.id === newB.id);
+      if (idx >= 0) {
+        updated[idx] = newB;
+      } else {
+        updated = [newB, ...updated];
+      }
+    });
 
     setBookings(updated);
     saveBookingsToStorage(updated);
 
+    const allRoomNumbersStr = roomRowsCalculated.map((r) => r.roomObj.number).join(', ');
+    const primaryBooking = createdBookings[0];
+
+    // 1. Save KYC details to registered guests master database
+    if (typeof window !== 'undefined') {
+      try {
+        const rawGuests = localStorage.getItem('hotel_registered_guests');
+        const existingGuests = rawGuests ? JSON.parse(rawGuests) : [];
+        const kycRecord = {
+          id: primaryBooking.guest.id,
+          name: `${firstName} ${lastName}`.trim(),
+          phone: guestPhone.trim(),
+          email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
+          idType,
+          idNumber: idNumber.trim(),
+          idIssuePlace,
+          idIssueDate,
+          idExpiryDate,
+          idDocumentImage: idDocumentPhotos[0]?.name || idDocumentImage || null,
+          idDocumentImages: idDocumentPhotos.map((p) => p.dataUrl),
+          address: guestAddress,
+          city: guestCity,
+          country: guestNationality,
+          purposeOfVisit,
+          arrivedFrom,
+          proceedingTo,
+          vehicleNumber,
+          accompanyingGuests,
+          lastCheckedIn: new Date().toISOString(),
+          checkInDate,
+          checkInTime: checkInTime || getCurrentTimeString(),
+          assignedRoom: allRoomNumbersStr,
+        };
+        const idx = existingGuests.findIndex((g: any) => g.phone === guestPhone.trim() || (idNumber && g.idNumber === idNumber.trim()));
+        let updatedGuests;
+        if (idx >= 0) {
+          updatedGuests = existingGuests.map((g: any, i: number) => (i === idx ? { ...g, ...kycRecord } : g));
+        } else {
+          updatedGuests = [kycRecord, ...existingGuests];
+        }
+        localStorage.setItem('hotel_registered_guests', JSON.stringify(updatedGuests));
+      } catch (err) {
+        console.warn('Failed to save KYC guest to storage', err);
+      }
+    }
+
+    // 2. Change the assigned rooms status to "Occupied" across room setups
+    if (typeof window !== 'undefined') {
+      const roomIdsToOccupy = new Set(roomRowsCalculated.map((r) => r.roomObj.id));
+      const roomNumbersToOccupy = new Set(roomRowsCalculated.map((r) => r.roomObj.number));
+
+      try {
+        const rawRoomsV2 = localStorage.getItem('hotel_rooms_setup_v2');
+        if (rawRoomsV2) {
+          const parsed = JSON.parse(rawRoomsV2);
+          const updatedRooms = parsed.map((r: any) =>
+            roomIdsToOccupy.has(r.id) || roomNumbersToOccupy.has(r.number)
+              ? { ...r, operationalStatus: 'OCCUPIED', status: 'OCCUPIED' }
+              : r
+          );
+          localStorage.setItem('hotel_rooms_setup_v2', JSON.stringify(updatedRooms));
+        }
+      } catch (err) {
+        console.warn('Failed to update room status in hotel_rooms_setup_v2', err);
+      }
+
+      try {
+        const rawRoomsV1 = localStorage.getItem('hotel_rooms_setup');
+        if (rawRoomsV1) {
+          const parsed = JSON.parse(rawRoomsV1);
+          const updatedRooms = parsed.map((r: any) =>
+            roomIdsToOccupy.has(r.id) || roomNumbersToOccupy.has(r.number)
+              ? { ...r, status: 'OCCUPIED', operationalStatus: 'OCCUPIED' }
+              : r
+          );
+          localStorage.setItem('hotel_rooms_setup', JSON.stringify(updatedRooms));
+        }
+      } catch (err) {
+        console.warn('Failed to update room status in hotel_rooms_setup', err);
+      }
+
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    // 3. Print Registration Card (if print checkbox is ticked) and celebrate check-in
     if (printRegCard) {
-      setSelectedBookingForRegCard(bookingPayload);
-      toast.celebrate('Guest Checked In!', `Room ${selectedRoomObj.number} assigned to ${guestName.trim()}. Key Card ${keyCardNumber} issued.`);
+      setSelectedBookingForRegCard(primaryBooking);
+      toast.celebrate('Check-In Confirmed!', `Room(s) ${allRoomNumbersStr} now Occupied by ${guestName.trim()}. Registration card is printing.`);
+      setTimeout(() => {
+        try {
+          window.print();
+        } catch { }
+      }, 400);
     } else {
-      toast.celebrate('Guest Checked In!', `Room ${selectedRoomObj.number} assigned to ${guestName.trim()}. Key Card ${keyCardNumber} issued.`);
+      toast.celebrate('Check-In Confirmed!', `Room(s) ${allRoomNumbersStr} now Occupied by ${guestName.trim()}. Key Card ${keyCardNumber} issued.`);
       setActiveTab('MANIFEST');
     }
   };
@@ -545,12 +1006,9 @@ function CheckInDeskContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] gap-3">
           <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
-                Guest Check-In
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Verify guest details, assign room key, and settle payment
-              </p>
+<h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
+  Guest Check-In
+</h1>
             </div>
           </div>
 
@@ -564,7 +1022,7 @@ function CheckInDeskContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   activeTab === 'FORM'
-                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-[#1A73E8]'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
@@ -577,7 +1035,7 @@ function CheckInDeskContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   activeTab === 'MANIFEST'
-                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-[#1A73E8]'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
@@ -589,7 +1047,7 @@ function CheckInDeskContent() {
             <button
               type="button"
               onClick={handleBackNavigation}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 border-[#DCE3DF] dark:border-[#145447] hover:bg-[#F2F6F4]"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#0F172A] text-slate-700 dark:text-slate-300 border-[#CBD5E1] dark:border-[#334155] hover:bg-slate-50"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Front Desk</span>
@@ -597,13 +1055,16 @@ function CheckInDeskContent() {
           </div>
         </div>
 
-        {/* =================================================================== */}
-        {/* VIEW 1: THE CHECK-IN FORM                                           */}
-        {/* =================================================================== */}
+        {/* =============================================================== */}
+        {/* VIEW 1: THE CHECK-IN FORM                                       */}
+        {/* =============================================================== */}
         {activeTab === 'FORM' && (
           <div className="p-6 lg:p-8 space-y-8">
-            {/* SEARCH RESERVATION TO AUTO-FILL (Constrained to clean professional width) */}
-            <div className="space-y-2 max-w-xl">
+            {/* SEARCH RESERVATION TO AUTO-FILL */}
+            <div className="space-y-2 max-w-sm">
+              <label className="block mb-1 text-xs font-bold text-slate-600 dark:text-neutral-400">
+                Search Guest
+              </label>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -614,8 +1075,8 @@ function CheckInDeskContent() {
                     setShowSearchSuggestions(true);
                   }}
                   onFocus={() => setShowSearchSuggestions(true)}
-                  placeholder="Search reservation by code, guest name, phone, or room..."
-                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] text-xs font-medium text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#0B3D32] focus:bg-white dark:focus:bg-[#071F1A] transition-all"
+                  placeholder="Search by name or Mobilenumber"
+                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#334155] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#1A73E8] transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -716,38 +1177,45 @@ function CheckInDeskContent() {
                   </span>
                 </div>
 
-                {/* Check-in & Check-out Dates */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* Stay Schedule: Check-in Date, Time & Check-out Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
                       Check-in date <span className="text-rose-500">*</span>
                     </label>
-                    <div className="relative">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        type="date"
-                        required
-                        value={checkInDate}
-                        onChange={(e) => handleCheckInDateChange(e.target.value)}
-                        className="w-full pl-9 pr-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                      />
-                    </div>
+                    <input
+                      type="date"
+                      required
+                      value={checkInDate}
+                      onChange={(e) => handleCheckInDateChange(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                      Actual Time <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={checkInTime}
+                      onChange={(e) => setCheckInTime(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
                       Check-out date <span className="text-rose-500">*</span>
                     </label>
-                    <div className="relative">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        type="date"
-                        required
-                        value={checkOutDate}
-                        onChange={(e) => setCheckOutDate(e.target.value)}
-                        className="w-full pl-9 pr-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                      />
-                    </div>
+                    <input
+                      type="date"
+                      required
+                      value={checkOutDate}
+                      onChange={(e) => setCheckOutDate(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    />
                   </div>
                 </div>
 
@@ -835,7 +1303,7 @@ function CheckInDeskContent() {
                         value={guestName}
                         onChange={(e) => setGuestName(e.target.value)}
                         placeholder="Full name"
-                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                        className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                       />
                     </div>
                   </div>
@@ -852,14 +1320,14 @@ function CheckInDeskContent() {
                         value={guestPhone}
                         onChange={(e) => setGuestPhone(e.target.value)}
                         placeholder="Mobile number"
-                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                        className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                       />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Email address (optional)
+                      Email Address
                     </label>
                     <div className="relative">
                       <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -868,24 +1336,29 @@ function CheckInDeskContent() {
                         value={guestEmail}
                         onChange={(e) => setGuestEmail(e.target.value)}
                         placeholder="email@example.com"
-                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                        className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Nationality
-                    </label>
-                    <select
+                    <MasterSearchableSelect
+                      label="Nationality"
                       value={guestNationality}
-                      onChange={(e) => setGuestNationality(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    >
-                      {NATIONALITY_OPTIONS.map((nat) => (
-                        <option key={nat} value={nat}>{nat}</option>
-                      ))}
-                    </select>
+                      onChange={setGuestNationality}
+                      options={natMaster.activeItems.map((i) => ({
+                        label: i.name,
+                        value: i.name,
+                        subtext: i.description,
+                      }))}
+                      placeholder="Select Nationality"
+                      searchPlaceholder="Search nationality / country..."
+                      onAddNew={(val, desc) => {
+                        natMaster.addItem(val, desc);
+                        toast.success('Nationality Added', `"${val}" added to Nationality masters.`);
+                      }}
+                      addNewTitle="Nationality"
+                    />
                   </div>
                 </div>
 
@@ -898,7 +1371,7 @@ function CheckInDeskContent() {
                     value={guestAddress}
                     onChange={(e) => setGuestAddress(e.target.value)}
                     placeholder="Street address, city"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                    className="w-full h-9 px-3 rounded-[3px] border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
               </div>
@@ -918,18 +1391,24 @@ function CheckInDeskContent() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      ID Document Type <span className="text-rose-500">*</span>
-                    </label>
-                    <select
+                    <MasterSearchableSelect
+                      label="ID Document Type"
+                      required
                       value={idType}
-                      onChange={(e) => setIdType(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    >
-                      {ID_DOCUMENT_TYPES.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
+                      onChange={setIdType}
+                      options={idDocMaster.activeItems.map((i) => ({
+                        label: i.name,
+                        value: i.name,
+                        subtext: i.description,
+                      }))}
+                      placeholder="Select ID Document Type"
+                      searchPlaceholder="Search ID type..."
+                      onAddNew={(val, desc) => {
+                        idDocMaster.addItem(val, desc);
+                        toast.success('ID Type Added', `"${val}" added to ID Document masters.`);
+                      }}
+                      addNewTitle="ID Document Type"
+                    />
                   </div>
 
                   <div>
@@ -960,47 +1439,116 @@ function CheckInDeskContent() {
                   />
                 </div>
 
-                {/* ID Document Scan Attachment */}
-                <div className="p-3 bg-white dark:bg-[#071F1A] rounded-lg border border-slate-200 dark:border-[#145447] flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileCheck className={cn("w-4 h-4 shrink-0", idDocumentImage ? "text-emerald-600" : "text-slate-400")} />
-                    <span className="font-medium text-slate-700 dark:text-slate-300 truncate">
-                      {idDocumentImage ? (
-                        <span className="text-emerald-700 dark:text-emerald-400 font-bold">
-                          Attached: {idDocumentImage}
-                        </span>
-                      ) : (
-                        'No ID document attached'
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <label className="px-2.5 py-1 rounded border border-slate-300 dark:border-[#145447] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#093027] cursor-pointer inline-flex items-center gap-1.5 transition-colors">
-                      <UploadCloud className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Attach</span>
+                {/* ID Document Photos & Multi-Scan Upload */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
+                      <FileCheck className="w-4 h-4 text-[#1A73E8]" />
+                      <span>ID Document Photos ({idDocumentPhotos.length})</span>
+                    </label>
+                    <label className="px-2.5 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#093027] hover:border-[#1A73E8] cursor-pointer inline-flex items-center gap-1.5 transition-colors shadow-2xs">
+                      <UploadCloud className="w-3.5 h-3.5 text-[#1A73E8]" />
+                      <span>Upload Photos</span>
                       <input
                         type="file"
+                        multiple
+                        accept="image/*,.pdf"
                         className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setIdDocumentImage(file.name);
-                            toast.success('Document Attached', `${file.name} uploaded.`);
-                          }
-                        }}
+                        onChange={(e) => handleUploadPhotos(e.target.files)}
                       />
                     </label>
-                    {idDocumentImage && (
-                      <button
-                        type="button"
-                        onClick={() => setIdDocumentImage(null)}
-                        className="text-rose-600 text-xs font-semibold hover:underline cursor-pointer"
-                      >
-                        Remove
-                      </button>
-                    )}
                   </div>
+
+                  {idDocumentPhotos.length === 0 ? (
+                    <label className="border-2 border-dashed border-slate-200 dark:border-[#145447] rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#1A73E8] hover:bg-blue-50/20 dark:hover:bg-[#093027]/30 transition-all group">
+                      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-1.5 text-slate-400 group-hover:text-[#1A73E8] group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors">
+                        <UploadCloud className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        Click or select to upload multiple document photos
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">
+                        Upload ID front side, back side, passport, or visa photos (PNG, JPG, WEBP, PDF)
+                      </span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={(e) => handleUploadPhotos(e.target.files)}
+                      />
+                    </label>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {idDocumentPhotos.map((doc, idx) => (
+                          <div
+                            key={doc.id}
+                            className="relative group rounded border border-slate-200 dark:border-[#145447] bg-slate-50 dark:bg-[#093027]/40 p-2 flex items-center gap-2 overflow-hidden hover:border-[#1A73E8] transition-colors"
+                          >
+                            {doc.dataUrl && doc.dataUrl.startsWith('data:image') ? (
+                              <img
+                                src={doc.dataUrl}
+                                alt={doc.name}
+                                className="w-9 h-9 rounded object-cover shrink-0 border border-slate-200 dark:border-slate-700 bg-white"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded bg-blue-50 dark:bg-blue-950/40 text-[#1A73E8] flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-900">
+                                <FileCheck className="w-4 h-4" />
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate" title={doc.name}>
+                                {doc.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block font-mono">
+                                Photo #{idx + 1}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              {doc.dataUrl && doc.dataUrl.startsWith('data:image') && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewPhoto(doc)}
+                                  title="View Photo"
+                                  className="text-slate-400 hover:text-[#1A73E8] p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePhoto(doc.id)}
+                                title="Delete Photo"
+                                className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> {idDocumentPhotos.length} photo(s) attached
+                        </span>
+                        <label className="text-[#1A73E8] hover:underline font-semibold cursor-pointer inline-flex items-center gap-1">
+                          <Plus className="w-3 h-3" />
+                          <span>Add more photos</span>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*,.pdf"
+                            className="hidden"
+                            onChange={(e) => handleUploadPhotos(e.target.files)}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1008,29 +1556,34 @@ function CheckInDeskContent() {
               <div className="lg:col-span-6 space-y-4">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
-                    Travel & Accompanying Guests
+                    Travel & Additional Guests
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Purpose of Visit
-                    </label>
-                    <select
+                    <MasterSearchableSelect
+                      label="Purpose of Visit"
                       value={purposeOfVisit}
-                      onChange={(e) => setPurposeOfVisit(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    >
-                      {PURPOSE_OF_VISIT_OPTIONS.map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
+                      onChange={setPurposeOfVisit}
+                      options={povMaster.activeItems.map((i) => ({
+                        label: i.name,
+                        value: i.name,
+                        subtext: i.description,
+                      }))}
+                      placeholder="Select Purpose of Visit"
+                      searchPlaceholder="Search purpose..."
+                      onAddNew={(val, desc) => {
+                        povMaster.addItem(val, desc);
+                        toast.success('Purpose Added', `"${val}" added to Purpose masters.`);
+                      }}
+                      addNewTitle="Purpose of Visit"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Vehicle Number (Optional)
+                      Vehicle Number
                     </label>
                     <input
                       type="text"
@@ -1040,6 +1593,27 @@ function CheckInDeskContent() {
                       className="w-full px-3 py-2 font-mono font-medium rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
+                </div>
+
+                {/* Booking Agent */}
+                <div className="pt-1">
+                  <MasterSearchableSelect
+                    label="Booking Agent"
+                    value={bookingAgent}
+                    onChange={setBookingAgent}
+                    options={agentMaster.activeItems.map((a) => ({
+                      label: a.name,
+                      value: a.name,
+                      subtext: a.code ? `${a.code}${a.description ? ` · ${a.description}` : ''}` : a.description,
+                    }))}
+                    placeholder="Select Booking Agent"
+                    searchPlaceholder="Search booking agent..."
+                    onAddNew={(val, desc) => {
+                      agentMaster.addItem(val, desc);
+                      toast.success('Agent Added', `"${val}" added to Booking Agents master.`);
+                    }}
+                    addNewTitle="Booking Agent"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1074,7 +1648,7 @@ function CheckInDeskContent() {
                 <div className="pt-1 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Accompanying Secondary Guests ({accompanyingGuests.length})
+                      Additional Guests ({accompanyingGuests.length})
                     </span>
                   </div>
 
@@ -1117,20 +1691,30 @@ function CheckInDeskContent() {
                       placeholder="Age"
                       className="h-8 w-14 px-2 text-xs rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
-                    <select
-                      value={newAccRelation}
-                      onChange={(e) => setNewAccRelation(e.target.value)}
-                      className="h-8 px-2 text-xs rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    >
-                      <option value="Spouse">Spouse</option>
-                      <option value="Child">Child</option>
-                      <option value="Friend">Friend</option>
-                      <option value="Colleague">Colleague</option>
-                    </select>
+                    <div className="w-36 shrink-0">
+                      <MasterSearchableSelect
+                        compact
+                        value={newAccRelation}
+                        onChange={setNewAccRelation}
+                        options={relMaster.activeItems.map((r) => ({
+                          label: r.name,
+                          value: r.name,
+                          subtext: r.description,
+                        }))}
+                        placeholder="Select Relation"
+                        searchPlaceholder="Search relation..."
+                        onAddNew={(val, desc) => {
+                          relMaster.addItem(val, desc);
+                          toast.success('Relationship Added', `"${val}" added to Relationship masters.`);
+                        }}
+                        addNewTitle="Relationship"
+                        allowClear={true}
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={handleAddAccompanyingGuest}
-                      className="h-8 px-3 rounded bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all dark:bg-emerald-600 cursor-pointer shrink-0"
+                      className="h-8 px-3 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-all dark:bg-[#1A73E8] cursor-pointer shrink-0"
                     >
                       + Add
                     </button>
@@ -1145,326 +1729,333 @@ function CheckInDeskContent() {
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center gap-2">
-                <Bed className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+                <Bed className="w-4 h-4 text-[#1A73E8] dark:text-[#8AB4F8]" />
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                   Room Information
                 </h2>
               </div>
 
               {/* Structured Table */}
-              <div className="overflow-x-auto border border-slate-200 dark:border-[#145447] rounded-lg bg-white dark:bg-[#071F1A]">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-[#FAFBF9] dark:bg-[#061B16] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-[#145447]">
+              <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#071F1A]">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-[#F4F6F8] dark:bg-[#0a231c] text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
                     <tr>
-                      <th className="py-2.5 px-3 text-center w-12 border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-2.5 text-center w-12 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         SL.
                       </th>
-                      <th className="py-2.5 px-4 min-w-[170px] border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-3 min-w-[160px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         ROOM CATEGORY
                       </th>
-                      <th className="py-2.5 px-4 min-w-[210px] border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-3 min-w-[220px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         ASSIGNED ROOM
                       </th>
-                      <th className="py-2.5 px-3 text-center w-16 border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-2 text-center w-20 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         GUEST
                       </th>
-                      <th className="py-2.5 px-3 text-center min-w-[110px] border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         AMOUNT (RS.)
                       </th>
-                      <th className="py-2.5 px-3 text-center w-16 border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-2.5 text-center w-16 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         NIGHT
                       </th>
-                      <th className="py-2.5 px-3 text-center min-w-[110px] border-r border-slate-200 dark:border-[#145447]">
+                      <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                         DISCOUNT (RS.)
                       </th>
-                      <th className="py-2.5 px-4 text-right min-w-[120px]">
+                      <th className="py-2 px-3 text-right w-32 font-semibold text-slate-700 dark:text-slate-200">
                         T. AMOUNT (RS.)
                       </th>
+                      {roomItems.length > 1 && (
+                        <th className="py-2 px-2 text-center w-12 border-l border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                          ACTION
+                        </th>
+                      )}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
-                    <tr>
-                      {/* Serial */}
-                      <td className="py-3.5 px-3 text-center text-slate-500 font-medium border-r border-slate-200 dark:border-[#145447]">
-                        1
-                      </td>
+                  <tbody className="divide-y divide-slate-300 dark:divide-slate-700 bg-white dark:bg-[#071F1A]">
+                    {roomRowsCalculated.map((row, idx) => {
+                      // Only show genuinely available & clean rooms for the selected stay dates
+                      const availableRoomsForDropdown = AVAILABLE_ROOMS_CATALOG.filter((r) => {
+                        return r.id === row.roomId || checkRoomAvailability(r, row.id).isAvailable;
+                      });
 
-                      {/* Room Category */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 dark:border-[#145447]">
-                        <div className="font-bold text-slate-900 dark:text-white text-xs">
-                          {selectedRoomObj.type}
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {selectedRoomObj.acType} · {selectedRoomObj.bedType}
-                        </div>
-                      </td>
-
-                      {/* Assigned Room with Reassignment Dropdown */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 dark:border-[#145447]">
-                        <select
-                          value={selectedRoomId}
-                          onChange={(e) => setSelectedRoomId(e.target.value)}
-                          className="px-2.5 py-1.5 rounded border border-[#C5D5CC] dark:border-[#145447] bg-[#F4F7F5] dark:bg-[#06241D] text-xs font-bold text-[#0B3D32] dark:text-emerald-300 shadow-2xs outline-none"
-                        >
-                          {AVAILABLE_ROOMS_CATALOG.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              Room {r.number} ({r.floorLevel}) — {r.type}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-
-                      {/* Guest Count */}
-                      <td className="py-3.5 px-3 text-center font-bold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-[#145447]">
-                        {adultsCount + childrenCount}
-                      </td>
-
-                      {/* Amount per night (Editable) */}
-                      <td className="py-3.5 px-3 text-center border-r border-slate-200 dark:border-[#145447]">
-                        <input
-                          type="number"
-                          min={0}
-                          value={customRate}
-                          onChange={(e) => setCustomRate(Math.max(0, Number(e.target.value) || 0))}
-                          className="w-24 text-center font-bold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                        />
-                      </td>
-
-                      {/* Nights */}
-                      <td className="py-3.5 px-3 text-center font-bold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-[#145447]">
-                        {nights}
-                      </td>
-
-                      {/* Discount (Editable) */}
-                      <td className="py-3.5 px-3 text-center border-r border-slate-200 dark:border-[#145447]">
-                        <input
-                          type="number"
-                          min={0}
-                          value={discount}
-                          onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
-                          className="w-20 text-center font-medium px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                        />
-                      </td>
-
-                      {/* Total Amount */}
-                      <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white tabular-nums text-sm">
-                        Rs. {totalPayable.toLocaleString()}
-                      </td>
-                    </tr>
+                      return (
+                        <tr key={row.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
+                          <td className="py-2 px-2.5 text-center text-slate-600 dark:text-slate-400 font-medium border-r border-slate-300 dark:border-slate-700">
+                            {idx + 1}
+                          </td>
+                          <td className="py-2 px-3 border-r border-slate-300 dark:border-slate-700">
+                            <div className="text-xs text-slate-800 dark:text-slate-200 font-medium">
+                              {row.roomObj.type}
+                            </div>
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                              {row.roomObj.acType} · {row.roomObj.bedType}
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                            <select
+                              value={row.roomId}
+                              onChange={(e) => handleSelectRoomInRow(row.id, e.target.value)}
+                              className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#071F1A] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer font-medium"
+                            >
+                              {availableRoomsForDropdown.map((rm) => (
+                                <option key={rm.id} value={rm.id}>
+                                  Room {rm.number} ({rm.type}) - Rs. {rm.pricePerNight.toLocaleString()}/night
+                                </option>
+                              ))}
+                              {availableRoomsForDropdown.length === 0 && (
+                                <option disabled value="">
+                                  No available rooms for selected dates
+                                </option>
+                              )}
+                            </select>
+                          </td>
+                          <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                            <input
+                              type="number"
+                              min={1}
+                              max={6}
+                              value={row.guestsCount}
+                              onChange={(e) => {
+                                const val = Math.max(1, Math.min(10, Number(e.target.value) || 1));
+                                handleUpdateRoomRow(row.id, { guestsCount: val });
+                              }}
+                              className="w-full h-7 text-center font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                            />
+                          </td>
+                          <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                            <input
+                              type="number"
+                              min={0}
+                              value={row.rate === 0 ? '' : row.rate}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value) || 0);
+                                handleUpdateRoomRow(row.id, { rate: val });
+                              }}
+                              className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-[#071F1A] focus:border-slate-400"
+                            />
+                          </td>
+                          <td className="py-2 px-2.5 text-center text-xs text-slate-800 dark:text-slate-200 font-mono border-r border-slate-300 dark:border-slate-700">
+                            {nights}
+                          </td>
+                          <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                            <input
+                              type="number"
+                              min={0}
+                              value={row.discount === 0 ? '' : row.discount}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value) || 0);
+                                handleUpdateRoomRow(row.id, { discount: val });
+                              }}
+                              placeholder="0"
+                              className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xs outline-none focus:border-slate-400"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs tabular-nums">
+                              {row.total.toLocaleString()}
+                            </div>
+                          </td>
+                          {roomItems.length > 1 && (
+                            <td className="py-2 px-2 text-center border-l border-slate-300 dark:border-slate-700">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveRoomRow(row.id)}
+                                title="Remove this room"
+                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
+
+                  {roomItems.length > 1 && (
+                    <tfoot className="bg-[#FAFBF9] dark:bg-[#061B16] font-semibold text-xs border-t-2 border-slate-300 dark:border-slate-600">
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="py-2.5 px-3 text-right text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700"
+                        >
+                          Total
+                        </td>
+                        <td className="py-2.5 px-2 text-center text-xs font-semibold text-slate-800 dark:text-slate-200 border-r border-slate-300 dark:border-slate-700 font-mono">
+                          {totalGuests}
+                        </td>
+                        <td className="py-2.5 px-3 border-r border-slate-300 dark:border-slate-700"></td>
+                        <td className="py-2.5 px-2 text-center text-xs font-semibold text-slate-800 dark:text-slate-200 border-r border-slate-300 dark:border-slate-700 font-mono">
+                          {nights}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 border-r border-slate-300 dark:border-slate-700">
+                          {totalDiscount > 0 ? `Rs. ${totalDiscount.toLocaleString()}` : '0'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#1A73E8] dark:text-blue-400 tabular-nums">
+                          Rs. {totalPayable.toLocaleString()}
+                        </td>
+                        <td className="border-l border-slate-300 dark:border-slate-700"></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
 
-              {/* Notification Checkboxes */}
-              <div className="flex flex-wrap items-center gap-6 pt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={sendSms}
-                    onChange={(e) => setSendSms(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                  />
-                  <span>Send SMS</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={sendEmail}
-                    onChange={(e) => setSendEmail(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                  />
-                  <span>Send Email</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={printRegCard}
-                    onChange={(e) => setPrintRegCard(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                  />
-                  <span>Print Registration Card on Check-In</span>
-                </label>
+              {/* Controls Below Table: Add Room Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleAddRoomRow}
+                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#1A73E8] text-[#1A73E8] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Room</span>
+                </button>
               </div>
             </div>
 
             {/* ===============================================================
-                SECTION 5: REMARKS & BILLING / ADVANCE RECONCILIATION (6 + 6)
+                SECTION 5: BILLING & SETTLEMENT (Boxed Container Matching Image 2)
                 =============================================================== */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-t border-slate-100 dark:border-[#145447] pt-8">
-              {/* Left: Remarks */}
-              <div className="lg:col-span-6 space-y-4">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
-                    Remarks / Notes
-                  </span>
-                </div>
-                <textarea
-                  rows={4}
-                  value={bookingNotes}
-                  onChange={(e) => setBookingNotes(e.target.value)}
-                  placeholder="Special requests or front desk notes..."
-                  className="w-full p-3 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                />
+            <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-[#1A73E8] dark:text-[#8AB4F8]" />
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                  Billing & Settlement
+                </h2>
               </div>
 
-              {/* Right: Structured Billing & Advance Reconcile Table */}
-              <div className="lg:col-span-6 space-y-4">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
-                    Billing & Settlement
-                  </span>
+              {/* The Reference Pattern Card (Box ONLY Here) */}
+              <div className="border border-slate-300 dark:border-slate-700 rounded-md p-4 bg-white dark:bg-[#071F1A] space-y-3.5 shadow-2xs">
+                {/* Row 1: Basic Total, Dis %, Dis Amt, Tax Amt(3%), Round off, Net Amount */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Basic Total
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      {subtotal.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Dis %
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={discountPercent || ''}
+                      onChange={(e) => {
+                        const p = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                        handleBillingDisPercentChange(p);
+                      }}
+                      placeholder="0"
+                      className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Dis Amt
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={totalDiscount || ''}
+                      onChange={(e) => {
+                        const d = Math.max(0, Number(e.target.value) || 0);
+                        handleBillingDisAmtChange(d);
+                      }}
+                      placeholder="0"
+                      className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Tax Amt(3%)
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      0.00
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Round off
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      0.00
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Net Amount
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      {totalPayable.toLocaleString()}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Billing Table */}
-                <div className="border border-slate-200 dark:border-[#145447] rounded-lg overflow-hidden bg-white dark:bg-[#071F1A]">
-                  <table className="w-full text-xs table-fixed">
-                    <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
-                      {/* Subtotal */}
-                      <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                        <td className="w-1/2 py-2 px-3 text-slate-600 dark:text-slate-400 font-medium border-r border-slate-200 dark:border-[#145447]">
-                          Subtotal
-                        </td>
-                        <td className="w-1/2 py-2 px-3 text-right font-bold text-slate-900 dark:text-white tabular-nums">
-                          Rs. {subtotal.toLocaleString()}
-                        </td>
-                      </tr>
+                {/* Row 2: Paid Amt., Ref. Due, Mode, Remarks, Print, Label */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                  <div className="lg:col-span-2">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Paid Amt.
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={advancedAmount}
+                      onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
+                      className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    />
+                  </div>
 
-                      {/* Total Room Charges */}
-                      <tr className="bg-[#FAFBF9] dark:bg-[#061B16] font-bold">
-                        <td className="w-1/2 py-2 px-3 text-slate-900 dark:text-white border-r border-slate-200 dark:border-[#145447]">
-                          Total Room Charges
-                        </td>
-                        <td className="w-1/2 py-2 px-3 text-right text-sm text-[#0B3D32] dark:text-emerald-400 tabular-nums">
-                          Rs. {totalPayable.toLocaleString()}
-                        </td>
-                      </tr>
+                  <div className="lg:col-span-2">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Ref. Due
+                    </label>
+                    <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                      {dueAmountAtCheckout.toLocaleString()}
+                    </div>
+                  </div>
 
-                      {/* ADVANCE PAID AT BOOKING */}
-                      {advancePaidAtBooking > 0 && (
-                        <tr className="bg-emerald-50/70 dark:bg-emerald-950/40">
-                          <td className="w-1/2 py-2 px-3 text-emerald-800 dark:text-emerald-300 font-bold border-r border-slate-200 dark:border-[#145447] flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Advance Paid at Booking</span>
-                          </td>
-                          <td className="w-1/2 py-2 px-3 text-right font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
-                            - Rs. {advancePaidAtBooking.toLocaleString()}
-                          </td>
-                        </tr>
-                      )}
+                  <div className="lg:col-span-2">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Mode
+                    </label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#061B16] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer"
+                    >
+                      <option value="CASH">Cash</option>
+                      <option value="CARD">Card</option>
+                      <option value="UPI_QR">UPI / QR</option>
+                      <option value="BANK_TRANSFER">Bank</option>
+                      <option value="CREDIT">Credit</option>
+                    </select>
+                  </div>
 
-                      {/* REMAINING BALANCE DUE */}
-                      {advancePaidAtBooking > 0 && (
-                        <tr className="font-bold">
-                          <td className="w-1/2 py-2 px-3 text-slate-800 dark:text-white border-r border-slate-200 dark:border-[#145447]">
-                            Remaining Balance Due
-                          </td>
-                          <td className="w-1/2 py-2 px-3 text-right text-amber-700 dark:text-amber-400 tabular-nums">
-                            Rs. {remainingBalanceDue.toLocaleString()}
-                          </td>
-                        </tr>
-                      )}
-
-                      {/* Payment Option Selection */}
-                      <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                        <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                          Payment Option
-                        </td>
-                        <td className="w-1/2 py-1.5 px-3 text-right">
-                          <div className="inline-flex gap-2 text-xs">
-                            <label className="inline-flex items-center gap-1 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="payChoice"
-                                checked={paymentChoice === 'FULL'}
-                                onChange={() => setPaymentChoice('FULL')}
-                                className="accent-[#0B3D32]"
-                              />
-                              <span>Pay Balance</span>
-                            </label>
-                            <label className="inline-flex items-center gap-1 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="payChoice"
-                                checked={paymentChoice === 'ADVANCE'}
-                                onChange={() => setPaymentChoice('ADVANCE')}
-                                className="accent-[#0B3D32]"
-                              />
-                              <span>Advance</span>
-                            </label>
-                            <label className="inline-flex items-center gap-1 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="payChoice"
-                                checked={paymentChoice === 'LATER'}
-                                onChange={() => setPaymentChoice('LATER')}
-                                className="accent-[#0B3D32]"
-                              />
-                              <span>Pay Later</span>
-                            </label>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {paymentChoice !== 'LATER' && (
-                        <>
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Amount Collected Now <span className="text-emerald-600 font-bold">*</span>
-                            </td>
-                            <td className="w-1/2 py-1.5 px-3 text-right">
-                              <input
-                                type="number"
-                                min={0}
-                                value={advancedAmount}
-                                onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
-                                className="w-32 text-right font-bold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                              />
-                            </td>
-                          </tr>
-
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Balance Due at Checkout
-                            </td>
-                            <td className="w-1/2 py-2 px-3 text-right">
-                              <span
-                                className={cn(
-                                  'inline-block font-bold px-2 py-0.5 rounded text-xs tabular-nums',
-                                  dueAmountAtCheckout > 0
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                )}
-                              >
-                                Rs. {dueAmountAtCheckout.toLocaleString()}
-                              </span>
-                            </td>
-                          </tr>
-
-                          <tr className="hover:bg-slate-50/50 dark:hover:bg-[#06241D]/30 transition-colors">
-                            <td className="w-1/2 py-2 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-[#145447]">
-                              Payment Method
-                            </td>
-                            <td className="w-1/2 py-1.5 px-3 text-right">
-                              <select
-                                value={paymentMethod}
-                                onChange={(e) => setPaymentMethod(e.target.value)}
-                                className="w-36 text-xs font-semibold px-2 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none"
-                              >
-                                <option value="CASH">Cash</option>
-                                <option value="CARD">Credit / Debit Card</option>
-                                <option value="UPI_QR">UPI / Fonepay QR</option>
-                                <option value="ESEWA_KHALTI">eSewa / Khalti</option>
-                                <option value="BANK_TRANSFER">Bank Transfer</option>
-                              </select>
-                            </td>
-                          </tr>
-                        </>
-                      )}
-                    </tbody>
-                  </table>
+                  <div className="lg:col-span-5">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Remarks
+                    </label>
+                    <input
+                      type="text"
+                      value={bookingNotes}
+                      onChange={(e) => setBookingNotes(e.target.value)}
+                      placeholder=""
+                      className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    />
+                  </div>
                 </div>
+              </div>
 
                 {/* Action Button: Complete Check-In */}
                 <div className="flex items-center justify-end pt-3">
@@ -1496,8 +2087,8 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'ARRIVALS'
-                      ? 'bg-[#0B3D32] text-white dark:bg-emerald-600'
-                      : 'bg-[#FAFBF9] dark:bg-[#061B16] border border-[#DCE3DF] dark:border-[#145447] text-slate-700 dark:text-slate-300'
+                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
                   Expected Arrivals ({stats.pendingToday})
@@ -1508,8 +2099,8 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'IN_HOUSE'
-                      ? 'bg-[#0B3D32] text-white dark:bg-emerald-600'
-                      : 'bg-[#FAFBF9] dark:bg-[#061B16] border border-[#DCE3DF] dark:border-[#145447] text-slate-700 dark:text-slate-300'
+                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
                   Currently In-House ({stats.inHouse})
@@ -1520,8 +2111,8 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'ALL'
-                      ? 'bg-[#0B3D32] text-white dark:bg-emerald-600'
-                      : 'bg-[#FAFBF9] dark:bg-[#061B16] border border-[#DCE3DF] dark:border-[#145447] text-slate-700 dark:text-slate-300'
+                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
                   All Manifest
@@ -1573,10 +2164,10 @@ function CheckInDeskContent() {
                           <td className="py-2.5 px-3 text-center font-mono text-slate-400 border-r border-slate-200 dark:border-[#145447]">
                             {idx + 1}
                           </td>
-                          <td className="py-2.5 px-3.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-400 border-r border-slate-200 dark:border-[#145447]">
+                          <td className="py-2.5 px-3.5 font-mono font-bold text-[#1A73E8] dark:text-[#8AB4F8] border-r border-slate-200 dark:border-[#334155]">
                             {booking.bookingCode}
                           </td>
-                          <td className="py-2.5 px-4 border-r border-slate-200 dark:border-[#145447]">
+                          <td className="py-2.5 px-4 border-r border-slate-200 dark:border-[#334155]">
                             <div className="font-bold text-slate-900 dark:text-white">
                               {booking.guest.firstName} {booking.guest.lastName}
                             </div>
@@ -1584,21 +2175,27 @@ function CheckInDeskContent() {
                               {booking.guest.phone} · ID: {booking.guest.idNumber || 'Verified'}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-[#145447]">
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-[#334155]">
                             <div className="font-medium text-slate-800 dark:text-slate-200">
                               {booking.checkIn} → {booking.checkOut}
                             </div>
-                            <div className="text-[10px] text-slate-400">
-                              {booking.nights} {booking.nights === 1 ? 'night' : 'nights'}
+                            <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                              <span>{booking.nights} {booking.nights === 1 ? 'night' : 'nights'}</span>
+                              {booking.checkInTime && (
+                                <>
+                                  <span>·</span>
+                                  <span className="font-mono text-slate-600 dark:text-slate-300">In: {booking.checkInTime}</span>
+                                </>
+                              )}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-[#145447]">
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-[#334155]">
                             <span className="font-bold text-slate-800 dark:text-slate-200">
                               Room {booking.room.number}
                             </span>
                             <span className="text-[11px] text-slate-400 block">{booking.room.type}</span>
                           </td>
-                          <td className="py-2.5 px-3.5 text-right border-r border-slate-200 dark:border-[#145447]">
+                          <td className="py-2.5 px-3.5 text-right border-r border-slate-200 dark:border-[#334155]">
                             <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
                               Rs. {fin.totalCharges.toLocaleString()}
                             </div>
@@ -1606,7 +2203,7 @@ function CheckInDeskContent() {
                               Adv: Rs. {fin.totalPaid.toLocaleString()}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-[#145447]">
+                          <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-[#334155]">
                             {isCheckedIn ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
                                 In-House
@@ -1622,7 +2219,7 @@ function CheckInDeskContent() {
                               <button
                                 type="button"
                                 onClick={() => handleSelectReservationToAutoFill(booking)}
-                                className="px-3 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-emerald-600 cursor-pointer shadow-2xs"
+                                className="px-3 py-1 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-[#1A73E8] cursor-pointer shadow-2xs"
                               >
                                 Check In
                               </button>
@@ -1705,8 +2302,8 @@ function CheckInDeskContent() {
 
                 <div className="grid grid-cols-3 gap-3 border-b border-slate-200 pb-3">
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Arrival Date:</span>
-                    <strong>{b.checkIn}</strong>
+                    <span className="text-slate-500 text-[10px] block uppercase">Arrival Date & Time:</span>
+                    <strong>{b.checkIn} {b.checkInTime ? `(${b.checkInTime})` : ''}</strong>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[10px] block uppercase">Departure Date:</span>
@@ -1763,7 +2360,7 @@ function CheckInDeskContent() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#0B3D32] text-white text-xs font-bold cursor-pointer hover:bg-[#07241E]"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#1A73E8] text-white text-xs font-bold cursor-pointer hover:bg-[#1557B0]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Registration Card</span>
@@ -1773,6 +2370,37 @@ function CheckInDeskContent() {
           </div>
         );
       })()}
+
+      {/* Lightbox Photo Preview Modal */}
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-2xs"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-lg bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-[#145447] shadow-2xl p-4 text-slate-900 dark:text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#145447] mb-3">
+              <span className="font-bold text-sm truncate pr-2">{previewPhoto.name}</span>
+              <button
+                type="button"
+                onClick={() => setPreviewPhoto(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] flex items-center justify-center overflow-auto rounded bg-slate-950/5 dark:bg-black/40 p-2">
+              <img
+                src={previewPhoto.dataUrl}
+                alt={previewPhoto.name}
+                className="max-h-[65vh] w-auto max-w-full rounded object-contain shadow-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

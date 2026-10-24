@@ -90,8 +90,8 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
           // Clean 8px radius matching user spec, font-semibold text-xs
           'inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all duration-150 shrink-0 select-none',
           isActive
-            ? 'bg-white text-[#24352F] shadow-xs font-bold border border-[#CBD5D0] dark:bg-[#0B3D32] dark:text-white dark:border-[#145447]'
-            : 'text-[#64736C] hover:text-[#24352F] hover:bg-white/60 dark:text-[#B7CDC3] dark:hover:text-white dark:hover:bg-[#145447]/40',
+            ? 'bg-white text-[#1A73E8] shadow-xs font-bold border border-[#CBD5D0] dark:bg-[#1A73E8] dark:text-white dark:border-[#1557B0]'
+            : 'text-[#64748B] hover:text-[#1E293B] hover:bg-white/60 dark:text-[#94A3B8] dark:hover:text-white dark:hover:bg-[#1E293B]',
           className
         )}
         {...props}

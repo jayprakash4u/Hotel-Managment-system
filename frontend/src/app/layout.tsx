@@ -23,7 +23,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="antialiased selection:bg-[#0B3D32] selection:text-white bg-[#F7F5F0] text-[#43534D]">
+      <body className="antialiased selection:bg-[#1A73E8] selection:text-white bg-[#F8FAFC] text-[#334155]">
         <ThemeProvider>
           <RoleProvider>
             <ToastProvider>

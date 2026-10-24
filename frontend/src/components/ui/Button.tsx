@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'destructive' | 'danger' | 'brand' | 'ghost' | 'gold';
+  variant?: 'primary' | 'secondary' | 'outline' | 'destructive' | 'danger' | 'warning' | 'brand' | 'ghost' | 'gold';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
@@ -15,21 +15,23 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     // Base styles: consistent heights, focus ring, loading and disabled states
     const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-150 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none rounded-lg active:scale-[0.98] select-none';
 
-    // Button Color System per Design Spec:
-    // - Primary: Forest green #0B3D32, hover #145447, active #072D26, text #FFFFFF
-    // - Secondary: Surface white, border #DCE3DF, hover #F2F4F2, text #24352F
-    // - Destructive: Burgundy red #A51F36, hover #8E1B2F, text #FFFFFF
-    // - Outline: Transparent border #DCE3DF, text #43534D
-    // - Ghost: Transparent, hover #F2F4F2, text #43534D
+    // Triad Button Color System:
+    // - Primary: Pure Blue #1A73E8, hover #1557B0, active #0D47A1, text #FFFFFF
+    // - Destructive / Danger: Pure Red #DC2626, hover #B91C1C, active #991B1B, text #FFFFFF
+    // - Warning / Gold: Pure Yellow #F59E0B, hover #D97706, active #B45309, text #FFFFFF
+    // - Secondary: Surface white, border #CBD5E1, hover #F1F5F9, text #1E293B
+    // - Outline: Transparent border #CBD5E1, text #475569
+    // - Ghost: Transparent, hover #F1F5F9, text #475569
     const variants = {
-      primary: 'bg-[#0B3D32] hover:bg-[#145447] active:bg-[#072D26] text-white font-semibold shadow-xs border border-[#0B3D32] focus:ring-3 focus:ring-[#0B3D32]/25',
-      gold: 'bg-[#0B3D32] hover:bg-[#145447] active:bg-[#072D26] text-white font-semibold shadow-xs border border-[#0B3D32] focus:ring-3 focus:ring-[#0B3D32]/25', // backward compat
-      secondary: 'bg-white hover:bg-[#F2F4F2] active:bg-[#E8F2EE] text-[#24352F] border border-[#DCE3DF] shadow-2xs focus:ring-3 focus:ring-[#0B3D32]/20 dark:bg-[#0f172a] dark:hover:bg-[#1e293b] dark:text-[#E2E8F0] dark:border-[#1e293b]',
-      outline: 'bg-transparent hover:bg-[#F2F4F2] active:bg-[#E8F2EE] text-[#43534D] hover:text-[#24352F] border border-[#DCE3DF] focus:ring-3 focus:ring-[#0B3D32]/20 dark:border-[#1e293b] dark:text-[#CBD5E1] dark:hover:bg-[#1e293b]',
-      destructive: 'bg-[#A51F36] hover:bg-[#8E1B2F] active:bg-[#7A1727] text-white font-semibold shadow-xs border border-[#A51F36] focus:ring-3 focus:ring-[#A51F36]/25',
-      danger: 'bg-[#A51F36] hover:bg-[#8E1B2F] active:bg-[#7A1727] text-white font-semibold shadow-xs border border-[#A51F36] focus:ring-3 focus:ring-[#A51F36]/25',
-      brand: 'bg-[#A51F36] hover:bg-[#8E1B2F] active:bg-[#7A1727] text-white font-semibold shadow-xs border border-[#A51F36] focus:ring-3 focus:ring-[#A51F36]/25',
-      ghost: 'bg-transparent hover:bg-[#F2F4F2] active:bg-[#E8F2EE] text-[#43534D] hover:text-[#24352F] focus:ring-2 focus:ring-[#0B3D32]/20 dark:text-[#CBD5E1] dark:hover:bg-[#1e293b] dark:hover:text-white',
+      primary: 'bg-[#1A73E8] hover:bg-[#1557B0] active:bg-[#0D47A1] text-white font-semibold shadow-xs border border-[#1A73E8] focus:ring-3 focus:ring-[#1A73E8]/25',
+      brand: 'bg-[#1A73E8] hover:bg-[#1557B0] active:bg-[#0D47A1] text-white font-semibold shadow-xs border border-[#1A73E8] focus:ring-3 focus:ring-[#1A73E8]/25',
+      destructive: 'bg-[#DC2626] hover:bg-[#B91C1C] active:bg-[#991B1B] text-white font-semibold shadow-xs border border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/25',
+      danger: 'bg-[#DC2626] hover:bg-[#B91C1C] active:bg-[#991B1B] text-white font-semibold shadow-xs border border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/25',
+      warning: 'bg-[#F59E0B] hover:bg-[#D97706] active:bg-[#B45309] text-white font-semibold shadow-xs border border-[#F59E0B] focus:ring-3 focus:ring-[#F59E0B]/25',
+      gold: 'bg-[#F59E0B] hover:bg-[#D97706] active:bg-[#B45309] text-white font-semibold shadow-xs border border-[#F59E0B] focus:ring-3 focus:ring-[#F59E0B]/25',
+      secondary: 'bg-white hover:bg-[#F1F5F9] active:bg-[#E2E8F0] text-[#1E293B] border border-[#CBD5E1] shadow-2xs focus:ring-3 focus:ring-[#1A73E8]/20 dark:bg-[#0F172A] dark:hover:bg-[#1E293B] dark:text-[#E2E8F0] dark:border-[#334155]',
+      outline: 'bg-transparent hover:bg-[#F1F5F9] active:bg-[#E2E8F0] text-[#475569] hover:text-[#1E293B] border border-[#CBD5E1] focus:ring-3 focus:ring-[#1A73E8]/20 dark:border-[#334155] dark:text-[#CBD5E1] dark:hover:bg-[#1E293B]',
+      ghost: 'bg-transparent hover:bg-[#F1F5F9] active:bg-[#E2E8F0] text-[#475569] hover:text-[#1E293B] focus:ring-2 focus:ring-[#1A73E8]/20 dark:text-[#CBD5E1] dark:hover:bg-[#1E293B] dark:hover:text-white',
     };
 
     // Consistent heights: 36px compact (sm), 40px standard (md), 44-48px touch (lg)

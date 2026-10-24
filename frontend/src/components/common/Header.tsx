@@ -48,7 +48,7 @@ export const Header: React.FC<{
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="flex lg:hidden items-center justify-center h-8.5 w-8.5 rounded-[3px] bg-[#EEF4F1] hover:bg-[#DDE9E3] border border-[#CBD5D0] text-[#0B3D32] dark:bg-[#0B3D32]/40 dark:border-[#145447] dark:text-[#E5EEE9] dark:hover:text-white dark:hover:bg-[#0B3D32] transition-all shadow-2xs cursor-pointer"
+          className="flex lg:hidden items-center justify-center h-8.5 w-8.5 rounded-[3px] bg-[#F1F5F9] hover:bg-[#E2E8F0] border border-[#CBD5D0] text-[#1A73E8] dark:bg-[#1E293B] dark:border-[#334155] dark:text-[#8AB4F8] transition-all shadow-2xs cursor-pointer"
           aria-label="Open mobile navigation"
         >
           <Menu className="w-4.5 h-4.5" />
@@ -64,11 +64,11 @@ export const Header: React.FC<{
         {/* Quick Search Button */}
         <button
           onClick={() => setIsSearchOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#F2F4F2] border border-[#CBD5D0] text-[#64736C] hover:text-[#24352F] hover:border-[#879B90] dark:bg-[#0B3D32]/30 dark:border-[#145447] dark:text-[#B7CDC3] dark:hover:text-white transition-all text-xs group"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#F1F5F9] border border-[#CBD5D0] text-[#64748B] hover:text-[#1E293B] hover:border-[#94A3B8] dark:bg-[#1E293B] dark:border-[#334155] dark:text-[#CBD5E1] dark:hover:text-white transition-all text-xs group"
         >
-          <Search className="w-3.5 h-3.5 text-[#0B3D32] dark:text-[#B7CDC3] group-hover:scale-110 transition-transform" />
+          <Search className="w-3.5 h-3.5 text-[#1A73E8] dark:text-[#8AB4F8] group-hover:scale-110 transition-transform" />
           <span className="hidden md:inline font-medium">Quick Search (Rooms, Guests...)</span>
-          <kbd className="hidden md:inline-flex items-center rounded bg-white px-1.5 py-0.5 text-[10px] text-[#64736C] border border-[#CBD5D0] dark:bg-[#072D26] dark:text-[#B7CDC3] dark:border-[#145447] font-mono">
+          <kbd className="hidden md:inline-flex items-center rounded bg-white px-1.5 py-0.5 text-[10px] text-[#64748B] border border-[#CBD5D0] dark:bg-[#0F172A] dark:text-[#CBD5E1] dark:border-[#334155] font-mono">
             ⌘K
           </kbd>
         </button>
@@ -76,13 +76,13 @@ export const Header: React.FC<{
         {/* Light / Dark Mode Toggle Button */}
         <button
           onClick={toggleTheme}
-          title={theme === 'dark' ? 'Switch to Light Ivory' : 'Switch to Dark Mode'}
-          className="p-2 rounded-lg bg-white border border-[#CBD5D0] text-[#43534D] hover:text-[#0B3D32] hover:border-[#879B90] dark:bg-[#0B3D32]/40 dark:border-[#145447] dark:text-[#B7CDC3] dark:hover:text-white transition-all shadow-2xs"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          className="p-2 rounded-lg bg-white border border-[#CBD5D0] text-[#475569] hover:text-[#1A73E8] hover:border-[#94A3B8] dark:bg-[#1E293B] dark:border-[#334155] dark:text-[#CBD5E1] dark:hover:text-white transition-all shadow-2xs"
         >
           {theme === 'dark' ? (
-            <Sun className="w-4 h-4 text-[#FDE68A]" />
+            <Sun className="w-4 h-4 text-[#F59E0B]" />
           ) : (
-            <Moon className="w-4 h-4 text-[#0B3D32]" />
+            <Moon className="w-4 h-4 text-[#1A73E8]" />
           )}
         </button>
 
@@ -98,7 +98,7 @@ export const Header: React.FC<{
           Reset Demo
         </Button>
 
-        {/* Check-In Desk Shortcut (Primary Action: Forest Green #0B3D32) */}
+        {/* Check-In Desk Shortcut (Primary Action: Pure Blue #1A73E8) */}
         <Link href="/front-desk">
           <Button
             variant="primary"
@@ -111,21 +111,21 @@ export const Header: React.FC<{
         </Link>
 
         {/* Active Super Admin Hotel Status Indicator */}
-        <div className="hidden md:flex items-center gap-2 pl-2 ml-1 border-l border-[#DCE3DF] dark:border-[#145447]">
+        <div className="hidden md:flex items-center gap-2 pl-2 ml-1 border-l border-[#E2E8F0] dark:border-[#334155]">
           <div className="text-right leading-tight">
             <div className="flex items-center justify-end gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-pulse" />
-              <p className="text-xs font-bold text-[#24352F] dark:text-slate-100 truncate max-w-[150px]">{user.name}</p>
+              <p className="text-xs font-bold text-[#1E293B] dark:text-slate-100 truncate max-w-[150px]">{user.name}</p>
             </div>
-            <p className="text-[10px] text-[#0B3D32] dark:text-[#B7CDC3] font-semibold truncate max-w-[150px]">
+            <p className="text-[10px] text-[#1A73E8] dark:text-[#8AB4F8] font-semibold truncate max-w-[150px]">
               {user.department || 'Aura Grand Resort'}
             </p>
           </div>
           <div
             title="Active — Enterprise Front Desk"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F2EE] border border-[#CBD5D0] text-[#0B3D32] dark:bg-[#0B3D32] dark:border-[#145447] dark:text-[#E5EEE9] shadow-2xs"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F0FE] border border-[#CBD5D0] text-[#1A73E8] dark:bg-[#1A73E8]/30 dark:border-[#1A73E8]/40 dark:text-[#8AB4F8] shadow-2xs"
           >
-            <ShieldCheck className="w-4 h-4 text-[#0B3D32] dark:text-white" />
+            <ShieldCheck className="w-4 h-4 text-[#1A73E8] dark:text-white" />
           </div>
         </div>
       </div>

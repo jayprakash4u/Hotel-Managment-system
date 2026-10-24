@@ -1890,7 +1890,7 @@ function FrontDeskContent() {
                 leftIcon={<LogIn className="w-4 h-4" />}
                 className="font-bold px-6 shadow-sm"
               >
-                Confirm Check-in
+                Check In
               </Button>
             </div>
           </div>

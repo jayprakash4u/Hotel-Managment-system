@@ -19,3 +19,5 @@ export * from './Toast';
 export * from './Avatar';
 export * from './Skeleton';
 export * from './Form';
+export { default as MasterSearchableSelect } from './MasterSearchableSelect';
+export * from './MasterSearchableSelect';

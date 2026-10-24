@@ -39,26 +39,26 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               'w-full h-[42px] rounded-lg px-3.5 text-sm transition-all duration-150',
               'bg-white border border-[#CBD5D0] text-[#24352F] placeholder-[#7A8982]',
               'hover:border-[#879B90]',
-              'focus:border-[#0B3D32] focus:outline-none focus:ring-3 focus:ring-[#0B3D32]/15',
-              'disabled:bg-[#F2F4F2] disabled:border-[#DCE3DF] disabled:text-[#89948E] disabled:cursor-not-allowed',
-              'dark:bg-[#071512] dark:border-[#145447] dark:text-white dark:placeholder-[#64736C] dark:focus:border-[#4ADE80] dark:focus:ring-[#4ADE80]/20 dark:disabled:bg-[#072D26]/40 dark:disabled:text-[#89948E]',
+              'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
+              'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
+              'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20 dark:disabled:bg-[#1E293B] dark:disabled:text-[#64748B]',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
-              error && 'border-[#B42332] hover:border-[#B42332] focus:border-[#B42332] focus:ring-3 focus:ring-[#B42332]/15 dark:border-[#B42332]',
+              error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
               className
             )}
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-3.5 flex items-center pointer-events-none text-[#64736C] dark:text-[#B7CDC3]">
+            <div className="absolute right-3.5 flex items-center pointer-events-none text-[#64748B] dark:text-[#94A3B8]">
               {rightIcon}
             </div>
           )}
         </div>
         {error ? (
-          <p className="text-xs text-[#B42332] font-medium mt-1">{error}</p>
+          <p className="text-xs text-[#DC2626] font-medium mt-1">{error}</p>
         ) : helperText ? (
-          <p className="text-xs text-[#64736C] dark:text-[#94A3B8] mt-1">{helperText}</p>
+          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">{helperText}</p>
         ) : null}
       </div>
     );
@@ -81,10 +81,10 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label htmlFor={selectId} className="block text-xs font-semibold text-[#24352F] dark:text-[#E2E8F0]">
+          <label htmlFor={selectId} className="block text-xs font-semibold text-[#1E293B] dark:text-[#E2E8F0]">
             {label}
             {(requiredIndicator || props.required) && (
-              <span className="text-[#A51F36] ml-1 font-bold">*</span>
+              <span className="text-[#DC2626] ml-1 font-bold">*</span>
             )}
           </label>
         )}
@@ -95,34 +95,34 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             disabled={disabled}
             className={cn(
               'w-full h-[42px] appearance-none rounded-lg px-3.5 pr-9 text-sm transition-all duration-150',
-              'bg-white border border-[#CBD5D0] text-[#24352F]',
-              'hover:border-[#879B90]',
-              'focus:border-[#0B3D32] focus:outline-none focus:ring-3 focus:ring-[#0B3D32]/15',
-              'disabled:bg-[#F2F4F2] disabled:border-[#DCE3DF] disabled:text-[#89948E] disabled:cursor-not-allowed',
-              'dark:bg-[#071512] dark:border-[#145447] dark:text-white dark:focus:border-[#4ADE80] dark:focus:ring-[#4ADE80]/20 dark:disabled:bg-[#072D26]/40 dark:disabled:text-[#89948E]',
-              error && 'border-[#B42332] hover:border-[#B42332] focus:border-[#B42332] focus:ring-3 focus:ring-[#B42332]/15 dark:border-[#B42332]',
+              'bg-white border border-[#CBD5D0] text-[#1E293B]',
+              'hover:border-[#94A3B8]',
+              'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
+              'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
+              'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20 dark:disabled:bg-[#1E293B] dark:disabled:text-[#64748B]',
+              error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
               className
             )}
             {...props}
           >
             {options
               ? options.map((opt) => (
-                  <option key={opt.value} value={opt.value} className="bg-white text-[#24352F] dark:bg-[#071512] dark:text-white">
+                  <option key={opt.value} value={opt.value} className="bg-white text-[#1E293B] dark:bg-[#0F172A] dark:text-white">
                     {opt.label}
                   </option>
                 ))
               : children}
           </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#64736C] dark:text-[#B7CDC3]">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#64748B] dark:text-[#94A3B8]">
             <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
               <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
             </svg>
           </div>
         </div>
         {error ? (
-          <p className="text-xs text-[#B42332] font-medium mt-1">{error}</p>
+          <p className="text-xs text-[#DC2626] font-medium mt-1">{error}</p>
         ) : helperText ? (
-          <p className="text-xs text-[#64736C] dark:text-[#94A3B8] mt-1">{helperText}</p>
+          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">{helperText}</p>
         ) : null}
       </div>
     );
@@ -144,10 +144,10 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label htmlFor={textareaId} className="block text-xs font-semibold text-[#24352F] dark:text-[#E2E8F0]">
+          <label htmlFor={textareaId} className="block text-xs font-semibold text-[#1E293B] dark:text-[#E2E8F0]">
             {label}
             {(requiredIndicator || props.required) && (
-              <span className="text-[#A51F36] ml-1 font-bold">*</span>
+              <span className="text-[#DC2626] ml-1 font-bold">*</span>
             )}
           </label>
         )}
@@ -157,20 +157,20 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           disabled={disabled}
           className={cn(
             'w-full min-h-[90px] rounded-lg p-3 text-sm transition-all duration-150',
-            'bg-white border border-[#CBD5D0] text-[#24352F] placeholder-[#7A8982]',
-            'hover:border-[#879B90]',
-            'focus:border-[#0B3D32] focus:outline-none focus:ring-3 focus:ring-[#0B3D32]/15',
-            'disabled:bg-[#F2F4F2] disabled:border-[#DCE3DF] disabled:text-[#89948E] disabled:cursor-not-allowed',
-            'dark:bg-[#071512] dark:border-[#145447] dark:text-white dark:placeholder-[#64736C] dark:focus:border-[#4ADE80] dark:focus:ring-[#4ADE80]/20',
-            error && 'border-[#B42332] hover:border-[#B42332] focus:border-[#B42332] focus:ring-3 focus:ring-[#B42332]/15 dark:border-[#B42332]',
+            'bg-white border border-[#CBD5D0] text-[#1E293B] placeholder-[#94A3B8]',
+            'hover:border-[#94A3B8]',
+            'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
+            'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
+            'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20',
+            error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
             className
           )}
           {...props}
         />
         {error ? (
-          <p className="text-xs text-[#B42332] font-medium mt-1">{error}</p>
+          <p className="text-xs text-[#DC2626] font-medium mt-1">{error}</p>
         ) : helperText ? (
-          <p className="text-xs text-[#64736C] dark:text-[#94A3B8] mt-1">{helperText}</p>
+          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">{helperText}</p>
         ) : null}
       </div>
     );

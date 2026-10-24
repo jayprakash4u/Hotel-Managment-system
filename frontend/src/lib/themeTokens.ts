@@ -12,41 +12,46 @@
 
 // 1. COLOR TOKENS
 export const BRAND_PALETTE = {
-  // Brand Anchors
-  primary: '#0B3D32',         // Deep Forest Green (Trust, sidebar, main CTAs)
-  primaryHover: '#145447',
-  primaryActive: '#072D26',
-  primarySubtle: '#E8F2EE',
+  // Brand Anchors (Pure Blue #1A73E8, Pure Red #DC2626, Pure Yellow #F59E0B)
+  primary: '#1A73E8',         // Pure Vibrant Blue (Primary CTAs, Active States, Key Actions)
+  primaryHover: '#1557B0',
+  primaryActive: '#0D47A1',
+  primarySubtle: '#E8F0FE',
 
-  secondary: '#A51F36',       // Burgundy Red (Active nav, brand highlights, destructive)
-  secondaryHover: '#8E1B2F',
-  secondaryActive: '#7A1727',
-  secondarySubtle: '#F9E9EC',
+  secondary: '#DC2626',       // Pure Signal Red (Destructive, Critical, Danger Alerts)
+  secondaryHover: '#B91C1C',
+  secondaryActive: '#991B1B',
+  secondarySubtle: '#FEF2F2',
+
+  tertiary: '#F59E0B',        // Pure Yellow / Amber (Pending, Hold Room, Warning)
+  tertiaryHover: '#D97706',
+  tertiaryActive: '#B45309',
+  tertiarySubtle: '#FEF3C7',
 
   // Surfaces & Backgrounds
-  pageBackground: '#F7F5F0',  // Warm Ivory Application Background
+  pageBackground: '#F8FAFC',  // Enterprise Slate-50 Background
   surface: '#FFFFFF',         // Crisp White Card / Panel Surface
-  surfaceMuted: '#F2F4F2',    // Neutral Grey-Green (Table headers, secondary panels)
-  surfaceHover: '#F8FAF8',    // Very Light Neutral Row Hover
-  surfaceSelected: '#E8F2EE', // Subtle Green Selected State
+  surfaceMuted: '#F1F5F9',    // Slate-100 (Table headers, secondary panels)
+  surfaceHover: '#F8FAFC',    // Slate-50 Row Hover
+  surfaceSelected: '#E8F0FE', // Blue Tint Selected State
 
   // Borders & Dividers
-  border: '#DCE3DF',          // Standard Card & Component Border
-  borderSubtle: '#DCE3DF',
-  divider: '#E4E9E5',         // Content & Section Separators
+  border: '#E2E8F0',          // Standard Card & Component Border
+  borderSubtle: '#E2E8F0',
+  divider: '#EDF2F7',         // Content & Section Separators
 
   // Typography
-  heading: '#24352F',         // Charcoal Green (Titles & strong labels)
-  bodyText: '#43534D',        // Body descriptions & regular text
-  mutedText: '#64736C',       // Metadata, timestamps, breadcrumbs
-  placeholderText: '#7A8982', // Input placeholder
-  disabledText: '#89948E',    // Disabled content & controls
+  heading: '#0F172A',         // Slate-900 Headings
+  bodyText: '#334155',        // Slate-700 Body text
+  mutedText: '#64748B',       // Slate-500 Metadata & Timestamps
+  placeholderText: '#94A3B8', // Slate-400 Input placeholder
+  disabledText: '#CBD5E1',    // Disabled content & controls
 
   // Form Controls
-  inputBorder: '#CBD5D0',
-  inputBorderHover: '#879B90',
-  inputBorderFocus: '#0B3D32',
-  inputBorderError: '#B42332',
+  inputBorder: '#CBD5E1',
+  inputBorderHover: '#94A3B8',
+  inputBorderFocus: '#1A73E8',
+  inputBorderError: '#DC2626',
 } as const;
 
 export const SEMANTIC_STATUSES = {

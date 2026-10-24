@@ -479,64 +479,59 @@ export function GuidedBookingModal({
               <span>Room Information</span>
             </h3>
 
-            <div className="border border-[#DCE3DF] dark:border-[#145447] rounded overflow-hidden">
+            <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#071F1A]">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#FAFBF9] dark:bg-[#061B16] border-b border-[#DCE3DF] text-slate-600 font-semibold text-[10px] uppercase">
+                <thead className="bg-[#F4F6F8] dark:bg-[#0a231c] text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
                   <tr>
-                    <th className="py-2 px-3 border-r">Room Category</th>
-                    <th className="py-2 px-3 border-r">Assigned Room</th>
-                    <th className="py-2 px-3 border-r text-right">Amount (Rs.)</th>
-                    <th className="py-2 px-3 border-r text-center">Nights</th>
-                    <th className="py-2 px-3 border-r text-right">Discount</th>
-                    <th className="py-2 px-3 text-right">Total (Rs.)</th>
+                    <th className="py-2 px-3 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">Room Category</th>
+                    <th className="py-2 px-3 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">Assigned Room</th>
+                    <th className="py-2 px-3 border-r border-slate-300 dark:border-slate-700 text-right font-semibold text-slate-700 dark:text-slate-200 w-28">Amount (Rs.)</th>
+                    <th className="py-2 px-2.5 border-r border-slate-300 dark:border-slate-700 text-center font-semibold text-slate-700 dark:text-slate-200 w-16">Nights</th>
+                    <th className="py-2 px-3 border-r border-slate-300 dark:border-slate-700 text-right font-semibold text-slate-700 dark:text-slate-200 w-28">Discount</th>
+                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-200 w-32">Total (Rs.)</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-[#071F1A]">
-                  <tr>
-                    <td className="py-2.5 px-3 border-r">
-                      <div className="font-bold text-slate-900 dark:text-white text-xs">
+                <tbody className="divide-y divide-slate-300 dark:divide-slate-700 bg-white dark:bg-[#071F1A]">
+                  <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
+                    <td className="py-1.5 px-3 border-r border-slate-300 dark:border-slate-700">
+                      <div className="text-xs text-slate-800 dark:text-slate-200 font-normal">
                         {selectedRoomObj.type}
                       </div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                        {selectedRoomObj.acType} · {selectedRoomObj.bedType}
+                    </td>
+
+                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
+                      <div className="h-7 px-2 flex items-center text-xs text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#071F1A]">
+                        <span>Room {selectedRoomObj.number} ({selectedRoomObj.floorLevel})</span>
                       </div>
                     </td>
 
-                    <td className="py-2.5 px-3 border-r">
-                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#EBF3F0] dark:bg-[#0E3D32] border border-[#0B3D32]/25 dark:border-emerald-600/30 text-[#0B3D32] dark:text-emerald-300 font-bold text-xs">
-                        <BedDouble className="w-3.5 h-3.5 shrink-0" />
-                        <span>Room {selectedRoomObj.number}</span>
-                        <span className="text-[10px] font-normal text-slate-500">
-                          ({selectedRoomObj.floorLevel})
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="py-2 px-3 border-r text-right">
+                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700 text-right">
                       <input
                         type="number"
                         min={0}
                         step={100}
                         value={customRoomRate}
                         onChange={(e) => setCustomRoomRate(Math.max(0, Number(e.target.value) || 0))}
-                        className="w-20 px-1.5 py-1 rounded border text-right font-mono font-bold outline-none"
+                        className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-[#071F1A] focus:border-slate-400"
                       />
                     </td>
 
-                    <td className="py-2 px-3 border-r text-center font-bold font-mono">{nights}</td>
+                    <td className="py-1.5 px-2.5 border-r border-slate-300 dark:border-slate-700 text-center text-xs text-slate-800 dark:text-slate-200 font-normal">{nights}</td>
 
-                    <td className="py-2 px-3 border-r text-right">
+                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700 text-right">
                       <input
                         type="number"
                         min={0}
                         value={discountAmount}
                         onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value) || 0))}
-                        className="w-16 px-1.5 py-1 rounded border text-right font-mono outline-none"
+                        className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xs outline-none focus:border-slate-400"
                       />
                     </td>
 
-                    <td className="py-2 px-3 text-right font-mono font-bold text-sm text-[#0B3D32] dark:text-emerald-400">
-                      Rs. {totalPayable.toLocaleString()}
+                    <td className="py-1.5 px-2 text-right">
+                      <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs tabular-nums">
+                        {totalPayable.toLocaleString()}
+                      </div>
                     </td>
                   </tr>
                 </tbody>
