@@ -74,6 +74,7 @@ export interface RoomBooking {
     idExpiryDate?: string;
     idIssuePlace?: string;
     idDocumentImage?: string;
+    idDocumentImages?: string[];
     city?: string;
     state?: string;
     postalCode?: string;

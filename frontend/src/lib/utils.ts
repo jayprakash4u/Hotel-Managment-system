@@ -121,7 +121,7 @@ export const ROOM_STATUS_CONFIG = {
 
 export const VIP_CONFIG = {
   STANDARD: { label: 'Standard Guest', color: 'bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]', discount: 0 },
-  SILVER: { label: 'Silver VIP', color: 'bg-[#E8F2EE] text-[#0B3D32] border-[#CBD5D0]', discount: 0.05 },
+  SILVER: { label: 'Silver VIP', color: 'bg-[#E8F0FE] text-[#1A73E8] border-[#D2E3FC]', discount: 0.05 },
   GOLD: { label: 'Gold VIP', color: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]', discount: 0.10 },
   PLATINUM: { label: 'Platinum VIP', color: 'bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE]', discount: 0.15 },
   DIAMOND: { label: 'Diamond Royal', color: 'bg-[#EDE9FE] text-[#6D28D9] border-[#DDD6FE] shadow-xs', discount: 0.20 },

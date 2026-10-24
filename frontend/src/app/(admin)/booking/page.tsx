@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Bed,
   Calendar,
+  Clock,
   ChevronDown,
   ArrowLeft,
   X,
@@ -43,9 +44,19 @@ import {
   AvailableRoomOption,
   getBookingFinancials,
   AccompanyingGuest,
+  doDatesOverlap,
 } from '../reservations/reservationsData';
 import { useMasterOptions } from '@/lib/mastersData';
 import MasterSearchableSelect from '@/components/ui/MasterSearchableSelect';
+
+// Form Room Row for multi-room bookings
+export interface FormRoomRow {
+  id: string;
+  roomId: string;
+  rate: number;
+  discount: number;
+  guestsCount: number;
+}
 
 // Registered Guest Interface for search/autocomplete
 interface RegisteredGuest {
@@ -135,10 +146,32 @@ function NewRoomBookingContent() {
     return 'BOOKING';
   });
 
+  // Helper to format current local time as HH:mm
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const parseTimeToHHmm = (val?: string) => {
+    if (!val) return getCurrentTimeString();
+    const match = val.match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const mins = match[2];
+      if (val.toLowerCase().includes('pm') && hours < 12) hours += 12;
+      if (val.toLowerCase().includes('am') && hours === 12) hours = 0;
+      return `${String(hours).padStart(2, '0')}:${mins}`;
+    }
+    return getCurrentTimeString();
+  };
+
   // ---------------------------------------------------------------------------
   // 1. STAY SCHEDULE STATE
   // ---------------------------------------------------------------------------
   const [checkInDate, setCheckInDate] = useState<string>(paramCheckIn || todayStr);
+  const [checkInTime, setCheckInTime] = useState<string>(() => getCurrentTimeString());
   const [checkOutDate, setCheckOutDate] = useState<string>(paramCheckOut || tomorrowStr);
   const [adultsCount, setAdultsCount] = useState<number>(2);
   const [childrenCount, setChildrenCount] = useState<number>(0);
@@ -271,9 +304,19 @@ function NewRoomBookingContent() {
     if (b.bookingAgent) setBookingAgent(b.bookingAgent);
     if (b.guest.purposeOfVisit) setPurposeOfVisit(b.guest.purposeOfVisit);
     setCheckInDate(b.checkIn);
+    setCheckInTime(b.checkInTime ? parseTimeToHHmm(b.checkInTime) : getCurrentTimeString());
     setCheckOutDate(b.checkOut);
-    setSelectedRoomId(b.room.id);
-    setCustomRate(b.room.pricePerNight);
+    const roomStayTotal = (b.room.pricePerNight || 3500) * (b.nights || 1);
+    const rowDiscount = Math.max(0, roomStayTotal - (b.roomCharges || roomStayTotal));
+    setRoomItems([
+      {
+        id: 'row-1',
+        roomId: b.room.id,
+        rate: b.room.pricePerNight,
+        discount: rowDiscount,
+        guestsCount: 1 + (b.guest.accompanyingGuests?.length || 0),
+      },
+    ]);
     setKeyCardNumber(b.keyCardNumber || `KC-${b.room.number}-A`);
     if (b.notes) setBookingNotes(b.notes);
     if (b.guest.accompanyingGuests) setAccompanyingGuests(b.guest.accompanyingGuests);
@@ -322,36 +365,144 @@ function NewRoomBookingContent() {
   };
 
   // ---------------------------------------------------------------------------
-  // 3. ROOM INFORMATION TABLE STATE (Matches user reference design)
+  // 3. ROOM INFORMATION TABLE STATE (Multi-Room Support)
   // ---------------------------------------------------------------------------
-  const [selectedRoomId, setSelectedRoomId] = useState<string>(paramRoomId || 'rm-101');
-
-  const selectedRoomObj: AvailableRoomOption = useMemo(() => {
-    return AVAILABLE_ROOMS_CATALOG.find((r) => r.id === selectedRoomId) || AVAILABLE_ROOMS_CATALOG[0];
-  }, [selectedRoomId]);
-
-  const [customRate, setCustomRate] = useState<number>(3500);
-  const [discount, setDiscount] = useState<number>(0);
-
-  // Sync rate when room changes
-  useEffect(() => {
-    if (selectedRoomObj) {
-      setCustomRate(selectedRoomObj.pricePerNight);
-      setKeyCardNumber(`KC-${selectedRoomObj.number}-A`);
+  const [roomItems, setRoomItems] = useState<FormRoomRow[]>(() => {
+    const initRoomId = paramRoomId;
+    let initRoom = initRoomId ? AVAILABLE_ROOMS_CATALOG.find((r) => r.id === initRoomId) : undefined;
+    if (!initRoom || initRoom.status !== 'AVAILABLE' || initRoom.cleaningStatus === 'DIRTY') {
+      initRoom = AVAILABLE_ROOMS_CATALOG.find(
+        (r) => r.status === 'AVAILABLE' && r.cleaningStatus === 'CLEAN'
+      ) || AVAILABLE_ROOMS_CATALOG[0];
     }
-  }, [selectedRoomObj]);
+    return [
+      {
+        id: 'row-1',
+        roomId: initRoom ? initRoom.id : 'rm-101',
+        rate: initRoom ? initRoom.pricePerNight : 3500,
+        discount: 0,
+        guestsCount: 2,
+      },
+    ];
+  });
 
-  // Compute Subtotal & Total Payable
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  // Check room availability status for the selected stay dates
+  // Automatically considers: booked dates, checked in / occupied, dirty rooms, and maintenance rooms
+  const checkRoomAvailability = (
+    room: AvailableRoomOption,
+    currentRowId?: string
+  ): { isAvailable: boolean; reason?: string } => {
+    // 1. Is it selected in another row in this form?
+    const isSelectedInOther = roomItems.some(
+      (item) => item.id !== currentRowId && item.roomId === room.id
+    );
+    if (isSelectedInOther) {
+      return { isAvailable: false, reason: 'ALREADY_SELECTED' };
+    }
 
-  // Compute Subtotal & Total Payable
+    // 2. Is it under maintenance?
+    if (room.status === 'MAINTENANCE') {
+      return { isAvailable: false, reason: 'MAINTENANCE' };
+    }
+
+    // 3. Is it dirty or currently being cleaned?
+    if (room.status === 'DIRTY' || room.cleaningStatus === 'DIRTY' || room.cleaningStatus === 'IN_CLEANING') {
+      return { isAvailable: false, reason: 'DIRTY' };
+    }
+
+    // 4. Is it occupied / checked-in in the room catalog?
+    if (room.status === 'OCCUPIED') {
+      return { isAvailable: false, reason: 'OCCUPIED' };
+    }
+
+    // 5. Does it conflict with an existing reservation or stay in storage?
+    const conflictBooking = bookings.find((b) => {
+      if (linkedBooking && b.id === linkedBooking.id) return false;
+      if (paramBookingId && b.id === paramBookingId) return false;
+      if (b.status === 'CHECKED_OUT' || b.status === 'CANCELLED' || b.status === 'NO_SHOW') return false;
+      if (b.room.number !== room.number) return false;
+      return doDatesOverlap(b.checkIn, b.checkOut, checkInDate, checkOutDate);
+    });
+
+    if (conflictBooking) {
+      return {
+        isAvailable: false,
+        reason: conflictBooking.status === 'CHECKED_IN' ? 'OCCUPIED' : 'BOOKED',
+      };
+    }
+
+    // 6. Genuinely available & clean!
+    return { isAvailable: true };
+  };
+
+  // Auto-switch any room row whose assigned room is no longer available/clean for selected dates
+  useEffect(() => {
+    setRoomItems((prev) => {
+      let changed = false;
+      const updated = prev.map((item) => {
+        const roomObj = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === item.roomId);
+        const isCurrentAvail = roomObj && checkRoomAvailability(roomObj, item.id).isAvailable;
+        if (!isCurrentAvail) {
+          // Find first available clean room not selected in other rows
+          const replacement = AVAILABLE_ROOMS_CATALOG.find((r) => {
+            return checkRoomAvailability(r, item.id).isAvailable;
+          });
+          if (replacement && replacement.id !== item.roomId) {
+            changed = true;
+            return {
+              ...item,
+              roomId: replacement.id,
+              rate: replacement.pricePerNight,
+            };
+          }
+        }
+        return item;
+      });
+      return changed ? updated : prev;
+    });
+  }, [checkInDate, checkOutDate, bookings]);
+
+  // Calculate per-row subtotal, discount, and Total Amount instantly
+  const roomRowsCalculated = useMemo(() => {
+    return roomItems.map((item) => {
+      const roomObj = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === item.roomId) || AVAILABLE_ROOMS_CATALOG[0];
+      const rateNum = Number(item.rate) || 0;
+      const discountNum = Number(item.discount) || 0;
+      const rowSubtotal = rateNum * nights;
+      const rowTotal = Math.max(0, rowSubtotal - discountNum);
+      const avail = checkRoomAvailability(roomObj, item.id);
+      return {
+        ...item,
+        roomObj,
+        subtotal: rowSubtotal,
+        total: rowTotal,
+        isAvailable: avail.isAvailable,
+        availabilityStatus: avail,
+      };
+    });
+  }, [roomItems, nights, bookings, checkInDate, checkOutDate, linkedBooking, paramBookingId, formMode, todayStr]);
+
+  // Aggregate Totals across all room rows
   const subtotal = useMemo(() => {
-    return (Number(customRate) || 0) * nights;
-  }, [customRate, nights]);
+    return roomRowsCalculated.reduce((sum, r) => sum + r.subtotal, 0);
+  }, [roomRowsCalculated]);
+
+  const totalDiscount = useMemo(() => {
+    return roomRowsCalculated.reduce((sum, r) => sum + (Number(r.discount) || 0), 0);
+  }, [roomRowsCalculated]);
 
   const totalPayable = useMemo(() => {
-    return Math.max(0, subtotal - (Number(discount) || 0));
-  }, [subtotal, discount]);
+    return Math.max(0, subtotal - totalDiscount);
+  }, [subtotal, totalDiscount]);
+
+  const totalGuests = useMemo(() => {
+    return roomRowsCalculated.reduce((sum, r) => sum + (Number(r.guestsCount) || 1), 0);
+  }, [roomRowsCalculated]);
+
+  const discountPercent = useMemo(() => {
+    if (subtotal <= 0) return 0;
+    return Math.round((totalDiscount / subtotal) * 100);
+  }, [totalDiscount, subtotal]);
 
   // Remaining Balance Due after advance
   const remainingBalanceDue = useMemo(() => {
@@ -363,9 +514,7 @@ function NewRoomBookingContent() {
   // ---------------------------------------------------------------------------
   const [sendSms, setSendSms] = useState<boolean>(true);
   const [sendEmail, setSendEmail] = useState<boolean>(false);
-  const [printRegCard, setPrintRegCard] = useState<boolean>(true);
   const [printLabel, setPrintLabel] = useState<boolean>(false);
-  const [disableProxy, setDisableProxy] = useState<boolean>(false);
 
   const [bookingNotes, setBookingNotes] = useState<string>('');
   const [paymentChoice, setPaymentChoice] = useState<'LATER' | 'ADVANCE' | 'FULL'>('FULL');
@@ -417,6 +566,92 @@ function NewRoomBookingContent() {
 
   const activeNavBoxId = fromParam === 'reservations' ? 'reservations' : fromParam === 'check-in' ? 'check-in' : 'desk';
 
+  // Add / Remove / Update Room row actions
+  const handleAddRoomRow = () => {
+    const availableRoom = AVAILABLE_ROOMS_CATALOG.find((r) => {
+      const status = checkRoomAvailability(r);
+      return status.isAvailable;
+    });
+
+    if (!availableRoom) {
+      toast.warning('No More Rooms', 'All rooms are either occupied, under maintenance, or already selected.');
+      return;
+    }
+
+    const newRowId = `row-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    setRoomItems((prev) => [
+      ...prev,
+      {
+        id: newRowId,
+        roomId: availableRoom.id,
+        rate: availableRoom.pricePerNight,
+        discount: 0,
+        guestsCount: 2,
+      },
+    ]);
+
+    toast.success('Room Added', `Room ${availableRoom.number} (${availableRoom.type}) added to booking table.`);
+  };
+
+  const handleRemoveRoomRow = (rowId: string) => {
+    if (roomItems.length <= 1) {
+      toast.warning('Cannot Remove', 'At least one room is required for a reservation.');
+      return;
+    }
+    const target = roomItems.find((r) => r.id === rowId);
+    const roomObj = target ? AVAILABLE_ROOMS_CATALOG.find((x) => x.id === target.roomId) : null;
+    setRoomItems((prev) => prev.filter((r) => r.id !== rowId));
+    toast.info('Room Removed', `Room ${roomObj?.number || ''} was removed from the booking.`);
+  };
+
+  const handleUpdateRoomRow = (rowId: string, updates: Partial<FormRoomRow>) => {
+    setRoomItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== rowId) return item;
+        return { ...item, ...updates };
+      })
+    );
+  };
+
+  const handleSelectRoomInRow = (rowId: string, newRoomId: string) => {
+    const rObj = AVAILABLE_ROOMS_CATALOG.find((r) => r.id === newRoomId);
+    setRoomItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== rowId) return item;
+        return {
+          ...item,
+          roomId: newRoomId,
+          rate: rObj ? rObj.pricePerNight : item.rate,
+        };
+      })
+    );
+  };
+
+  const handleBillingDisAmtChange = (d: number) => {
+    const amt = Math.max(0, d);
+    if (roomItems.length === 1) {
+      setRoomItems((prev) => [{ ...prev[0], discount: amt }]);
+    } else {
+      const ratio = subtotal > 0 ? amt / subtotal : 0;
+      setRoomItems((prev) =>
+        prev.map((r) => ({
+          ...r,
+          discount: Math.round((Number(r.rate) || 0) * nights * ratio),
+        }))
+      );
+    }
+  };
+
+  const handleBillingDisPercentChange = (pct: number) => {
+    const p = Math.max(0, Math.min(100, pct));
+    setRoomItems((prev) =>
+      prev.map((r) => ({
+        ...r,
+        discount: Math.round((((Number(r.rate) || 0) * nights) * p) / 100),
+      }))
+    );
+  };
+
   // Reset form
   const handleResetForm = () => {
     setLinkedBooking(null);
@@ -441,29 +676,34 @@ function NewRoomBookingContent() {
     setNewAccAge('');
     setBookingNotes('');
     setAccompanyingGuests([]);
-    setDiscount(0);
-    setDiscountPercent(0);
     setCheckInDate(todayStr);
+    setCheckInTime(getCurrentTimeString());
     setCheckOutDate(tomorrowStr);
     setAdultsCount(2);
     setChildrenCount(0);
     const defRoom = AVAILABLE_ROOMS_CATALOG[0];
+    setRoomItems([
+      {
+        id: 'row-1',
+        roomId: defRoom ? defRoom.id : 'rm-101',
+        rate: defRoom ? defRoom.pricePerNight : 3500,
+        discount: 0,
+        guestsCount: 2,
+      },
+    ]);
     if (defRoom) {
-      setSelectedRoomId(defRoom.id);
-      setCustomRate(defRoom.pricePerNight);
       setKeyCardNumber(`KC-${defRoom.number}-A`);
     }
     setPaymentChoice('FULL');
     setPaymentMethod('CASH');
     setPrintLabel(false);
-    setDisableProxy(false);
     toast.info('Form Reset', 'All booking & check-in fields have been cleared.');
   };
 
   // ---------------------------------------------------------------------------
   // SAVE BOOKING OR CHECK IN
   // ---------------------------------------------------------------------------
-  const handleSaveBooking = (shouldCheckInNow: boolean = false) => {
+  const handleSaveBooking = (shouldCheckInNow: boolean = false, forcePrint: boolean = false) => {
     if (!guestName.trim()) {
       toast.error('Name Required', 'Please enter guest full name.');
       return;
@@ -479,94 +719,126 @@ function NewRoomBookingContent() {
 
     const paidNow = paymentChoice === 'LATER' ? 0 : Math.min(Number(advancedAmount) || 0, remainingBalanceDue);
 
-    const paymentRecords: PaymentEntry[] = [...(linkedBooking?.payments || [])];
-    if (paidNow > 0) {
-      paymentRecords.push({
-        id: `pay-${Date.now()}`,
-        receiptNo: `REC-${Date.now().toString().slice(-4)}`,
-        date: 'Today',
-        amount: paidNow,
-        method: (paymentMethod === 'PAY_LATER' ? 'CASH' : paymentMethod) as any,
-        type: paidNow >= remainingBalanceDue ? 'SETTLEMENT' : 'ADVANCE',
-        notes: shouldCheckInNow ? 'Check-in desk payment received' : 'Advance deposit received at booking',
-      });
-    }
-
-    const newBookingId = paramBookingId || linkedBooking?.id || `bk-${Date.now().toString().slice(-4)}`;
-    const newBookingCode = linkedBooking?.bookingCode || `BK-${Math.floor(1000 + Math.random() * 9000)}`;
+    const baseBookingId = paramBookingId || linkedBooking?.id || `bk-${Date.now().toString().slice(-4)}`;
+    const baseBookingCode = linkedBooking?.bookingCode || `BK-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const currentBookings = loadBookingsFromStorage();
 
-    const bookingPayload: RoomBooking = {
-      id: newBookingId,
-      bookingCode: newBookingCode,
-      status: shouldCheckInNow ? 'CHECKED_IN' : 'RESERVED',
-      checkIn: checkInDate,
-      checkOut: checkOutDate,
-      nights,
-      roomCharges: totalPayable,
-      room: {
-        id: selectedRoomObj.id,
-        number: selectedRoomObj.number,
-        type: selectedRoomObj.type,
-        acType: selectedRoomObj.acType,
-        bedType: selectedRoomObj.bedType,
-        floorLevel: selectedRoomObj.floorLevel,
-        pricePerNight: Number(customRate) || selectedRoomObj.pricePerNight,
-      },
-      guest: {
-        id: linkedBooking?.guest.id || `gst-${Date.now()}`,
-        firstName,
-        lastName,
-        phone: guestPhone.trim(),
-        email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
-        address: guestAddress,
-        city: guestCity,
-        country: guestNationality,
-        idType,
-        idNumber: idNumber.trim() || 'To be collected at check-in',
-        idIssuePlace,
-        idIssueDate,
-        idExpiryDate,
-        idDocumentImage: idDocumentImage || undefined,
-        purposeOfVisit,
-        arrivedFrom,
-        proceedingTo,
-        vehicleNumber,
-        accompanyingGuests,
-        vipTier: linkedBooking?.guest.vipTier || 'STANDARD',
-      },
-      cafeOrders: linkedBooking?.cafeOrders || [],
-      payments: paymentRecords,
-      bookingHistory: linkedBooking?.bookingHistory || [],
-      notes: bookingNotes.trim() || undefined,
-      keyCardNumber,
-      luggageCount,
-      bookingAgent,
-    };
+    const createdBookings: RoomBooking[] = roomRowsCalculated.map((rowItem, idx) => {
+      const isPrimary = idx === 0;
+      const bId = isPrimary ? baseBookingId : `${baseBookingId}-${idx + 1}`;
+      const bCode = isPrimary ? baseBookingCode : `${baseBookingCode}-${idx + 1}`;
 
-    let updated: RoomBooking[];
-    if (currentBookings.some((b) => b.id === newBookingId)) {
-      updated = currentBookings.map((b) => (b.id === newBookingId ? bookingPayload : b));
-    } else {
-      updated = [bookingPayload, ...currentBookings];
-    }
+      const paymentRecords: PaymentEntry[] = [];
+      if (isPrimary && linkedBooking?.payments) {
+        paymentRecords.push(...linkedBooking.payments);
+      }
+      if (isPrimary && paidNow > 0) {
+        paymentRecords.push({
+          id: `pay-${Date.now()}-${idx}`,
+          receiptNo: `REC-${Date.now().toString().slice(-4)}`,
+          date: 'Today',
+          amount: paidNow,
+          method: (paymentMethod === 'PAY_LATER' ? 'CASH' : paymentMethod) as any,
+          type: paidNow >= remainingBalanceDue ? 'SETTLEMENT' : 'ADVANCE',
+          notes: shouldCheckInNow ? 'Check-in desk payment received' : 'Advance deposit received at booking',
+        });
+      }
+
+      return {
+        id: bId,
+        bookingCode: bCode,
+        status: shouldCheckInNow ? 'CHECKED_IN' : 'RESERVED',
+        checkIn: checkInDate,
+        checkInTime: shouldCheckInNow ? (checkInTime || getCurrentTimeString()) : undefined,
+        checkOut: checkOutDate,
+        nights,
+        roomCharges: rowItem.total,
+        room: {
+          id: rowItem.roomObj.id,
+          number: rowItem.roomObj.number,
+          type: rowItem.roomObj.type,
+          acType: rowItem.roomObj.acType,
+          bedType: rowItem.roomObj.bedType,
+          floorLevel: rowItem.roomObj.floorLevel,
+          pricePerNight: Number(rowItem.rate) || rowItem.roomObj.pricePerNight,
+        },
+        guest: {
+          id: linkedBooking?.guest.id || `gst-${Date.now()}`,
+          firstName,
+          lastName,
+          phone: guestPhone.trim(),
+          email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
+          address: guestAddress,
+          city: guestCity,
+          country: guestNationality,
+          idType,
+          idNumber: idNumber.trim() || 'To be collected at check-in',
+          idIssuePlace,
+          idIssueDate,
+          idExpiryDate,
+          idDocumentImage: idDocumentImage || undefined,
+          purposeOfVisit,
+          arrivedFrom,
+          proceedingTo,
+          vehicleNumber,
+          accompanyingGuests: isPrimary ? accompanyingGuests : [],
+          vipTier: linkedBooking?.guest.vipTier || 'STANDARD',
+        },
+        cafeOrders: isPrimary ? (linkedBooking?.cafeOrders || []) : [],
+        payments: paymentRecords,
+        bookingHistory: isPrimary ? (linkedBooking?.bookingHistory || []) : [],
+        notes: bookingNotes.trim()
+          ? `${bookingNotes.trim()}${roomRowsCalculated.length > 1 ? ` (Room ${idx + 1} of ${roomRowsCalculated.length})` : ''}`
+          : (roomRowsCalculated.length > 1 ? `Room ${idx + 1} of ${roomRowsCalculated.length}` : undefined),
+        keyCardNumber: `KC-${rowItem.roomObj.number}-A`,
+        luggageCount: isPrimary ? luggageCount : 0,
+        bookingAgent,
+      };
+    });
+
+    let updated = [...currentBookings];
+    createdBookings.forEach((nb) => {
+      const existingIdx = updated.findIndex((b) => b.id === nb.id);
+      if (existingIdx >= 0) {
+        updated[existingIdx] = nb;
+      } else {
+        updated.unshift(nb);
+      }
+    });
 
     setBookings(updated);
     saveBookingsToStorage(updated);
 
-    if (printRegCard) {
-      setSelectedBookingForRegCard(bookingPayload);
+    const roomNumbersStr = roomRowsCalculated.map((r) => r.roomObj.number).join(', ');
+
+    if (forcePrint) {
+      setSelectedBookingForRegCard(createdBookings[0]);
       if (shouldCheckInNow) {
-        toast.celebrate('Guest Checked In!', `Room ${selectedRoomObj.number} assigned to ${guestName.trim()}. Key Card ${keyCardNumber} issued.`);
+        toast.celebrate(
+          'Guest Checked In!',
+          `${roomRowsCalculated.length} Room(s) (${roomNumbersStr}) assigned to ${guestName.trim()}.`
+        );
       } else {
-        toast.success('Booking Saved!', `Reservation ${newBookingCode} confirmed for ${guestName.trim()}. Room held.`);
+        toast.success(
+          'Booking Saved & Ready to Print!',
+          `Reservation ${baseBookingCode} confirmed for ${guestName.trim()} (${roomRowsCalculated.length} room(s): ${roomNumbersStr}).`
+        );
       }
+      setTimeout(() => {
+        window.print();
+      }, 350);
     } else {
       if (shouldCheckInNow) {
-        toast.celebrate('Guest Checked In!', `Room ${selectedRoomObj.number} assigned to ${guestName.trim()}. Key Card ${keyCardNumber} issued.`);
+        toast.celebrate(
+          'Guest Checked In!',
+          `${roomRowsCalculated.length} Room(s) (${roomNumbersStr}) assigned to ${guestName.trim()}.`
+        );
       } else {
-        toast.success('Booking Saved!', `Reservation ${newBookingCode} confirmed for ${guestName.trim()}. Room held.`);
+        toast.success(
+          'Booking Saved!',
+          `Reservation ${baseBookingCode} confirmed for ${guestName.trim()} (${roomRowsCalculated.length} room(s): ${roomNumbersStr}).`
+        );
       }
       setTimeout(() => {
         router.push(fromParam === 'reservations' ? '/reservations' : '/front-desk');
@@ -598,11 +870,6 @@ function NewRoomBookingContent() {
               <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
                 {formMode === 'CHECK_IN' ? 'Guest Check-In' : 'New Room Booking'}
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {formMode === 'CHECK_IN'
-                  ? 'Verify guest details, assign room key, and settle payment'
-                  : 'Reserve a room, schedule stay dates, and enter guest details'}
-              </p>
             </div>
           </div>
 
@@ -615,7 +882,7 @@ function NewRoomBookingContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   formMode === 'BOOKING'
-                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-blue-600'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
@@ -628,7 +895,7 @@ function NewRoomBookingContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   formMode === 'CHECK_IN'
-                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-blue-600'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
@@ -666,7 +933,7 @@ function NewRoomBookingContent() {
                 }}
                 onFocus={() => setShowSearchSuggestions(true)}
                 placeholder="Search by name or Mobilenumber"
-                className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#145447] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#0B3D32] transition-all"
+                className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#334155] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#1A73E8] transition-all"
               />
               {searchQuery && (
                 <button
@@ -683,14 +950,14 @@ function NewRoomBookingContent() {
 
               {/* Suggestions Dropdown */}
               {showSearchSuggestions && searchResults.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-slate-200 dark:border-[#145447] bg-white dark:bg-[#071F1A] shadow-xl overflow-hidden divide-y divide-[#E5EEE9] dark:divide-[#145447] max-h-60 overflow-y-auto">
+                <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] shadow-xl overflow-hidden divide-y divide-[#E2E8F0] dark:divide-[#334155] max-h-60 overflow-y-auto">
                   {searchResults.map((b) => {
                     const fin = getBookingFinancials(b);
                     return (
                       <div
                         key={b.id}
                         onClick={() => handleSelectReservationToAutoFill(b)}
-                        className="p-3 hover:bg-[#F2F6F4] dark:hover:bg-[#093027] cursor-pointer flex items-center justify-between text-xs"
+                        className="p-3 hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer flex items-center justify-between text-xs"
                       >
                         <div>
                           <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -723,7 +990,7 @@ function NewRoomBookingContent() {
           {/* ===============================================================
               SECTION 1: STAY SCHEDULE & GUEST INFORMATION (5 + 7 Cols)
               =============================================================== */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-b border-slate-100 dark:border-[#145447] pb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-b border-slate-100 dark:border-[#334155] pb-8">
             {/* Stay Schedule (5 cols) */}
             <div className="lg:col-span-5 space-y-4">
               <div>
@@ -732,38 +999,45 @@ function NewRoomBookingContent() {
                 </span>
               </div>
 
-              {/* Check-in & Check-out Dates */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Stay Schedule: Check-in Date, Time & Check-out Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
                     Check-in date <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="date"
-                      required
-                      value={checkInDate}
-                      onChange={(e) => handleCheckInDateChange(e.target.value)}
-                      className="w-full pl-9 pr-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    />
-                  </div>
+                  <input
+                    type="date"
+                    required
+                    value={checkInDate}
+                    onChange={(e) => handleCheckInDateChange(e.target.value)}
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    Actual Time <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={checkInTime}
+                    onChange={(e) => setCheckInTime(e.target.value)}
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
                     Check-out date <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="date"
-                      required
-                      value={checkOutDate}
-                      onChange={(e) => setCheckOutDate(e.target.value)}
-                      className="w-full pl-9 pr-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
-                    />
-                  </div>
+                  <input
+                    type="date"
+                    required
+                    value={checkOutDate}
+                    onChange={(e) => setCheckOutDate(e.target.value)}
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                  />
                 </div>
               </div>
 
@@ -779,7 +1053,7 @@ function NewRoomBookingContent() {
                     max={10}
                     value={adultsCount}
                     onChange={(e) => setAdultsCount(Math.max(1, Number(e.target.value) || 1))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
                   />
                 </div>
                 <div>
@@ -792,7 +1066,7 @@ function NewRoomBookingContent() {
                     max={10}
                     value={childrenCount}
                     onChange={(e) => setChildrenCount(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
                   />
                 </div>
               </div>
@@ -821,7 +1095,7 @@ function NewRoomBookingContent() {
                       value={guestName}
                       onChange={(e) => setGuestName(e.target.value)}
                       placeholder="Full name"
-                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
                     />
                   </div>
                 </div>
@@ -838,14 +1112,14 @@ function NewRoomBookingContent() {
                       value={guestPhone}
                       onChange={(e) => setGuestPhone(e.target.value)}
                       placeholder="Mobile number"
-                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                    Email address (optional)
+                    Email Address
                   </label>
                   <div className="relative">
                     <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -854,7 +1128,7 @@ function NewRoomBookingContent() {
                       value={guestEmail}
                       onChange={(e) => setGuestEmail(e.target.value)}
                       placeholder="email@example.com"
-                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
                     />
                   </div>
                 </div>
@@ -889,7 +1163,7 @@ function NewRoomBookingContent() {
                   value={guestAddress}
                   onChange={(e) => setGuestAddress(e.target.value)}
                   placeholder="Street address, city"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                  className="w-full h-9 px-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
                 />
               </div>
             </div>
@@ -901,7 +1175,7 @@ function NewRoomBookingContent() {
           <div className="space-y-4">
             {/* Header */}
             <div className="flex items-center gap-2">
-              <Bed className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+              <Bed className="w-4 h-4 text-[#1A73E8] dark:text-blue-400" />
               <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                 Room Information
               </h2>
@@ -915,13 +1189,13 @@ function NewRoomBookingContent() {
                     <th className="py-2 px-2.5 text-center w-12 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       SL.
                     </th>
-                    <th className="py-2 px-3 min-w-[170px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-3 min-w-[160px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       ROOM CATEGORY
                     </th>
-                    <th className="py-2 px-3 min-w-[210px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-3 min-w-[220px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       ASSIGNED ROOM
                     </th>
-                    <th className="py-2 px-2.5 text-center w-16 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-2 text-center w-20 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
                       GUEST
                     </th>
                     <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
@@ -936,105 +1210,162 @@ function NewRoomBookingContent() {
                     <th className="py-2 px-3 text-right w-32 font-semibold text-slate-700 dark:text-slate-200">
                       T. AMOUNT (RS.)
                     </th>
+                    {roomItems.length > 1 && (
+                      <th className="py-2 px-2 text-center w-12 border-l border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                        ACTION
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300 dark:divide-slate-700 bg-white dark:bg-[#071F1A]">
-                  <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
-                    <td className="py-1.5 px-2.5 text-center text-slate-600 dark:text-slate-400 font-normal border-r border-slate-300 dark:border-slate-700">
-                      1
-                    </td>
-                    <td className="py-1.5 px-3 border-r border-slate-300 dark:border-slate-700">
-                      <div className="text-xs text-slate-800 dark:text-slate-200 font-normal">
-                        {selectedRoomObj.type}
-                      </div>
-                    </td>
-                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
-                      <select
-                        value={selectedRoomId}
-                        onChange={(e) => setSelectedRoomId(e.target.value)}
-                        className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#071F1A] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer"
-                      >
-                        {AVAILABLE_ROOMS_CATALOG.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            Room {r.number}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-1.5 px-2.5 text-center text-xs text-slate-700 dark:text-slate-300 font-normal border-r border-slate-300 dark:border-slate-700">
-                      {adultsCount + childrenCount}
-                    </td>
-                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
-                      <input
-                        type="number"
-                        min={0}
-                        value={customRate}
-                        onChange={(e) => setCustomRate(Math.max(0, Number(e.target.value) || 0))}
-                        className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-[#071F1A] focus:border-slate-400"
-                      />
-                    </td>
-                    <td className="py-1.5 px-2.5 text-center text-xs text-slate-800 dark:text-slate-200 font-normal border-r border-slate-300 dark:border-slate-700">
-                      {nights}
-                    </td>
-                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
-                      <input
-                        type="number"
-                        min={0}
-                        value={discount}
-                        onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
-                        placeholder="0"
-                        className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xs outline-none focus:border-slate-400"
-                      />
-                    </td>
-                    <td className="py-1.5 px-2 text-right">
-                      <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs tabular-nums">
-                        {totalPayable.toLocaleString()}
-                      </div>
-                    </td>
-                  </tr>
+                  {roomRowsCalculated.map((row, idx) => {
+                    // Only show genuinely available & clean rooms for the selected stay dates
+                    const availableRoomsForDropdown = AVAILABLE_ROOMS_CATALOG.filter((r) => {
+                      return r.id === row.roomId || checkRoomAvailability(r, row.id).isAvailable;
+                    });
+
+                    return (
+                      <tr key={row.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
+                        <td className="py-2 px-2.5 text-center text-slate-600 dark:text-slate-400 font-medium border-r border-slate-300 dark:border-slate-700">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2 px-3 border-r border-slate-300 dark:border-slate-700">
+                          <div className="text-xs text-slate-800 dark:text-slate-200 font-medium">
+                            {row.roomObj.type}
+                          </div>
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            {row.roomObj.acType} · {row.roomObj.bedType}
+                          </div>
+                        </td>
+                        <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                          <select
+                            value={row.roomId}
+                            onChange={(e) => handleSelectRoomInRow(row.id, e.target.value)}
+                            className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#071F1A] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer font-medium"
+                          >
+                            {availableRoomsForDropdown.map((rm) => (
+                              <option key={rm.id} value={rm.id}>
+                                Room {rm.number} ({rm.type}) - Rs. {rm.pricePerNight.toLocaleString()}/night
+                              </option>
+                            ))}
+                            {availableRoomsForDropdown.length === 0 && (
+                              <option disabled value="">
+                                No available rooms for selected dates
+                              </option>
+                            )}
+                          </select>
+                        </td>
+                        <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                          <input
+                            type="number"
+                            min={1}
+                            max={6}
+                            value={row.guestsCount}
+                            onChange={(e) => {
+                              const val = Math.max(1, Math.min(10, Number(e.target.value) || 1));
+                              handleUpdateRoomRow(row.id, { guestsCount: val });
+                            }}
+                            className="w-full h-7 text-center font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                          />
+                        </td>
+                        <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.rate === 0 ? '' : row.rate}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value) || 0);
+                              handleUpdateRoomRow(row.id, { rate: val });
+                            }}
+                            className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-[#071F1A] focus:border-slate-400"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 text-center text-xs text-slate-800 dark:text-slate-200 font-mono border-r border-slate-300 dark:border-slate-700">
+                          {nights}
+                        </td>
+                        <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.discount === 0 ? '' : row.discount}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value) || 0);
+                              handleUpdateRoomRow(row.id, { discount: val });
+                            }}
+                            placeholder="0"
+                            className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xs outline-none focus:border-slate-400"
+                          />
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs tabular-nums">
+                            {row.total.toLocaleString()}
+                          </div>
+                        </td>
+                        {roomItems.length > 1 && (
+                          <td className="py-2 px-2 text-center border-l border-slate-300 dark:border-slate-700">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRoomRow(row.id)}
+                              title="Remove this room"
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
+
+                {roomItems.length > 1 && (
+                  <tfoot className="bg-[#FAFBF9] dark:bg-[#061B16] font-semibold text-xs border-t-2 border-slate-300 dark:border-slate-600">
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="py-2.5 px-3 text-right text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700"
+                      >
+                        Total
+                      </td>
+                      <td className="py-2.5 px-2 text-center text-xs font-semibold text-slate-800 dark:text-slate-200 border-r border-slate-300 dark:border-slate-700 font-mono">
+                        {totalGuests}
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-300 dark:border-slate-700"></td>
+                      <td className="py-2.5 px-2 text-center text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono border-r border-slate-300 dark:border-slate-700">
+                        {nights}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 border-r border-slate-300 dark:border-slate-700">
+                        {totalDiscount > 0 ? `Rs. ${totalDiscount.toLocaleString()}` : '0'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#1A73E8] dark:text-blue-400 tabular-nums">
+                        Rs. {totalPayable.toLocaleString()}
+                      </td>
+                      <td className="border-l border-slate-300 dark:border-slate-700"></td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
 
-            {/* Notification Checkboxes */}
-            <div className="flex flex-wrap items-center gap-6 pt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={sendSms}
-                  onChange={(e) => setSendSms(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                />
-                <span>Send SMS</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={sendEmail}
-                  onChange={(e) => setSendEmail(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                />
-                <span>Send Email</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={printRegCard}
-                  onChange={(e) => setPrintRegCard(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
-                />
-                <span>Print Registration Card on Save</span>
-              </label>
+            {/* Controls Below Table: Add Room Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleAddRoomRow}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#1A73E8] text-[#1A73E8] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Room</span>
+              </button>
             </div>
+
           </div>
           {/* ===============================================================
               SECTION 3: BILLING & SETTLEMENT (Boxed Container Matching Check-In)
               =============================================================== */}
           <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+              <Receipt className="w-4 h-4 text-[#1A73E8] dark:text-blue-400" />
               <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                 Billing & Settlement
               </h2>
@@ -1064,8 +1395,7 @@ function NewRoomBookingContent() {
                     value={discountPercent || ''}
                     onChange={(e) => {
                       const p = Math.max(0, Math.min(100, Number(e.target.value) || 0));
-                      setDiscountPercent(p);
-                      setDiscount(Math.round(((subtotal || 0) * p) / 100));
+                      handleBillingDisPercentChange(p);
                     }}
                     placeholder="0"
                     className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
@@ -1079,11 +1409,10 @@ function NewRoomBookingContent() {
                   <input
                     type="number"
                     min={0}
-                    value={discount || ''}
+                    value={totalDiscount || ''}
                     onChange={(e) => {
                       const d = Math.max(0, Number(e.target.value) || 0);
-                      setDiscount(d);
-                      setDiscountPercent(subtotal > 0 ? Math.round((d / subtotal) * 100) : 0);
+                      handleBillingDisAmtChange(d);
                     }}
                     placeholder="0"
                     className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
@@ -1210,19 +1539,9 @@ function NewRoomBookingContent() {
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={printRegCard}
-                      onChange={(e) => setPrintRegCard(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-[#0B3D32] accent-[#0B3D32] border-slate-300 cursor-pointer"
-                    />
-                    <span className="text-[11px] font-medium">Print Reg Card</span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
                       checked={sendSms}
                       onChange={(e) => setSendSms(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-[#0B3D32] accent-[#0B3D32] border-slate-300 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-[#1A73E8] accent-[#1A73E8] border-slate-300 cursor-pointer"
                     />
                     <span className="text-[11px] font-medium">Send SMS</span>
                   </label>
@@ -1232,7 +1551,7 @@ function NewRoomBookingContent() {
                       type="checkbox"
                       checked={sendEmail}
                       onChange={(e) => setSendEmail(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-[#0B3D32] accent-[#0B3D32] border-slate-300 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-[#1A73E8] accent-[#1A73E8] border-slate-300 cursor-pointer"
                     />
                     <span className="text-[11px] font-medium">Send Email</span>
                   </label>
@@ -1241,16 +1560,25 @@ function NewRoomBookingContent() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleSaveBooking(false)}
-                    className="h-7 px-4 rounded-xs border border-[#0B3D32] bg-[#0B3D32] text-white hover:bg-[#07241E] text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                    onClick={() => handleSaveBooking(false, false)}
+                    className="h-7 px-4 rounded-xs border border-[#1A73E8] bg-[#1A73E8] text-white hover:bg-[#1557B0] text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#1A73E8] dark:hover:bg-[#1557B0]"
                   >
-                    Save Booking (Hold Room)
+                    Save Booking
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleSaveBooking(true)}
-                    className="h-7 px-4 rounded-xs border border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#071F1A]"
+                    onClick={() => handleSaveBooking(false, true)}
+                    className="h-7 px-3.5 rounded-xs border border-[#1557B0] bg-[#1557B0] hover:bg-[#0D47A1] text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#1557B0] dark:hover:bg-[#0D47A1] inline-flex items-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Save & Print</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveBooking(true, false)}
+                    className="h-7 px-4 rounded-xs border border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A]"
                   >
                     Check In Now →
                   </button>
@@ -1258,7 +1586,7 @@ function NewRoomBookingContent() {
                   <button
                     type="button"
                     onClick={handleResetForm}
-                    className="h-7 px-3.5 rounded-xs border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 text-xs font-normal cursor-pointer bg-white dark:bg-[#071F1A]"
+                    className="h-7 px-3.5 rounded-xs border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-[#DC2626] hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-normal cursor-pointer bg-white dark:bg-[#0F172A] transition-colors"
                   >
                     Reset
                   </button>
@@ -1281,7 +1609,7 @@ function NewRoomBookingContent() {
             onClick={handleCloseRegCardModal}
           >
             <div
-              className="w-full max-w-2xl rounded bg-white border border-[#DCE3DF] shadow-2xl p-6 text-black select-text"
+              className="w-full max-w-2xl rounded bg-white border border-[#DCE3DF] shadow-2xl p-6 text-black select-text printable-invoice"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Hotel Letterhead */}
@@ -1327,8 +1655,8 @@ function NewRoomBookingContent() {
 
                 <div className="grid grid-cols-3 gap-3 border-b border-slate-200 pb-3">
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Arrival Date:</span>
-                    <strong>{b.checkIn}</strong>
+                    <span className="text-slate-500 text-[10px] block uppercase">Arrival Date & Time:</span>
+                    <strong>{b.checkIn} {b.checkInTime ? `(${b.checkInTime})` : ''}</strong>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[10px] block uppercase">Departure Date:</span>
@@ -1374,7 +1702,7 @@ function NewRoomBookingContent() {
               </div>
 
               {/* Footer Actions */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-between print:hidden">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between no-print print:hidden">
                 <button
                   type="button"
                   onClick={handleCloseRegCardModal}
@@ -1385,7 +1713,7 @@ function NewRoomBookingContent() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#0B3D32] text-white text-xs font-bold cursor-pointer hover:bg-[#07241E]"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#1A73E8] text-white text-xs font-bold cursor-pointer hover:bg-[#1557B0]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Registration Card</span>

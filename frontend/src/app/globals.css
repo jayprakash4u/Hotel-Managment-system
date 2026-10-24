@@ -8,69 +8,73 @@
   --font-inter: 'Inter', sans-serif;
   --font-outfit: 'Outfit', sans-serif;
 
-  /* Brand Palette Variables */
-  --brand-primary: #0B3D32;
-  --brand-primary-hover: #145447;
-  --brand-primary-active: #072D26;
-  --brand-primary-subtle: #E8F2EE;
+  /* Brand Palette Variables (Pure Blue #1A73E8, Pure Red #DC2626, Pure Yellow #F59E0B) */
+  --brand-primary: #1A73E8;
+  --brand-primary-hover: #1557B0;
+  --brand-primary-active: #0D47A1;
+  --brand-primary-subtle: #E8F0FE;
 
-  --brand-secondary: #A51F36;
-  --brand-secondary-hover: #8E1B2F;
-  --brand-secondary-subtle: #F9E9EC;
+  --brand-secondary: #DC2626;
+  --brand-secondary-hover: #B91C1C;
+  --brand-secondary-subtle: #FEF2F2;
+
+  --brand-tertiary: #F59E0B;
+  --brand-tertiary-hover: #D97706;
+  --brand-tertiary-subtle: #FEF3C7;
 
   /* Layout Surfaces */
-  --page-bg: #F7F5F0;
+  --page-bg: #F8FAFC;
   --surface: #FFFFFF;
-  --surface-muted: #F2F4F2;
-  --surface-hover: #F8FAF8;
+  --surface-muted: #F1F5F9;
+  --surface-hover: #F8FAFC;
 
   /* Borders & Dividers */
-  --border-default: #DCE3DF;
-  --border-input: #CBD5D0;
-  --border-input-hover: #879B90;
-  --border-input-focus: #0B3D32;
-  --border-input-error: #B42332;
-  --divider: #E4E9E5;
+  --border-default: #E2E8F0;
+  --border-input: #CBD5E1;
+  --border-input-hover: #94A3B8;
+  --border-input-focus: #1A73E8;
+  --border-input-error: #DC2626;
+  --divider: #EDF2F7;
 
   /* Text & Labels */
-  --text-heading: #24352F;
-  --text-body: #43534D;
-  --text-muted: #64736C;
-  --text-placeholder: #7A8982;
-  --text-disabled: #89948E;
+  --text-heading: #0F172A;
+  --text-body: #334155;
+  --text-muted: #64748B;
+  --text-placeholder: #94A3B8;
+  --text-disabled: #CBD5E1;
 }
 
-/* Default / Light Mode: Warm Ivory Background + Charcoal Green Headings */
+/* Default / Light Mode: Clean Slate-50 Background + Slate-900 Headings */
 html.light,
 html:not(.dark) {
   color-scheme: light;
-  background-color: #F7F5F0;
-  color: #24352F;
+  background-color: #F8FAFC;
+  color: #0F172A;
 }
 
 html.dark {
   color-scheme: dark;
-  background-color: #071512;
-  color: #F1F5F9;
+  background-color: #0B0F19;
+  color: #F8FAFC;
 }
 
 body {
   font-family: var(--font-inter);
   overflow-x: hidden;
   min-height: 100vh;
-  background-color: #F7F5F0;
-  color: #43534D;
+  background-color: #F8FAFC;
+  color: #334155;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 html.dark body {
-  background-color: #071512;
+  background-color: #0B0F19;
   color: #E2E8F0;
 }
 
 h1, h2, h3, h4, h5, h6, .font-heading {
   font-family: var(--font-outfit);
-  color: #24352F;
+  color: #0F172A;
 }
 
 html.dark h1,
@@ -86,14 +90,14 @@ html.dark .font-heading {
 /* Standard Hospitality Card Surface */
 .card-standard {
   background-color: #FFFFFF;
-  border: 1px solid #DCE3DF;
+  border: 1px solid #E2E8F0;
   border-radius: 3px;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
 }
 
 .dark .card-standard {
-  background-color: #0d1e19;
-  border-color: #1a332c;
+  background-color: #111827;
+  border-color: #1F2937;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
 }
 
