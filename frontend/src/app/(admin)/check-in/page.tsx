@@ -1128,6 +1128,41 @@ function CheckInDeskContent() {
                   </div>
                 )}
               </div>
+
+              {/* Linked Reservation Status Banner */}
+              {linkedBooking && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-neutral-900 border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs transition-all">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-600/10 dark:bg-emerald-500/20 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-emerald-700 text-white font-mono font-bold text-[11px] tracking-wide shadow-xs">
+                        {linkedBooking.bookingCode}
+                      </span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-100">
+                        {linkedBooking.guest.firstName} {linkedBooking.guest.lastName}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 font-medium">
+                        · Room <strong className="text-slate-700 dark:text-slate-200">{linkedBooking.room.number}</strong>
+                      </span>
+                      {advancePaidAtBooking > 0 && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-emerald-100/90 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-bold text-[11px] border border-emerald-200/60 dark:border-emerald-700/40">
+                          Advance Paid: Rs. {advancePaidAtBooking.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetForm}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-800 text-xs font-semibold text-slate-600 dark:text-neutral-300 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-200 dark:hover:border-rose-900/50 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 transition-all shadow-xs cursor-pointer shrink-0 self-start sm:self-auto whitespace-nowrap"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Switch to Direct Walk-In</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* ===============================================================
@@ -2022,24 +2057,17 @@ function CheckInDeskContent() {
                 </div>
               </div>
 
-              {/* Action Buttons (Outside the Billing Box, Right Aligned) */}
-              <div className="flex items-center justify-end gap-2.5 pt-3">
-                <button
-                  type="button"
-                  onClick={handleResetForm}
-                  className="h-8 px-4 rounded-[4px] border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-[#DC2626] hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-semibold cursor-pointer bg-white dark:bg-[#0F172A] transition-colors"
-                >
-                  Reset
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCompleteCheckIn}
-                  className="h-8 px-5 rounded-[4px] border border-[#1A73E8] bg-[#1A73E8] text-white hover:bg-[#1557B0] text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#1A73E8] dark:hover:bg-[#1557B0] inline-flex items-center gap-1.5"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Check In</span>
-                </button>
+                {/* Action Button: Complete Check-In */}
+                <div className="flex items-center justify-end pt-3">
+                  <button
+                    type="button"
+                    onClick={handleCompleteCheckIn}
+                    className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-lg bg-[#0B3D32] hover:bg-[#07241E] text-white text-xs font-bold cursor-pointer transition-all shadow-sm hover:shadow dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    <span>Complete Check-In & Issue Key</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -74,9 +74,9 @@ model RoomType {
   bedType     String   @default("King Bed") // King, Queen, Twin, Super King
   maxCapacity Int      @default(2)
   basePrice   Float    @default(0.0)
-  amenities   String   @default("[]") @db.NVarChar(Max) // JSON string array
+  amenities   String   @default("[]") @db.Text // JSON string array
   imageUrl    String?
-  description String?  @db.NVarChar(Max)
+  description String?  @db.Text
   rooms       Room[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -99,9 +99,9 @@ model Room {
   capacity           Int                 @default(2)
   setupStatus        String              @default("OPERATIONAL") // OPERATIONAL, UNDER_CONSTRUCTION, OUT_OF_SERVICE
   status             String              @default("AVAILABLE") // AVAILABLE, OCCUPIED, RESERVED, DIRTY, CLEANING, INSPECTED, MAINTENANCE
-  amenities          String              @db.NVarChar(Max) // JSON string array
+  amenities          String              @db.Text // JSON string array
   imageUrl           String
-  description        String              @db.NVarChar(Max)
+  description        String              @db.Text
   reservations       Reservation[]
   housekeepingTasks  HousekeepingTask[]
   maintenanceTickets MaintenanceTicket[]
@@ -125,8 +125,8 @@ model Guest {
   country       String            @default("United States")
   vipTier       String            @default("STANDARD") // STANDARD, SILVER, GOLD, PLATINUM, DIAMOND
   loyaltyPoints Int               @default(0)
-  preferences   String?           @db.NVarChar(Max) // Dietary, pillow, floor preferences
-  notes         String?           @db.NVarChar(Max)
+  preferences   String?           @db.Text // Dietary, pillow, floor preferences
+  notes         String?           @db.Text
   reservations  Reservation[]
   orders        RestaurantOrder[]
   createdAt     DateTime          @default(now())
@@ -155,7 +155,7 @@ model Reservation {
   paidAmount      Float          @default(0)
   paymentStatus   String         @default("UNPAID") // UNPAID, PARTIAL, PAID, REFUNDED
   source          String         @default("DIRECT") // DIRECT, ONLINE, OTA, WALK_IN
-  specialRequests String?        @db.NVarChar(Max)
+  specialRequests String?        @db.Text
   folioItems      FolioItem[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -174,7 +174,7 @@ model HousekeepingTask {
   taskType    String     // FULL_CLEAN, TOUCH_UP, TURNDOWN, DEEP_CLEAN, INSPECTION
   priority    String     @default("NORMAL") // URGENT, HIGH, NORMAL, LOW
   status      String     @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
-  notes       String?    @db.NVarChar(Max)
+  notes       String?    @db.Text
   completedAt DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -189,7 +189,7 @@ model MaintenanceTicket {
   // Secondary path to Hotel (via Room) — kept NoAction, see hotel field above.
   room        Room       @relation(fields: [roomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   title       String
-  description String     @db.NVarChar(Max)
+  description String     @db.Text
   category    String     // PLUMBING, HVAC, ELECTRICAL, FURNITURE, APPLIANCE, OTHER
   priority    String     @default("HIGH") // URGENT, HIGH, NORMAL, LOW
   status      String     @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
@@ -243,7 +243,7 @@ model RestaurantOrder {
   total         Float
   paymentMethod String?               // ROOM_FOLIO, CASH, CARD, UPI
   isPaid        Boolean               @default(false)
-  notes         String?               @db.NVarChar(Max)
+  notes         String?               @db.Text
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 
@@ -259,7 +259,7 @@ model RestaurantOrderItem {
   unitPrice   Float
   quantity    Int             @default(1)
   total       Float
-  notes       String?         @db.NVarChar(Max)
+  notes       String?         @db.Text
 }
 
 model POSProduct {
@@ -269,7 +269,7 @@ model POSProduct {
   outlet      String     // RESTAURANT, ROOFTOP_BAR, ZENITH_SPA, ROOM_SERVICE, MINIBAR
   category    String     // Starters, Mains, Desserts, Cocktails, Spa Treatments, etc.
   name        String
-  description String?    @db.NVarChar(Max)
+  description String?    @db.Text
   price       Float
   stock       Int        @default(100)
   imageUrl    String?
@@ -324,7 +324,7 @@ model PurchaseOrder {
   supplier    Supplier      @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   totalAmount Float
   status      String        @default("RECEIVED") // PENDING, ORDERED, RECEIVED, CANCELLED
-  itemsJson   String        @db.NVarChar(Max) // JSON array of purchased items
+  itemsJson   String        @db.Text // JSON array of purchased items
   orderedAt   DateTime      @default(now())
   receivedAt  DateTime?
 
@@ -351,7 +351,7 @@ model FolioItem {
   reservationId String
   reservation   Reservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   outlet        String       // ROOM_CHARGE, RESTAURANT, ROOFTOP_BAR, ZENITH_SPA, ROOM_SERVICE, MINIBAR, LAUNDRY, TAX, DISCOUNT
-  description   String       @db.NVarChar(Max)
+  description   String       @db.Text
   unitPrice     Float
   quantity      Int          @default(1)
   total         Float
@@ -365,7 +365,7 @@ model Expense {
   hotel       Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   expenseCode String   // EXP-XXXX
   category    String   // Utilities, Maintenance Supplies, F&B Raw Materials, Staff Welfare, Marketing
-  description String   @db.NVarChar(Max)
+  description String   @db.Text
   amount      Float
   paymentMode String   // CASH_REGISTER, BANK_TRANSFER, CORPORATE_CARD
   paidTo      String
