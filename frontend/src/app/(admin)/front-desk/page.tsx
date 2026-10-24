@@ -287,7 +287,7 @@ function FrontDeskContent() {
   const handleSetCleaningStatus = (roomId: string, cleaningStatus: 'CLEAN' | 'DIRTY') => {
     setRooms((prev) =>
       prev.map((r) => {
-        if (r.id !== roomId) return r;
+        if (r.id !== roomId && String(r.number) !== String(roomId) && r.id !== `rm-${roomId}`) return r;
         return { ...r, cleaningStatus };
       })
     );
@@ -1194,29 +1194,72 @@ function FrontDeskContent() {
                           <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
                           {/* Housekeeping Actions */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenOptionMenuId(null);
-                              handleSetCleaningStatus(room.id, 'CLEAN');
-                            }}
-                            className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                            <span>Mark Clean</span>
-                          </button>
+                          {(() => {
+                            const isRoomClean = room.cleaningStatus === 'CLEAN';
+                            const isRoomDirty = room.cleaningStatus === 'DIRTY';
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenOptionMenuId(null);
-                              handleSetCleaningStatus(room.id, 'DIRTY');
-                            }}
-                            className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                          >
-                            <AlertCircle className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                            <span>Mark Dirty</span>
-                          </button>
+                            return (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isRoomClean}
+                                  aria-disabled={isRoomClean}
+                                  onClick={(e) => {
+                                    if (isRoomClean) {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      return;
+                                    }
+                                    setOpenOptionMenuId(null);
+                                    handleSetCleaningStatus(room.id, 'CLEAN');
+                                  }}
+                                  className={cn(
+                                    'w-full px-3 py-1.5 flex items-center justify-between text-left text-xs font-medium transition-colors',
+                                    isRoomClean
+                                      ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
+                                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer'
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <Sparkles className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                                    <span>Mark Clean</span>
+                                  </div>
+                                  {isRoomClean && (
+                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={isRoomDirty}
+                                  aria-disabled={isRoomDirty}
+                                  onClick={(e) => {
+                                    if (isRoomDirty) {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      return;
+                                    }
+                                    setOpenOptionMenuId(null);
+                                    handleSetCleaningStatus(room.id, 'DIRTY');
+                                  }}
+                                  className={cn(
+                                    'w-full px-3 py-1.5 flex items-center justify-between text-left text-xs font-medium transition-colors',
+                                    isRoomDirty
+                                      ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
+                                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer'
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <AlertCircle className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                                    <span>Mark Dirty</span>
+                                  </div>
+                                  {isRoomDirty && (
+                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">✓</span>
+                                  )}
+                                </button>
+                              </>
+                            );
+                          })()}
 
                           {/* Maintenance Actions */}
                           {(isAvailable || isMaintenance) && (

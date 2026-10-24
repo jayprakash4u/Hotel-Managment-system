@@ -278,6 +278,16 @@ export function RoomTapeChart({
         operationalStatus: newOperational,
         serviceStatus,
       },
+      [room.number]: {
+        cleaningStatus: newCleaning,
+        operationalStatus: newOperational,
+        serviceStatus,
+      },
+      [`rm-${room.number}`]: {
+        cleaningStatus: newCleaning,
+        operationalStatus: newOperational,
+        serviceStatus,
+      },
     }));
 
     if (onSetCleaningStatus) {
@@ -291,7 +301,7 @@ export function RoomTapeChart({
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
             const updated = parsed.map((r: any) => {
-              if (r.id === room.id || String(r.number) === String(room.number)) {
+              if (r.id === room.id || String(r.number) === String(room.number) || r.id === `rm-${room.number}`) {
                 return {
                   ...r,
                   cleaningStatus: newCleaning,
@@ -1014,10 +1024,16 @@ export function RoomTapeChart({
                     return b.checkIn <= rangeEndStr && b.checkOut > rangeStartStr;
                   });
 
+                  const roomOverride =
+                    roomStatusOverrides[room.id] ||
+                    roomStatusOverrides[room.number] ||
+                    roomStatusOverrides[`rm-${room.number}`];
+                  const effectiveCleaning = roomOverride?.cleaningStatus || room.cleaningStatus;
+                  const effectiveOperational = roomOverride?.operationalStatus || room.operationalStatus;
+                  const isOutOfService = effectiveOperational === 'MAINTENANCE' && roomOverride?.serviceStatus === 'OUT_OF_SERVICE';
+                  const isMaintenance = effectiveOperational === 'MAINTENANCE' && !isOutOfService;
+                  const isDirty = effectiveCleaning === 'DIRTY' && !isMaintenance && !isOutOfService;
                   const isRowActive = activeRoomNumber === room.number;
-                  const isOutOfService = roomStatusOverrides[room.id]?.serviceStatus === 'OUT_OF_SERVICE';
-                  const isMaintenance = room.operationalStatus === 'MAINTENANCE' && !isOutOfService;
-                  const isDirty = room.cleaningStatus === 'DIRTY' && !isMaintenance && !isOutOfService;
 
                   return (
                     <React.Fragment key={room.id}>
@@ -1907,8 +1923,19 @@ export function RoomTapeChart({
             </div>
 
             {(() => {
-              const targetRoom = roomContextMenu.room;
-              const override = roomStatusOverrides[targetRoom.id];
+              const targetRoom =
+                roomsList.find(
+                  (r) =>
+                    r.id === roomContextMenu.room.id ||
+                    r.number === roomContextMenu.room.number ||
+                    r.id === `rm-${roomContextMenu.room.number}`
+                ) || roomContextMenu.room;
+
+              const override =
+                roomStatusOverrides[targetRoom.id] ||
+                roomStatusOverrides[targetRoom.number] ||
+                roomStatusOverrides[`rm-${targetRoom.number}`];
+
               const currentCleaning = override?.cleaningStatus || targetRoom.cleaningStatus;
               const currentOperational = override?.operationalStatus || targetRoom.operationalStatus;
               const isCurrentOutOfService = currentOperational === 'MAINTENANCE' && override?.serviceStatus === 'OUT_OF_SERVICE';
@@ -1922,11 +1949,19 @@ export function RoomTapeChart({
                   <button
                     type="button"
                     disabled={isCurrentClean}
-                    onClick={() => !isCurrentClean && handleSelectHousekeepingStatus(targetRoom, 'Clean')}
+                    aria-disabled={isCurrentClean}
+                    onClick={(e) => {
+                      if (isCurrentClean) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      handleSelectHousekeepingStatus(targetRoom, 'Clean');
+                    }}
                     className={cn(
                       'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between',
                       isCurrentClean
-                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none'
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-[#DBEAFE] hover:text-[#1E40AF] cursor-pointer'
                     )}
                   >
@@ -1938,11 +1973,19 @@ export function RoomTapeChart({
                   <button
                     type="button"
                     disabled={isCurrentDirty}
-                    onClick={() => !isCurrentDirty && handleSelectHousekeepingStatus(targetRoom, 'Dirty')}
+                    aria-disabled={isCurrentDirty}
+                    onClick={(e) => {
+                      if (isCurrentDirty) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      handleSelectHousekeepingStatus(targetRoom, 'Dirty');
+                    }}
                     className={cn(
                       'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between',
                       isCurrentDirty
-                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none'
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-[#DBEAFE] hover:text-[#1E40AF] cursor-pointer'
                     )}
                   >
@@ -1954,11 +1997,19 @@ export function RoomTapeChart({
                   <button
                     type="button"
                     disabled={isCurrentMaintenance}
-                    onClick={() => !isCurrentMaintenance && handleSelectHousekeepingStatus(targetRoom, 'Maintenance')}
+                    aria-disabled={isCurrentMaintenance}
+                    onClick={(e) => {
+                      if (isCurrentMaintenance) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      handleSelectHousekeepingStatus(targetRoom, 'Maintenance');
+                    }}
                     className={cn(
                       'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between',
                       isCurrentMaintenance
-                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none'
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-[#DBEAFE] hover:text-[#1E40AF] cursor-pointer'
                     )}
                   >
@@ -1970,11 +2021,19 @@ export function RoomTapeChart({
                   <button
                     type="button"
                     disabled={isCurrentOutOfService}
-                    onClick={() => !isCurrentOutOfService && handleSelectHousekeepingStatus(targetRoom, 'Out of Service')}
+                    aria-disabled={isCurrentOutOfService}
+                    onClick={(e) => {
+                      if (isCurrentOutOfService) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      handleSelectHousekeepingStatus(targetRoom, 'Out of Service');
+                    }}
                     className={cn(
                       'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between',
                       isCurrentOutOfService
-                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none'
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-[#DBEAFE] hover:text-[#1E40AF] cursor-pointer'
                     )}
                   >
