@@ -17,6 +17,7 @@ import {
   Receipt,
   Coffee,
   CheckCircle2,
+  XCircle,
   AlertCircle,
   Printer,
   Plus,
@@ -96,6 +97,22 @@ export default function ReservationDetailPage() {
       prev.map((b) => (b.id === booking.id ? { ...b, status: 'CHECKED_IN' as const } : b))
     );
     toast.celebrate('Guest Checked In', `Room ${booking.room.number} is now active.`);
+  };
+
+  const handleMarkNoShow = () => {
+    if (!booking) return;
+    updateBookings((prev) =>
+      prev.map((b) => (b.id === booking.id ? { ...b, status: 'NO_SHOW' as const } : b))
+    );
+    toast.warning('Marked as No-Show', 'Guest did not arrive. Room released for new bookings.');
+  };
+
+  const handleCancelBooking = () => {
+    if (!booking) return;
+    updateBookings((prev) =>
+      prev.map((b) => (b.id === booking.id ? { ...b, status: 'CANCELLED' as const } : b))
+    );
+    toast.info('Booking Cancelled', 'Reservation status updated to Cancelled.');
   };
 
   const handleCheckOut = () => {
@@ -238,7 +255,7 @@ export default function ReservationDetailPage() {
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-[350px]">
-        <div className="w-6 h-6 border-2 border-[#0B3D32] border-t-transparent rounded-full animate-spin dark:border-emerald-400" />
+        <div className="w-6 h-6 border-2 border-[#1A73E8] border-t-transparent rounded-full animate-spin dark:border-blue-400" />
       </div>
     );
   }
@@ -249,13 +266,13 @@ export default function ReservationDetailPage() {
         <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto dark:bg-rose-950/40 dark:text-rose-400">
           <AlertCircle className="w-6 h-6" />
         </div>
-        <h2 className="text-base font-bold text-[#24352F] dark:text-white font-heading">
+        <h2 className="text-base font-bold text-slate-900 dark:text-white font-heading">
           Reservation &ldquo;{rawId}&rdquo; Not Found
         </h2>
         <div>
           <Link
             href="/reservations"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] text-white text-xs font-bold transition-colors dark:bg-emerald-600"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-blue-600 dark:hover:bg-blue-500 shadow-2xs"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to Reservations</span>
@@ -274,17 +291,17 @@ export default function ReservationDetailPage() {
       {/* -----------------------------------------------------------------------
           TOP NAVIGATION BAR & WORKFLOW ACTIONS
           ----------------------------------------------------------------------- */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#DCE3DF] dark:border-[#145447]">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2 text-xs">
           <Link
             href="/reservations"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white font-semibold text-[#0B3D32] hover:bg-[#F2F6F4] dark:border-[#145447] dark:bg-[#07241E] dark:text-emerald-300 dark:hover:bg-[#0E362C] transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-slate-200 bg-white font-semibold text-slate-700 hover:text-[#1A73E8] hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-blue-400 dark:hover:bg-slate-800 transition-colors shadow-2xs"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Reservations</span>
           </Link>
           <span className="text-slate-300 dark:text-slate-600">/</span>
-          <span className="font-mono font-bold text-[#24352F] dark:text-white">
+          <span className="font-mono font-bold text-slate-900 dark:text-white">
             {booking.bookingCode}
           </span>
         </div>
@@ -294,7 +311,7 @@ export default function ReservationDetailPage() {
           <button
             type="button"
             onClick={handlePrintFolio}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-[#145447] dark:bg-[#07241E] dark:text-[#A4B8AE] cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer shadow-2xs"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print Folio</span>
@@ -303,7 +320,7 @@ export default function ReservationDetailPage() {
           <button
             type="button"
             onClick={handleExtendStay}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-bold text-[#0B3D32] hover:bg-[#F2F6F4] dark:border-[#145447] dark:bg-[#07241E] dark:text-emerald-300 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:text-[#1A73E8] hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Extend (+1 Night)</span>
@@ -312,7 +329,7 @@ export default function ReservationDetailPage() {
           <button
             type="button"
             onClick={() => setShowAddCafeModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-bold text-[#0B3D32] hover:bg-[#F2F6F4] dark:border-[#145447] dark:bg-[#07241E] dark:text-emerald-300 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:text-[#1A73E8] hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer shadow-2xs"
           >
             <Coffee className="w-3.5 h-3.5" />
             <span>Add Café Order</span>
@@ -326,28 +343,50 @@ export default function ReservationDetailPage() {
               }
               setShowAddPaymentModal(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-bold text-emerald-700 hover:bg-emerald-50 dark:border-[#145447] dark:bg-[#07241E] dark:text-emerald-300 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 cursor-pointer shadow-2xs"
           >
             <CreditCard className="w-3.5 h-3.5" />
             <span>Record Payment</span>
           </button>
 
           {isReserved && (
-            <button
-              type="button"
-              onClick={handleCheckIn}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Check In Guest</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleCheckIn}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-blue-600 dark:hover:bg-blue-500 cursor-pointer shadow-2xs"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Check In Guest</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleMarkNoShow}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-bold transition-colors dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 cursor-pointer shadow-2xs"
+                title="Mark guest as No-Show"
+              >
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Mark No-Show</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancelBooking}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-colors dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40 cursor-pointer shadow-2xs"
+                title="Cancel reservation"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+            </>
           )}
 
           {isCheckedIn && (
             <button
               type="button"
               onClick={handleCheckOut}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-slate-800 hover:bg-black text-white text-xs font-bold transition-colors dark:bg-slate-700 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer shadow-2xs"
             >
               <DoorOpen className="w-3.5 h-3.5" />
               <span>Check Out</span>
@@ -366,21 +405,21 @@ export default function ReservationDetailPage() {
       {/* -----------------------------------------------------------------------
           CONCISE EXECUTIVE SUMMARY BANNER (Non-repetitive & Clean)
           ----------------------------------------------------------------------- */}
-      <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] p-4 shadow-2xs">
+      <div className="rounded-[4px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 p-4 shadow-2xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Guest Identity & Room */}
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-[3px] bg-[#EEF4F1] border border-[#C5DED3] text-[#0B3D32] dark:bg-[#0E362C] dark:border-[#145447] dark:text-emerald-300 flex items-center justify-center font-bold text-sm font-heading shrink-0">
+            <div className="w-11 h-11 rounded-[3px] bg-blue-50 border border-blue-200 text-[#1A73E8] dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300 flex items-center justify-center font-bold text-sm font-heading shrink-0">
               {booking.guest.firstName[0]}
               {booking.guest.lastName[0]}
             </div>
 
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-[#24352F] dark:text-white font-heading">
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white font-heading">
                   {booking.guest.firstName} {booking.guest.lastName}
                 </h1>
-                <span className="font-mono text-xs font-bold text-[#0B3D32] dark:text-emerald-400">
+                <span className="font-mono text-xs font-bold text-[#1A73E8] dark:text-blue-400">
                   {booking.bookingCode}
                 </span>
                 {booking.guest.vipTier === 'GOLD' && (
@@ -389,14 +428,14 @@ export default function ReservationDetailPage() {
                   </span>
                 )}
                 {isCheckedIn && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-[#0E362C] dark:text-emerald-300">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Checked In
                   </span>
                 )}
                 {isReserved && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1A73E8]" />
                     Reserved
                   </span>
                 )}
@@ -407,8 +446,8 @@ export default function ReservationDetailPage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-3 text-xs text-[#64736C] dark:text-[#A4B8AE] mt-0.5 flex-wrap">
-                <span className="font-semibold text-[#24352F] dark:text-slate-200">
+              <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
                   Room {booking.room.number} ({booking.room.type})
                 </span>
                 <span>·</span>
@@ -424,10 +463,10 @@ export default function ReservationDetailPage() {
           </div>
 
           {/* Executive Financial Scannable Strip */}
-          <div className="flex items-center gap-3 md:gap-5 text-xs pt-3 md:pt-0 border-t md:border-t-0 border-[#F0F4F2] dark:border-[#103D33] flex-wrap">
+          <div className="flex items-center gap-3 md:gap-5 text-xs pt-3 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-slate-800 flex-wrap">
             <div>
               <span className="text-[10px] text-slate-400 block font-medium">Room Fare</span>
-              <span className="font-mono font-bold text-[#24352F] dark:text-white">
+              <span className="font-mono font-bold text-slate-900 dark:text-white">
                 Rs. {booking.roomCharges.toLocaleString()}
               </span>
               <span className="text-[10px] text-slate-400 block">
@@ -435,9 +474,9 @@ export default function ReservationDetailPage() {
               </span>
             </div>
 
-            <div className="pl-3 border-l border-[#E5EEE9] dark:border-[#145447]">
+            <div className="pl-3 border-l border-slate-200 dark:border-slate-800">
               <span className="text-[10px] text-slate-400 block font-medium">Room Orders (F&B)</span>
-              <span className="font-mono font-bold text-[#24352F] dark:text-white">
+              <span className="font-mono font-bold text-slate-900 dark:text-white">
                 Rs. {financials.cafeTotal.toLocaleString()}
               </span>
               <span className="text-[10px] text-slate-400 block">
@@ -445,15 +484,15 @@ export default function ReservationDetailPage() {
               </span>
             </div>
 
-            <div className="pl-3 border-l border-[#E5EEE9] dark:border-[#145447]">
+            <div className="pl-3 border-l border-slate-200 dark:border-slate-800">
               <span className="text-[10px] text-slate-400 block font-medium">Total Charges</span>
-              <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-300">
+              <span className="font-mono font-bold text-slate-900 dark:text-white">
                 Rs. {financials.totalCharges.toLocaleString()}
               </span>
               <span className="text-[10px] text-slate-400 block">Gross Folio</span>
             </div>
 
-            <div className="pl-3 border-l border-[#E5EEE9] dark:border-[#145447]">
+            <div className="pl-3 border-l border-slate-200 dark:border-slate-800">
               <span className="text-[10px] text-slate-400 block font-medium">Amount Paid</span>
               <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
                 Rs. {financials.totalPaid.toLocaleString()}
@@ -463,7 +502,7 @@ export default function ReservationDetailPage() {
               </span>
             </div>
 
-            <div className="pl-3 border-l border-[#E5EEE9] dark:border-[#145447]">
+            <div className="pl-3 border-l border-slate-200 dark:border-slate-800">
               <span className="text-[10px] text-slate-400 block font-medium">Payment Status</span>
               {financials.balanceDue === 0 ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-[2px] dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
@@ -489,7 +528,7 @@ export default function ReservationDetailPage() {
       {/* -----------------------------------------------------------------------
           NAVIGATION TABS
           ----------------------------------------------------------------------- */}
-      <div className="flex items-center gap-1 border-b border-[#DCE3DF] dark:border-[#145447] pb-2 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         {[
           { id: 'all' as const, label: 'All Details & Folio' },
           { id: 'stay' as const, label: 'Room & Stay' },
@@ -505,8 +544,8 @@ export default function ReservationDetailPage() {
             className={cn(
               'px-3.5 py-1.5 rounded-[3px] text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
               activeTab === tab.id
-                ? 'bg-[#0B3D32] text-white dark:bg-emerald-600 shadow-2xs'
-                : 'bg-white text-[#4A6458] hover:bg-[#F2F6F4] border border-[#DCE3DF] dark:bg-[#07241E] dark:border-[#145447] dark:text-[#A4B8AE]'
+                ? 'bg-[#1A73E8] text-white dark:bg-blue-600 shadow-2xs'
+                : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700'
             )}
           >
             {tab.label}
@@ -520,16 +559,16 @@ export default function ReservationDetailPage() {
       {(activeTab === 'all' || activeTab === 'stay') && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Card 1: Room & Stay Specifications */}
-          <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] p-4 shadow-2xs space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#24352F] dark:text-white flex items-center gap-1.5 pb-2 border-b border-[#F0F4F2] dark:border-[#103D33]">
-              <DoorOpen className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+          <div className="rounded-[4px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 p-4 shadow-2xs space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <DoorOpen className="w-3.5 h-3.5 text-[#1A73E8] dark:text-blue-400" />
               <span>Room & Stay</span>
             </h3>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Assigned Room</span>
-                <span className="font-bold text-[#24352F] dark:text-white">
+                <span className="font-bold text-slate-900 dark:text-white">
                   Room {booking.room.number}
                 </span>
                 <span className="text-[11px] text-slate-500 block">
@@ -539,7 +578,7 @@ export default function ReservationDetailPage() {
 
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Floor & Bed Setup</span>
-                <span className="font-semibold text-[#24352F] dark:text-white">
+                <span className="font-semibold text-slate-900 dark:text-white">
                   {booking.room.floorLevel}
                 </span>
                 <span className="text-[11px] text-slate-500 block">{booking.room.bedType}</span>
@@ -547,59 +586,59 @@ export default function ReservationDetailPage() {
 
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Check-In</span>
-                <span className="font-semibold text-[#24352F] dark:text-white">
+                <span className="font-semibold text-slate-900 dark:text-white">
                   {new Date(booking.checkIn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
               </div>
 
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Check-Out</span>
-                <span className="font-semibold text-[#24352F] dark:text-white">
+                <span className="font-semibold text-slate-900 dark:text-white">
                   {new Date(booking.checkOut).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
               </div>
 
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Rate / Night</span>
-                <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
+                <span className="font-mono font-bold text-[#1A73E8] dark:text-blue-400">
                   Rs. {booking.room.pricePerNight.toLocaleString()}
                 </span>
               </div>
 
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Room Total</span>
-                <span className="font-mono font-bold text-[#24352F] dark:text-white">
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
                   {booking.nights}n × Rs. {booking.room.pricePerNight.toLocaleString()} = Rs. {booking.roomCharges.toLocaleString()}
                 </span>
               </div>
             </div>
 
             {booking.notes && (
-              <div className="pt-2 border-t border-[#F0F4F2] dark:border-[#103D33] text-xs">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
                 <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Stay Notes</span>
-                <p className="text-[#355245] dark:text-slate-300">{booking.notes}</p>
+                <p className="text-slate-600 dark:text-slate-300">{booking.notes}</p>
               </div>
             )}
           </div>
 
           {/* Card 2: Guest Profile & Verified ID */}
-          <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] p-4 shadow-2xs space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#24352F] dark:text-white flex items-center gap-1.5 pb-2 border-b border-[#F0F4F2] dark:border-[#103D33]">
-              <User className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+          <div className="rounded-[4px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 p-4 shadow-2xs space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <User className="w-3.5 h-3.5 text-[#1A73E8] dark:text-blue-400" />
               <span>Guest Information</span>
             </h3>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Full Name</span>
-                <span className="font-bold text-[#24352F] dark:text-white">
+                <span className="font-bold text-slate-900 dark:text-white">
                   {booking.guest.firstName} {booking.guest.lastName}
                 </span>
               </div>
 
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">VIP Tier</span>
-                <span className="font-semibold text-[#0B3D32] dark:text-emerald-400">
+                <span className="font-semibold text-[#1A73E8] dark:text-blue-400">
                   {booking.guest.vipTier}
                 </span>
               </div>
@@ -608,7 +647,7 @@ export default function ReservationDetailPage() {
                 <span className="text-[10px] text-slate-400 block font-medium">Phone</span>
                 <a
                   href={`tel:${booking.guest.phone}`}
-                  className="font-mono font-semibold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
+                  className="font-mono font-semibold text-[#1A73E8] dark:text-blue-400 hover:underline flex items-center gap-1"
                 >
                   <Phone className="w-3 h-3 text-slate-400" />
                   <span>{booking.guest.phone}</span>
@@ -619,7 +658,7 @@ export default function ReservationDetailPage() {
                 <span className="text-[10px] text-slate-400 block font-medium">Email</span>
                 <a
                   href={`mailto:${booking.guest.email}`}
-                  className="font-semibold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1 truncate"
+                  className="font-semibold text-[#1A73E8] dark:text-blue-400 hover:underline flex items-center gap-1 truncate"
                 >
                   <Mail className="w-3 h-3 text-slate-400 shrink-0" />
                   <span className="truncate">{booking.guest.email}</span>
@@ -628,7 +667,7 @@ export default function ReservationDetailPage() {
 
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">ID Verification</span>
-                <span className="font-semibold text-[#24352F] dark:text-white flex items-center gap-1">
+                <span className="font-semibold text-slate-900 dark:text-white flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>{booking.guest.idType}: {booking.guest.idNumber}</span>
                 </span>
@@ -636,7 +675,7 @@ export default function ReservationDetailPage() {
 
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Country</span>
-                <span className="font-semibold text-[#24352F] dark:text-white">{booking.guest.country}</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{booking.guest.country}</span>
               </div>
 
               <div className="col-span-2">
@@ -657,14 +696,14 @@ export default function ReservationDetailPage() {
       {(activeTab === 'all' || activeTab === 'cafe') && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#24352F] dark:text-white">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
               Café & Dining Orders
             </h3>
 
             <button
               type="button"
               onClick={() => setShowAddCafeModal(true)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold transition-colors dark:bg-emerald-600 cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-blue-600 dark:hover:bg-blue-500 cursor-pointer shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Café Order</span>
@@ -676,23 +715,23 @@ export default function ReservationDetailPage() {
               {booking.cafeOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] overflow-hidden shadow-2xs"
+                  className="rounded-[4px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 overflow-hidden shadow-2xs"
                 >
                   {/* Order Bar */}
-                  <div className="flex items-center justify-between p-3 bg-[#FAFBF9] dark:bg-[#061B16] border-b border-[#E5EEE9] dark:border-[#145447] text-xs">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[#0B3D32] text-white text-[11px]">
+                      <span className="font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[#1A73E8] text-white text-[11px]">
                         #{order.orderNumber}
                       </span>
                       <span className="text-slate-400">·</span>
-                      <span className="text-slate-500">{order.timestamp}</span>
+                      <span className="text-slate-500 dark:text-slate-400">{order.timestamp}</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#EEF4F1] text-[#0B3D32] dark:bg-[#0E362C] dark:text-emerald-300">
+                      <span className="px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-blue-50 text-[#1A73E8] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300">
                         {order.status}
                       </span>
-                      <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
+                      <span className="font-mono font-bold text-slate-900 dark:text-white">
                         Rs. {order.subtotal.toLocaleString()}
                       </span>
                     </div>
@@ -702,30 +741,30 @@ export default function ReservationDetailPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
-                        <tr className="border-b border-[#E5EEE9] dark:border-[#145447] bg-[#F7FAF8] dark:bg-[#082921]/60 text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
-                          <th className="py-2 px-3 w-12 text-center border-r border-[#E5EEE9] dark:border-[#145447]">#</th>
-                          <th className="py-2 px-3 border-r border-[#E5EEE9] dark:border-[#145447]">ITEM</th>
-                          <th className="py-2 px-3 text-right w-28 border-r border-[#E5EEE9] dark:border-[#145447]">UNIT PRICE</th>
-                          <th className="py-2 px-3 text-center w-20 border-r border-[#E5EEE9] dark:border-[#145447]">QTY</th>
+                        <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                          <th className="py-2 px-3 w-12 text-center border-r border-slate-100 dark:border-slate-800/60">#</th>
+                          <th className="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60">ITEM</th>
+                          <th className="py-2 px-3 text-right w-28 border-r border-slate-100 dark:border-slate-800/60">UNIT PRICE</th>
+                          <th className="py-2 px-3 text-center w-20 border-r border-slate-100 dark:border-slate-800/60">QTY</th>
                           <th className="py-2 px-3 text-right w-32">TOTAL</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#F0F4F2] dark:divide-[#103D33]">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                         {order.items.map((item, idx) => (
-                          <tr key={item.id} className="hover:bg-[#FBFDFB] dark:hover:bg-[#082E25]/30">
-                            <td className="py-2 px-3 text-center font-mono text-slate-400 border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                            <td className="py-2 px-3 text-center font-mono text-slate-400 border-r border-slate-100 dark:border-slate-800/60">
                               {idx + 1}
                             </td>
-                            <td className="py-2 px-3 font-semibold text-[#24352F] dark:text-white border-r border-[#E5EEE9] dark:border-[#145447]">
+                            <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60">
                               {item.name}
                             </td>
-                            <td className="py-2 px-3 text-right font-mono text-slate-600 dark:text-slate-300 border-r border-[#E5EEE9] dark:border-[#145447]">
+                            <td className="py-2 px-3 text-right font-mono text-slate-600 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60">
                               Rs. {item.price.toLocaleString()}
                             </td>
-                            <td className="py-2 px-3 text-center font-mono font-bold text-[#0B3D32] dark:text-emerald-400 border-r border-[#E5EEE9] dark:border-[#145447]">
+                            <td className="py-2 px-3 text-center font-mono font-bold text-[#1A73E8] dark:text-blue-400 border-r border-slate-100 dark:border-slate-800/60">
                               {item.quantity}
                             </td>
-                            <td className="py-2 px-3 text-right font-mono font-bold text-[#24352F] dark:text-white">
+                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
                               Rs. {item.total.toLocaleString()}
                             </td>
                           </tr>
@@ -737,7 +776,7 @@ export default function ReservationDetailPage() {
               ))}
             </div>
           ) : (
-            <div className="py-10 text-center text-xs text-slate-400 border border-dashed border-[#DCE3DF] dark:border-[#145447] rounded-[3px] bg-white dark:bg-[#07241E]">
+            <div className="py-10 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-[3px] bg-white dark:bg-slate-900/50">
               No café orders charged to this room.
             </div>
           )}
@@ -750,14 +789,14 @@ export default function ReservationDetailPage() {
       {(activeTab === 'all' || activeTab === 'payments') && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#24352F] dark:text-white">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
               Payments & Ledger
             </h3>
 
             <button
               type="button"
               onClick={() => setShowAddPaymentModal(true)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold transition-colors dark:bg-emerald-600 cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-blue-600 dark:hover:bg-blue-500 cursor-pointer shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Record Payment</span>
@@ -765,10 +804,10 @@ export default function ReservationDetailPage() {
           </div>
 
           {booking.payments.length > 0 ? (
-            <div className="overflow-hidden rounded-[3px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] shadow-2xs">
+            <div className="overflow-hidden rounded-[3px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 shadow-2xs">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                     <th className="py-2.5 px-3">RECEIPT #</th>
                     <th className="py-2.5 px-3">DATE & TIME</th>
                     <th className="py-2.5 px-3">TYPE</th>
@@ -777,16 +816,16 @@ export default function ReservationDetailPage() {
                     <th className="py-2.5 px-3 text-right">AMOUNT</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447]">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {booking.payments.map((p) => (
-                    <tr key={p.id} className="hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40">
-                      <td className="py-2 px-3 font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
+                    <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                      <td className="py-2 px-3 font-mono font-bold text-[#1A73E8] dark:text-blue-400">
                         {p.receiptNo}
                       </td>
                       <td className="py-2 px-3 text-slate-500 whitespace-nowrap">{p.date}</td>
-                      <td className="py-2 px-3 font-semibold text-[#24352F] dark:text-white">{p.type}</td>
+                      <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white">{p.type}</td>
                       <td className="py-2 px-3">
-                        <span className="px-2 py-0.5 rounded-[2px] bg-[#F0F4F2] text-[#4A6458] border border-[#DCE3DF] text-[10px] font-bold dark:bg-[#0A2E26] dark:text-emerald-300">
+                        <span className="px-2 py-0.5 rounded-[2px] bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                           {p.method}
                         </span>
                       </td>
@@ -802,7 +841,7 @@ export default function ReservationDetailPage() {
               </table>
             </div>
           ) : (
-            <div className="py-10 text-center text-xs text-slate-400 border border-dashed border-[#DCE3DF] dark:border-[#145447] rounded-[3px] bg-white dark:bg-[#07241E]">
+            <div className="py-10 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-[3px] bg-white dark:bg-slate-900/50">
               No payments recorded yet.
             </div>
           )}
@@ -813,16 +852,16 @@ export default function ReservationDetailPage() {
           TAB 4: FOLIO INVOICE
           ----------------------------------------------------------------------- */}
       {(activeTab === 'all' || activeTab === 'bill') && (
-        <div className="rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] p-6 space-y-4 shadow-2xs">
-          <div className="flex items-start justify-between border-b border-[#E5EEE9] pb-3 dark:border-[#145447]">
+        <div className="rounded-[4px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 p-6 space-y-4 shadow-2xs">
+          <div className="flex items-start justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
             <div>
-              <h3 className="text-base font-bold text-[#0B3D32] dark:text-emerald-400 font-heading">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white font-heading">
                 AURA GRAND HOSPITALITY RESORT
               </h3>
               <p className="text-xs text-slate-500">Official Guest Folio Statement</p>
             </div>
             <div className="text-right text-xs">
-              <span className="font-mono font-bold text-[#24352F] dark:text-white">
+              <span className="font-mono font-bold text-[#1A73E8] dark:text-blue-400">
                 FOLIO #{booking.bookingCode}
               </span>
               <p className="text-slate-400 text-[11px]">
@@ -833,21 +872,21 @@ export default function ReservationDetailPage() {
 
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[#DCE3DF] text-[10px] uppercase font-bold text-slate-500 dark:border-[#145447]">
+              <tr className="border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 dark:border-slate-800">
                 <th className="py-2">Description</th>
                 <th className="py-2 text-center w-24">Qty / Nights</th>
                 <th className="py-2 text-right w-28">Rate (Rs.)</th>
                 <th className="py-2 text-right w-32">Total (Rs.)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F0F4F2] dark:divide-[#103D33]">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               <tr>
-                <td className="py-2.5 font-semibold text-[#24352F] dark:text-white">
+                <td className="py-2.5 font-semibold text-slate-900 dark:text-white">
                   Room {booking.room.number} ({booking.room.type})
                 </td>
                 <td className="py-2.5 text-center font-mono">{booking.nights}</td>
                 <td className="py-2.5 text-right font-mono">{booking.room.pricePerNight.toLocaleString()}</td>
-                <td className="py-2.5 text-right font-mono font-bold">
+                <td className="py-2.5 text-right font-mono font-bold text-slate-900 dark:text-white">
                   {financials.roomCharges.toLocaleString()}
                 </td>
               </tr>
@@ -858,7 +897,7 @@ export default function ReservationDetailPage() {
                   </td>
                   <td className="py-2 text-center font-mono">1</td>
                   <td className="py-2 text-right font-mono">{order.subtotal.toLocaleString()}</td>
-                  <td className="py-2 text-right font-mono font-semibold">
+                  <td className="py-2 text-right font-mono font-semibold text-slate-900 dark:text-white">
                     {order.subtotal.toLocaleString()}
                   </td>
                 </tr>
@@ -866,16 +905,16 @@ export default function ReservationDetailPage() {
             </tbody>
           </table>
 
-          <div className="pt-3 border-t border-[#E5EEE9] dark:border-[#145447] space-y-1 text-xs">
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-1 text-xs">
             <div className="flex justify-between text-slate-600 dark:text-slate-300">
               <span>Total Charges:</span>
-              <span className="font-mono font-semibold">Rs. {financials.totalCharges.toLocaleString()}</span>
+              <span className="font-mono font-semibold text-slate-900 dark:text-white">Rs. {financials.totalCharges.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
               <span>Payments Received:</span>
               <span className="font-mono font-semibold">- Rs. {financials.totalPaid.toLocaleString()}</span>
             </div>
-            <div className="pt-2 border-t border-[#E5EEE9] dark:border-[#145447] flex justify-between text-sm font-bold">
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between text-sm font-bold">
               <span>Balance Due:</span>
               <span
                 className={cn(
@@ -895,15 +934,15 @@ export default function ReservationDetailPage() {
           ----------------------------------------------------------------------- */}
       {activeTab === 'history' && (
         <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#24352F] dark:text-white">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
             Past Stay History
           </h3>
 
           {booking.bookingHistory.length > 0 ? (
-            <div className="overflow-hidden rounded-[3px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E] shadow-2xs">
+            <div className="overflow-hidden rounded-[3px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 shadow-2xs">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                     <th className="py-2 px-3">BOOKING ID</th>
                     <th className="py-2 px-3">ROOM</th>
                     <th className="py-2 px-3">DATES</th>
@@ -911,17 +950,17 @@ export default function ReservationDetailPage() {
                     <th className="py-2 px-3 text-center">STATUS</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447]">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {booking.bookingHistory.map((past) => (
-                    <tr key={past.bookingCode} className="hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40">
-                      <td className="py-2 px-3 font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
+                    <tr key={past.bookingCode} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                      <td className="py-2 px-3 font-mono font-bold text-[#1A73E8] dark:text-blue-400">
                         {past.bookingCode}
                       </td>
-                      <td className="py-2 px-3 font-semibold text-[#24352F] dark:text-white">
+                      <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white">
                         Room {past.roomNumber} ({past.roomType})
                       </td>
                       <td className="py-2 px-3 text-slate-500">{past.dates}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-[#24352F] dark:text-white">
+                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
                         Rs. {past.amount.toLocaleString()}
                       </td>
                       <td className="py-2 px-3 text-center">
@@ -935,7 +974,7 @@ export default function ReservationDetailPage() {
               </table>
             </div>
           ) : (
-            <div className="py-10 text-center text-xs text-slate-400 border border-dashed border-[#DCE3DF] dark:border-[#145447] rounded-[3px] bg-white dark:bg-[#07241E]">
+            <div className="py-10 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-[3px] bg-white dark:bg-slate-900/50">
               No previous stays recorded for this guest.
             </div>
           )}
@@ -947,9 +986,9 @@ export default function ReservationDetailPage() {
           ----------------------------------------------------------------------- */}
       {showAddCafeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xs">
-          <div className="w-full max-w-sm rounded-[4px] bg-white dark:bg-[#07241E] border border-[#DCE3DF] dark:border-[#145447] shadow-xl overflow-hidden">
-            <div className="p-3.5 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] flex items-center justify-between">
-              <h3 className="text-xs font-bold text-[#24352F] dark:text-white uppercase tracking-wider">
+          <div className="w-full max-w-sm rounded-[4px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+            <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                 Add Café Order · Room {booking.room.number}
               </h3>
               <button
@@ -969,7 +1008,7 @@ export default function ReservationDetailPage() {
                 <select
                   value={selectedCafeDishId}
                   onChange={(e) => setSelectedCafeDishId(e.target.value)}
-                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  className="w-full rounded-[3px] border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[#1A73E8] focus:outline-none"
                 >
                   {CAFE_MENU_ITEMS.map((dish) => (
                     <option key={dish.id} value={dish.id}>
@@ -989,7 +1028,7 @@ export default function ReservationDetailPage() {
                   max={20}
                   value={cafeOrderQuantity}
                   onChange={(e) => setCafeOrderQuantity(parseInt(e.target.value, 10) || 1)}
-                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-bold text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  className="w-full rounded-[3px] border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[#1A73E8] focus:outline-none"
                 />
               </div>
 
@@ -997,9 +1036,9 @@ export default function ReservationDetailPage() {
                 const dish = CAFE_MENU_ITEMS.find((d) => d.id === selectedCafeDishId);
                 const total = (dish?.price || 0) * cafeOrderQuantity;
                 return (
-                  <div className="pt-2 border-t border-[#F0F4F2] dark:border-[#103D33] flex justify-between font-bold">
-                    <span>Order Total:</span>
-                    <span className="font-mono text-[#0B3D32] dark:text-emerald-400">Rs. {total.toLocaleString()}</span>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between font-bold">
+                    <span className="text-slate-600 dark:text-slate-300">Order Total:</span>
+                    <span className="font-mono text-slate-900 dark:text-white">Rs. {total.toLocaleString()}</span>
                   </div>
                 );
               })()}
@@ -1008,13 +1047,13 @@ export default function ReservationDetailPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddCafeModal(false)}
-                  className="px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-semibold text-slate-600 dark:border-[#145447] dark:bg-[#07241E] dark:text-[#A4B8AE] cursor-pointer"
+                  className="px-3 py-1.5 rounded-[3px] border border-slate-200 bg-white text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer shadow-2xs hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold dark:bg-emerald-600 cursor-pointer"
+                  className="px-4 py-1.5 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold dark:bg-blue-600 dark:hover:bg-blue-500 cursor-pointer shadow-2xs"
                 >
                   Confirm Order
                 </button>
@@ -1029,9 +1068,9 @@ export default function ReservationDetailPage() {
           ----------------------------------------------------------------------- */}
       {showAddPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xs">
-          <div className="w-full max-w-sm rounded-[4px] bg-white dark:bg-[#07241E] border border-[#DCE3DF] dark:border-[#145447] shadow-xl overflow-hidden">
-            <div className="p-3.5 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] flex items-center justify-between">
-              <h3 className="text-xs font-bold text-[#24352F] dark:text-white uppercase tracking-wider">
+          <div className="w-full max-w-sm rounded-[4px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+            <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                 Record Payment · {booking.bookingCode}
               </h3>
               <button
@@ -1056,7 +1095,7 @@ export default function ReservationDetailPage() {
                   placeholder="0"
                   value={paymentAmountInput}
                   onChange={(e) => setPaymentAmountInput(e.target.value)}
-                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-bold text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  className="w-full rounded-[3px] border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[#1A73E8] focus:outline-none"
                 />
               </div>
 
@@ -1067,7 +1106,7 @@ export default function ReservationDetailPage() {
                 <select
                   value={paymentMethodInput}
                   onChange={(e) => setPaymentMethodInput(e.target.value as any)}
-                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  className="w-full rounded-[3px] border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[#1A73E8] focus:outline-none"
                 >
                   <option value="CASH">Cash</option>
                   <option value="CARD">Card / POS</option>
@@ -1086,7 +1125,7 @@ export default function ReservationDetailPage() {
                   placeholder="Ref / Transaction ID"
                   value={paymentNotesInput}
                   onChange={(e) => setPaymentNotesInput(e.target.value)}
-                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  className="w-full rounded-[3px] border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[#1A73E8] focus:outline-none"
                 />
               </div>
 
@@ -1094,13 +1133,13 @@ export default function ReservationDetailPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddPaymentModal(false)}
-                  className="px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] bg-white text-xs font-semibold text-slate-600 dark:border-[#145447] dark:bg-[#07241E] dark:text-[#A4B8AE] cursor-pointer"
+                  className="px-3 py-1.5 rounded-[3px] border border-slate-200 bg-white text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer shadow-2xs hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold dark:bg-emerald-600 cursor-pointer"
+                  className="px-4 py-1.5 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold dark:bg-blue-600 dark:hover:bg-blue-500 cursor-pointer shadow-2xs"
                 >
                   Record
                 </button>

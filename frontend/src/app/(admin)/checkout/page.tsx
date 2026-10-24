@@ -384,7 +384,7 @@ function CheckOutListContent() {
                             <button
                               type="button"
                               onClick={() => handleOpenCheckOut(booking)}
-                              className="px-2.5 py-1 rounded-[2px] bg-slate-800 hover:bg-black text-white text-xs font-bold transition-colors dark:bg-slate-700 cursor-pointer"
+                              className="px-2.5 py-1 rounded-[3px] bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer shadow-2xs"
                             >
                               Check Out
                             </button>
@@ -497,7 +497,7 @@ function CheckOutListContent() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded-[3px] bg-slate-900 hover:bg-black text-white text-xs font-bold shadow-2xs dark:bg-slate-700"
+                    className="px-4 py-1.5 rounded-[3px] bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
                   >
                     Confirm Settle & Check-Out
                   </button>

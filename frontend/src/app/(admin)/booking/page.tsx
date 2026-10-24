@@ -4,9 +4,11 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   Bed,
   Calendar,
+  CalendarCheck,
   Clock,
   ChevronDown,
   ArrowLeft,
@@ -904,13 +906,22 @@ function NewRoomBookingContent() {
               </button>
             </div>
 
+            <Link
+              href="/reservations"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#07241E] text-[#0B3D32] dark:text-emerald-300 border-[#DCE3DF] dark:border-[#145447] hover:bg-[#F2F6F4]"
+              title="View all existing bookings and reservations"
+            >
+              <CalendarCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Booked List</span>
+            </Link>
+
             <button
               type="button"
               onClick={handleBackNavigation}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 border-[#DCE3DF] dark:border-[#145447] hover:bg-[#F2F6F4]"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Front Desk</span>
+              <span>{fromParam === 'reservations' ? 'Back to Reservations' : fromParam === 'check-in' ? 'Back to Check-In' : 'Back to Front Desk'}</span>
             </button>
           </div>
         </div>

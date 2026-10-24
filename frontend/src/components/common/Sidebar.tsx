@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  BedDouble,
   Users,
   LogIn,
   UserCheck,
@@ -29,7 +28,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  ConciergeBell,
+  Hotel,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,28 +52,20 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     description: 'System overview & live metrics',
   },
   {
+    id: 'hotel-management',
+    name: 'Hotel Management',
+    href: '/hotel-management',
+    icon: Hotel,
+    tag: 'HOTEL',
+    description: 'Reservations, check-in, room status & guests',
+  },
+  {
     id: 'hotel-setup',
     name: 'Hotel Setup',
     href: '/hotel',
     icon: Building2,
     tag: 'SETUP',
     description: 'Resort profile, masters & setup',
-  },
-  {
-    id: 'front-desk',
-    name: 'Front Desk',
-    href: '/front-desk',
-    icon: ConciergeBell,
-    tag: 'DESK',
-    description: 'Check-in Desk, Check-In List, Reservation List & Check-Out List',
-  },
-  {
-    id: 'rooms',
-    name: 'Room Management',
-    href: '/rooms',
-    icon: BedDouble,
-    tag: 'ROOMS',
-    description: 'Room availability, cleaning & maintenance',
   },
   {
     id: 'book-table',
@@ -278,8 +269,20 @@ export const Sidebar: React.FC<{
                 const [baseHref, queryStr] = item.href.split('?');
 
                 let isActive = false;
-                if (item.id === 'front-desk') {
-                  isActive = ['/front-desk', '/booking', '/check-in', '/checkout', '/reservations'].some((p) => pathname.startsWith(p));
+                if (item.id === 'hotel-management') {
+                  isActive = [
+                    '/hotel-management',
+                    '/front-desk',
+                    '/room-board',
+                    '/rooms',
+                    '/booking',
+                    '/check-in',
+                    '/checkout',
+                    '/reservations',
+                    '/active-stays',
+                    '/housekeeping',
+                    '/guests',
+                  ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
                 } else if (isQuery) {
                   isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
                 } else if (item.href === '/') {
@@ -382,8 +385,20 @@ export const Sidebar: React.FC<{
               const [baseHref, queryStr] = item.href.split('?');
 
               let isActive = false;
-              if (item.id === 'front-desk') {
-                isActive = ['/front-desk', '/booking', '/check-in', '/checkout', '/reservations'].some((p) => pathname.startsWith(p));
+              if (item.id === 'hotel-management') {
+                isActive = [
+                  '/hotel-management',
+                  '/front-desk',
+                  '/room-board',
+                  '/rooms',
+                  '/booking',
+                  '/check-in',
+                  '/checkout',
+                  '/reservations',
+                  '/active-stays',
+                  '/housekeeping',
+                  '/guests',
+                ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
               } else if (isQuery) {
                 isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
               } else if (item.href === '/') {

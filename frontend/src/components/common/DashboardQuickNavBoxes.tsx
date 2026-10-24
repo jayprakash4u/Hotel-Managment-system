@@ -40,8 +40,8 @@ export const DASHBOARD_NAV_OPTIONS: QuickNavOptionItem[] = [
   },
   {
     id: 'room-booking',
-    name: 'Room Booking',
-    href: '/booking',
+    name: 'Reservations',
+    href: '/reservations',
     icon: CalendarCheck,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
   },

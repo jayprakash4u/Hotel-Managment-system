@@ -39,7 +39,6 @@ import {
   Wrench,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
-import { FrontDeskNavBoxes } from '@/components/common/FrontDeskNavBoxes';
 import { RoomTapeChart } from '@/components/business/RoomTapeChart';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -635,14 +634,11 @@ function FrontDeskContent() {
 
   return (
     <div className="space-y-6">
-      {/* Front Desk Option Boxes (Matching Hotel Setup Category Boxes) */}
-      <FrontDeskNavBoxes activeId="desk" />
-
-      {/* Clean Front Desk Header */}
+      {/* Clean Front Desk / Room Board Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-slate-900 dark:text-white font-heading tracking-tight">
-            Check-in Desk
+            Room Board
           </h1>
           {/* View Mode Toggle: Room Boxes vs Timeline Matrix */}
           <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-0.5">
@@ -1255,7 +1251,7 @@ function FrontDeskContent() {
           onSelectBooking={(booking) => handleOpenFolioDrawer(booking)}
           onOpenCheckInModal={(booking) => handleOpenCheckInModal(booking)}
           onOpenCheckOutModal={(booking) => handleOpenCheckOutModal(booking)}
-          onOpenNewBookingModal={handleTapeChartNewBooking}
+          onSetCleaningStatus={handleSetCleaningStatus}
           onBookingCreated={(newBooking) => {
             const nextBookings = [newBooking, ...bookings.filter((b) => b.id !== newBooking.id)];
             saveBookingsToStorage(nextBookings);

@@ -36,7 +36,6 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { FrontDeskNavBoxes } from '@/components/common/FrontDeskNavBoxes';
 import {
   RoomBooking,
   PaymentEntry,
@@ -997,9 +996,6 @@ function CheckInDeskContent() {
 
   return (
     <div className="space-y-4 max-w-6xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
-      {/* Front Desk Category Option Boxes */}
-      <FrontDeskNavBoxes activeId="check-in" />
-
       {/* Main Check-In Container Card (Matches Book Now Design Pattern 100%) */}
       <div className="bg-white dark:bg-[#071F1A] rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] shadow-sm overflow-hidden">
         {/* Top Header */}
@@ -1043,15 +1039,6 @@ function CheckInDeskContent() {
                 <span>Arrivals Manifest ({stats.pendingToday})</span>
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={handleBackNavigation}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#0F172A] text-slate-700 dark:text-slate-300 border-[#CBD5E1] dark:border-[#334155] hover:bg-slate-50"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Front Desk</span>
-            </button>
           </div>
         </div>
 
@@ -2070,7 +2057,6 @@ function CheckInDeskContent() {
                 </div>
               </div>
             </div>
-          </div>
         )}
 
         {/* =================================================================== */}
