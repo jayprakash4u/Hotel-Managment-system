@@ -53,14 +53,9 @@ export default function InHouseGuestsPage() {
   }, [inHouseList, searchQuery]);
 
   return (
-    <div className="space-y-4 pb-12">
-      {/* =====================================================================
-          HOTEL MANAGEMENT SUB-OPTIONS (Box Type Options)
-          ===================================================================== */}
+    <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
+      {/* Hotel Management Top Navigation Boxes */}
       <HotelManagementNavBoxes activeId="in-house" />
-
-      {/* Divider */}
-      <div className="border-b border-[#E2E8F0] dark:border-[#334155] -mt-1 mb-2" />
 
       {/* Header & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
@@ -81,7 +76,7 @@ export default function InHouseGuestsPage() {
             placeholder="Search guest, room or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#1A73E8]"
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#0B3D32]"
           />
         </div>
       </div>
@@ -113,7 +108,7 @@ export default function InHouseGuestsPage() {
                   return (
                     <tr key={b.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-3">
-                        <div className="font-bold text-[#1A73E8] bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded border border-blue-100 dark:border-blue-900 text-xs inline-flex items-center gap-1.5">
+                        <div className="font-bold text-[#0B3D32] bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded border border-blue-100 dark:border-blue-900 text-xs inline-flex items-center gap-1.5">
                           <BedDouble className="w-3.5 h-3.5" />
                           <span>Room {b.room.number}</span>
                         </div>

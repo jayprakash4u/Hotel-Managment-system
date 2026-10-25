@@ -1,1 +1,1 @@
-export { default } from '../tables/page';
+export { default } from '../restaurant-management/page';

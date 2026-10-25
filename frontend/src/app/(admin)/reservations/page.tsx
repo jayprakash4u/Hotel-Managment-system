@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { FrontDeskNavBoxes } from '@/components/common/FrontDeskNavBoxes';
 import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import {
   RoomBooking,
@@ -249,19 +248,15 @@ function RoomBookingsContent() {
 
   return (
     <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
-      {/* Hotel Management / Front Desk Option Boxes */}
-      {isFromDesk ? (
-        <FrontDeskNavBoxes activeId="reservations" />
-      ) : (
-        <HotelManagementNavBoxes activeId="reservations" />
-      )}
+      {/* Hotel Management Top Navigation Boxes */}
+      <HotelManagementNavBoxes activeId="reservations" />
 
       {/* -----------------------------------------------------------------------
           TOP HEADER: Clean, Professional Page Title & Actions
           ----------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-[3px] bg-[#1A73E8] text-white shadow-2xs dark:bg-blue-600">
+          <div className="flex h-8 w-8 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600">
             <CalendarCheck className="w-4 h-4 text-white" />
           </div>
           <div>
@@ -281,7 +276,7 @@ function RoomBookingsContent() {
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-[2px] transition-colors cursor-pointer',
                 viewMode === 'table'
-                  ? 'bg-white text-[#1A73E8] shadow-2xs dark:bg-slate-800 dark:text-blue-400 font-bold'
+                  ? 'bg-white text-[#0B3D32] shadow-2xs dark:bg-slate-800 dark:text-emerald-400 font-bold'
                   : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               )}
             >
@@ -295,7 +290,7 @@ function RoomBookingsContent() {
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-[2px] transition-colors cursor-pointer',
                 viewMode === 'cards'
-                  ? 'bg-white text-[#1A73E8] shadow-2xs dark:bg-slate-800 dark:text-blue-400 font-bold'
+                  ? 'bg-white text-[#0B3D32] shadow-2xs dark:bg-slate-800 dark:text-emerald-400 font-bold'
                   : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               )}
             >
@@ -307,7 +302,7 @@ function RoomBookingsContent() {
           {/* Book Now Button (Navigates directly to the Book Now form page) */}
           <Link
             href="/booking?from=reservations"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#1A73E8] text-white text-xs font-bold hover:bg-[#1557B0] transition-all shadow-2xs dark:bg-blue-600 dark:hover:bg-blue-500 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] text-white text-xs font-bold hover:bg-[#093027] transition-all shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Book Now</span>
@@ -331,7 +326,7 @@ function RoomBookingsContent() {
                 className={cn(
                   'relative pb-2.5 px-2 text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer',
                   isActive
-                    ? 'text-[#1A73E8] dark:text-blue-400 font-bold'
+                    ? 'text-[#0B3D32] dark:text-emerald-400 font-bold'
                     : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
                 )}
               >
@@ -340,7 +335,7 @@ function RoomBookingsContent() {
                   className={cn(
                     'text-[10px] font-medium px-1.5 py-0.2 rounded-full transition-colors',
                     isActive
-                      ? 'bg-blue-50 text-[#1A73E8] dark:bg-blue-950/60 dark:text-blue-300 font-bold'
+                      ? 'bg-[#E8F2EE] text-[#0B3D32] dark:bg-emerald-950/60 dark:text-emerald-300 font-bold'
                       : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                   )}
                 >
@@ -349,7 +344,7 @@ function RoomBookingsContent() {
 
                 {/* Underline for Active Tab */}
                 {isActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1A73E8] dark:bg-blue-400 rounded-full" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0B3D32] dark:bg-emerald-400 rounded-full" />
                 )}
               </button>
             );
@@ -366,7 +361,7 @@ function RoomBookingsContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search guest, room, ID..."
-              className="w-full rounded-[3px] border border-slate-200 bg-slate-50/70 py-1.5 pl-8 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#1A73E8] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1A73E8] dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-blue-500 placeholder:text-slate-400"
+              className="w-full rounded-[3px] border border-slate-200 bg-slate-50/70 py-1.5 pl-8 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
             />
             {searchQuery && (
               <button
@@ -390,7 +385,7 @@ function RoomBookingsContent() {
               className={cn(
                 'inline-flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-[3px] border text-xs font-semibold transition-colors cursor-pointer shadow-2xs',
                 dateFilter !== 'ALL'
-                  ? 'bg-blue-50 border-[#1A73E8] text-[#1A73E8] dark:bg-blue-950/40 dark:border-blue-500 dark:text-blue-300'
+                  ? 'bg-[#E8F2EE] border-[#0B3D32] text-[#0B3D32] dark:bg-emerald-950/40 dark:border-emerald-600 dark:text-emerald-300'
                   : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700'
               )}
               title="Filter by Stay Dates"
@@ -408,7 +403,7 @@ function RoomBookingsContent() {
                   : 'Custom'}
               </span>
               {dateFilter !== 'ALL' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1A73E8] dark:bg-blue-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0B3D32] dark:bg-emerald-400" />
               )}
             </button>
 
@@ -461,7 +456,7 @@ function RoomBookingsContent() {
                         className={cn(
                           'w-full flex items-center justify-between px-2.5 py-1.5 rounded-[2px] text-xs transition-colors cursor-pointer text-left',
                           isSelected
-                            ? 'bg-[#1A73E8] text-white font-semibold dark:bg-blue-600'
+                            ? 'bg-[#0B3D32] text-white font-semibold dark:bg-emerald-600'
                             : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                         )}
                       >
@@ -500,7 +495,7 @@ function RoomBookingsContent() {
                     <button
                       type="button"
                       onClick={() => setShowDateFilterDropdown(false)}
-                      className="w-full py-1.5 rounded-[2px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-blue-600 cursor-pointer text-center"
+                      className="w-full py-1.5 rounded-[2px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer text-center"
                     >
                       Apply Filter
                     </button>
@@ -518,7 +513,7 @@ function RoomBookingsContent() {
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-medium text-slate-400">Active Filters:</span>
             {activeTab !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#1A73E8] dark:text-blue-400 font-semibold border border-slate-200 dark:border-slate-700">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#0B3D32] dark:text-emerald-400 font-semibold border border-slate-200 dark:border-slate-700">
                 Status: {activeTab}
                 <button
                   type="button"
@@ -531,7 +526,7 @@ function RoomBookingsContent() {
               </span>
             )}
             {dateFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#1A73E8] dark:text-blue-400 font-semibold border border-slate-200 dark:border-slate-700">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#0B3D32] dark:text-emerald-400 font-semibold border border-slate-200 dark:border-slate-700">
                 Dates: {dateFilter === 'TODAY' ? 'Today' : dateFilter === 'THIS_WEEK' ? 'Next 7 Days' : dateFilter === 'THIS_MONTH' ? 'This Month' : 'Custom'}
                 <button
                   type="button"
@@ -548,7 +543,7 @@ function RoomBookingsContent() {
               </span>
             )}
             {searchQuery && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#1A73E8] dark:text-blue-400 font-semibold border border-slate-200 dark:border-slate-700">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#0B3D32] dark:text-emerald-400 font-semibold border border-slate-200 dark:border-slate-700">
                 &ldquo;{searchQuery}&rdquo;
                 <button
                   type="button"
@@ -562,7 +557,7 @@ function RoomBookingsContent() {
             )}
           </div>
           <div>
-            Showing <span className="font-bold text-[#1A73E8] dark:text-blue-400">{filteredBookings.length}</span> of {bookings.length}
+            Showing <span className="font-bold text-[#0B3D32] dark:text-emerald-400">{filteredBookings.length}</span> of {bookings.length}
           </div>
         </div>
       )}
@@ -603,7 +598,7 @@ function RoomBookingsContent() {
                       <td className="py-3 px-4 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
                         <Link
                           href={`/reservations/${booking.id}`}
-                          className="font-mono font-bold text-[#1A73E8] hover:underline dark:text-blue-400"
+                          className="font-mono font-bold text-[#0B3D32] hover:underline dark:text-emerald-400"
                         >
                           {booking.bookingCode}
                         </Link>
@@ -611,7 +606,7 @@ function RoomBookingsContent() {
                       <td className="py-3 px-4 border-r border-slate-100 dark:border-slate-800/60">
                         <Link
                           href={`/reservations/${booking.id}`}
-                          className="font-bold text-slate-900 hover:text-[#1A73E8] hover:underline dark:text-white dark:hover:text-blue-400 block"
+                          className="font-bold text-slate-900 hover:text-[#0B3D32] hover:underline dark:text-white dark:hover:text-emerald-400 block"
                         >
                           {booking.guest.firstName} {booking.guest.lastName}
                         </Link>
@@ -671,7 +666,7 @@ function RoomBookingsContent() {
                             <button
                               type="button"
                               onClick={() => handleCheckInGuest(booking.id)}
-                              className="px-2.5 py-1 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-blue-600 dark:hover:bg-blue-500 cursor-pointer shadow-2xs"
+                              className="px-2.5 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer shadow-2xs"
                               title="Check in guest today"
                             >
                               Check In
@@ -765,7 +760,7 @@ function RoomBookingsContent() {
             return (
               <div
                 key={booking.id}
-                className="rounded-[4px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 p-5 shadow-2xs flex flex-col justify-between hover:border-[#1A73E8] dark:hover:border-blue-500 transition-all group"
+                className="rounded-[4px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 p-5 shadow-2xs flex flex-col justify-between hover:border-[#0B3D32] dark:hover:border-emerald-500 transition-all group"
               >
                 <div className="space-y-4">
                   {/* Top Row: Guest Name (large) & Status Badge (top right, softer) */}
@@ -773,7 +768,7 @@ function RoomBookingsContent() {
                     <div className="min-w-0">
                       <Link
                         href={`/reservations/${booking.id}`}
-                        className="text-lg font-black text-slate-900 dark:text-white truncate block hover:text-[#1A73E8] dark:hover:text-blue-400 transition-colors"
+                        className="text-lg font-black text-slate-900 dark:text-white truncate block hover:text-[#0B3D32] dark:hover:text-emerald-400 transition-colors"
                       >
                         {booking.guest.firstName} {booking.guest.lastName}
                       </Link>
@@ -894,7 +889,7 @@ function RoomBookingsContent() {
                         <button
                           type="button"
                           onClick={() => handleCheckInGuest(booking.id)}
-                          className="px-3 py-1.5 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-blue-600 dark:hover:bg-blue-500 cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                          className="px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer flex items-center gap-1.5 shadow-2xs"
                           title="Check in guest today"
                         >
                           <UserCheck className="w-3.5 h-3.5" />
@@ -971,7 +966,7 @@ function RoomBookingsContent() {
               <div>
                 <Link
                   href="/booking?from=reservations"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#1A73E8] text-white text-xs font-bold hover:bg-[#1557B0] dark:bg-blue-600 transition-all shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] text-white text-xs font-bold hover:bg-[#093027] dark:bg-emerald-600 dark:hover:bg-emerald-500 transition-all shadow-2xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Book Now</span>

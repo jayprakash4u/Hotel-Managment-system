@@ -52,6 +52,7 @@ import {
 } from '../reservations/reservationsData';
 import { useMasterOptions } from '@/lib/mastersData';
 import MasterSearchableSelect from '@/components/ui/MasterSearchableSelect';
+import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 
 // Form Room Row for multi-room check-in
 export interface FormRoomRow {
@@ -995,7 +996,10 @@ function CheckInDeskContent() {
   }, [bookings, todayStr]);
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
+    <div className="space-y-4 max-w-7xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
+      {/* Hotel Management Top Navigation Boxes */}
+      <HotelManagementNavBoxes activeId="check-in" />
+
       {/* Main Check-In Container Card (Matches Book Now Design Pattern 100%) */}
       <div className="bg-white dark:bg-[#071F1A] rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] shadow-sm overflow-hidden">
         {/* Top Header */}
@@ -1018,7 +1022,7 @@ function CheckInDeskContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   activeTab === 'FORM'
-                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-[#1A73E8]'
+                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-[#0B3D32]'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
@@ -1031,7 +1035,7 @@ function CheckInDeskContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   activeTab === 'MANIFEST'
-                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-[#1A73E8]'
+                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-[#0B3D32]'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
@@ -1063,7 +1067,7 @@ function CheckInDeskContent() {
                   }}
                   onFocus={() => setShowSearchSuggestions(true)}
                   placeholder="Search by name or Mobilenumber"
-                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#334155] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#1A73E8] transition-all"
+                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#334155] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#0B3D32] transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -1175,7 +1179,7 @@ function CheckInDeskContent() {
                       required
                       value={checkInDate}
                       onChange={(e) => handleCheckInDateChange(e.target.value)}
-                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
 
@@ -1188,7 +1192,7 @@ function CheckInDeskContent() {
                       required
                       value={checkInTime}
                       onChange={(e) => setCheckInTime(e.target.value)}
-                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
 
@@ -1201,7 +1205,7 @@ function CheckInDeskContent() {
                       required
                       value={checkOutDate}
                       onChange={(e) => setCheckOutDate(e.target.value)}
-                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
                 </div>
@@ -1430,11 +1434,11 @@ function CheckInDeskContent() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
-                      <FileCheck className="w-4 h-4 text-[#1A73E8]" />
+                      <FileCheck className="w-4 h-4 text-[#0B3D32]" />
                       <span>ID Document Photos ({idDocumentPhotos.length})</span>
                     </label>
-                    <label className="px-2.5 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#093027] hover:border-[#1A73E8] cursor-pointer inline-flex items-center gap-1.5 transition-colors shadow-2xs">
-                      <UploadCloud className="w-3.5 h-3.5 text-[#1A73E8]" />
+                    <label className="px-2.5 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#093027] hover:border-[#0B3D32] cursor-pointer inline-flex items-center gap-1.5 transition-colors shadow-2xs">
+                      <UploadCloud className="w-3.5 h-3.5 text-[#0B3D32]" />
                       <span>Upload Photos</span>
                       <input
                         type="file"
@@ -1447,8 +1451,8 @@ function CheckInDeskContent() {
                   </div>
 
                   {idDocumentPhotos.length === 0 ? (
-                    <label className="border-2 border-dashed border-slate-200 dark:border-[#145447] rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#1A73E8] hover:bg-blue-50/20 dark:hover:bg-[#093027]/30 transition-all group">
-                      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-1.5 text-slate-400 group-hover:text-[#1A73E8] group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors">
+                    <label className="border-2 border-dashed border-slate-200 dark:border-[#145447] rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#0B3D32] hover:bg-blue-50/20 dark:hover:bg-[#093027]/30 transition-all group">
+                      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-1.5 text-slate-400 group-hover:text-[#0B3D32] group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors">
                         <UploadCloud className="w-5 h-5" />
                       </div>
                       <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -1471,7 +1475,7 @@ function CheckInDeskContent() {
                         {idDocumentPhotos.map((doc, idx) => (
                           <div
                             key={doc.id}
-                            className="relative group rounded border border-slate-200 dark:border-[#145447] bg-slate-50 dark:bg-[#093027]/40 p-2 flex items-center gap-2 overflow-hidden hover:border-[#1A73E8] transition-colors"
+                            className="relative group rounded border border-slate-200 dark:border-[#145447] bg-slate-50 dark:bg-[#093027]/40 p-2 flex items-center gap-2 overflow-hidden hover:border-[#0B3D32] transition-colors"
                           >
                             {doc.dataUrl && doc.dataUrl.startsWith('data:image') ? (
                               <img
@@ -1480,7 +1484,7 @@ function CheckInDeskContent() {
                                 className="w-9 h-9 rounded object-cover shrink-0 border border-slate-200 dark:border-slate-700 bg-white"
                               />
                             ) : (
-                              <div className="w-9 h-9 rounded bg-blue-50 dark:bg-blue-950/40 text-[#1A73E8] flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-900">
+                              <div className="w-9 h-9 rounded bg-blue-50 dark:bg-blue-950/40 text-[#0B3D32] flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-900">
                                 <FileCheck className="w-4 h-4" />
                               </div>
                             )}
@@ -1500,7 +1504,7 @@ function CheckInDeskContent() {
                                   type="button"
                                   onClick={() => setPreviewPhoto(doc)}
                                   title="View Photo"
-                                  className="text-slate-400 hover:text-[#1A73E8] p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+                                  className="text-slate-400 hover:text-[#0B3D32] p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
                                 </button>
@@ -1522,7 +1526,7 @@ function CheckInDeskContent() {
                         <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                           <Check className="w-3.5 h-3.5" /> {idDocumentPhotos.length} photo(s) attached
                         </span>
-                        <label className="text-[#1A73E8] hover:underline font-semibold cursor-pointer inline-flex items-center gap-1">
+                        <label className="text-[#0B3D32] hover:underline font-semibold cursor-pointer inline-flex items-center gap-1">
                           <Plus className="w-3 h-3" />
                           <span>Add more photos</span>
                           <input
@@ -1701,7 +1705,7 @@ function CheckInDeskContent() {
                     <button
                       type="button"
                       onClick={handleAddAccompanyingGuest}
-                      className="h-8 px-3 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-all dark:bg-[#1A73E8] cursor-pointer shrink-0"
+                      className="h-8 px-3 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all dark:bg-[#0B3D32] cursor-pointer shrink-0"
                     >
                       + Add
                     </button>
@@ -1716,7 +1720,7 @@ function CheckInDeskContent() {
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center gap-2">
-                <Bed className="w-4 h-4 text-[#1A73E8] dark:text-[#8AB4F8]" />
+                <Bed className="w-4 h-4 text-[#0B3D32] dark:text-[#8AB4F8]" />
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                   Room Information
                 </h2>
@@ -1878,7 +1882,7 @@ function CheckInDeskContent() {
                         <td className="py-2.5 px-3 text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 border-r border-slate-300 dark:border-slate-700">
                           {totalDiscount > 0 ? `Rs. ${totalDiscount.toLocaleString()}` : '0'}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#1A73E8] dark:text-blue-400 tabular-nums">
+                        <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#0B3D32] dark:text-blue-400 tabular-nums">
                           Rs. {totalPayable.toLocaleString()}
                         </td>
                         <td className="border-l border-slate-300 dark:border-slate-700"></td>
@@ -1893,7 +1897,7 @@ function CheckInDeskContent() {
                 <button
                   type="button"
                   onClick={handleAddRoomRow}
-                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#1A73E8] text-[#1A73E8] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
+                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#0B3D32] text-[#0B3D32] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Room</span>
@@ -1906,7 +1910,7 @@ function CheckInDeskContent() {
                 =============================================================== */}
             <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-[#1A73E8] dark:text-[#8AB4F8]" />
+                <Receipt className="w-4 h-4 text-[#0B3D32] dark:text-[#8AB4F8]" />
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                   Billing & Settlement
                 </h2>
@@ -2073,7 +2077,7 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'ARRIVALS'
-                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      ? 'bg-[#0B3D32] text-white dark:bg-[#0B3D32]'
                       : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
@@ -2085,7 +2089,7 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'IN_HOUSE'
-                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      ? 'bg-[#0B3D32] text-white dark:bg-[#0B3D32]'
                       : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
@@ -2097,7 +2101,7 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'ALL'
-                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      ? 'bg-[#0B3D32] text-white dark:bg-[#0B3D32]'
                       : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
@@ -2150,7 +2154,7 @@ function CheckInDeskContent() {
                           <td className="py-2.5 px-3 text-center font-mono text-slate-400 border-r border-slate-200 dark:border-[#145447]">
                             {idx + 1}
                           </td>
-                          <td className="py-2.5 px-3.5 font-mono font-bold text-[#1A73E8] dark:text-[#8AB4F8] border-r border-slate-200 dark:border-[#334155]">
+                          <td className="py-2.5 px-3.5 font-mono font-bold text-[#0B3D32] dark:text-[#8AB4F8] border-r border-slate-200 dark:border-[#334155]">
                             {booking.bookingCode}
                           </td>
                           <td className="py-2.5 px-4 border-r border-slate-200 dark:border-[#334155]">
@@ -2205,7 +2209,7 @@ function CheckInDeskContent() {
                               <button
                                 type="button"
                                 onClick={() => handleSelectReservationToAutoFill(booking)}
-                                className="px-3 py-1 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-[#1A73E8] cursor-pointer shadow-2xs"
+                                className="px-3 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-[#0B3D32] cursor-pointer shadow-2xs"
                               >
                                 Check In
                               </button>
@@ -2346,7 +2350,7 @@ function CheckInDeskContent() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#1A73E8] text-white text-xs font-bold cursor-pointer hover:bg-[#1557B0]"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#0B3D32] text-white text-xs font-bold cursor-pointer hover:bg-[#093027]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Registration Card</span>

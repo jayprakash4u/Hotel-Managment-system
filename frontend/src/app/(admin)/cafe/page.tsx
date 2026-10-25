@@ -63,9 +63,20 @@ export default function CafePage() {
   }, [selectedOutlet]);
 
   const addToCart = (product: POSProductData) => {
+    // If tracked product and out of stock or unavailable, prevent adding to cart
+    if (product.trackStock && (product.stock <= 0 || product.isAvailable === false)) {
+      toast.error('Out of Stock', `"${product.name}" is currently out of stock.`);
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing) {
+        // Prevent exceeding available stock
+        if (product.trackStock && existing.quantity >= product.stock) {
+          toast.error('Stock Limit Reached', `Only ${product.stock} units of "${product.name}" available.`);
+          return prev;
+        }
         return prev.map((i) => (i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
       }
       return [...prev, { product, quantity: 1 }];
@@ -77,6 +88,11 @@ export default function CafePage() {
       prev
         .map((item) => {
           if (item.product.id === productId) {
+            // Prevent increasing past available stock for tracked products
+            if (delta > 0 && item.product.trackStock && item.quantity >= item.product.stock) {
+              toast.error('Stock Limit', `Only ${item.product.stock} units available in stock.`);
+              return item;
+            }
             const newQty = item.quantity + delta;
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
@@ -128,7 +144,7 @@ export default function CafePage() {
       if (!data.success) throw new Error(data.error);
 
       const room = rooms.find((r) => r.id === selectedRoomId);
-      toast.celebrate('Order Added to Room!', `${formatCurrency(cartTotal)} charged to Room ${room?.number || ''}.`);
+      toast.success('Order Added to Room!', `${formatCurrency(cartTotal)} charged to Room ${room?.number || ''}.`);
       clearCart();
       loadData();
     } catch (e: any) {
@@ -225,30 +241,61 @@ export default function CafePage() {
                   const cartItem = cart.find((i) => i.product.id === prod.id);
                   const qtyInCart = cartItem?.quantity || 0;
 
+                  const isOutOfStock = prod.trackStock && (prod.stock <= 0 || prod.isAvailable === false);
+
                   return (
                     <button
                       key={prod.id}
-                      onClick={() => addToCart(prod)}
-                      className={`relative p-4 rounded-lg border text-left flex flex-col justify-between transition-all active:scale-95 group h-28 select-none ${
-                        qtyInCart > 0
-                          ? 'bg-amber-500/5 border-amber-400 dark:border-amber-500/60 ring-1 ring-amber-400/40'
-                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                      onClick={() => !isOutOfStock && addToCart(prod)}
+                      disabled={isOutOfStock}
+                      className={`relative p-3.5 rounded-lg border text-left flex flex-col justify-between transition-all select-none min-h-[110px] ${
+                        isOutOfStock
+                          ? 'opacity-60 bg-slate-50 dark:bg-slate-900/40 border-dashed border-slate-300 dark:border-slate-800 cursor-not-allowed'
+                          : qtyInCart > 0
+                          ? 'bg-amber-500/5 border-amber-400 dark:border-amber-500/60 ring-1 ring-amber-400/40 cursor-pointer active:scale-95'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer active:scale-95'
                       }`}
                     >
                       {qtyInCart > 0 && (
-                        <div className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-amber-500 text-slate-950 font-semibold text-[11px] flex items-center justify-center">
+                        <div className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-amber-500 text-slate-950 font-semibold text-[11px] flex items-center justify-center shadow-xs">
                           {qtyInCart}
                         </div>
                       )}
 
-                      <h4 className="font-medium text-sm text-slate-900 dark:text-white line-clamp-2 leading-tight group-hover:text-amber-700 dark:group-hover:text-amber-400">
-                        {prod.name}
-                      </h4>
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          {prod.trackStock ? (
+                            prod.stock > 0 ? (
+                              <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.2 rounded border border-emerald-200 dark:border-emerald-800">
+                                {prod.stock} in stock
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.2 rounded border border-rose-200 dark:border-rose-800">
+                                Out of stock
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded">
+                              Not Tracked
+                            </span>
+                          )}
+                        </div>
+
+                        <h4 className="font-semibold text-xs sm:text-[13px] text-slate-900 dark:text-white line-clamp-2 leading-tight">
+                          {prod.name}
+                        </h4>
+                      </div>
 
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white font-heading">{formatCurrency(prod.price)}</span>
-                        <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                          Add
+                        <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white font-mono">
+                          {formatCurrency(prod.price)}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          isOutOfStock
+                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}>
+                          {isOutOfStock ? 'Sold Out' : 'Add'}
                         </span>
                       </div>
                     </button>

@@ -86,7 +86,7 @@ function AddOrderContent() {
         });
       }
 
-      toast.celebrate('Order Added to Room!', `${formatCurrency(total)} charged to Room ${stay.room.number}.`);
+      toast.success('Order Added to Room!', `${formatCurrency(total)} charged to Room ${stay.room.number}.`);
       router.push('/active-stays');
     } catch (e: any) {
       toast.error('Failed to add order', e.message);

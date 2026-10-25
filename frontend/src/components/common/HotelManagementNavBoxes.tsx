@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
+  LayoutGrid,
   CalendarCheck,
   UserCheck,
-  Users,
   LogOut,
-  LayoutGrid,
-  Sparkles,
+  Users,
   Contact,
+  Sparkles,
+  BedDouble,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,13 +24,30 @@ export interface HotelManagementSubOption {
   iconColor: string;
 }
 
+// Exact ordered options:
+// 1. Dashboard
+// 2. Room Board
+// 3. Reservations
+// 4. Check-In
+// 5. Check-Out
+// 6. Inhouse Guest
+// 7. Guest Directory
+// 8. Housekeeping
+// 9. Room Setup
 export const HOTEL_MANAGEMENT_OPTIONS: HotelManagementSubOption[] = [
   {
     id: 'dashboard',
     name: 'Dashboard',
     href: '/',
     icon: LayoutDashboard,
-    iconColor: 'text-[#1A73E8] dark:text-[#8AB4F8]',
+    iconColor: 'text-[#0B3D32] dark:text-emerald-400',
+  },
+  {
+    id: 'room-board',
+    name: 'Room Board',
+    href: '/front-desk',
+    icon: LayoutGrid,
+    iconColor: 'text-sky-600 dark:text-sky-400',
   },
   {
     id: 'reservations',
@@ -46,13 +64,6 @@ export const HOTEL_MANAGEMENT_OPTIONS: HotelManagementSubOption[] = [
     iconColor: 'text-indigo-600 dark:text-indigo-400',
   },
   {
-    id: 'in-house',
-    name: 'In-House Guests',
-    href: '/active-stays',
-    icon: Users,
-    iconColor: 'text-cyan-600 dark:text-cyan-400',
-  },
-  {
     id: 'check-out',
     name: 'Check-Out',
     href: '/checkout',
@@ -60,11 +71,18 @@ export const HOTEL_MANAGEMENT_OPTIONS: HotelManagementSubOption[] = [
     iconColor: 'text-rose-600 dark:text-rose-400',
   },
   {
-    id: 'room-board',
-    name: 'Room Board',
-    href: '/front-desk',
-    icon: LayoutGrid,
-    iconColor: 'text-sky-600 dark:text-sky-400',
+    id: 'in-house',
+    name: 'Inhouse Guest',
+    href: '/active-stays',
+    icon: Users,
+    iconColor: 'text-cyan-600 dark:text-cyan-400',
+  },
+  {
+    id: 'guest-directory',
+    name: 'Guest Directory',
+    href: '/guests',
+    icon: Contact,
+    iconColor: 'text-teal-600 dark:text-teal-400',
   },
   {
     id: 'housekeeping',
@@ -74,11 +92,11 @@ export const HOTEL_MANAGEMENT_OPTIONS: HotelManagementSubOption[] = [
     iconColor: 'text-purple-600 dark:text-purple-400',
   },
   {
-    id: 'guest-directory',
-    name: 'Guest Directory',
-    href: '/guests',
-    icon: Contact,
-    iconColor: 'text-teal-600 dark:text-teal-400',
+    id: 'room-setup',
+    name: 'Room Setup',
+    href: '/hotel',
+    icon: BedDouble,
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
 ];
 
@@ -90,13 +108,14 @@ export const HotelManagementNavBoxes: React.FC<{
 
   return (
     <div className={cn('select-none', className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5 sm:gap-3">
         {HOTEL_MANAGEMENT_OPTIONS.map((item) => {
           const Icon = item.icon;
           const isActive =
             activeId === item.id ||
-            pathname === item.href ||
+            (item.href === '/' ? pathname === '/' : pathname === item.href) ||
             (item.id === 'room-board' && (pathname === '/front-desk' || pathname === '/room-board')) ||
+            (item.id === 'room-setup' && (pathname === '/hotel' || pathname.startsWith('/hotel') || pathname === '/rooms')) ||
             (item.href !== '/' && item.href !== '/front-desk' && pathname.startsWith(item.href));
 
           return (
@@ -107,12 +126,12 @@ export const HotelManagementNavBoxes: React.FC<{
                 'group flex flex-col items-center justify-center p-3 sm:p-4 text-center transition-all duration-150',
                 'rounded-lg border bg-white dark:bg-[#071F1A] shadow-xs min-h-[76px] sm:min-h-[84px]',
                 isActive
-                  ? 'border-[#1A73E8] bg-[#E8F0FE] text-[#1A73E8] ring-1 ring-[#1A73E8] dark:border-blue-500 dark:bg-[#1A73E8]/10 dark:text-blue-200'
-                  : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-[#1A73E8] hover:bg-slate-50/70 dark:hover:bg-slate-800/40 hover:shadow-xs'
+                  ? 'border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-[#0B3D32] hover:bg-slate-50/70 dark:hover:bg-slate-800/40 hover:shadow-xs'
               )}
             >
               <div className="mb-2 transition-transform duration-150 group-hover:scale-110">
-                <Icon className={cn('w-5 h-5 stroke-[1.8]', item.iconColor)} />
+                <Icon className={cn('w-5 h-5 stroke-[1.8]', isActive ? 'text-[#0B3D32] dark:text-emerald-400' : item.iconColor)} />
               </div>
               <span className="text-xs font-semibold leading-tight px-0.5 line-clamp-1">
                 {item.name}

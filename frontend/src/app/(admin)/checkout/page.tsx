@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { FrontDeskNavBoxes } from '@/components/common/FrontDeskNavBoxes';
+import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import {
   RoomBooking,
   loadBookingsFromStorage,
@@ -145,8 +145,8 @@ function CheckOutListContent() {
 
   return (
     <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
-      {/* Front Desk Option Boxes (Matching Hotel Setup) */}
-      <FrontDeskNavBoxes activeId="checkout" />
+      {/* Hotel Management Option Boxes */}
+      <HotelManagementNavBoxes activeId="check-out" />
 
       {/* -----------------------------------------------------------------------
           HEADER & TOOLBAR: Departure Date & Balance Filter

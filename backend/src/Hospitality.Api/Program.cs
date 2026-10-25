@@ -2,10 +2,14 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore;
 using Hospitality.Infrastructure;
 using Hospitality.Persistence;
+using Hospitality.Persistence.Data;
 using System.Text.Json;
 using Hospitality.Api.Common;
+using Supabase.Extensions.DependencyInjection;
+using Hospitality.Api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +48,12 @@ builder.Services.AddPersistence(builder.Configuration);
 
 // Infrastructure (JWT Auth & Services)
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Supabase Client (Auth, Postgrest, Storage, Realtime)
+builder.Services.AddSupabase(
+    builder.Configuration["Supabase:Url"]!,
+    builder.Configuration["Supabase:Key"]!
+);
 
 // CORS Policy (Permissive for local development with Next.js frontend on port 3000)
 builder.Services.AddCors(options =>
@@ -95,6 +105,26 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Ensure safe schema updates for POSProduct (TrackStock and IsAvailable)
+using (var scope = app.Services.CreateScope())
+{
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<HospitalityDbContext>();
+        await db.Database.ExecuteSqlRawAsync(@"
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""trackStock"" boolean DEFAULT false;
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""isAvailable"" boolean DEFAULT true;
+        ");
+        logger.LogInformation("Database schema verified: POSProduct columns 'trackStock' and 'isAvailable' ready.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Could not execute automatic schema update for POSProduct.");
+    }
+}
+
+
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment() || true)
 {
@@ -112,6 +142,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapGet("/todos", async (Supabase.Client supabase) =>
+{
+    await supabase.InitializeAsync();
+    var response = await supabase.From<Todo>().Get();
+    return response.Models;
+});
 
 app.Run();
 

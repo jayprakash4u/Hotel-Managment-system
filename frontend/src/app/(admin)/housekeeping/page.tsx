@@ -95,14 +95,9 @@ export default function HousekeepingPage() {
   }, [rooms, filterTab, floorFilter, searchQuery]);
 
   return (
-    <div className="space-y-4 pb-12">
-      {/* =====================================================================
-          HOTEL MANAGEMENT SUB-OPTIONS (Box Type Options)
-          ===================================================================== */}
+    <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
+      {/* Hotel Management Top Navigation Boxes */}
       <HotelManagementNavBoxes activeId="housekeeping" />
-
-      {/* Divider */}
-      <div className="border-b border-[#E2E8F0] dark:border-[#334155] -mt-1 mb-2" />
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

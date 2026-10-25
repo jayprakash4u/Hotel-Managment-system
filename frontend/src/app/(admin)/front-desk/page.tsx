@@ -39,6 +39,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import { RoomTapeChart } from '@/components/business/RoomTapeChart';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -63,6 +64,7 @@ import {
 } from '@/app/(admin)/reservations/reservationsData';
 import { GuidedBookingModal } from '@/components/business/GuidedBookingModal';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import { getSettedMenuItems, MenuItemCatalogEntry } from '@/lib/menuData';
 
 interface FrontDeskRoom {
   id: string;
@@ -575,12 +577,44 @@ function FrontDeskContent() {
   const [isAddFoodModalOpen, setIsAddFoodModalOpen] = useState(false);
   const [selectedBookingForFood, setSelectedBookingForFood] = useState<RoomBooking | null>(null);
   const [selectedFoodItems, setSelectedFoodItems] = useState<Record<string, number>>({});
+  const [foodMenuSearch, setFoodMenuSearch] = useState('');
+  const [foodCatalog, setFoodCatalog] = useState<MenuItemCatalogEntry[]>([]);
+
+  useEffect(() => {
+    const setted = getSettedMenuItems();
+    if (setted && setted.length > 0) {
+      setFoodCatalog(setted);
+    }
+  }, []);
 
   const handleOpenAddFoodModal = (booking: RoomBooking) => {
     setSelectedBookingForFood(booking);
     setSelectedFoodItems({});
+    setFoodMenuSearch('');
+    setFoodCatalog(getSettedMenuItems());
     setIsAddFoodModalOpen(true);
   };
+
+  const filteredFoodCatalog = useMemo(() => {
+    const list =
+      foodCatalog.length > 0
+        ? foodCatalog
+        : CAFE_MENU_ITEMS.map((m) => ({
+            id: m.id,
+            name: m.name,
+            price: m.price,
+            category: 'Cafe',
+            code: m.id,
+          }));
+    const q = foodMenuSearch.toLowerCase().trim();
+    if (!q) return list;
+    return list.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        (item.category && item.category.toLowerCase().includes(q)) ||
+        (item.code && item.code.toLowerCase().includes(q))
+    );
+  }, [foodCatalog, foodMenuSearch]);
 
   const handleConfirmAddFood = () => {
     if (!selectedBookingForFood) return;
@@ -588,7 +622,9 @@ function FrontDeskContent() {
     const orderItems: { name: string; quantity: number; price: number }[] = [];
     Object.entries(selectedFoodItems).forEach(([itemId, qty]) => {
       if (qty > 0) {
-        const item = CAFE_MENU_ITEMS.find((m) => m.id === itemId);
+        const item =
+          foodCatalog.find((m) => m.id === itemId) ||
+          CAFE_MENU_ITEMS.find((m) => m.id === itemId);
         if (item) {
           orderItems.push({ name: item.name, quantity: qty, price: item.price });
         }
@@ -605,7 +641,7 @@ function FrontDeskContent() {
     setIsAddFoodModalOpen(false);
 
     toast.celebrate(
-      'Food Charged to Room!',
+      'Order Charged to Room!',
       `Added ${orderItems.length} items to Room ${selectedBookingForFood.room.number}'s bill.`
     );
   };
@@ -633,7 +669,10 @@ function FrontDeskContent() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Hotel Management Top Navigation Boxes */}
+      <HotelManagementNavBoxes activeId="room-board" />
+
       {/* Clean Front Desk / Room Board Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-3">
@@ -765,10 +804,10 @@ function FrontDeskContent() {
               <div className="flex items-center gap-1.5 flex-wrap">
                 {[
                   { id: 'ALL', label: 'All', count: countsOnDate.all, dot: null, activeBg: 'bg-[#0B3D32]' },
-                  { id: 'AVAILABLE', label: 'Available', count: countsOnDate.available, dot: 'bg-emerald-600', activeBg: 'bg-[#107C41]' },
+                  { id: 'AVAILABLE', label: 'Available', count: countsOnDate.available, dot: 'bg-emerald-600', activeBg: 'bg-[#0B3D32]' },
                   { id: 'OCCUPIED', label: 'Occupied', count: countsOnDate.occupied, dot: 'bg-[#A51F36]', activeBg: 'bg-[#A51F36]' },
-                  { id: 'ARRIVING', label: 'Booked', count: countsOnDate.arriving, dot: 'bg-amber-500', activeBg: 'bg-[#D97706]' },
-                  { id: 'MAINTENANCE', label: 'Maintenance', count: countsOnDate.maintenance, dot: 'bg-slate-500', activeBg: 'bg-[#64748B]' },
+                  { id: 'ARRIVING', label: 'Booked', count: countsOnDate.arriving, dot: 'bg-amber-500', activeBg: 'bg-[#92400E]' },
+                  { id: 'MAINTENANCE', label: 'Maintenance', count: countsOnDate.maintenance, dot: 'bg-slate-500', activeBg: 'bg-[#334155]' },
                 ].map((pill) => {
                   const isSelected = boxStatusFilter === pill.id;
                   return (
@@ -923,7 +962,7 @@ function FrontDeskContent() {
               No rooms match the selected filters for this date.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4">
               {filteredBoxRooms.map((room) => {
                 const roomStatus = getRoomStatusForDate(room, bookings, selectedDate);
                 const status = roomStatus.status;
@@ -931,9 +970,13 @@ function FrontDeskContent() {
 
                 // State analysis for smart option handling
                 const isBooked = status === 'ARRIVING'; // Reserved booking exists for this room on selected date
-                const isOccupied = status === 'OCCUPIED' || status === 'DEPARTING'; // Guest is currently staying in room
+                const isOccupied = status === 'OCCUPIED'; // Guest is currently staying in room
+                const isDeparting = status === 'DEPARTING'; // Guest departing today
                 const isMaintenance = status === 'MAINTENANCE';
                 const isAvailable = status === 'AVAILABLE';
+
+                // ONLY Checked-In / Occupied is a solid dark card!
+                const isDarkCard = isOccupied;
 
                 // Book Now: ONLY clickable when room is vacant and not under maintenance
                 const canBookNow = isAvailable && !isMaintenance;
@@ -941,20 +984,18 @@ function FrontDeskContent() {
                 // Check In:
                 // - Clickable when room is booked (ARRIVING with reservation ready to check in)
                 // - Clickable when room is available (direct walk-in check-in)
-                // - Disabled when room is already occupied or in maintenance
                 const canCheckIn = (isBooked && !!activeBooking) || isAvailable;
 
                 // Check Out:
                 // - ONLY clickable when guest is currently staying in the room
-                // - Disabled for vacant, booked, or maintenance rooms
-                const canCheckOut = isOccupied && !!activeBooking;
+                const canCheckOut = (isOccupied || isDeparting) && !!activeBooking;
 
-                // Housekeeping
+                // Housekeeping Status
                 const isClean = room.cleaningStatus === 'CLEAN';
                 const isDirty = room.cleaningStatus === 'DIRTY';
 
                 // Maintenance toggle: cannot place room in maintenance while guest is in-house
-                const canToggleMaintenance = !isOccupied;
+                const canToggleMaintenance = !isOccupied && !isDeparting;
 
                 return (
                   <div
@@ -963,75 +1004,80 @@ function FrontDeskContent() {
                       setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
                     }}
                     className={cn(
-                      'relative flex flex-col justify-between p-3 rounded-[3px] border transition-all duration-150 shadow-2xs select-none cursor-pointer group',
-                      openOptionMenuId === room.id ? 'z-50 shadow-sm ring-1 ring-[#0B3D32]' : 'z-0',
-                      // Available: Exactly like previous (Clean white card)
-                      status === 'AVAILABLE' && 'bg-white dark:bg-[#07241E] border-[#DCE3DF] dark:border-[#145447] hover:border-[#0B3D32] hover:shadow-xs',
-                      // Booked: Clean, slightly darker warm amber tint
-                      status === 'ARRIVING' && 'bg-[#FEF0C7] dark:bg-[#2C1F07] border-[#FDE08B] dark:border-amber-900/80 hover:border-amber-500 hover:shadow-xs',
-                      // Occupied: Brand Burgundy / Wine tint (Rich, elegant hotel brand secondary accent)
-                      status === 'OCCUPIED' && 'bg-[#FCECEF] dark:bg-[#2A0F16] border-[#F7BAC6] dark:border-[#7A1727]/80 hover:border-[#A51F36] hover:shadow-xs',
-                      // Departing
-                      status === 'DEPARTING' && 'bg-[#FFE2E5] dark:bg-[#2D1117] border-[#FECDD3] dark:border-rose-900/80 hover:border-rose-500 hover:shadow-xs',
-                      // Maintenance
-                      status === 'MAINTENANCE' && 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-80'
+                      'relative flex flex-col justify-between p-3.5 sm:p-4 rounded-[6px] border transition-all duration-150 shadow-2xs hover:shadow-xs select-none cursor-pointer group min-h-[185px]',
+                      openOptionMenuId === room.id ? (isDarkCard ? 'z-50 shadow-md ring-2 ring-white/60' : 'z-50 shadow-md ring-2 ring-[#0B3D32]') : 'z-0',
+                      // 1. Occupied (Checked In): THE ONLY SOLID DARK CARD (Signature Pine Emerald #0B3D32)
+                      isOccupied && 'bg-[#0B3D32] border-[#082C24] text-white hover:bg-[#093027] dark:bg-[#06241D] dark:border-[#0E3B31] shadow-sm',
+                      // 2. Booked (Arriving / Reserved): Clean LIGHT card with subtle reserved sky accent
+                      isBooked && 'bg-[#F8FBFF] dark:bg-[#081B26] border-sky-200 dark:border-sky-800/80 hover:border-sky-400 hover:shadow-xs text-[#24352F] dark:text-white',
+                      // 3. Departing: Clean LIGHT card with subtle rose border
+                      isDeparting && 'bg-white dark:bg-[#07241E] border-rose-200 dark:border-rose-900/60 hover:border-rose-300 hover:shadow-xs text-[#24352F] dark:text-white',
+                      // 4. Out of Service / Maintenance: Muted light slate card
+                      isMaintenance && 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 hover:shadow-xs text-[#24352F] dark:text-white',
+                      // 5. Available: Clean LIGHT white card
+                      isAvailable && 'bg-white dark:bg-[#07241E] border-[#DCE3DF] dark:border-[#145447] hover:border-[#0B3D32] dark:hover:border-emerald-500 hover:shadow-xs text-[#24352F] dark:text-white'
                     )}
                   >
-                    {/* Top: Room Number + Floor/Type (Left) | Status Badge & Right-Side Option Trigger (Right) */}
+                    {/* Top Row: Room Number + Floor (Left) | Status Badge & 3-Dots Trigger (Right) */}
                     <div>
-                      <div className="flex items-start justify-between gap-1 pb-2 border-b border-[#EAEFEA] dark:border-[#145447]/60">
+                      <div
+                        className={cn(
+                          'flex items-center justify-between gap-1 pb-2.5 border-b',
+                          isDarkCard ? 'border-white/20' : 'border-[#EAEFEA] dark:border-[#145447]/60'
+                        )}
+                      >
                         <div className="min-w-0 flex-1 pr-1.5">
                           <div className="flex items-baseline gap-1.5">
-                            <span className="font-mono text-xl font-extrabold text-[#24352F] dark:text-white tracking-tight">
+                            <span
+                              className={cn(
+                                'font-mono text-xl sm:text-2xl font-black tracking-tight',
+                                isDarkCard ? 'text-white' : 'text-[#24352F] dark:text-white'
+                              )}
+                            >
                               {room.number}
                             </span>
-                            <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            <span
+                              className={cn(
+                                'text-[10px] font-semibold uppercase tracking-wider',
+                                isDarkCard ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'
+                              )}
+                            >
                               Fl {room.floor}
                             </span>
                           </div>
-                          <div className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
-                            {room.type}
-                          </div>
                         </div>
 
-                        {/* Right side: Status Badge + Clickable Option Trigger */}
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
-                          }}
-                          className="shrink-0 flex items-center gap-1.5 cursor-pointer group"
-                          title={`Room ${room.number} options`}
-                        >
+                        {/* Right side: Status Badge + 3-Dots Trigger */}
+                        <div className="shrink-0 flex items-center gap-1.5">
                           <div>
-                            {status === 'AVAILABLE' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                Available
+                            {isOccupied && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-white/20 text-white border border-white/30 backdrop-blur-xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                <span>Occupied</span>
                               </span>
                             )}
-                            {status === 'ARRIVING' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#FDE68A] text-[#92400E] border border-[#FCD34D] dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800 animate-pulse">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#D97706]" />
-                                Booked
+                            {isBooked && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800">
+                                <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                                <span>Reserved</span>
                               </span>
                             )}
-                            {status === 'DEPARTING' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800">
+                            {isDeparting && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
                                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                Departing
+                                <span>Departing</span>
                               </span>
                             )}
-                            {status === 'OCCUPIED' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-[#F9D2DA] text-[#8E1B2F] border border-[#F4A8B7] dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#A51F36]" />
-                                Occupied
-                              </span>
-                            )}
-                            {status === 'MAINTENANCE' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                            {isMaintenance && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-slate-200/80 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                Service
+                                <span>Out of Service</span>
+                              </span>
+                            )}
+                            {isAvailable && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>Available</span>
                               </span>
                             )}
                           </div>
@@ -1044,10 +1090,14 @@ function FrontDeskContent() {
                               setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
                             }}
                             className={cn(
-                              "w-6 h-6 flex items-center justify-center rounded-[2px] border transition-colors cursor-pointer",
-                              openOptionMenuId === room.id
-                                ? "border-[#0B3D32] bg-[#0B3D32] text-white dark:border-emerald-600 dark:bg-emerald-600"
-                                : "border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] text-slate-600 group-hover:text-[#0B3D32] group-hover:bg-[#F2F6F4] dark:text-slate-300 dark:group-hover:bg-[#093027]"
+                              'w-6 h-6 flex items-center justify-center rounded-[3px] border transition-colors cursor-pointer',
+                              isDarkCard
+                                ? openOptionMenuId === room.id
+                                  ? 'border-white bg-white text-[#0B3D32]'
+                                  : 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
+                                : openOptionMenuId === room.id
+                                ? 'border-[#0B3D32] bg-[#0B3D32] text-white dark:border-emerald-600 dark:bg-emerald-600'
+                                : 'border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] text-slate-600 group-hover:text-[#0B3D32] group-hover:bg-[#F2F6F4] dark:text-slate-300 dark:group-hover:bg-[#093027]'
                             )}
                             title={`Room ${room.number} Options`}
                           >
@@ -1056,32 +1106,207 @@ function FrontDeskContent() {
                         </div>
                       </div>
 
-                      {/* Middle: Clean, Simple & Professional Room Info Only */}
-                      <div className="py-2 flex flex-col justify-center text-xs space-y-1.5">
-                        <div className="flex items-baseline justify-between">
-                          <div className="font-mono font-bold text-sm text-[#0B3D32] dark:text-emerald-400">
-                            Rs. {room.pricePerNight.toLocaleString()}
-                            <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400"> / night</span>
-                          </div>
-                          <span
+                      {/* Middle: Room Type & Context Info (Guest Name, Dates, Rates) */}
+                      <div className="py-2.5 flex flex-col justify-center text-xs space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <p
                             className={cn(
-                              'font-semibold px-1.5 py-0.5 rounded-[2px] text-[10px]',
-                              room.cleaningStatus === 'CLEAN'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900'
+                              'text-xs font-bold truncate',
+                              isDarkCard ? 'text-white' : 'text-[#24352F] dark:text-white'
                             )}
                           >
-                            {room.cleaningStatus === 'CLEAN' ? 'Clean' : 'Dirty'}
+                            {room.type}
+                          </p>
+                          <span
+                            className={cn(
+                              'font-mono font-bold text-[11px] shrink-0',
+                              isDarkCard ? 'text-white/90' : 'text-[#0B3D32] dark:text-emerald-400'
+                            )}
+                          >
+                            Rs. {room.pricePerNight.toLocaleString()}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                          <span>{room.bedType}</span>
-                          {room.operationalStatus === 'MAINTENANCE' ? (
-                            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">Service</span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 font-medium">{room.acType || 'AC'}</span>
-                          )}
-                        </div>
+
+                        {/* Guest / State Info */}
+                        {isOccupied && activeBooking ? (
+                          <div className="text-[10px] space-y-0.5">
+                            <p className="font-medium text-emerald-100 truncate flex items-center gap-1">
+                              <span className="opacity-75 font-normal">Guest:</span>
+                              <strong className="font-bold text-white">
+                                {activeBooking.guest.firstName} {activeBooking.guest.lastName}
+                              </strong>
+                            </p>
+                            <p className="text-[10px] text-emerald-200/80 truncate">
+                              Check-out: {formatDate(activeBooking.checkOut)}
+                            </p>
+                          </div>
+                        ) : isBooked && activeBooking ? (
+                          <div className="text-[10px] space-y-0.5">
+                            <p className="font-medium text-sky-800 dark:text-sky-300 truncate flex items-center gap-1">
+                              <span className="opacity-75 font-normal">Guest:</span>
+                              <strong className="font-bold text-slate-900 dark:text-white">
+                                {activeBooking.guest.firstName} {activeBooking.guest.lastName}
+                              </strong>
+                            </p>
+                            <p className="text-[10px] text-sky-700 dark:text-sky-400 truncate">
+                              Check-in: {formatDate(activeBooking.checkIn)}
+                            </p>
+                          </div>
+                        ) : isDeparting && activeBooking ? (
+                          <div className="text-[10px] space-y-0.5">
+                            <p className="font-medium text-rose-700 dark:text-rose-400 truncate flex items-center gap-1">
+                              <span className="opacity-75 font-normal">Departing:</span>
+                              <strong className="font-bold text-[#24352F] dark:text-white">
+                                {activeBooking.guest.firstName} {activeBooking.guest.lastName}
+                              </strong>
+                            </p>
+                            <p className="text-[10px] text-rose-600/80 truncate">
+                              Check-out due today (11:00 AM)
+                            </p>
+                          </div>
+                        ) : isMaintenance ? (
+                          <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 truncate flex items-center gap-1">
+                            <Wrench className="w-3 h-3 text-slate-400" />
+                            <span>{room.maintenanceReason || 'Servicing in progress'}</span>
+                          </p>
+                        ) : (
+                          <p className="text-[10px] font-medium text-[#64736C] dark:text-[#A4B8AE] truncate">
+                            {room.bedType} · {room.acType || 'AC'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Housekeeping Status Badge on Left | High-Contrast Action Box on Right */}
+                    <div
+                      className={cn(
+                        'flex items-center justify-between pt-2.5 border-t min-h-[34px] mt-auto',
+                        isDarkCard ? 'border-white/20' : 'border-[#E5EEE9] dark:border-[#145447]/60'
+                      )}
+                    >
+                      {/* Left: Housekeeping / Maintenance Semantic Pill Badge */}
+                      <div className="flex items-center gap-1.5">
+                        {isMaintenance ? (
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
+                              isDarkCard
+                                ? 'bg-white/90 text-slate-800 border-white/40'
+                                : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                            )}
+                          >
+                            <Wrench className="w-3 h-3 text-slate-500" />
+                            <span>Maintenance</span>
+                          </span>
+                        ) : room.cleaningStatus === 'DIRTY' ? (
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
+                              isDarkCard
+                                ? 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]'
+                                : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                            )}
+                          >
+                            <AlertCircle className="w-3 h-3 text-amber-600" />
+                            <span>Dirty</span>
+                          </span>
+                        ) : room.cleaningStatus === 'IN_CLEANING' ? (
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
+                              isDarkCard
+                                ? 'bg-[#FFEDD5] text-[#C2410C] border-[#FED7AA]'
+                                : 'bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800'
+                            )}
+                          >
+                            <RefreshCw className="w-3 h-3 text-orange-600" />
+                            <span>Cleaning</span>
+                          </span>
+                        ) : (
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
+                              isDarkCard
+                                ? 'bg-white/95 text-[#0B3D32] border-white/40'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                            )}
+                          >
+                            <Sparkles className="w-3 h-3 text-emerald-600" />
+                            <span>Clean</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Right: High-contrast Action Box Button */}
+                      <div>
+                        {isAvailable ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickBookRoom(room);
+                            }}
+                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 font-bold text-[11px] shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
+                          >
+                            Book Now
+                          </button>
+                        ) : isOccupied ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) {
+                                handleOpenCheckOutModal(activeBooking);
+                              } else {
+                                setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
+                              }
+                            }}
+                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-white text-[#0B3D32] hover:bg-emerald-50 font-bold text-[11px] shadow-xs transition-all active:scale-95 cursor-pointer"
+                          >
+                            Check Out
+                          </button>
+                        ) : isBooked ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) {
+                                router.push(`/check-in?bookingId=${activeBooking.id}`);
+                              } else {
+                                setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
+                              }
+                            }}
+                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                          >
+                            Check In
+                          </button>
+                        ) : isDeparting ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) {
+                                handleOpenCheckOutModal(activeBooking);
+                              } else {
+                                setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
+                              }
+                            }}
+                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                          >
+                            Check Out
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMaintenance(room.id);
+                            }}
+                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                          >
+                            {isMaintenance ? 'End Service' : 'Service'}
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1140,39 +1365,90 @@ function FrontDeskContent() {
                                 <UserCheck className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                                 <span>Walk-in Check In</span>
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenOptionMenuId(null);
+                                  toast.info(
+                                    `Room ${room.number} is Available`,
+                                    `Check in a guest first before ordering room service.`
+                                  );
+                                }}
+                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                              >
+                                <Utensils className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                                <span>Add Order</span>
+                              </button>
                             </>
                           )}
 
                           {isBooked && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenOptionMenuId(null);
-                                if (activeBooking) {
-                                  router.push(`/check-in?bookingId=${activeBooking.id}`);
-                                }
-                              }}
-                              className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                            >
-                              <UserCheck className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                              <span>Check In Guest</span>
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenOptionMenuId(null);
+                                  if (activeBooking) {
+                                    router.push(`/check-in?bookingId=${activeBooking.id}`);
+                                  }
+                                }}
+                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                              >
+                                <UserCheck className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                                <span>Check In Guest</span>
+                              </button>
+                              {activeBooking && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenOptionMenuId(null);
+                                    handleOpenAddFoodModal(activeBooking);
+                                  }}
+                                  className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                                >
+                                  <Utensils className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  <span>Add Order</span>
+                                </button>
+                              )}
+                            </>
                           )}
 
                           {isOccupied && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenOptionMenuId(null);
-                                if (activeBooking) {
-                                  handleOpenCheckOutModal(activeBooking);
-                                }
-                              }}
-                              className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                            >
-                              <LogOut className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                              <span>Check Out</span>
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenOptionMenuId(null);
+                                  const targetBooking =
+                                    activeBooking ||
+                                    bookings.find(
+                                      (b) =>
+                                        b.room.number === room.number &&
+                                        (b.status === 'CHECKED_IN' || b.status === 'RESERVED')
+                                    );
+                                  if (targetBooking) {
+                                    handleOpenAddFoodModal(targetBooking);
+                                  }
+                                }}
+                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                              >
+                                <Utensils className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>Add Order</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenOptionMenuId(null);
+                                  if (activeBooking) {
+                                    handleOpenCheckOutModal(activeBooking);
+                                  }
+                                }}
+                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                              >
+                                <LogOut className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                                <span>Check Out</span>
+                              </button>
+                            </>
                           )}
 
                           {/* View Folio (Arriving or Occupied with active booking) */}
@@ -2123,59 +2399,111 @@ function FrontDeskContent() {
       <Modal
         isOpen={isAddFoodModalOpen}
         onClose={() => setIsAddFoodModalOpen(false)}
-        title="Charge Food & Cafe to Room"
-        description={selectedBookingForFood ? `Order food items for Room ${selectedBookingForFood.room.number} (${selectedBookingForFood.guest.firstName} ${selectedBookingForFood.guest.lastName})` : ''}
+        title="Add Order (Room Service)"
+        description={
+          selectedBookingForFood
+            ? `Order food & beverages for Room ${selectedBookingForFood.room.number} (${selectedBookingForFood.guest.firstName} ${selectedBookingForFood.guest.lastName})`
+            : ''
+        }
         size="md"
       >
-        <div className="space-y-4">
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-72 overflow-y-auto">
-            {CAFE_MENU_ITEMS.map((item) => {
-              const qty = selectedFoodItems[item.id] || 0;
-              return (
-                <div key={item.id} className="py-2.5 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white">{item.name}</span>
-                    <p className="text-[11px] text-slate-500">{formatCurrency(item.price)}</p>
+        <div className="space-y-3">
+          {/* Quick Menu Search */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search dishes or drinks (e.g. Momo, Biryani, Coffee)..."
+              value={foodMenuSearch}
+              onChange={(e) => setFoodMenuSearch(e.target.value)}
+              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0B3D32]"
+            />
+            {foodMenuSearch && (
+              <button
+                type="button"
+                onClick={() => setFoodMenuSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-72 overflow-y-auto pr-1">
+            {filteredFoodCatalog.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-400">
+                No items match &quot;{foodMenuSearch}&quot;.
+              </div>
+            ) : (
+              filteredFoodCatalog.map((item) => {
+                const qty = selectedFoodItems[item.id] || 0;
+                return (
+                  <div
+                    key={item.id}
+                    className="py-2.5 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40 px-1 rounded transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {item.name}
+                        </span>
+                        {item.category && (
+                          <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            {item.category}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 font-bold mt-0.5">
+                        Rs. {item.price.toFixed(0)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedFoodItems((prev) => ({
+                            ...prev,
+                            [item.id]: Math.max(0, (prev[item.id] || 0) - 1),
+                          }))
+                        }
+                        className="w-7 h-7 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <span className="w-6 text-center font-bold text-slate-900 dark:text-white font-mono">
+                        {qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedFoodItems((prev) => ({
+                            ...prev,
+                            [item.id]: (prev[item.id] || 0) + 1,
+                          }))
+                        }
+                        className="w-7 h-7 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() =>
-                        setSelectedFoodItems((prev) => ({
-                          ...prev,
-                          [item.id]: Math.max(0, (prev[item.id] || 0) - 1),
-                        }))
-                      }
-                      className="w-7 h-7 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      -
-                    </button>
-                    <span className="w-6 text-center font-bold text-slate-900 dark:text-white">{qty}</span>
-                    <button
-                      onClick={() =>
-                        setSelectedFoodItems((prev) => ({
-                          ...prev,
-                          [item.id]: (prev[item.id] || 0) + 1,
-                        }))
-                      }
-                      className="w-7 h-7 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs">
-            <span className="text-slate-500">Order Subtotal:</span>
-            <span className="font-bold text-sm text-slate-900 dark:text-white">
-              {formatCurrency(
-                Object.entries(selectedFoodItems).reduce((sum, [id, q]) => {
-                  const m = CAFE_MENU_ITEMS.find((item) => item.id === id);
+            <span className="text-slate-500 font-medium">Order Subtotal:</span>
+            <span className="font-bold text-sm text-[#0B3D32] dark:text-emerald-400 font-mono">
+              Rs.{' '}
+              {Object.entries(selectedFoodItems)
+                .reduce((sum, [id, q]) => {
+                  const m =
+                    foodCatalog.find((item) => item.id === id) ||
+                    CAFE_MENU_ITEMS.find((item) => item.id === id);
                   return sum + (m ? m.price * q : 0);
                 }, 0)
-              )}
+                .toLocaleString()}
             </span>
           </div>
 
@@ -2190,7 +2518,7 @@ function FrontDeskContent() {
               leftIcon={<Utensils className="w-3.5 h-3.5" />}
               className="font-bold"
             >
-              Confirm Food Order
+              Charge to Room Folio
             </Button>
           </div>
         </div>

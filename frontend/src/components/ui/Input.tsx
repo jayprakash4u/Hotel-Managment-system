@@ -39,9 +39,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               'w-full h-[42px] rounded-lg px-3.5 text-sm transition-all duration-150',
               'bg-white border border-[#CBD5D0] text-[#24352F] placeholder-[#7A8982]',
               'hover:border-[#879B90]',
-              'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
+              'focus:border-[#0B3D32] focus:outline-none focus:ring-3 focus:ring-[#0B3D32]/15',
               'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
-              'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20 dark:disabled:bg-[#1E293B] dark:disabled:text-[#64748B]',
+              'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:placeholder-[#64748B] dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20 dark:disabled:bg-[#1E293B] dark:disabled:text-[#64748B]',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
               error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
@@ -97,9 +97,9 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               'w-full h-[42px] appearance-none rounded-lg px-3.5 pr-9 text-sm transition-all duration-150',
               'bg-white border border-[#CBD5D0] text-[#1E293B]',
               'hover:border-[#94A3B8]',
-              'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
+              'focus:border-[#0B3D32] focus:outline-none focus:ring-3 focus:ring-[#0B3D32]/15',
               'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
-              'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20 dark:disabled:bg-[#1E293B] dark:disabled:text-[#64748B]',
+              'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20 dark:disabled:bg-[#1E293B] dark:disabled:text-[#64748B]',
               error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
               className
             )}
@@ -159,9 +159,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             'w-full min-h-[90px] rounded-lg p-3 text-sm transition-all duration-150',
             'bg-white border border-[#CBD5D0] text-[#1E293B] placeholder-[#94A3B8]',
             'hover:border-[#94A3B8]',
-            'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
+            'focus:border-[#0B3D32] focus:outline-none focus:ring-3 focus:ring-[#0B3D32]/15',
             'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
-            'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20',
+            'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:placeholder-[#64748B] dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20',
             error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
             className
           )}

@@ -229,12 +229,16 @@ export interface MaintenanceTicketData {
 
 export interface POSProductData {
   id: string;
+  hotelId?: string;
   outlet: string;
   category: string;
   name: string;
   description?: string | null;
   price: number;
   stock: number;
+  trackStock: boolean;
+  isAvailable?: boolean;
+  isActive?: boolean;
   imageUrl?: string | null;
 }
 

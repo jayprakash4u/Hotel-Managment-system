@@ -43,7 +43,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           particleCount: 80,
           spread: 70,
           origin: { y: 0.6 },
-          colors: ['#1A73E8', '#DC2626', '#F59E0B', '#FFFFFF'],
+          colors: ['#0B3D32', '#A51F36', '#92400E', '#FFFFFF'],
         });
       }
 
@@ -74,15 +74,15 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               t.type === 'error' && 'bg-white border-[#FECACA] text-[#991B1B] dark:bg-[#071512] dark:border-[#991B1B]',
               t.type === 'warning' && 'bg-white border-[#FDE68A] text-[#92400E] dark:bg-[#071512] dark:border-[#92400E]',
               t.type === 'info' && 'bg-white border-[#BFDBFE] text-[#1D4ED8] dark:bg-[#071512] dark:border-[#1D4ED8]',
-              t.type === 'celebrate' && 'bg-white border-[#D2E3FC] text-[#1A73E8] dark:bg-[#0F172A] dark:border-[#1A73E8]'
+              t.type === 'celebrate' && 'bg-white border-[#CBD5D0] text-[#0B3D32] dark:bg-[#071512] dark:border-emerald-700 dark:text-emerald-300'
             )}
           >
             <div className="shrink-0 mt-0.5">
               {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />}
               {t.type === 'error' && <AlertCircle className="w-5 h-5 text-[#DC2626]" />}
               {t.type === 'warning' && <AlertCircle className="w-5 h-5 text-[#D97706]" />}
-              {t.type === 'info' && <Info className="w-5 h-5 text-[#1A73E8]" />}
-              {t.type === 'celebrate' && <Sparkles className="w-5 h-5 text-[#1A73E8] dark:text-[#8AB4F8]" />}
+              {t.type === 'info' && <Info className="w-5 h-5 text-[#1D4ED8]" />}
+              {t.type === 'celebrate' && <Sparkles className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />}
             </div>
             <div className="flex-1 min-w-0">
               <h5 className="text-xs font-bold font-heading">{t.title}</h5>

@@ -2,363 +2,608 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import {
   ChefHat,
   Search,
   X,
   ChevronDown,
+  ArrowLeft,
+  Plus,
+  Edit3,
+  Trash2,
+  Package,
+  Sparkles,
+  Check,
+  AlertCircle,
+  Boxes,
+  CookingPot,
+  RefreshCw,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
+import { useToast } from '@/components/ui/Toast';
+import { api } from '@/lib/api';
+import { POSProductData } from '@/lib/types';
+import { cn, formatCurrency } from '@/lib/utils';
 
-export interface MenuGroupItem {
-  id: string;
-  code: string;
-  name: string;
-  prices: Record<string, number | null>;
-}
+// Standard menu categories
+const PRESET_CATEGORIES = [
+  'Fast Food & Momos',
+  'Main Course & Curries',
+  'Beverages & Drinks',
+  'Starters & Quick Bites',
+  'Tandoori & Grills',
+  'Biryani & Rice Bowls',
+  'Desserts & Sweets',
+  'Breakfast Specials',
+];
 
-export interface MenuGroup {
-  id: string;
-  name: string;
-  description: string;
-  unitHeaders: string[]; // e.g. ['Half', 'Full']
-  items: MenuGroupItem[];
-}
-
-const MENU_GROUPS: MenuGroup[] = [
-  // 1. Fast Food & Momos (Measured in Half and Full)
+// Fallback initial items if backend empty or during offline dev
+const INITIAL_FALLBACK_ITEMS: Partial<POSProductData>[] = [
+  // Stocked Products (Beer, Coca-Cola, Bottled water, Packaged juice)
   {
-    id: 'fast-food',
-    name: 'Fast Food & Momos',
-    description: 'Freshly steamed, fried & chilled momos and quick bites',
-    unitHeaders: ['Half', 'Full'],
-    items: [
-      {
-        id: 'ff-1',
-        code: 'MOMO-C',
-        name: 'Chicken Steam Momo',
-        prices: { Half: 100, Full: 180 },
-      },
-      {
-        id: 'ff-2',
-        code: 'MOMO-V',
-        name: 'Veg Steam Momo',
-        prices: { Half: 80, Full: 150 },
-      },
-      {
-        id: 'ff-3',
-        code: 'MOMO-B',
-        name: 'Buff Steam Momo',
-        prices: { Half: 90, Full: 160 },
-      },
-      {
-        id: 'ff-4',
-        code: 'MOMO-CF',
-        name: 'Chicken Fried Momo',
-        prices: { Half: 120, Full: 200 },
-      },
-      {
-        id: 'ff-5',
-        code: 'MOMO-VF',
-        name: 'Veg Fried Momo',
-        prices: { Half: 90, Full: 160 },
-      },
-      {
-        id: 'ff-6',
-        code: 'MOMO-CHL',
-        name: 'Chicken Chilly Momo (C-Momo)',
-        prices: { Half: 140, Full: 230 },
-      },
-      {
-        id: 'ff-7',
-        code: 'MOMO-PAN',
-        name: 'Paneer Steam Momo',
-        prices: { Half: 110, Full: 190 },
-      },
-      {
-        id: 'ff-8',
-        code: 'FRY-01',
-        name: 'Crispy French Fries (Peri Peri / Salted)',
-        prices: { Half: 90, Full: 150 },
-      },
-    ],
+    name: 'Coca-Cola (Bottled)',
+    category: 'Beverages & Drinks',
+    description: 'Chilled 500ml Coca-Cola bottle',
+    price: 80,
+    trackStock: true,
+    stock: 100,
+    isAvailable: true,
   },
-
-  // 2. Main Course & Curries (Measured in Half and Full)
   {
-    id: 'main-course',
-    name: 'Main Course & Curries',
-    description: 'Traditional curries, gravies, and slow-cooked handi dishes',
-    unitHeaders: ['Half', 'Full'],
-    items: [
-      {
-        id: 'mc-1',
-        code: 'PBM-01',
-        name: 'Paneer Butter Masala',
-        prices: { Half: 240, Full: 420 },
-      },
-      {
-        id: 'mc-2',
-        code: 'CTM-01',
-        name: 'Chicken Tikka Masala',
-        prices: { Half: 280, Full: 490 },
-      },
-      {
-        id: 'mc-3',
-        code: 'DAL-MKH',
-        name: 'Dal Makhani Handi',
-        prices: { Half: 190, Full: 320 },
-      },
-      {
-        id: 'mc-4',
-        code: 'CHK-KAD',
-        name: 'Chicken Kadai Peshawari',
-        prices: { Half: 290, Full: 510 },
-      },
-      {
-        id: 'mc-5',
-        code: 'MUT-ROG',
-        name: 'Mutton Rogan Josh Handi',
-        prices: { Half: 340, Full: 580 },
-      },
-      {
-        id: 'mc-6',
-        code: 'MIX-VEG',
-        name: 'Seasonal Mixed Vegetable Curry',
-        prices: { Half: 170, Full: 290 },
-      },
-      {
-        id: 'mc-7',
-        code: 'BRY-CHK',
-        name: 'Hyderabadi Dum Chicken Biryani',
-        prices: { Half: 280, Full: 480 },
-      },
-      {
-        id: 'mc-8',
-        code: 'RICE-PL',
-        name: 'Kashmiri Saffron Veg Pulao',
-        prices: { Half: 160, Full: 260 },
-      },
-    ],
+    name: 'Gorkha Strong Beer (650ml)',
+    category: 'Beverages & Drinks',
+    description: 'Crisp brewed lager chilled 650ml bottle',
+    price: 380,
+    trackStock: true,
+    stock: 50,
+    isAvailable: true,
   },
-
-  // 3. Hot Tea & Coffee (Measured in Small, Medium, Large)
   {
-    id: 'tea-coffee',
-    name: 'Tea & Coffee',
-    description: 'Aromatic milk teas, artisan espresso brews, and herbal infusions',
-    unitHeaders: ['Small', 'Medium', 'Large'],
-    items: [
-      {
-        id: 'tc-1',
-        code: 'TEA-MSL',
-        name: 'Special Masala Milk Tea',
-        prices: { Small: 40, Medium: 70, Large: 120 },
-      },
-      {
-        id: 'tc-2',
-        code: 'COF-FR',
-        name: 'Fresh Brewed Coffee',
-        prices: { Small: 80, Medium: 120, Large: 160 },
-      },
-      {
-        id: 'tc-3',
-        code: 'COF-LAT',
-        name: 'Café Latte / Cappuccino',
-        prices: { Small: 110, Medium: 150, Large: 190 },
-      },
-      {
-        id: 'tc-4',
-        code: 'TEA-LEM',
-        name: 'Hot Lemon Honey Ginger',
-        prices: { Small: 60, Medium: 90, Large: null },
-      },
-      {
-        id: 'tc-5',
-        code: 'TEA-GRN',
-        name: 'Himalayan Organic Green Tea',
-        prices: { Small: 50, Medium: 80, Large: null },
-      },
-    ],
+    name: 'Mineral Water (1L Bottled)',
+    category: 'Beverages & Drinks',
+    description: 'Pure sealed mineral water bottle',
+    price: 40,
+    trackStock: true,
+    stock: 150,
+    isAvailable: true,
   },
-
-  // 4. Cold Drinks & Mocktails (Measured in Glass and Pitcher)
   {
-    id: 'drinks',
-    name: 'Cold Drinks & Mocktails',
-    description: 'Chilled signature mocktails, coolers, and traditional lassis',
-    unitHeaders: ['Glass', 'Pitcher'],
-    items: [
-      {
-        id: 'dr-1',
-        code: 'MOK-MOJ',
-        name: 'Virgin Mint Mojito',
-        prices: { Glass: 180, Pitcher: 550 },
-      },
-      {
-        id: 'dr-2',
-        code: 'LIME-01',
-        name: 'Fresh Lime Soda (Sweet / Salt)',
-        prices: { Glass: 90, Pitcher: 280 },
-      },
-      {
-        id: 'dr-3',
-        code: 'LAS-MNG',
-        name: 'Sweet Mango Lassi',
-        prices: { Glass: 140, Pitcher: 420 },
-      },
-      {
-        id: 'dr-4',
-        code: 'MOK-BLU',
-        name: 'Blue Lagoon Citrus Cooler',
-        prices: { Glass: 190, Pitcher: 580 },
-      },
-      {
-        id: 'dr-5',
-        code: 'COF-CLD',
-        name: 'Cold Coffee with Ice Cream Float',
-        prices: { Glass: 170, Pitcher: null },
-      },
-    ],
+    name: 'Real Fruit Juice (Packaged)',
+    category: 'Beverages & Drinks',
+    description: '1L packaged mixed fruit tetra pack',
+    price: 240,
+    trackStock: true,
+    stock: 30,
+    isAvailable: true,
   },
-
-  // 5. Tandoori Breads & Naan (Measured in Single and Basket)
+  // Handmade / Prepared Items (Tea, Momo, Chowmein, Fried Rice)
   {
-    id: 'breads',
-    name: 'Tandoori Breads & Naan',
-    description: 'Clay oven baked fresh breads and stuffed kulchas',
-    unitHeaders: ['Single (1 Pc)', 'Basket (4 Pcs)'],
-    items: [
-      {
-        id: 'br-1',
-        code: 'ROT-PLN',
-        name: 'Plain Tandoori Roti',
-        prices: { 'Single (1 Pc)': 30, 'Basket (4 Pcs)': 110 },
-      },
-      {
-        id: 'br-2',
-        code: 'ROT-BTR',
-        name: 'Butter Tandoori Roti',
-        prices: { 'Single (1 Pc)': 40, 'Basket (4 Pcs)': 150 },
-      },
-      {
-        id: 'br-3',
-        code: 'NAN-PLN',
-        name: 'Plain Tandoori Naan',
-        prices: { 'Single (1 Pc)': 55, 'Basket (4 Pcs)': 200 },
-      },
-      {
-        id: 'br-4',
-        code: 'NAN-BTR',
-        name: 'Butter Naan',
-        prices: { 'Single (1 Pc)': 70, 'Basket (4 Pcs)': 260 },
-      },
-      {
-        id: 'br-5',
-        code: 'NAN-GAR',
-        name: 'Garlic Butter Naan',
-        prices: { 'Single (1 Pc)': 90, 'Basket (4 Pcs)': 320 },
-      },
-    ],
+    name: 'Special Masala Milk Tea',
+    category: 'Beverages & Drinks',
+    description: 'Freshly brewed hot handmade spiced tea with herbs',
+    price: 45,
+    trackStock: false,
+    stock: 0,
+    isAvailable: true,
   },
-
-  // 6. Desserts & Sweets (Measured in Single and Double)
   {
-    id: 'desserts',
-    name: 'Desserts & Sweets',
-    description: 'Warm gulab jamuns, rasgullas, and artisan ice creams',
-    unitHeaders: ['Single (1 Pc)', 'Plate (2 Pcs)'],
-    items: [
-      {
-        id: 'des-1',
-        code: 'GJ-01',
-        name: 'Hot Gulab Jamun with Pistachio',
-        prices: { 'Single (1 Pc)': 70, 'Plate (2 Pcs)': 130 },
-      },
-      {
-        id: 'des-2',
-        code: 'RAS-01',
-        name: 'Bengali Spongy Rasgulla',
-        prices: { 'Single (1 Pc)': 60, 'Plate (2 Pcs)': 110 },
-      },
-      {
-        id: 'des-3',
-        code: 'ICE-VAN',
-        name: 'Vanilla / Chocolate Ice Cream Scoop',
-        prices: { 'Single (1 Pc)': 80, 'Plate (2 Pcs)': 150 },
-      },
-      {
-        id: 'des-4',
-        code: 'BRW-ICE',
-        name: 'Sizzling Hot Brownie with Vanilla Float',
-        prices: { 'Single (1 Pc)': null, 'Plate (2 Pcs)': 240 },
-      },
-    ],
+    name: 'Filter Coffee (Hot Brew)',
+    category: 'Beverages & Drinks',
+    description: 'Artisanal roasted hand-pulled espresso with frothy milk',
+    price: 90,
+    trackStock: false,
+    stock: 0,
+    isAvailable: true,
+  },
+  {
+    name: 'Chicken Steam Momo (10 Pcs)',
+    category: 'Fast Food & Momos',
+    description: 'Handmade juicy chicken dumplings steamed fresh to order',
+    price: 180,
+    trackStock: false,
+    stock: 0,
+    isAvailable: true,
+  },
+  {
+    name: 'Veg Steam Momo (10 Pcs)',
+    category: 'Fast Food & Momos',
+    description: 'Fresh minced cabbage, paneer and herb handmade dumplings',
+    price: 150,
+    trackStock: false,
+    stock: 0,
+    isAvailable: true,
+  },
+  {
+    name: 'Chicken Fried Momo (10 Pcs)',
+    category: 'Fast Food & Momos',
+    description: 'Golden fried crispy handmade chicken momos',
+    price: 200,
+    trackStock: false,
+    stock: 0,
+    isAvailable: true,
+  },
+  {
+    name: 'Special Chicken Chowmein',
+    category: 'Fast Food & Momos',
+    description: 'Wok-tossed handmade noodles with shredded chicken and veggies',
+    price: 210,
+    trackStock: false,
+    stock: 0,
+    isAvailable: true,
+  },
+  {
+    name: 'Egg & Veg Fried Rice',
+    category: 'Biryani & Rice Bowls',
+    description: 'Aromatic wok-stirred basmati rice with farm eggs & crisp veggies',
+    price: 190,
+    trackStock: false,
+    stock: 0,
+    isAvailable: true,
+  },
+  {
+    name: 'Paneer Butter Masala',
+    category: 'Main Course & Curries',
+    description: 'Tender cottage cheese cooked in creamy tomato butter gravy',
+    price: 320,
+    trackStock: false,
+    stock: 0,
+    isAvailable: true,
   },
 ];
 
-export default function OurMenuTablePage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState('all');
+export default function MenuPage() {
+  const toast = useToast();
 
-  // Filtered menu groups & items
-  const filteredGroups = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
+  const [products, setProducts] = useState<POSProductData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-    return MENU_GROUPS.map((group) => {
-      // Check group filter
-      if (selectedGroupFilter !== 'all' && group.id !== selectedGroupFilter) {
-        return { ...group, items: [] };
+  // Filters
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [stockFilter, setStockFilter] = useState<'all' | 'tracked' | 'untracked'>('all');
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [editingItem, setEditingItem] = useState<POSProductData | null>(null);
+
+  // Form Fields
+  const [formName, setFormName] = useState<string>('');
+  const [formCategory, setFormCategory] = useState<string>('Beverages & Drinks');
+  const [formPrice, setFormPrice] = useState<string>('');
+  const [formDescription, setFormDescription] = useState<string>('');
+  const [formTrackStock, setFormTrackStock] = useState<boolean>(false);
+  const [formStock, setFormStock] = useState<string>('');
+  const [formIsAvailable, setFormIsAvailable] = useState<boolean>(true);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Load products from API
+  const fetchMenuProducts = async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    else setLoading(true);
+
+    try {
+      const data = await api.getPOSProducts();
+      if (Array.isArray(data) && data.length > 0) {
+        setProducts(data);
+      } else {
+        // If DB has no products yet, seed initial fallback demo items into state
+        setProducts(
+          INITIAL_FALLBACK_ITEMS.map((item, idx) => ({
+            id: `temp-${idx}`,
+            outlet: 'RESTAURANT',
+            category: item.category || 'General',
+            name: item.name || 'Item',
+            description: item.description || null,
+            price: item.price || 0,
+            stock: item.stock || 0,
+            trackStock: item.trackStock ?? false,
+            isAvailable: item.isAvailable ?? true,
+            isActive: item.isAvailable ?? true,
+          }))
+        );
       }
-
-      // Check search query
-      if (!q) {
-        return group;
-      }
-
-      const matchingItems = group.items.filter(
-        (item) =>
-          item.name.toLowerCase().includes(q) ||
-          item.code.toLowerCase().includes(q) ||
-          group.name.toLowerCase().includes(q)
+    } catch (err: any) {
+      console.warn('Could not fetch products from backend API, using initial catalog', err);
+      setProducts(
+        INITIAL_FALLBACK_ITEMS.map((item, idx) => ({
+          id: `temp-${idx}`,
+          outlet: 'RESTAURANT',
+          category: item.category || 'General',
+          name: item.name || 'Item',
+          description: item.description || null,
+          price: item.price || 0,
+          stock: item.stock || 0,
+          trackStock: item.trackStock ?? false,
+          isAvailable: item.isAvailable ?? true,
+          isActive: item.isAvailable ?? true,
+        }))
       );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
-      return {
-        ...group,
-        items: matchingItems,
-      };
-    }).filter((group) => group.items.length > 0);
-  }, [searchQuery, selectedGroupFilter]);
+  useEffect(() => {
+    fetchMenuProducts();
+  }, []);
+
+  // Open modal for Create
+  const handleOpenCreateModal = () => {
+    setEditingItem(null);
+    setFormName('');
+    setFormCategory('Beverages & Drinks');
+    setFormPrice('');
+    setFormDescription('');
+    setFormTrackStock(false);
+    setFormStock('');
+    setFormIsAvailable(true);
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  // Open modal for Edit
+  const handleOpenEditModal = (item: POSProductData) => {
+    setEditingItem(item);
+    setFormName(item.name);
+    setFormCategory(item.category || 'Beverages & Drinks');
+    setFormPrice(item.price.toString());
+    setFormDescription(item.description || '');
+    setFormTrackStock(Boolean(item.trackStock));
+    // For stocked items, fill actual stock; for untracked items, leave empty or default
+    setFormStock(item.trackStock ? item.stock.toString() : '');
+    setFormIsAvailable(item.isAvailable ?? item.isActive ?? true);
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  // Close modal
+  const handleCloseModal = () => {
+    if (isSubmitting) return;
+    setIsModalOpen(false);
+    setEditingItem(null);
+    setFormError(null);
+  };
+
+  // Handle Form Submit
+  const handleSaveMenuItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    // 1. Validate Item Name
+    const trimmedName = formName.trim();
+    if (!trimmedName) {
+      setFormError('Item name is required.');
+      return;
+    }
+
+    // 2. Validate Category
+    const trimmedCat = formCategory.trim();
+    if (!trimmedCat) {
+      setFormError('Please select or enter a category.');
+      return;
+    }
+
+    // 3. Validate Price
+    const parsedPrice = parseFloat(formPrice);
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      setFormError('Please enter a valid non-negative selling price.');
+      return;
+    }
+
+    // 4. Validate Stock Tracking Requirements
+    let parsedStock: number | undefined = undefined;
+    if (formTrackStock) {
+      // When Track Stock is enabled, require a valid non-negative stock quantity
+      if (formStock.trim() === '') {
+        setFormError('Stock quantity is required when stock tracking is enabled.');
+        return;
+      }
+      parsedStock = parseInt(formStock, 10);
+      if (isNaN(parsedStock) || parsedStock < 0) {
+        setFormError('Stock quantity must be a non-negative whole number (0 or greater).');
+        return;
+      }
+    } else {
+      // When Track Stock is disabled, do not require stock quantity
+      parsedStock = undefined;
+    }
+
+    // Auto-compute availability: when stock is 0 on a tracked product, mark unavailable
+    let finalAvailability = formIsAvailable;
+    if (formTrackStock && parsedStock !== undefined && parsedStock <= 0) {
+      finalAvailability = false;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (editingItem) {
+        // Edit Mode: update product without deleting unrelated fields
+        const updated = await api.updatePOSProduct(editingItem.id, {
+          name: trimmedName,
+          category: trimmedCat,
+          price: parsedPrice,
+          description: formDescription.trim() || undefined,
+          trackStock: formTrackStock,
+          stock: formTrackStock ? parsedStock : (editingItem.stock || 0),
+          isAvailable: finalAvailability,
+        });
+
+        setProducts((prev) =>
+          prev.map((p) => (p.id === editingItem.id ? { ...p, ...updated } : p))
+        );
+        toast.success(
+          'Menu item updated',
+          `"${trimmedName}" saved as ${formTrackStock ? `Stocked (${parsedStock} in stock)` : 'Handmade / Not Tracked'}.`
+        );
+      } else {
+        // Create Mode
+        const created = await api.createPOSProduct({
+          outlet: 'RESTAURANT',
+          name: trimmedName,
+          category: trimmedCat,
+          price: parsedPrice,
+          description: formDescription.trim() || undefined,
+          trackStock: formTrackStock,
+          stock: formTrackStock ? parsedStock : 0,
+          isAvailable: finalAvailability,
+        });
+
+        setProducts((prev) => [created, ...prev]);
+        toast.success(
+          'Menu item created',
+          `"${trimmedName}" added as ${formTrackStock ? `Stocked (${parsedStock} in stock)` : 'Handmade / Prepared'}.`
+        );
+      }
+
+      handleCloseModal();
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to save menu item.');
+      toast.error('Save failed', err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Delete product
+  const handleDeleteItem = async (item: POSProductData) => {
+    if (!confirm(`Are you sure you want to delete "${item.name}" from the menu?`)) {
+      return;
+    }
+
+    try {
+      await api.deletePOSProduct(item.id);
+      setProducts((prev) => prev.filter((p) => p.id !== item.id));
+      toast.success('Item deleted', `"${item.name}" removed from the menu.`);
+    } catch (err: any) {
+      toast.error('Delete failed', err.message);
+    }
+  };
+
+  // Toggle availability directly from listing
+  const handleToggleAvailability = async (item: POSProductData) => {
+    const nextAvailability = !(item.isAvailable ?? item.isActive ?? true);
+    try {
+      const updated = await api.updatePOSProduct(item.id, {
+        isAvailable: nextAvailability,
+      });
+      setProducts((prev) =>
+        prev.map((p) => (p.id === item.id ? { ...p, ...updated } : p))
+      );
+      toast.success(
+        nextAvailability ? 'Item Available' : 'Item Marked Unavailable',
+        `"${item.name}" is now ${nextAvailability ? 'available for ordering' : 'hidden from new orders'}.`
+      );
+    } catch (err: any) {
+      toast.error('Status update failed', err.message);
+    }
+  };
+
+  // Extract all categories dynamically
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    PRESET_CATEGORIES.forEach((c) => set.add(c));
+    products.forEach((p) => {
+      if (p.category) set.add(p.category);
+    });
+    return Array.from(set);
+  }, [products]);
+
+  // Filtered products list
+  const filteredProducts = useMemo(() => {
+    return products.filter((item) => {
+      // Search filter
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q)) ||
+        (item.category && item.category.toLowerCase().includes(q));
+
+      // Category filter
+      const matchesCategory =
+        selectedCategory === 'all' ||
+        item.category.toLowerCase() === selectedCategory.toLowerCase();
+
+      // Stock type filter
+      let matchesStockType = true;
+      if (stockFilter === 'tracked') {
+        matchesStockType = Boolean(item.trackStock);
+      } else if (stockFilter === 'untracked') {
+        matchesStockType = !item.trackStock;
+      }
+
+      return matchesSearch && matchesCategory && matchesStockType;
+    });
+  }, [products, searchQuery, selectedCategory, stockFilter]);
+
+  // Group filtered items by category
+  const groupedProducts = useMemo(() => {
+    const map = new Map<string, POSProductData[]>();
+    filteredProducts.forEach((item) => {
+      const cat = item.category || 'Other';
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(item);
+    });
+    return Array.from(map.entries()).map(([category, items]) => ({
+      category,
+      items,
+    }));
+  }, [filteredProducts]);
+
+  // Counts for summary pills
+  const stats = useMemo(() => {
+    const total = products.length;
+    const tracked = products.filter((p) => p.trackStock).length;
+    const untracked = total - tracked;
+    const outOfStock = products.filter((p) => p.trackStock && p.stock <= 0).length;
+    return { total, tracked, untracked, outOfStock };
+  }, [products]);
 
   return (
-    <div className="h-full flex flex-col min-h-0 select-none">
+    <div className="space-y-4 pb-12 select-none">
       {/* =========================================================================
-          PAGE HEADER: Title, Subtitle & Total Items Counter
+          RESTAURANT MANAGEMENT SUB-OPTIONS NAVIGATION (LINKED TO OUR MENU)
          ========================================================================= */}
-      <div className="shrink-0 pb-3 border-b border-[#E5EEE9] dark:border-[#145447] flex items-center justify-between">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs">
+            <Link
+              href="/restaurant-management"
+              className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Restaurant Management
+            </Link>
+            <span className="text-slate-300 dark:text-slate-600">/</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              Our Menu & Stock Tracking
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchMenuProducts(true)}
+              disabled={refreshing}
+              title="Refresh menu & stock from server"
+              className="inline-flex items-center gap-1 rounded bg-[#F4F7F5] dark:bg-[#061B16] border border-[#DCE3DF] dark:border-[#145447] px-2 py-1 text-[11px] font-bold text-[#24352F] dark:text-[#A4B8AE] hover:text-[#0B3D32] dark:hover:text-emerald-300 transition-colors cursor-pointer"
+            >
+              <RefreshCw className={cn('w-3 h-3', refreshing && 'animate-spin')} />
+              <span>Refresh</span>
+            </button>
+            <span className="rounded bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider">
+              Menu & Stock Control
+            </span>
+          </div>
+        </div>
+
+        <RestaurantManagementNavBoxes activeId="menu" />
+      </div>
+
+      <div className="border-b border-slate-200 dark:border-slate-800 -mt-1 mb-2" />
+
+      {/* =========================================================================
+          PAGE HEADER: Title, Summary Pills & Add Menu Item Button
+         ========================================================================= */}
+      <div className="shrink-0 pb-3 border-b border-[#E5EEE9] dark:border-[#145447] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600">
             <ChefHat className="w-5 h-5" />
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#24352F] dark:text-white font-heading tracking-tight">
-            Café Menu
-          </h1>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black text-[#24352F] dark:text-white font-heading tracking-tight">
+                Menu & Stock Management
+              </h1>
+              <span className="text-xs font-bold font-mono px-2 py-0.5 rounded-[3px] bg-[#EEF4F1] dark:bg-[#0A2E26] text-[#0B3D32] dark:text-emerald-300 border border-[#D8E6DF] dark:border-[#145447]">
+                {stats.total} Dishes & Products
+              </span>
+            </div>
+            <p className="text-xs text-[#64736C] dark:text-[#A4B8AE] mt-0.5">
+              Supports both <strong className="text-[#24352F] dark:text-white">stocked retail products</strong> (Beer, Coca-Cola) with automated inventory depletion and <strong className="text-[#24352F] dark:text-white">handmade/prepared items</strong> (Tea, Momo, Chowmein) prepared on order.
+            </p>
+          </div>
+        </div>
+
+        {/* Action Button: Add Menu Item */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#082d25] dark:bg-emerald-600 dark:hover:bg-emerald-700 transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Menu Item</span>
+          </button>
         </div>
       </div>
 
       {/* =========================================================================
-          TOOLBAR: Search Bar & Category Filter Dropdown
+          SUMMARY METRIC CARDS (Total, Stocked, Handmade, Out of Stock)
          ========================================================================= */}
-      <div className="shrink-0 py-3 flex flex-wrap items-center gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="p-3 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] shadow-2xs">
+          <div className="flex items-center justify-between text-[#64736C] dark:text-[#A4B8AE] text-[11px] font-semibold">
+            <span>All Menu Items</span>
+            <ChefHat className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+          </div>
+          <div className="text-xl font-black text-[#24352F] dark:text-white font-mono mt-1">
+            {stats.total}
+          </div>
+          <div className="text-[10px] text-[#879B90] mt-0.5">Dishes across all outlets</div>
+        </div>
+
+        <div className="p-3 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] shadow-2xs">
+          <div className="flex items-center justify-between text-[#64736C] dark:text-[#A4B8AE] text-[11px] font-semibold">
+            <span>Stocked Products</span>
+            <Boxes className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div className="text-xl font-black text-blue-700 dark:text-blue-300 font-mono mt-1">
+            {stats.tracked}
+          </div>
+          <div className="text-[10px] text-blue-600/80 dark:text-blue-400/80 mt-0.5">Tracked with live stock count</div>
+        </div>
+
+        <div className="p-3 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] shadow-2xs">
+          <div className="flex items-center justify-between text-[#64736C] dark:text-[#A4B8AE] text-[11px] font-semibold">
+            <span>Handmade / Prepared</span>
+            <CookingPot className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div className="text-xl font-black text-emerald-700 dark:text-emerald-300 font-mono mt-1">
+            {stats.untracked}
+          </div>
+          <div className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">Not Tracked (No stock limit)</div>
+        </div>
+
+        <div className="p-3 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] shadow-2xs">
+          <div className="flex items-center justify-between text-[#64736C] dark:text-[#A4B8AE] text-[11px] font-semibold">
+            <span>Out of Stock</span>
+            <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+          </div>
+          <div className="text-xl font-black text-rose-700 dark:text-rose-300 font-mono mt-1">
+            {stats.outOfStock}
+          </div>
+          <div className="text-[10px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">Depleted tracked items</div>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          TOOLBAR: Search, Category Filter, and Stock Tracking Filter
+         ========================================================================= */}
+      <div className="shrink-0 py-2.5 flex flex-wrap items-center gap-2.5">
         {/* Search */}
-        <div className="relative flex-1 sm:max-w-xs">
+        <div className="relative flex-1 min-w-[200px] sm:max-w-xs">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#879B90]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search dish or code..."
+            placeholder="Search dish or beverage..."
             className="w-full pl-9 pr-7 py-2 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] placeholder-[#879B90] focus:outline-none focus:border-[#0B3D32] focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs"
           />
           {searchQuery && (
@@ -373,138 +618,231 @@ export default function OurMenuTablePage() {
         </div>
 
         {/* Category Dropdown */}
-        <div className="relative sm:w-56">
+        <div className="relative w-44 sm:w-52">
           <select
-            value={selectedGroupFilter}
-            onChange={(e) => setSelectedGroupFilter(e.target.value)}
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full appearance-none pl-3 pr-8 py-2 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-semibold focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs cursor-pointer"
           >
             <option value="all">All Categories</option>
-            {MENU_GROUPS.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>
           <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-[#879B90] pointer-events-none" />
         </div>
 
+        {/* Stock Type Filter */}
+        <div className="relative w-48 sm:w-56">
+          <select
+            value={stockFilter}
+            onChange={(e) => setStockFilter(e.target.value as any)}
+            className="w-full appearance-none pl-3 pr-8 py-2 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-semibold focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs cursor-pointer"
+          >
+            <option value="all">All Items (Stocked & Handmade)</option>
+            <option value="tracked">Stocked Products Only (Tracked)</option>
+            <option value="untracked">Handmade / Prepared (Not Tracked)</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-[#879B90] pointer-events-none" />
+        </div>
+
         {/* Clear filter */}
-        {(searchQuery || selectedGroupFilter !== 'all') && (
+        {(searchQuery || selectedCategory !== 'all' || stockFilter !== 'all') && (
           <button
             type="button"
             onClick={() => {
               setSearchQuery('');
-              setSelectedGroupFilter('all');
+              setSelectedCategory('all');
+              setStockFilter('all');
             }}
             className="text-xs font-semibold text-[#0B3D32] hover:underline dark:text-emerald-400 px-1"
           >
-            Clear filter
+            Clear filters
           </button>
         )}
       </div>
 
       {/* =========================================================================
-          MENU GROUPS: TABLE STYLE WITH MEASURED QUANTITY UNITS AS TABLE HEADERS
+          MENU GROUPS TABLE LISTING (With Stock Quantity & Not Tracked Badges)
          ========================================================================= */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-10">
-        {filteredGroups.map((group) => (
-          <div key={group.id} className="space-y-1.5">
+      <div className="flex-1 min-h-0 space-y-6 pb-10">
+        {groupedProducts.map((group) => (
+          <div key={group.category} className="space-y-1.5">
             {/* Category Header */}
-            <div className="px-1">
-              <h2 className="text-sm sm:text-base font-bold text-[#24352F] dark:text-white font-heading tracking-tight">
-                {group.name}
+            <div className="px-1 flex items-center justify-between">
+              <h2 className="text-sm sm:text-base font-bold text-[#24352F] dark:text-white font-heading tracking-tight flex items-center gap-2">
+                <span>{group.category}</span>
+                <span className="text-[11px] font-mono font-medium text-[#64736C] dark:text-[#A4B8AE]">
+                  ({group.items.length} {group.items.length === 1 ? 'item' : 'items'})
+                </span>
               </h2>
             </div>
 
-            {/* Table Container with Column Dividers and Unit Headers */}
+            {/* Table Container */}
             <div className="overflow-hidden rounded-[3px] border border-[#DCE3DF] bg-white shadow-2xs dark:border-[#145447] dark:bg-[#07241E]">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
-                      {/* # (Order) */}
+                      {/* # */}
                       <th className="py-2.5 px-3 w-12 text-center border-r border-[#E5EEE9] dark:border-[#145447]">
                         #
                       </th>
 
-                      {/* Code */}
-                      <th className="py-2.5 px-3 w-20 text-center border-r border-[#E5EEE9] dark:border-[#145447]">
-                        Code
-                      </th>
-
-                      {/* Item Name */}
+                      {/* Item Name & Details */}
                       <th className="py-2.5 px-4 border-r border-[#E5EEE9] dark:border-[#145447]">
-                        Item Name
+                        Menu Item / Specifications
                       </th>
 
-                      {/* Measured Units as Table Headers (Full, Half, etc.) */}
-                      {group.unitHeaders.map((unitHeader, idx) => (
-                        <th
-                          key={unitHeader}
-                          className={cn(
-                            'py-2.5 px-4 w-28 sm:w-36 text-right',
-                            idx < group.unitHeaders.length - 1 &&
-                              'border-r border-[#E5EEE9] dark:border-[#145447]'
-                          )}
-                        >
-                          {unitHeader}
-                        </th>
-                      ))}
+                      {/* Category */}
+                      <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">
+                        Category
+                      </th>
+
+                      {/* Selling Price */}
+                      <th className="py-2.5 px-4 w-28 text-right border-r border-[#E5EEE9] dark:border-[#145447]">
+                        Selling Price
+                      </th>
+
+                      {/* Stock Tracking & Quantity */}
+                      <th className="py-2.5 px-4 w-40 text-center border-r border-[#E5EEE9] dark:border-[#145447]">
+                        Stock Quantity
+                      </th>
+
+                      {/* Availability Status */}
+                      <th className="py-2.5 px-3.5 w-32 text-center border-r border-[#E5EEE9] dark:border-[#145447]">
+                        Availability
+                      </th>
+
+                      {/* Actions */}
+                      <th className="py-2.5 px-3 w-20 text-center">
+                        Action
+                      </th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447] text-xs">
-                    {group.items.map((item, index) => (
-                      <tr
-                        key={item.id}
-                        className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
-                      >
-                        {/* Order # */}
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20 font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
-                          {index + 1}
-                        </td>
+                    {group.items.map((item, index) => {
+                      const isAvailable = item.isAvailable ?? item.isActive ?? true;
 
-                        {/* Code */}
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                          <span className="inline-block rounded-[2px] bg-[#EEF4F1] dark:bg-[#0D362C] px-1.5 py-0.5 text-[10px] font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-[#D8E6DF] dark:border-[#145447]">
-                            {item.code}
-                          </span>
-                        </td>
+                      return (
+                        <tr
+                          key={item.id}
+                          className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
+                        >
+                          {/* Order # */}
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20 font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
+                            {index + 1}
+                          </td>
 
-                        {/* Item Name */}
-                        <td className="py-2.5 px-4 border-r border-[#E5EEE9] dark:border-[#145447] font-semibold text-xs sm:text-[13px] text-[#24352F] dark:text-white">
-                          {item.name}
-                        </td>
+                          {/* Item Name & Description */}
+                          <td className="py-2.5 px-4 border-r border-[#E5EEE9] dark:border-[#145447]">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="font-bold text-xs sm:text-[13px] text-[#24352F] dark:text-white">
+                                  {item.name}
+                                </div>
+                                {item.description && (
+                                  <div className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] mt-0.5 max-w-md">
+                                    {item.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
 
-                        {/* Prices under respective Unit Headers */}
-                        {group.unitHeaders.map((unitHeader, uIdx) => {
-                          const price = item.prices[unitHeader];
-                          const hasPrice = price !== undefined && price !== null;
+                          {/* Category */}
+                          <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447] whitespace-nowrap">
+                            <span className="inline-block rounded-[2px] bg-[#EEF4F1] dark:bg-[#0D362C] px-2 py-0.5 text-[10px] font-bold text-[#0B3D32] dark:text-emerald-300 border border-[#D8E6DF] dark:border-[#145447]">
+                              {item.category}
+                            </span>
+                          </td>
 
-                          return (
-                            <td
-                              key={unitHeader}
-                              className={cn(
-                                'py-2.5 px-4 text-right whitespace-nowrap',
-                                uIdx < group.unitHeaders.length - 1 &&
-                                  'border-r border-[#E5EEE9] dark:border-[#145447]'
-                              )}
-                            >
-                              {hasPrice ? (
-                                <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
-                                  Rs. {price.toLocaleString()}
+                          {/* Selling Price */}
+                          <td className="py-2.5 px-4 text-right whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                            <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
+                              Rs. {Number(item.price).toLocaleString()}
+                            </span>
+                          </td>
+
+                          {/* Stock Quantity / Not Tracked Badge */}
+                          <td className="py-2.5 px-4 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                            {item.trackStock ? (
+                              item.stock > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 shadow-2xs">
+                                  <Package className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                  <span>{item.stock} in stock</span>
                                 </span>
                               ) : (
-                                <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">
-                                  —
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-[11px] font-mono font-bold text-rose-800 bg-rose-50 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 shadow-2xs">
+                                  <AlertCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                                  <span>0 in stock (Out)</span>
                                 </span>
+                              )
+                            ) : (
+                              <span
+                                title="Handmade dish prepared on order. Not subject to stock depletion."
+                                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-[3px] text-[11px] font-medium text-slate-600 bg-slate-100 border border-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:border-slate-700 select-none shadow-2xs cursor-help"
+                              >
+                                <CookingPot className="w-3 h-3 text-slate-500 dark:text-slate-400" />
+                                <span>Not Tracked</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Availability Status */}
+                          <td className="py-2.5 px-3.5 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAvailability(item)}
+                              title={
+                                isAvailable
+                                  ? 'Click to toggle unavailable'
+                                  : 'Click to toggle available'
+                              }
+                              className={cn(
+                                'inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold border transition-colors cursor-pointer',
+                                isAvailable
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
                               )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                            >
+                              <span
+                                className={cn(
+                                  'w-1.5 h-1.5 rounded-full',
+                                  isAvailable ? 'bg-emerald-500' : 'bg-rose-500'
+                                )}
+                              />
+                              <span>{isAvailable ? 'Available' : 'Unavailable'}</span>
+                            </button>
+                          </td>
+
+                          {/* Action (Edit & Delete) */}
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(item)}
+                                title={`Edit ${item.name}`}
+                                className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item)}
+                                title={`Delete ${item.name}`}
+                                className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -512,24 +850,296 @@ export default function OurMenuTablePage() {
           </div>
         ))}
 
-        {filteredGroups.length === 0 && (
+        {groupedProducts.length === 0 && (
           <div className="py-16 text-center text-xs text-[#879B90] bg-white dark:bg-[#07241E] rounded-[3px] border border-[#DCE3DF] dark:border-[#145447]">
-            <span>No menu items match your search or filter</span>
-            <div className="mt-2">
+            <ChefHat className="w-8 h-8 mx-auto text-[#879B90] mb-2 opacity-50" />
+            <span className="font-semibold text-sm text-[#24352F] dark:text-white block mb-1">
+              No menu items match your search or filter
+            </span>
+            <p className="text-xs text-[#64736C] dark:text-[#A4B8AE] max-w-sm mx-auto mb-3">
+              Try adjusting your search query, selecting a different category, or adding a new menu item.
+            </p>
+            <div className="inline-flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery('');
-                  setSelectedGroupFilter('all');
+                  setSelectedCategory('all');
+                  setStockFilter('all');
                 }}
                 className="text-xs font-semibold text-[#0B3D32] hover:underline dark:text-emerald-400"
               >
-                Reset filter
+                Reset filters
+              </button>
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <button
+                type="button"
+                onClick={handleOpenCreateModal}
+                className="text-xs font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline"
+              >
+                + Add New Item
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* =========================================================================
+          ADD / EDIT MENU ITEM MODAL
+         ========================================================================= */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-lg rounded-[3px] border border-[#DCE3DF] bg-white shadow-xl dark:border-[#145447] dark:bg-[#07241E] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#E5EEE9] px-4 py-3 dark:border-[#145447] bg-[#F7F9F8] dark:bg-[#061B16]">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-[2px] bg-[#0B3D32] text-white dark:bg-emerald-600 shadow-2xs">
+                  {editingItem ? <Edit3 className="w-3.5 h-3.5" /> : <Plus className="w-4 h-4" />}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#24352F] dark:text-white">
+                    {editingItem ? `Edit Menu Item: ${editingItem.name}` : 'Add New Menu Item'}
+                  </h3>
+                  <span className="text-[10px] text-[#64736C] dark:text-[#A4B8AE]">
+                    {editingItem ? 'Update specifications and stock policy' : 'Configure dish name, selling price, and stock tracking'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                disabled={isSubmitting}
+                className="rounded p-1 text-[#879B90] hover:bg-[#EEF4F1] hover:text-[#24352F] dark:hover:bg-[#0A2E26] dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleSaveMenuItem} className="p-4 space-y-3.5">
+              {formError && (
+                <div className="rounded-[3px] bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-800 dark:bg-rose-950/50 dark:border-rose-900 dark:text-rose-200 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* 1. Item Name */}
+              <div>
+                <label className="block text-xs font-semibold text-[#24352F] dark:text-slate-200 mb-1">
+                  Item Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="e.g. Coca-Cola (500ml), Chicken Steam Momo, Gorkha Strong Beer"
+                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                />
+              </div>
+
+              {/* 2. Category & Selling Price Grid */}
+              <div className="grid grid-cols-12 gap-3">
+                {/* Category */}
+                <div className="col-span-12 sm:col-span-7">
+                  <label className="block text-xs font-semibold text-[#24352F] dark:text-slate-200 mb-1">
+                    Category <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={formCategory}
+                      onChange={(e) => setFormCategory(e.target.value)}
+                      className="w-full appearance-none rounded-[3px] border border-[#DCE3DF] bg-white px-3 pr-8 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+                    >
+                      {categories.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-[#879B90] pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Selling Price */}
+                <div className="col-span-12 sm:col-span-5">
+                  <label className="block text-xs font-semibold text-[#24352F] dark:text-slate-200 mb-1">
+                    Selling Price (Rs.) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400 dark:text-slate-500 select-none">
+                      Rs.
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      required
+                      value={formPrice}
+                      onChange={(e) => setFormPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-9 pr-3 text-xs font-mono font-bold text-[#0B3D32] dark:text-emerald-300 shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Description (Optional) */}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Description / Specifications (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="e.g. Chilled 500ml bottle or freshly steamed handmade dumplings"
+                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                />
+              </div>
+
+              {/* 4. STOCK TRACKING SECTION: Track Stock Checkbox & Conditional Quantity */}
+              <div className="rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-[#F7F9F8] dark:bg-[#061B16] p-3.5 space-y-3">
+                {/* Checkbox: Track Stock */}
+                <div className="flex items-start gap-2.5">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="trackStockCheckbox"
+                      type="checkbox"
+                      checked={formTrackStock}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormTrackStock(checked);
+                        if (checked && formStock === '') {
+                          // Suggest initial 50 stock when enabled
+                          setFormStock('50');
+                        }
+                      }}
+                      className="w-4 h-4 rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32] dark:focus:ring-emerald-500 border-[#C5D3CD] dark:border-[#145447] cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label
+                      htmlFor="trackStockCheckbox"
+                      className="text-xs font-bold text-[#24352F] dark:text-white cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>Track Stock</span>
+                      {formTrackStock ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
+                          Stocked Product
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          Handmade / Prepared
+                        </span>
+                      )}
+                    </label>
+                    <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] mt-0.5 leading-relaxed">
+                      {formTrackStock
+                        ? 'Track inventory for stocked or packaged retail goods (Beer, Coca-Cola, Bottled Water, Packaged Juice). Sales will automatically decrease stock.'
+                        : 'Disable for food & drinks prepared on order (Tea, Coffee, Momo, Chowmein, Fried Rice). No stock quantity required and won’t deplete inventory.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Conditional Stock Quantity Field: Shown ONLY when Track Stock is enabled */}
+                {formTrackStock && (
+                  <div className="pt-2 border-t border-[#E5EEE9] dark:border-[#145447] space-y-1 animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-[#24352F] dark:text-white">
+                        Available Stock Quantity <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-[#0B3D32] dark:text-emerald-400 font-semibold font-mono">
+                        Required non-negative number
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <Package className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        required={formTrackStock}
+                        value={formStock}
+                        onChange={(e) => setFormStock(e.target.value)}
+                        placeholder="e.g. 100"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-9 pr-3 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#64736C] dark:text-[#A4B8AE]">
+                      When stock reaches zero (0), the product will be automatically marked unavailable for new orders to prevent overselling.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Availability Status Toggle */}
+              <div>
+                <label className="block text-xs font-semibold text-[#24352F] dark:text-slate-200 mb-1">
+                  Availability Status
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormIsAvailable(true)}
+                    className={cn(
+                      'flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold rounded-[3px] border transition-all cursor-pointer',
+                      formIsAvailable
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 shadow-2xs ring-1 ring-emerald-500/20'
+                        : 'bg-white text-slate-600 border-[#DCE3DF] dark:bg-[#061B16] dark:text-slate-400 dark:border-[#145447] hover:bg-slate-50'
+                    )}
+                  >
+                    <Check className={cn('w-3.5 h-3.5', formIsAvailable ? 'text-emerald-600' : 'text-slate-400')} />
+                    <span>Available</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormIsAvailable(false)}
+                    className={cn(
+                      'flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold rounded-[3px] border transition-all cursor-pointer',
+                      !formIsAvailable
+                        ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 shadow-2xs ring-1 ring-rose-500/20'
+                        : 'bg-white text-slate-600 border-[#DCE3DF] dark:bg-[#061B16] dark:text-slate-400 dark:border-[#145447] hover:bg-slate-50'
+                    )}
+                  >
+                    <X className={cn('w-3.5 h-3.5', !formIsAvailable ? 'text-rose-600' : 'text-slate-400')} />
+                    <span>Unavailable</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Footer Buttons */}
+              <div className="pt-3 border-t border-[#E5EEE9] dark:border-[#145447] flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  disabled={isSubmitting}
+                  className="rounded-[3px] border border-[#DCE3DF] bg-white px-3.5 py-2 text-xs font-bold text-[#64736C] hover:bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#082d25] dark:bg-emerald-600 dark:hover:bg-emerald-700 transition-colors disabled:opacity-60 cursor-pointer"
+                >
+                  {isSubmitting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{editingItem ? 'Save Changes' : 'Create Menu Item'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

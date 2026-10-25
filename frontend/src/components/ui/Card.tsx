@@ -18,7 +18,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
           // - Shadows: Soft and subtle
           'rounded-xl border border-[#E2E8F0] bg-white text-[#334155] shadow-card transition-all duration-150 dark:bg-[#0F172A] dark:border-[#334155] dark:text-[#CBD5E1]',
           variant === 'muted' && 'bg-[#F1F5F9] dark:bg-[#1E293B]',
-          variant === 'interactive' && 'hover:border-[#1A73E8] hover:shadow-xs cursor-pointer dark:hover:border-[#1A73E8]',
+          variant === 'interactive' && 'hover:border-[#0B3D32] hover:shadow-xs cursor-pointer dark:hover:border-emerald-500',
           className
         )}
         {...props}

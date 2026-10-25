@@ -78,6 +78,8 @@ export interface MasterItemEntry {
   quantityPrices?: QuantityPriceTier[];
   isDefault?: boolean;
   isActive?: boolean;
+  trackStock?: boolean;
+  stock?: number;
   roomNumber?: string;
   floorLevel?: string;
   roomType?: string;
@@ -178,93 +180,11 @@ const MASTER_CATEGORIES: MasterCategory[] = [
         description: 'Manage travel agents and booking agents for reservations',
       },
       {
-        id: 'relationships',
-        name: 'Relationships',
-        icon: HeartHandshake,
-        description: 'Manage guest relationship types for accompanying and additional guests',
-      },
-      {
         id: 'purpose-of-visit',
         name: 'Purpose of Visit',
         icon: Compass,
         description: 'Manage guest travel and visit purpose categories (Tourism, Corporate, Event, etc.)',
-      },
-    ],
-  },
-  {
-    id: 'menu-setup',
-    code: '02',
-    name: 'Menu Setup',
-    icon: UtensilsCrossed,
-    subBoxes: [
-      {
-        id: 'categories-setup',
-        name: 'Categories Setup',
-        icon: Layers,
-        description: 'Manage food & beverage categories like Appetizers, Main Course, Beverages, Desserts',
-      },
-      {
-        id: 'menu-items-setup',
-        name: 'Menu Items Setup',
-        icon: UtensilsCrossed,
-        description: 'Manage dishes, beverages, item codes, orders, and menu items',
-      },
-      {
-        id: 'quantity-setup',
-        name: 'Quantity Setup',
-        icon: Scale,
-        description: 'Manage portion quantities and serving sizes: Full, Half, Regular, Small, Large, Pieces',
-      },
-    ],
-  },
-  {
-    id: 'room-setup',
-    code: '03',
-    name: 'Room Setup',
-    icon: BedDouble,
-    subBoxes: [
-      {
-        id: 'add-room-setup',
-        name: 'Add Room',
-        icon: DoorOpen,
-        description: 'Register and configure hotel rooms, room types, floor levels, AC types, bed types, fare, and facilities',
-      },
-      {
-        id: 'room-type-master',
-        name: 'Room Types',
-        icon: BedDouble,
-        description: 'Configure hotel room categories, deluxe suites, standard rooms, and fares',
-      },
-      {
-        id: 'ac-type-master',
-        name: 'AC Types',
-        icon: Snowflake,
-        description: 'Configure air-conditioned (AC) and non-AC climate options',
-      },
-      {
-        id: 'bed-type-master',
-        name: 'Bed Types',
-        icon: BedSingle,
-        description: 'Configure bed configurations: Single, Double, Queen, King, and Twin beds',
-      },
-      {
-        id: 'floor-master',
-        name: 'Floor Levels',
-        icon: Building2,
-        description: 'Configure hotel floors and building levels: Ground, 1st, 2nd, 3rd floors',
-      },
-      {
-        id: 'facility-category-master',
-        name: 'Facility Categories',
-        icon: Layers,
-        description: 'Manage amenity classifications: Furniture, Bathroom, Electronics',
-      },
-      {
-        id: 'facility-master',
-        name: 'Room Facilities',
-        icon: Armchair,
-        description: 'Manage in-room items & amenities: Work Desk, Smart TV, Shower, Toilet',
-      },
+      }
     ],
   },
 ];
@@ -1755,6 +1675,16 @@ export default function HotelSetupContent({
           'purpose-of-visit': getMasterItems('purposeOfVisit'),
           'agent-setup': getMasterItems('bookingAgents'),
         }));
+        const storedMenu = localStorage.getItem('hotel_menu_items');
+        if (storedMenu) {
+          const parsed = JSON.parse(storedMenu);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMasterItemsMap((prev) => ({
+              ...prev,
+              'menu-items-setup': parsed,
+            }));
+          }
+        }
       } catch (err) {}
     }
   }, []);
@@ -1770,6 +1700,8 @@ export default function HotelSetupContent({
     Array<{ quantityName: string; price: string }>
   >([]);
   const [newOrder, setNewOrder] = useState<string>('');
+  const [newTrackStock, setNewTrackStock] = useState<boolean>(false);
+  const [newStock, setNewStock] = useState<string>('');
 
   // Available categories for menu items setup
   const availableCategories = useMemo(() => {
@@ -2045,6 +1977,8 @@ export default function HotelSetupContent({
       ]);
     }
     setNewOrder((item.order || 1).toString());
+    setNewTrackStock(Boolean(item.trackStock));
+    setNewStock(item.trackStock && item.stock !== undefined ? item.stock.toString() : '');
     setShowAddForm(true);
   };
 
@@ -2274,6 +2208,7 @@ export default function HotelSetupContent({
                   : {}),
                 basePrice: computedBasePrice ?? item.basePrice,
                 quantityPrices: parsedQuantityPrices ?? item.quantityPrices,
+                ...(isMenuItem ? { trackStock: newTrackStock, stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined } : {}),
                 order,
               }
             : item
@@ -2283,6 +2218,11 @@ export default function HotelSetupContent({
         if (activeSubBox.id === 'nationalities') saveMasterItems('nationalities', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
+          } catch (err) {}
+        }
         return {
           ...prev,
           [activeSubBox.id]: updatedList,
@@ -2299,6 +2239,7 @@ export default function HotelSetupContent({
           : {}),
         basePrice: computedBasePrice,
         quantityPrices: parsedQuantityPrices,
+        ...(isMenuItem ? { trackStock: newTrackStock, stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined } : {}),
         order,
         isActive: true,
       };
@@ -2310,6 +2251,11 @@ export default function HotelSetupContent({
         if (activeSubBox.id === 'nationalities') saveMasterItems('nationalities', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
+          } catch (err) {}
+        }
         return {
           ...prev,
           [activeSubBox.id]: updatedList,
@@ -2324,6 +2270,8 @@ export default function HotelSetupContent({
     setNewCategory('');
     setNewQuantityPrices([]);
     setNewOrder('');
+    setNewTrackStock(false);
+    setNewStock('');
     setShowAddForm(false);
   };
 
@@ -2335,6 +2283,11 @@ export default function HotelSetupContent({
       if (activeSubBox.id === 'add-room-setup' && typeof window !== 'undefined') {
         try {
           localStorage.setItem('hotel_rooms_setup', JSON.stringify(updatedList));
+        } catch (err) {}
+      }
+      if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
         } catch (err) {}
       }
       if (activeSubBox.id === 'relationships') saveMasterItems('relationships', updatedList as unknown as SimpleMasterItem[]);
@@ -3201,6 +3154,60 @@ export default function HotelSetupContent({
                           );
                         })}
                       </div>
+                    </div>
+
+                    {/* Stock Tracking: Checkbox & Conditional Quantity */}
+                    <div className="rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-[#F7F9F8] dark:bg-[#061B16] p-3 space-y-2 mt-2">
+                      <div className="flex items-start gap-2">
+                        <input
+                          id="modalTrackStock"
+                          type="checkbox"
+                          checked={newTrackStock}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setNewTrackStock(val);
+                            if (val && !newStock) setNewStock('50');
+                          }}
+                          className="w-4 h-4 rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32] border-[#C5D3CD] cursor-pointer mt-0.5"
+                        />
+                        <div>
+                          <label htmlFor="modalTrackStock" className="text-xs font-bold text-[#24352F] dark:text-white cursor-pointer flex items-center gap-1.5">
+                            <span>Track Stock</span>
+                            {newTrackStock ? (
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
+                                Stocked Product
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                Handmade / Prepared
+                              </span>
+                            )}
+                          </label>
+                          <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] mt-0.5">
+                            {newTrackStock
+                              ? 'Enable for purchased retail goods (Beer, Coca-Cola, Bottled Water). Stock is deducted upon sale.'
+                              : 'Disable for dishes prepared on order (Tea, Coffee, Momo, Chowmein). No stock quantity required.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {newTrackStock && (
+                        <div className="pt-2 border-t border-[#E5EEE9] dark:border-[#145447] space-y-1">
+                          <label className="block text-xs font-bold text-[#24352F] dark:text-white">
+                            Available Stock Quantity <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            required={newTrackStock}
+                            value={newStock}
+                            onChange={(e) => setNewStock(e.target.value)}
+                            placeholder="e.g. 100"
+                            className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-1.5 px-2.5 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                          />
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : isFacilityItem ? (

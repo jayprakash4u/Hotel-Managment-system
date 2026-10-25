@@ -188,10 +188,60 @@ export const api = {
     return fetcher<POSProductData[]>(`/api/pos?${query}`);
   },
 
+  createPOSProduct: (data: {
+    hotelId?: string;
+    outlet?: string;
+    category: string;
+    name: string;
+    description?: string;
+    price: number;
+    trackStock: boolean;
+    stock?: number;
+    isAvailable?: boolean;
+    imageUrl?: string;
+  }) => {
+    return fetcher<POSProductData>('/api/pos/product', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updatePOSProduct: (
+    id: string,
+    data: {
+      outlet?: string;
+      category?: string;
+      name?: string;
+      description?: string;
+      price?: number;
+      trackStock?: boolean;
+      stock?: number;
+      isAvailable?: boolean;
+      imageUrl?: string;
+    }
+  ) => {
+    return fetcher<POSProductData>(`/api/pos/product/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deletePOSProduct: (id: string) => {
+    return fetcher<{ id: string; name: string }>(`/api/pos/product/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
   createPOSOrder: (data: any) => {
     return fetcher<any>('/api/pos', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  cancelOrder: (id: string) => {
+    return fetcher<any>(`/api/pos/orders/${id}/cancel`, {
+      method: 'POST',
     });
   },
 

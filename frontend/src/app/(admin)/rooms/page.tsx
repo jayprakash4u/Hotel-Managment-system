@@ -33,6 +33,7 @@ import {
   AVAILABLE_ROOMS_CATALOG,
 } from '@/app/(admin)/reservations/reservationsData';
 import { GuidedBookingModal } from '@/components/business/GuidedBookingModal';
+import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 
 export type CleaningStatus = 'CLEAN' | 'DIRTY' | 'IN_CLEANING';
 export type OperationalStatus = 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE';
@@ -263,6 +264,9 @@ export default function RoomsPage() {
 
   return (
     <div className="space-y-4 pb-12 select-none max-w-7xl mx-auto">
+      {/* Hotel Management Top Navigation Boxes */}
+      <HotelManagementNavBoxes activeId="room-setup" />
+
       {/* -----------------------------------------------------------------------
           TOP HEADER: Title & Quick Actions
           ----------------------------------------------------------------------- */}
@@ -448,7 +452,7 @@ export default function RoomsPage() {
           - Separate Cleaning Status (Clean, Dirty, In Cleaning)
           - "Book Now" only appears if room is available for the selected dates
           ----------------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4">
         {filteredRooms.map((room) => {
           // Check availability for selected dates
           const isAvailableForSelectedDates =
@@ -463,31 +467,54 @@ export default function RoomsPage() {
           const isCurrentlyInHouse = !!currentOccupant || room.operationalStatus === 'OCCUPIED';
           const isUnderMaintenance = room.operationalStatus === 'MAINTENANCE';
 
+          // ONLY Occupied / In-House rooms are dark!
+          const isDarkRoom = isCurrentlyInHouse;
+
           return (
             <div
               key={room.id}
               className={cn(
-                'group relative flex flex-col justify-between p-3.5 rounded-[4px] border shadow-2xs transition-all duration-150 select-none bg-white dark:bg-[#07241E]',
-                isUnderMaintenance
-                  ? 'border-purple-200 dark:border-purple-900/60 bg-purple-50/20 dark:bg-purple-950/20'
-                  : isCurrentlyInHouse
-                    ? 'border-rose-200 dark:border-rose-900/60 hover:border-rose-300'
-                    : 'border-[#DCE3DF] dark:border-[#145447] hover:border-[#0B3D32] dark:hover:border-emerald-500'
+                'group relative flex flex-col justify-between p-3.5 sm:p-4 rounded-[6px] border shadow-2xs transition-all duration-150 select-none min-h-[185px]',
+                isCurrentlyInHouse
+                  ? 'bg-[#0B3D32] border-[#082C24] text-white hover:bg-[#093027] dark:bg-[#06241D] dark:border-[#0E3B31] shadow-sm'
+                  : isUnderMaintenance
+                  ? 'bg-white dark:bg-[#07241E] border-slate-200 dark:border-slate-800 hover:border-slate-300 text-[#24352F] dark:text-white'
+                  : 'bg-white dark:bg-[#07241E] border-[#DCE3DF] dark:border-[#145447] hover:border-[#0B3D32] dark:hover:border-emerald-500'
               )}
             >
               <div>
                 {/* Top Row: Room Number & Cleaning Status Button */}
-                <div className="flex items-start justify-between gap-1.5 pb-2 border-b border-[#F0F4F2] dark:border-[#103D33]">
+                <div
+                  className={cn(
+                    'flex items-start justify-between gap-1.5 pb-2 border-b',
+                    isDarkRoom ? 'border-white/20' : 'border-[#F0F4F2] dark:border-[#103D33]'
+                  )}
+                >
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="font-heading font-black text-2xl tracking-tight text-[#24352F] dark:text-white">
+                      <span
+                        className={cn(
+                          'font-heading font-black text-2xl tracking-tight',
+                          isDarkRoom ? 'text-white' : 'text-[#24352F] dark:text-white'
+                        )}
+                      >
                         {room.number}
                       </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-[#093027] text-slate-600 dark:text-slate-300">
+                      <span
+                        className={cn(
+                          'text-[10px] font-mono px-1.5 py-0.5 rounded-[2px]',
+                          isDarkRoom ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-[#093027] text-slate-600 dark:text-slate-300'
+                        )}
+                      >
                         Floor {room.floor}
                       </span>
                     </div>
-                    <div className="text-[11px] font-bold text-[#0B3D32] dark:text-emerald-300 truncate">
+                    <div
+                      className={cn(
+                        'text-[11px] font-bold truncate',
+                        isDarkRoom ? 'text-white/90' : 'text-[#0B3D32] dark:text-emerald-300'
+                      )}
+                    >
                       {room.type}
                     </div>
                   </div>
@@ -499,21 +526,25 @@ export default function RoomsPage() {
                     title={`Cleaning status: ${room.cleaningStatus}. Click to toggle.`}
                     className={cn(
                       'inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold border transition-colors cursor-pointer',
-                      room.cleaningStatus === 'CLEAN'
+                      isDarkRoom
+                        ? 'bg-white/20 text-white border-white/30 backdrop-blur-xs'
+                        : room.cleaningStatus === 'CLEAN'
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
                         : room.cleaningStatus === 'DIRTY'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-                          : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                        : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800'
                     )}
                   >
                     <span
                       className={cn(
                         'w-1.5 h-1.5 rounded-full',
-                        room.cleaningStatus === 'CLEAN'
+                        isDarkRoom
+                          ? 'bg-white'
+                          : room.cleaningStatus === 'CLEAN'
                           ? 'bg-emerald-500'
                           : room.cleaningStatus === 'DIRTY'
-                            ? 'bg-amber-500'
-                            : 'bg-sky-500 animate-pulse'
+                          ? 'bg-amber-500'
+                          : 'bg-sky-500 animate-pulse'
                       )}
                     />
                     <span>{room.cleaningStatus === 'IN_CLEANING' ? 'Cleaning' : room.cleaningStatus}</span>
@@ -523,18 +554,23 @@ export default function RoomsPage() {
                 {/* Middle Info: Operational Status, Bed Info & Non-Contradictory Occupant Display */}
                 <div className="py-2.5 space-y-2 text-xs">
                   {/* Bed & Feature specs */}
-                  <div className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
+                  <div
+                    className={cn(
+                      'text-[11px]',
+                      isDarkRoom ? 'text-white/80' : 'text-[#64736C] dark:text-[#A4B8AE]'
+                    )}
+                  >
                     {room.bedType} · {room.acType} · Up to {room.capacity} guests
                   </div>
 
                   {/* Operational / Stay Status Breakdown */}
                   {isUnderMaintenance ? (
-                    <div className="p-2 rounded-[3px] bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800">
-                      <div className="flex items-center gap-1 font-bold text-[11px] text-purple-700 dark:text-purple-300">
-                        <Wrench className="w-3 h-3" />
+                    <div className="p-2 rounded-[3px] bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
+                      <div className="flex items-center gap-1 font-bold text-[11px] text-slate-700 dark:text-slate-200">
+                        <Wrench className="w-3 h-3 text-slate-400" />
                         <span>Under Maintenance</span>
                       </div>
-                      <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                         {room.maintenanceReason || 'Servicing in progress'}
                       </p>
                     </div>
@@ -542,20 +578,47 @@ export default function RoomsPage() {
                     <div className="space-y-1.5">
                       {/* Current In-House Occupant (if any) */}
                       {currentOccupant ? (
-                        <div className="p-2 rounded-[3px] bg-[#FFF5F6] dark:bg-[#320810] border border-[#FAD2D8] dark:border-rose-900/60">
+                        <div
+                          className={cn(
+                            'p-2 rounded-[3px] border',
+                            isDarkRoom
+                              ? 'bg-white/15 border-white/25 text-white'
+                              : 'bg-[#FFF5F6] dark:bg-[#320810] border-[#FAD2D8] dark:border-rose-900/60'
+                          )}
+                        >
                           <div className="flex items-center justify-between text-[10px]">
-                            <span className="font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                            <span
+                              className={cn(
+                                'font-bold uppercase tracking-wider flex items-center gap-1',
+                                isDarkRoom ? 'text-white' : 'text-rose-700 dark:text-rose-300'
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'w-1.5 h-1.5 rounded-full',
+                                  isDarkRoom ? 'bg-white' : 'bg-rose-500 animate-pulse'
+                                )}
+                              />
                               Current Occupant
                             </span>
-                            <span className="text-slate-400 dark:text-slate-500">
+                            <span className={cn(isDarkRoom ? 'text-white/80' : 'text-slate-400 dark:text-slate-500')}>
                               Depart: {new Date(currentOccupant.checkOut).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                             </span>
                           </div>
-                          <div className="font-bold text-xs text-[#24352F] dark:text-white mt-0.5 truncate">
+                          <div
+                            className={cn(
+                              'font-bold text-xs mt-0.5 truncate',
+                              isDarkRoom ? 'text-white' : 'text-[#24352F] dark:text-white'
+                            )}
+                          >
                             {currentOccupant.guest.firstName} {currentOccupant.guest.lastName}
                           </div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                          <div
+                            className={cn(
+                              'text-[10px] font-mono',
+                              isDarkRoom ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'
+                            )}
+                          >
                             {currentOccupant.bookingCode} · {currentOccupant.guest.phone}
                           </div>
                         </div>
@@ -568,8 +631,20 @@ export default function RoomsPage() {
 
                       {/* Future Upcoming Booking (Separately shown!) */}
                       {nextBooking && (
-                        <div className="p-1.5 rounded-[3px] bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[10px]">
-                          <div className="flex items-center justify-between font-semibold text-amber-800 dark:text-amber-300">
+                        <div
+                          className={cn(
+                            'p-1.5 rounded-[3px] border text-[10px]',
+                            isDarkRoom
+                              ? 'bg-white/10 border-white/20 text-white'
+                              : 'bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800'
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'flex items-center justify-between font-semibold',
+                              isDarkRoom ? 'text-white' : 'text-amber-800 dark:text-amber-300'
+                            )}
+                          >
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               Next: {nextBooking.guest.firstName} {nextBooking.guest.lastName}
@@ -585,15 +660,39 @@ export default function RoomsPage() {
                 </div>
               </div>
 
-              {/* Card Footer: Price on Left, "Book Now" ONLY when available on Right */}
-              <div className="pt-2.5 mt-2 border-t border-[#F0F4F2] dark:border-[#103D33] flex items-center justify-between">
+              {/* Card Footer: Price on Left, High-Contrast Action Box on Right */}
+              <div
+                className={cn(
+                  'pt-2.5 mt-2 border-t flex items-center justify-between',
+                  isDarkRoom ? 'border-white/20' : 'border-[#F0F4F2] dark:border-[#103D33]'
+                )}
+              >
                 <div>
-                  <span className="text-[10px] text-slate-400 block font-medium">Rate</span>
+                  <span
+                    className={cn(
+                      'text-[10px] block font-medium',
+                      isDarkRoom ? 'text-white/70' : 'text-slate-400'
+                    )}
+                  >
+                    Rate
+                  </span>
                   <div className="flex items-baseline gap-0.5">
-                    <span className="font-mono font-bold text-sm text-[#24352F] dark:text-white">
+                    <span
+                      className={cn(
+                        'font-mono font-bold text-sm',
+                        isDarkRoom ? 'text-white' : 'text-[#24352F] dark:text-white'
+                      )}
+                    >
                       Rs. {room.pricePerNight.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-[#64736C] dark:text-slate-400">/nt</span>
+                    <span
+                      className={cn(
+                        'text-[10px]',
+                        isDarkRoom ? 'text-white/70' : 'text-[#64736C] dark:text-slate-400'
+                      )}
+                    >
+                      /nt
+                    </span>
                   </div>
                 </div>
 
@@ -607,8 +706,19 @@ export default function RoomsPage() {
                     <span>Book Now</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>
+                ) : isCurrentlyInHouse ? (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-[3px] text-xs font-bold bg-white text-[#0B3D32] shadow-2xs">
+                    In House
+                  </span>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-1 rounded-[2px] text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  <span
+                    className={cn(
+                      'inline-flex items-center px-2 py-1 rounded-[2px] text-[10px] font-bold',
+                      isDarkRoom
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                    )}
+                  >
                     {isUnderMaintenance ? 'Under Service' : 'Booked on Dates'}
                   </span>
                 )}

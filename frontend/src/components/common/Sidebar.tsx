@@ -6,29 +6,20 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  Users,
-  LogIn,
-  UserCheck,
   Receipt,
-  Sparkles,
-  BarChart3,
   Settings,
   X,
   Building2,
   UtensilsCrossed,
   ChefHat,
-  Boxes,
-  ShieldCheck,
   Search,
-  Table2,
-  CalendarCheck,
   Utensils,
-  LogOut,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Hotel,
+  HelpCircle,
+  User,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,14 +35,6 @@ export interface NavBoxItem {
 
 const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
   {
-    id: 'dashboard',
-    name: 'Dashboard',
-    href: '/',
-    icon: LayoutDashboard,
-    tag: 'OVERVIEW',
-    description: 'System overview & live metrics',
-  },
-  {
     id: 'hotel-management',
     name: 'Hotel Management',
     href: '/hotel-management',
@@ -60,84 +43,64 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     description: 'Reservations, check-in, room status & guests',
   },
   {
+    id: 'restaurant-management',
+    name: 'Restaurant Management',
+    href: '/restaurant-management',
+    icon: UtensilsCrossed,
+    tag: 'RESTAURANT',
+    description: 'Tables, orders, kitchen, menu & inventory',
+  },
+  {
     id: 'hotel-setup',
-    name: 'Hotel Setup',
+    name: 'Master Setup',
     href: '/hotel',
     icon: Building2,
     tag: 'SETUP',
     description: 'Resort profile, masters & setup',
   },
-  {
-    id: 'book-table',
-    name: 'Book Table',
-    href: '/tables?action=book',
-    icon: Utensils,
-    tag: 'TABLE',
-    description: 'Reserve dining tables & seating',
-  },
-  {
-    id: 'cafe',
-    name: 'Cafe & Dining',
-    href: '/cafe',
-    icon: UtensilsCrossed,
-    tag: 'F&B POS',
-    description: 'Restaurant orders & room service',
-  },
-  {
-    id: 'our-menu',
-    name: 'Our Menu',
-    href: '/menu',
-    icon: ChefHat,
-    tag: 'MENU',
-    description: 'Dishes, pricing & portions',
-  },
+
   {
     id: 'finance',
-    name: 'Bills & Invoices',
+    name: 'Finance',
     href: '/finance',
     icon: Receipt,
     tag: 'FINANCE',
-    description: 'Settlements & payments',
-  },
-  {
-    id: 'housekeeping',
-    name: 'Room Cleaning',
-    href: '/rooms?tab=housekeeping',
-    icon: Sparkles,
-    tag: 'CLEANING',
-    description: 'Housekeeping task queue',
-  },
-  {
-    id: 'inventory',
-    name: 'Inventory Stock',
-    href: '/inventory',
-    icon: Boxes,
-    tag: 'STOCK',
-    description: 'Supplies & warehouse levels',
-  },
-  {
-    id: 'staff',
-    name: 'Staff & Team',
-    href: '/staff',
-    icon: ShieldCheck,
-    tag: 'STAFF',
-    description: 'Shifts, roles & roster',
+    description: 'Billing, expenses & ledgers',
   },
   {
     id: 'reports',
-    name: 'Stay History & Reports',
+    name: 'Reports',
     href: '/reports',
     icon: BarChart3,
     tag: 'REPORTS',
-    description: 'Guest stays, dining orders, payments & cancellations',
+    description: 'Business overview, hotel, restaurant & finance audits',
   },
   {
-    id: 'settings',
-    name: 'System Config',
-    href: '/settings',
+    id: 'administration',
+    name: 'Administration',
+    href: '/administration',
     icon: Settings,
-    tag: 'CONFIG',
-    description: 'System preferences & security',
+    tag: 'ADMIN',
+    description: 'Business setup, staff, permissions & settings',
+  },
+];
+
+const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [
+  {
+    id: 'help',
+    name: 'Help & Support',
+    href: '/help',
+    icon: HelpCircle,
+    tag: 'HELP',
+    description: 'User manuals, hotkeys & support',
+  },
+  {
+    id: 'profile',
+    name: 'User Profile',
+    href: '/profile',
+    icon: User,
+    tag: 'PROFILE',
+    description: 'Account settings, role & active session',
   },
 ];
 
@@ -202,7 +165,7 @@ export const Sidebar: React.FC<{
         {isOpen ? (
           <div className="flex h-16 items-center justify-between px-4 border-b border-[#E2E8F0] bg-white dark:bg-[#0F172A] dark:border-[#334155] shrink-0">
             <Link href="/" className="flex items-center gap-2.5 group min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A73E8] text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B3D32] text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div className="truncate">
@@ -229,7 +192,7 @@ export const Sidebar: React.FC<{
             <Link
               href="/"
               title="Aura Grand Hospitality OS"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A73E8] text-white shadow-xs hover:scale-105 transition-transform shrink-0"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B3D32] text-white shadow-xs hover:scale-105 transition-transform shrink-0"
             >
               <Building2 className="w-5 h-5 text-white" />
             </Link>
@@ -246,7 +209,7 @@ export const Sidebar: React.FC<{
                 placeholder="Search widgets & lists..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-[3px] border border-[#CBD5E1] bg-white py-2 pl-9 pr-8 text-xs font-medium text-[#1E293B] placeholder-[#94A3B8] shadow-2xs transition-all focus:border-[#1A73E8] focus:outline-none focus:ring-1 focus:ring-[#1A73E8] dark:border-[#334155] dark:bg-[#1E293B] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#1A73E8]"
+                className="w-full rounded-[3px] border border-[#CBD5E1] bg-white py-2 pl-9 pr-8 text-xs font-medium text-[#1E293B] placeholder-[#94A3B8] shadow-2xs transition-all focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#334155] dark:bg-[#1E293B] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#0B3D32]"
               />
               {searchQuery && (
                 <button
@@ -283,6 +246,23 @@ export const Sidebar: React.FC<{
                     '/housekeeping',
                     '/guests',
                   ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+                } else if (item.id === 'restaurant-management') {
+                  isActive = [
+                    '/restaurant-management',
+                    '/restaurant',
+                    '/tables',
+                    '/menu',
+                  ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+                } else if (item.id === 'finance') {
+                  isActive = pathname === '/finance' || pathname.startsWith('/finance/');
+                } else if (item.id === 'reports') {
+                  isActive = pathname === '/reports' || pathname.startsWith('/reports/');
+                } else if (item.id === 'administration') {
+                  isActive = [
+                    '/administration',
+                    '/staff',
+                    '/settings',
+                  ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
                 } else if (isQuery) {
                   isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
                 } else if (item.href === '/') {
@@ -305,20 +285,22 @@ export const Sidebar: React.FC<{
                   <Link
                     key={item.id}
                     href={item.href}
-                    onClick={() => {
-                      if (item.href.includes('?')) {
-                        setCurrentSearch(`?${item.href.split('?')[1]}`);
-                      } else {
-                        setCurrentSearch('');
-                      }
+                  onClick={() => {
+                    if (item.href.includes('?')) {
+                      setCurrentSearch(`?${item.href.split('?')[1]}`);
+                    } else {
+                      setCurrentSearch('');
+                    }
+                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                       onClose();
-                    }}
+                    }
+                  }}
                     className={cn(
                       'group relative flex flex-col items-center justify-center rounded-[3px] border p-3 pt-4 text-center transition-all duration-150 shadow-2xs',
                       'min-h-[88px] sm:min-h-[94px]',
                       isActive
-                        ? 'border-[#1A73E8] bg-[#E8F0FE] text-[#1A73E8] shadow-xs ring-1 ring-[#1A73E8] dark:border-blue-600 dark:bg-[#1A73E8]/10 dark:text-blue-200'
-                        : 'border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#1A73E8] hover:bg-[#F8FAFC] hover:shadow-xs dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#E2E8F0] dark:hover:border-blue-400 dark:hover:bg-[#1E293B]/80'
+                        ? 'border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] shadow-xs ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200'
+                        : 'border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#0B3D32] hover:bg-[#F8FAFC] hover:shadow-xs dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#E2E8F0] dark:hover:border-emerald-400 dark:hover:bg-[#1E293B]/80'
                     )}
                   >
                     {/* Top-Right Widget Badge */}
@@ -326,7 +308,7 @@ export const Sidebar: React.FC<{
                       className={cn(
                         'absolute top-1.5 right-1.5 rounded-[2px] px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider',
                         isActive
-                          ? 'border border-[#1A73E8]/30 bg-[#1A73E8]/10 text-[#1A73E8] dark:border-blue-700/50 dark:bg-blue-950 dark:text-blue-300'
+                          ? 'border border-[#0B3D32]/30 bg-[#0B3D32]/10 text-[#0B3D32] dark:border-emerald-700/50 dark:bg-emerald-950 dark:text-emerald-300'
                           : 'border border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B] dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#94A3B8]'
                       )}
                     >
@@ -347,8 +329,8 @@ export const Sidebar: React.FC<{
                       className={cn(
                         'text-xs font-semibold leading-tight line-clamp-2 px-1',
                         isActive
-                          ? 'font-bold text-[#1A73E8] dark:text-blue-200'
-                          : 'text-[#1E293B] group-hover:text-[#1A73E8] dark:text-white dark:group-hover:text-blue-300'
+                          ? 'font-bold text-[#0B3D32] dark:text-emerald-200'
+                          : 'text-[#1E293B] group-hover:text-[#0B3D32] dark:text-white dark:group-hover:text-emerald-300'
                       )}
                     >
                       {item.name}
@@ -367,7 +349,7 @@ export const Sidebar: React.FC<{
                 </p>
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="mt-2 text-xs font-bold text-[#1A73E8] dark:text-blue-400 hover:underline"
+                  className="mt-2 text-xs font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline"
                 >
                   Clear Search
                 </button>
@@ -398,6 +380,23 @@ export const Sidebar: React.FC<{
                   '/active-stays',
                   '/housekeeping',
                   '/guests',
+                ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+              } else if (item.id === 'restaurant-management') {
+                isActive = [
+                  '/restaurant-management',
+                  '/restaurant',
+                  '/tables',
+                  '/menu',
+                ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+              } else if (item.id === 'finance') {
+                isActive = pathname === '/finance' || pathname.startsWith('/finance/');
+              } else if (item.id === 'reports') {
+                isActive = pathname === '/reports' || pathname.startsWith('/reports/');
+              } else if (item.id === 'administration') {
+                isActive = [
+                  '/administration',
+                  '/staff',
+                  '/settings',
                 ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
               } else if (isQuery) {
                 isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
@@ -436,24 +435,87 @@ export const Sidebar: React.FC<{
                       setCurrentSearch('');
                     }
                     setHoveredItem(null);
-                    onClose();
+                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                      onClose();
+                    }
                   }}
                   className={cn(
                     'relative flex h-11 w-11 items-center justify-center rounded-lg border transition-all duration-150 group shrink-0',
                     isActive
-                      ? 'border-[#1A73E8] bg-[#E8F0FE] shadow-xs ring-1 ring-[#1A73E8] dark:border-blue-600 dark:bg-[#1A73E8]/20'
+                      ? 'border-[#0B3D32] bg-[#E8F2EE] shadow-xs ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40'
                       : 'border-transparent hover:border-[#CBD5E1] hover:bg-slate-50 dark:hover:border-[#334155] dark:hover:bg-[#1E293B]'
                   )}
                 >
                   <Icon className="w-5 h-5 text-[#DC2626] dark:text-[#EF4444]" />
                   {isActive && (
-                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[#1A73E8] dark:bg-blue-400" />
+                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[#0B3D32] dark:bg-emerald-400" />
                   )}
                 </Link>
               );
             })}
           </div>
         )}
+
+        {/* ===================== BOTTOM UTILITY SECTION (HELP & PROFILE) ===================== */}
+        <div className="border-t border-[#E2E8F0] dark:border-[#334155] bg-white dark:bg-[#071F1A] p-2 space-y-1 shrink-0">
+          {BOTTOM_NAV_OPTIONS.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+            return isOpen ? (
+              <Link
+                key={item.id}
+                href={item.href}
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                    onClose();
+                  }
+                }}
+                className={cn(
+                  'flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-all duration-150',
+                  isActive
+                    ? 'border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200'
+                    : 'border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 dark:text-slate-300 dark:hover:border-slate-800 dark:hover:bg-slate-800/60'
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Icon className="w-4 h-4 text-[#DC2626] dark:text-[#EF4444]" />
+                  <span>{item.name}</span>
+                </div>
+                <span className="rounded px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider border border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B] dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#94A3B8]">
+                  {item.tag}
+                </span>
+              </Link>
+            ) : (
+              <Link
+                key={item.id}
+                href={item.href}
+                onMouseEnter={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setHoveredItem({
+                    item,
+                    top: rect.top + rect.height / 2,
+                  });
+                }}
+                onMouseLeave={() => setHoveredItem(null)}
+                onClick={() => {
+                  setHoveredItem(null);
+                  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                    onClose();
+                  }
+                }}
+                className={cn(
+                  'relative flex h-10 w-10 mx-auto items-center justify-center rounded-lg border transition-all duration-150 group shrink-0',
+                  isActive
+                    ? 'border-[#0B3D32] bg-[#E8F2EE] shadow-xs ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40'
+                    : 'border-transparent hover:border-[#CBD5E1] hover:bg-slate-50 dark:hover:border-[#334155] dark:hover:bg-[#1E293B]'
+                )}
+              >
+                <Icon className="w-4 h-4 text-[#DC2626] dark:text-[#EF4444]" />
+              </Link>
+            );
+          })}
+        </div>
 
         {/* ===================== FOOTER TOGGLE BUTTON ===================== */}
         <div
@@ -474,12 +536,12 @@ export const Sidebar: React.FC<{
             onMouseLeave={() => setHoveredToggle(null)}
             title={isOpen ? 'Collapse sidebar (<)' : 'Expand sidebar (>)'}
             aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5D0] bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#1A73E8] dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#8AB4F8] transition-all cursor-pointer shadow-2xs group"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5D0] bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#0B3D32] dark:border-[#334155] dark:bg-[#1E293B] dark:text-emerald-400 transition-all cursor-pointer shadow-2xs group"
           >
             {isOpen ? (
-              <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-[#1A73E8] dark:text-[#8AB4F8]" />
+              <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-[#0B3D32] dark:text-emerald-400" />
             ) : (
-              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-[#1A73E8] dark:text-[#8AB4F8]" />
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-[#0B3D32] dark:text-emerald-400" />
             )}
           </button>
         </div>

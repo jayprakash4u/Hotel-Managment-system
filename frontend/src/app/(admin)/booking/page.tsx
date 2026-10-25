@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { FrontDeskNavBoxes } from '@/components/common/FrontDeskNavBoxes';
+import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import {
   RoomBooking,
   PaymentEntry,
@@ -859,9 +859,9 @@ function NewRoomBookingContent() {
   };
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
-      {/* Front Desk Category Option Boxes */}
-      <FrontDeskNavBoxes activeId={activeNavBoxId} />
+    <div className="space-y-4 max-w-7xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
+      {/* Hotel Management Top Navigation Boxes */}
+      <HotelManagementNavBoxes activeId={formMode === 'CHECK_IN' ? 'check-in' : 'reservations'} />
 
       {/* Main Booking Container Card */}
       <div className="bg-white dark:bg-[#071F1A] rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] shadow-sm overflow-hidden">
@@ -884,7 +884,7 @@ function NewRoomBookingContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   formMode === 'BOOKING'
-                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-blue-600'
+                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-700'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
@@ -897,7 +897,7 @@ function NewRoomBookingContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   formMode === 'CHECK_IN'
-                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-blue-600'
+                    ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-700'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
@@ -944,7 +944,7 @@ function NewRoomBookingContent() {
                 }}
                 onFocus={() => setShowSearchSuggestions(true)}
                 placeholder="Search by name or Mobilenumber"
-                className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#334155] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#1A73E8] transition-all"
+                className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#334155] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#0B3D32] transition-all"
               />
               {searchQuery && (
                 <button
@@ -1021,7 +1021,7 @@ function NewRoomBookingContent() {
                     required
                     value={checkInDate}
                     onChange={(e) => handleCheckInDateChange(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
 
@@ -1034,7 +1034,7 @@ function NewRoomBookingContent() {
                     required
                     value={checkInTime}
                     onChange={(e) => setCheckInTime(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
 
@@ -1047,7 +1047,7 @@ function NewRoomBookingContent() {
                     required
                     value={checkOutDate}
                     onChange={(e) => setCheckOutDate(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
               </div>
@@ -1064,7 +1064,7 @@ function NewRoomBookingContent() {
                     max={10}
                     value={adultsCount}
                     onChange={(e) => setAdultsCount(Math.max(1, Number(e.target.value) || 1))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
                 <div>
@@ -1077,7 +1077,7 @@ function NewRoomBookingContent() {
                     max={10}
                     value={childrenCount}
                     onChange={(e) => setChildrenCount(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
               </div>
@@ -1106,7 +1106,7 @@ function NewRoomBookingContent() {
                       value={guestName}
                       onChange={(e) => setGuestName(e.target.value)}
                       placeholder="Full name"
-                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
                 </div>
@@ -1123,7 +1123,7 @@ function NewRoomBookingContent() {
                       value={guestPhone}
                       onChange={(e) => setGuestPhone(e.target.value)}
                       placeholder="Mobile number"
-                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
                 </div>
@@ -1139,7 +1139,7 @@ function NewRoomBookingContent() {
                       value={guestEmail}
                       onChange={(e) => setGuestEmail(e.target.value)}
                       placeholder="email@example.com"
-                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
                 </div>
@@ -1174,7 +1174,7 @@ function NewRoomBookingContent() {
                   value={guestAddress}
                   onChange={(e) => setGuestAddress(e.target.value)}
                   placeholder="Street address, city"
-                  className="w-full h-9 px-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                  className="w-full h-9 px-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                 />
               </div>
             </div>
@@ -1186,7 +1186,7 @@ function NewRoomBookingContent() {
           <div className="space-y-4">
             {/* Header */}
             <div className="flex items-center gap-2">
-              <Bed className="w-4 h-4 text-[#1A73E8] dark:text-blue-400" />
+              <Bed className="w-4 h-4 text-[#0B3D32] dark:text-blue-400" />
               <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                 Room Information
               </h2>
@@ -1348,7 +1348,7 @@ function NewRoomBookingContent() {
                       <td className="py-2.5 px-3 text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 border-r border-slate-300 dark:border-slate-700">
                         {totalDiscount > 0 ? `Rs. ${totalDiscount.toLocaleString()}` : '0'}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#1A73E8] dark:text-blue-400 tabular-nums">
+                      <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#0B3D32] dark:text-blue-400 tabular-nums">
                         Rs. {totalPayable.toLocaleString()}
                       </td>
                       <td className="border-l border-slate-300 dark:border-slate-700"></td>
@@ -1363,7 +1363,7 @@ function NewRoomBookingContent() {
               <button
                 type="button"
                 onClick={handleAddRoomRow}
-                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#1A73E8] text-[#1A73E8] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#0B3D32] text-[#0B3D32] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Room</span>
@@ -1376,7 +1376,7 @@ function NewRoomBookingContent() {
               =============================================================== */}
           <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-[#1A73E8] dark:text-blue-400" />
+              <Receipt className="w-4 h-4 text-[#0B3D32] dark:text-blue-400" />
               <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                 Billing & Settlement
               </h2>
@@ -1552,7 +1552,7 @@ function NewRoomBookingContent() {
                       type="checkbox"
                       checked={sendSms}
                       onChange={(e) => setSendSms(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-[#1A73E8] accent-[#1A73E8] border-slate-300 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-[#0B3D32] accent-[#0B3D32] border-slate-300 cursor-pointer"
                     />
                     <span className="text-[11px] font-medium">Send SMS</span>
                   </label>
@@ -1562,7 +1562,7 @@ function NewRoomBookingContent() {
                       type="checkbox"
                       checked={sendEmail}
                       onChange={(e) => setSendEmail(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-[#1A73E8] accent-[#1A73E8] border-slate-300 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-[#0B3D32] accent-[#0B3D32] border-slate-300 cursor-pointer"
                     />
                     <span className="text-[11px] font-medium">Send Email</span>
                   </label>
@@ -1572,7 +1572,7 @@ function NewRoomBookingContent() {
                   <button
                     type="button"
                     onClick={() => handleSaveBooking(false, false)}
-                    className="h-7 px-4 rounded-xs border border-[#1A73E8] bg-[#1A73E8] text-white hover:bg-[#1557B0] text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#1A73E8] dark:hover:bg-[#1557B0]"
+                    className="h-7 px-4 rounded-xs border border-[#0B3D32] bg-[#0B3D32] text-white hover:bg-[#093027] text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#0B3D32] dark:hover:bg-[#093027]"
                   >
                     Save Booking
                   </button>
@@ -1580,7 +1580,7 @@ function NewRoomBookingContent() {
                   <button
                     type="button"
                     onClick={() => handleSaveBooking(false, true)}
-                    className="h-7 px-3.5 rounded-xs border border-[#1557B0] bg-[#1557B0] hover:bg-[#0D47A1] text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#1557B0] dark:hover:bg-[#0D47A1] inline-flex items-center gap-1.5"
+                    className="h-7 px-3.5 rounded-xs border border-[#093027] bg-[#093027] hover:bg-[#06241D] text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#093027] dark:hover:bg-[#06241D] inline-flex items-center gap-1.5"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     <span>Save & Print</span>
@@ -1724,7 +1724,7 @@ function NewRoomBookingContent() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#1A73E8] text-white text-xs font-bold cursor-pointer hover:bg-[#1557B0]"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#0B3D32] text-white text-xs font-bold cursor-pointer hover:bg-[#093027]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Registration Card</span>

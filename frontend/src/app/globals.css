@@ -8,33 +8,33 @@
   --font-inter: 'Inter', sans-serif;
   --font-outfit: 'Outfit', sans-serif;
 
-  /* Brand Palette Variables (Pure Blue #1A73E8, Pure Red #DC2626, Pure Yellow #F59E0B) */
-  --brand-primary: #1A73E8;
-  --brand-primary-hover: #1557B0;
-  --brand-primary-active: #0D47A1;
-  --brand-primary-subtle: #E8F0FE;
+  /* Hospitality Brand Palette Variables */
+  --brand-primary: #0B3D32;
+  --brand-primary-hover: #093027;
+  --brand-primary-active: #06241D;
+  --brand-primary-subtle: #E8F2EE;
 
-  --brand-secondary: #DC2626;
-  --brand-secondary-hover: #B91C1C;
-  --brand-secondary-subtle: #FEF2F2;
+  --brand-secondary: #A51F36;
+  --brand-secondary-hover: #8E1B2F;
+  --brand-secondary-subtle: #FFF5F6;
 
-  --brand-tertiary: #F59E0B;
-  --brand-tertiary-hover: #D97706;
+  --brand-tertiary: #92400E;
+  --brand-tertiary-hover: #78350F;
   --brand-tertiary-subtle: #FEF3C7;
 
   /* Layout Surfaces */
   --page-bg: #F8FAFC;
   --surface: #FFFFFF;
-  --surface-muted: #F1F5F9;
+  --surface-muted: #F2F6F4;
   --surface-hover: #F8FAFC;
 
   /* Borders & Dividers */
-  --border-default: #E2E8F0;
-  --border-input: #CBD5E1;
-  --border-input-hover: #94A3B8;
-  --border-input-focus: #1A73E8;
-  --border-input-error: #DC2626;
-  --divider: #EDF2F7;
+  --border-default: #DCE3DF;
+  --border-input: #CBD5D0;
+  --border-input-hover: #0B3D32;
+  --border-input-focus: #0B3D32;
+  --border-input-error: #A51F36;
+  --divider: #E5EEE9;
 
   /* Text & Labels */
   --text-heading: #0F172A;

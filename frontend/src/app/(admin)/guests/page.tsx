@@ -89,14 +89,9 @@ export default function GuestDirectoryPage() {
   }, [guestList, vipOnly, searchQuery]);
 
   return (
-    <div className="space-y-4 pb-12">
-      {/* =====================================================================
-          HOTEL MANAGEMENT SUB-OPTIONS (Box Type Options)
-          ===================================================================== */}
+    <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
+      {/* Hotel Management Top Navigation Boxes */}
       <HotelManagementNavBoxes activeId="guest-directory" />
-
-      {/* Divider */}
-      <div className="border-b border-[#E2E8F0] dark:border-[#334155] -mt-1 mb-2" />
 
       {/* Header & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
@@ -130,7 +125,7 @@ export default function GuestDirectoryPage() {
               placeholder="Search guest or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#1A73E8]"
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#0B3D32]"
             />
           </div>
         </div>
@@ -198,14 +193,14 @@ export default function GuestDirectoryPage() {
                     </td>
 
                     <td className="py-3 px-3 text-slate-500">
-                      <span className="font-medium text-[#1A73E8]">Room {g.lastRoom}</span>
+                      <span className="font-medium text-[#0B3D32] dark:text-emerald-400">Room {g.lastRoom}</span>
                       <div className="text-[10px] text-slate-400 mt-0.5">{g.lastCheckIn}</div>
                     </td>
 
                     <td className="py-3 px-3 text-right">
                       <Link
                         href={`/booking`}
-                        className="inline-flex items-center px-2.5 py-1 rounded border border-[#1A73E8] text-[#1A73E8] hover:bg-blue-50 text-[11px] font-semibold"
+                        className="inline-flex items-center px-2.5 py-1 rounded border border-[#0B3D32] text-[#0B3D32] hover:bg-[#E8F2EE] dark:border-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-950/40 text-[11px] font-semibold"
                       >
                         Book Stay <ArrowRight className="w-3 h-3 ml-1" />
                       </Link>
