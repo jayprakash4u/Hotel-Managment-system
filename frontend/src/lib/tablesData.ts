@@ -1,5 +1,6 @@
 export interface OrderItem {
   id: string;
+  productId?: string;
   name: string;
   baseName?: string;
   category?: string;
@@ -10,6 +11,8 @@ export interface OrderItem {
   discount?: number;
   discountType?: 'PERCENT' | 'AMOUNT';
   remarks?: string;
+  status?: 'DRAFT' | 'KITCHEN' | 'PREPARING' | 'READY' | 'SERVED';
+  kotNumber?: string;
 }
 
 export function calculateOrderItemTotal(item: OrderItem): {
@@ -36,16 +39,24 @@ export interface TableItem {
   tableNumber: string;
   section: string;
   capacity: number;
-  status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED';
+  status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'BILLED' | 'CLEANING' | 'OUT_OF_SERVICE';
   currentGuest?: string;
   guestPhone?: string;
   orders?: OrderItem[];
+  activeOrderId?: string;
+  kotNumber?: string;
   discountPercent?: number;
   discountAmount?: number;
   roundOff?: number;
   paidAmount?: number;
   paymentMode?: string;
   billRemarks?: string;
+  upcomingReservations?: any[];
+  orderNumber?: string;
+  orderType?: string;
+  isNoTable?: boolean;
+  notes?: string;
+  seatingNote?: string;
 }
 
 export const DEFAULT_TABLES: TableItem[] = [
@@ -88,6 +99,8 @@ export const DEFAULT_TABLES: TableItem[] = [
   { id: 'tbl-14', tableNumber: 'T-14', section: 'Private Executive Dining', capacity: 10, status: 'AVAILABLE', orders: [] },
   { id: 'tbl-15', tableNumber: 'T-15', section: 'Private Executive Dining', capacity: 12, status: 'OCCUPIED', currentGuest: 'Lady Genevieve', guestPhone: '+1 555-0111', orders: [] },
   { id: 'tbl-16', tableNumber: 'T-16', section: 'Private Executive Dining', capacity: 8, status: 'AVAILABLE', orders: [] },
+  { id: 'tbl-17', tableNumber: 'T-17', section: 'Indoor Fine Dining', capacity: 4, status: 'CLEANING', orders: [] },
+  { id: 'tbl-18', tableNumber: 'T-18', section: 'Skyline Rooftop Terrace', capacity: 2, status: 'OUT_OF_SERVICE', orders: [] },
 ];
 
 export function loadTablesFromStorage(): TableItem[] {

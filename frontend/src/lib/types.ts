@@ -295,3 +295,164 @@ export interface DashboardMetrics {
     maintenance: number;
   }>;
 }
+
+export interface TableReservationData {
+  id: string;
+  hotelId: string;
+  tableId?: string | null;
+  table?: {
+    id: string;
+    tableNumber: string;
+    section: string;
+    capacity: number;
+    status: string;
+  } | null;
+  guestId?: string | null;
+  guest?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+  } | null;
+  customerName: string;
+  phoneNumber: string;
+  reservationDate: string;
+  reservationTime: string;
+  durationMinutes: number;
+  partySize: number;
+  status: 'PENDING' | 'CONFIRMED' | 'SEATED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  specialRequests?: string | null;
+  internalNotes?: string | null;
+  reservationCode: string;
+  orderId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuickSaleItem {
+  productId?: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  notes?: string;
+}
+
+export interface QuickSalePayload {
+  items: QuickSaleItem[];
+  paymentMethod: string;
+  paidAmount?: number;
+  discountPercent?: number;
+  discountAmount?: number;
+  tax?: number;
+  serviceCharge?: number;
+  serverName?: string;
+  customerName?: string;
+  customerPhone?: string;
+  notes?: string;
+  sendToKitchen?: boolean;
+  outlet?: string;
+}
+
+export interface QuickSaleReceipt {
+  orderNumber: string;
+  kotNumber?: string;
+  status: string;
+  outlet: string;
+  orderType: string;
+  cashierName: string;
+  customerName?: string;
+  customerPhone?: string;
+  items: Array<{
+    productId?: string;
+    productName: string;
+    unitPrice: number;
+    quantity: number;
+    total: number;
+    notes?: string;
+  }>;
+  subtotal: number;
+  discountAmount: number;
+  discountPercent: number;
+  tax: number;
+  serviceCharge: number;
+  total: number;
+  paymentMethod: string;
+  paidAmount: number;
+  changeDue: number;
+  timestamp: string;
+}
+
+export interface DailySalesSummaryData {
+  date: string;
+  totalOrders: number;
+  totalSales: number;
+  totalSubtotal: number;
+  totalTax: number;
+  totalDiscounts: number;
+  breakdownByType: {
+    dineInSales: number;
+    quickSales: number;
+    roomServiceSales: number;
+  };
+  breakdownByPayment: {
+    cashSales: number;
+    cardSales: number;
+    upiSales: number;
+    roomFolioSales: number;
+  };
+  recentOrders: Array<{
+    id: string;
+    orderNumber: string;
+    kotNumber?: string;
+    orderType: string;
+    tableNumber?: string;
+    status: string;
+    serverName: string;
+    total: number;
+    paymentMethod: string;
+    itemCount: number;
+    createdAt: string;
+  }>;
+}
+
+export interface RestaurantOrderItemData {
+  id?: string;
+  orderId?: string;
+  productId?: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+  notes?: string;
+}
+
+export interface ActiveRestaurantOrderData {
+  id: string;
+  hotelId?: string;
+  orderNumber: string;
+  kotNumber?: string;
+  outlet: string;
+  tableId?: string | null;
+  table?: { id: string; tableNumber: string; section?: string; capacity?: number };
+  roomId?: string | null;
+  room?: { id: string; number: string };
+  guestId?: string | null;
+  guest?: { id: string; firstName: string; lastName: string; phone?: string };
+  status: 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'BILLED' | 'COMPLETED' | 'CANCELLED';
+  orderType: 'DINE_IN' | 'NO_TABLE' | 'TAKEAWAY' | 'ROOM_SERVICE' | 'COUNTER_SALE';
+  serverName: string;
+  subtotal: number;
+  discountAmount: number;
+  discountPercent: number;
+  tax: number;
+  serviceCharge: number;
+  total: number;
+  paymentMethod?: string | null;
+  isPaid: boolean;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: RestaurantOrderItemData[];
+}
+

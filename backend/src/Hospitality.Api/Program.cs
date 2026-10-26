@@ -105,7 +105,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Ensure safe schema updates for POSProduct (TrackStock and IsAvailable)
+// Ensure safe schema updates for POSProduct, TableReservation, and RestaurantOrder
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -115,12 +115,51 @@ using (var scope = app.Services.CreateScope())
         await db.Database.ExecuteSqlRawAsync(@"
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""trackStock"" boolean DEFAULT false;
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""isAvailable"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""inventoryItemId"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""reservationId"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountAmount"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountPercent"" double precision DEFAULT 0;
+
+            ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'HOTEL';
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'HOTEL';
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""sourceDepartment"" text;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""destinationDepartment"" text;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""transferNumber"" text;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""previousBalance"" integer;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""resultingBalance"" integer;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""allocationsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""invoiceNumber"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ALTER COLUMN ""supplierId"" DROP NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS ""TableReservation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""tableId"" text,
+                ""guestId"" text,
+                ""customerName"" text NOT NULL,
+                ""phoneNumber"" text NOT NULL,
+                ""reservationDate"" timestamp with time zone NOT NULL,
+                ""reservationTime"" text NOT NULL,
+                ""durationMinutes"" integer NOT NULL DEFAULT 120,
+                ""partySize"" integer NOT NULL DEFAULT 2,
+                ""status"" text NOT NULL DEFAULT 'CONFIRMED',
+                ""specialRequests"" text,
+                ""internalNotes"" text,
+                ""reservationCode"" text NOT NULL,
+                ""orderId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE INDEX IF NOT EXISTS ""ix_tablereservation_hotel_date"" ON ""TableReservation"" (""hotelId"", ""reservationDate"");
+            CREATE INDEX IF NOT EXISTS ""ix_tablereservation_table_status"" ON ""TableReservation"" (""tableId"", ""status"");
+            CREATE INDEX IF NOT EXISTS ""ix_inventoryitem_dept"" ON ""InventoryItem"" (""department"");
         ");
-        logger.LogInformation("Database schema verified: POSProduct columns 'trackStock' and 'isAvailable' ready.");
+        logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, and Inventory departments ready.");
     }
     catch (Exception ex)
     {
-        logger.LogWarning(ex, "Could not execute automatic schema update for POSProduct.");
+        logger.LogWarning(ex, "Could not execute automatic schema update for TableReservation / POSProduct.");
     }
 }
 

@@ -11,4 +11,5 @@ public class RestaurantTable : BaseEntity
     public string Status { get; set; } = "FREE"; // FREE, OCCUPIED, RESERVED, BILLED
 
     public ICollection<RestaurantOrder> Orders { get; set; } = new List<RestaurantOrder>();
+    public ICollection<TableReservation> Reservations { get; set; } = new List<TableReservation>();
 }

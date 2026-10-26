@@ -272,7 +272,8 @@ public class POSController : ControllerBase
         string? GuestId,
         string? PaymentMethod,
         string? Notes,
-        List<POSOrderItemDto> Items
+        List<POSOrderItemDto> Items,
+        string? CashierName = null
     );
 
     public record POSOrderItemDto(string? ProductId, string? ProductName, string? Name, double UnitPrice, int Quantity);
@@ -340,6 +341,33 @@ public class POSController : ControllerBase
                         {
                             product.Stock = 0;
                             product.IsAvailable = false;
+                        }
+
+                        // Deduct matching Restaurant inventory item stock if linked
+                        InventoryItem? invItem = null;
+                        if (!string.IsNullOrWhiteSpace(product.InventoryItemId))
+                        {
+                            invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Id == product.InventoryItemId && i.Department == "RESTAURANT");
+                        }
+                        else
+                        {
+                            invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Department == "RESTAURANT" && (i.Name.ToLower() == product.Name.ToLower() || (!string.IsNullOrEmpty(i.Sku) && i.Sku.ToLower() == product.Name.ToLower())));
+                        }
+
+                        if (invItem != null)
+                        {
+                            invItem.CurrentStock = Math.Max(0, invItem.CurrentStock - item.Quantity);
+                            invItem.LastRestocked = DateTime.UtcNow;
+                            _db.StockMovements.Add(new StockMovement
+                            {
+                                ItemId = invItem.Id,
+                                Department = "RESTAURANT",
+                                Quantity = -item.Quantity,
+                                Type = "POS_CONSUMPTION",
+                                Reason = "POS Quick Sale stock deduction",
+                                PerformedBy = req.CashierName ?? "POS Cashier",
+                                CreatedAt = DateTime.UtcNow
+                            });
                         }
                     }
                     else

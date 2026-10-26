@@ -21,11 +21,14 @@ public class RestaurantOrder : BaseEntity
     public string OrderType { get; set; } = "DINE_IN"; // DINE_IN, ROOM_SERVICE, TAKEAWAY
     public string ServerName { get; set; } = "David Kim";
     public double Subtotal { get; set; } = 0;
+    public double DiscountAmount { get; set; } = 0;
+    public double DiscountPercent { get; set; } = 0;
     public double Tax { get; set; } = 0;
     public double ServiceCharge { get; set; } = 0;
     public double Total { get; set; } = 0;
     public string? PaymentMethod { get; set; } // ROOM_FOLIO, CASH, CARD, UPI
     public bool IsPaid { get; set; } = false;
+    public string? ReservationId { get; set; }
     public string? Notes { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

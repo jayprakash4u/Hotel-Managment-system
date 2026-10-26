@@ -10,6 +10,7 @@ import {
   ChefHat,
   UtensilsCrossed,
   Boxes,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +35,16 @@ export const RESTAURANT_MANAGEMENT_OPTIONS: RestaurantManagementSubOption[] = [
     tag: 'OVERVIEW',
   },
   {
+    id: 'quick-sale',
+    name: 'Quick Sale',
+    href: '/quick-sale',
+    icon: Zap,
+    iconColor: 'text-amber-500 dark:text-amber-400',
+    tag: 'POS',
+    badge: 'Counter Sale',
+    description: 'Fast walk-in counter sales, takeaway & instant billing',
+  },
+  {
     id: 'tables',
     name: 'Tables',
     href: '/tables',
@@ -45,13 +56,13 @@ export const RESTAURANT_MANAGEMENT_OPTIONS: RestaurantManagementSubOption[] = [
   },
   {
     id: 'orders',
-    name: 'Orders',
-    href: '/cafe',
+    name: 'Active Orders',
+    href: '/tables?tab=ACTIVE_ORDERS',
     icon: Receipt,
     iconColor: 'text-indigo-600 dark:text-indigo-400',
-    tag: 'POS',
-    badge: 'Live Billing',
-    description: 'Table dining bills, room orders & POS checkout',
+    tag: 'ORDERS',
+    badge: 'Live Queue',
+    description: 'Table, No-Table & Takeaway active orders & billing',
   },
   {
     id: 'kitchen',
@@ -60,8 +71,8 @@ export const RESTAURANT_MANAGEMENT_OPTIONS: RestaurantManagementSubOption[] = [
     icon: ChefHat,
     iconColor: 'text-amber-600 dark:text-amber-400',
     tag: 'KDS',
-    badge: 'Live KOT',
-    description: 'Kitchen Order Tickets (KOT) & chef prep queue',
+    badge: 'Kitchen Display',
+    description: 'Kitchen Display System (KDS) & chef prep queue',
   },
   {
     id: 'menu',
@@ -75,8 +86,8 @@ export const RESTAURANT_MANAGEMENT_OPTIONS: RestaurantManagementSubOption[] = [
   },
   {
     id: 'inventory',
-    name: 'Inventory',
-    href: '/inventory',
+    name: 'Restaurant Stock',
+    href: '/inventory?dept=RESTAURANT',
     icon: Boxes,
     iconColor: 'text-cyan-600 dark:text-cyan-400',
     tag: 'STOCK',
@@ -94,12 +105,13 @@ export const RestaurantManagementNavBoxes: React.FC<{
 
   return (
     <div className={cn('select-none', className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
         {RESTAURANT_MANAGEMENT_OPTIONS.map((item) => {
           const Icon = item.icon;
           const isActive =
             activeId === item.id ||
             pathname === item.href ||
+            (item.id === 'quick-sale' && pathname.startsWith('/quick-sale')) ||
             (item.id === 'tables' && pathname.startsWith('/tables')) ||
             (item.id === 'orders' && (pathname.startsWith('/cafe') || pathname.startsWith('/add-order'))) ||
             (item.id === 'menu' && pathname.startsWith('/menu')) ||

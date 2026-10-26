@@ -20,6 +20,7 @@ import {
   HelpCircle,
   User,
   BarChart3,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -49,6 +50,14 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     icon: UtensilsCrossed,
     tag: 'RESTAURANT',
     description: 'Tables, orders, kitchen, menu & inventory',
+  },
+  {
+    id: 'quick-sale',
+    name: 'Quick Sale (POS)',
+    href: '/quick-sale',
+    icon: Zap,
+    tag: 'POS',
+    description: 'Walk-in takeaway & fast counter checkout',
   },
   {
     id: 'hotel-setup',
@@ -253,6 +262,8 @@ export const Sidebar: React.FC<{
                     '/tables',
                     '/menu',
                   ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+                } else if (item.id === 'quick-sale') {
+                  isActive = pathname.startsWith('/quick-sale');
                 } else if (item.id === 'finance') {
                   isActive = pathname === '/finance' || pathname.startsWith('/finance/');
                 } else if (item.id === 'reports') {
@@ -388,6 +399,8 @@ export const Sidebar: React.FC<{
                   '/tables',
                   '/menu',
                 ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+              } else if (item.id === 'quick-sale') {
+                isActive = pathname.startsWith('/quick-sale');
               } else if (item.id === 'finance') {
                 isActive = pathname === '/finance' || pathname.startsWith('/finance/');
               } else if (item.id === 'reports') {

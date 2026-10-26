@@ -13,6 +13,7 @@ import {
   Contact,
   Sparkles,
   BedDouble,
+  Boxes,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -98,6 +99,13 @@ export const HOTEL_MANAGEMENT_OPTIONS: HotelManagementSubOption[] = [
     icon: BedDouble,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
+  {
+    id: 'hotel-inventory',
+    name: 'Hotel Stock',
+    href: '/inventory?dept=HOTEL',
+    icon: Boxes,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+  },
 ];
 
 export const HotelManagementNavBoxes: React.FC<{
@@ -108,7 +116,7 @@ export const HotelManagementNavBoxes: React.FC<{
 
   return (
     <div className={cn('select-none', className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-10 gap-2.5 sm:gap-3">
         {HOTEL_MANAGEMENT_OPTIONS.map((item) => {
           const Icon = item.icon;
           const isActive =

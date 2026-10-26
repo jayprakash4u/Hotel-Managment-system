@@ -17,7 +17,13 @@ public class RestaurantController : ControllerBase
     }
 
     [HttpGet("api/restaurant/orders")]
-    public async Task<IActionResult> GetOrders([FromQuery] string? outlet, [FromQuery] string? status)
+    public async Task<IActionResult> GetOrders(
+        [FromQuery] string? outlet, 
+        [FromQuery] string? status,
+        [FromQuery] string? tableId,
+        [FromQuery] string? orderType,
+        [FromQuery] bool? activeOnly,
+        [FromQuery] string? search)
     {
         var query = _db.RestaurantOrders
             .Include(o => o.Items)
@@ -31,9 +37,56 @@ public class RestaurantController : ControllerBase
             query = query.Where(o => o.Outlet.ToUpper() == outlet.ToUpper());
         }
 
+        if (activeOnly == true)
+        {
+            query = query.Where(o => o.Status != "COMPLETED" && o.Status != "CANCELLED");
+        }
+
         if (!string.IsNullOrWhiteSpace(status))
         {
-            query = query.Where(o => o.Status.ToUpper() == status.ToUpper());
+            var statuses = status.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                 .Select(s => s.ToUpper())
+                                 .ToList();
+            if (statuses.Count == 1)
+            {
+                query = query.Where(o => o.Status.ToUpper() == statuses[0]);
+            }
+            else if (statuses.Count > 1)
+            {
+                query = query.Where(o => statuses.Contains(o.Status.ToUpper()));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(tableId))
+        {
+            if (tableId.Equals("none", StringComparison.OrdinalIgnoreCase) || tableId.Equals("null", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(o => o.TableId == null);
+            }
+            else
+            {
+                query = query.Where(o => o.TableId == tableId);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(orderType))
+        {
+            var types = orderType.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                 .Select(t => t.ToUpper())
+                                 .ToList();
+            query = query.Where(o => types.Contains(o.OrderType.ToUpper()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(o => 
+                o.OrderNumber.ToLower().Contains(s) ||
+                (o.Table != null && o.Table.TableNumber.ToLower().Contains(s)) ||
+                (o.ServerName != null && o.ServerName.ToLower().Contains(s)) ||
+                (o.Notes != null && o.Notes.ToLower().Contains(s)) ||
+                o.Items.Any(i => i.ProductName.ToLower().Contains(s))
+            );
         }
 
         var orders = await query
@@ -41,6 +94,121 @@ public class RestaurantController : ControllerBase
             .ToListAsync();
 
         return Ok(ApiResponse.Ok(orders));
+    }
+
+    [HttpGet("api/restaurant/orders/{id}")]
+    public async Task<IActionResult> GetOrderById(string id)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .Include(o => o.Room)
+            .Include(o => o.Guest)
+            .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+        }
+
+        return Ok(ApiResponse.Ok(order));
+    }
+
+    [HttpGet("api/restaurant/tables/{tableId}/active-order")]
+    public async Task<IActionResult> GetActiveTableOrder(string tableId)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .Include(o => o.Room)
+            .Include(o => o.Guest)
+            .Where(o => o.TableId == tableId && o.Status != "COMPLETED" && o.Status != "CANCELLED")
+            .OrderByDescending(o => o.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            return Ok(ApiResponse<RestaurantOrder?>.Ok(null, "No active order for this table."));
+        }
+
+        return Ok(ApiResponse.Ok(order));
+    }
+
+    private static readonly SemaphoreSlim _orderSeqLock = new(1, 1);
+    private static int _lastOrderSeq = 0;
+    private static int _lastKotSeq = 0;
+
+    private async Task<string> GenerateUniqueOrderNumberAsync()
+    {
+        await _orderSeqLock.WaitAsync();
+        try
+        {
+            if (_lastOrderSeq == 0)
+            {
+                var existingOrderNumbers = await _db.RestaurantOrders
+                    .Where(o => o.OrderNumber.StartsWith("ORD-"))
+                    .Select(o => o.OrderNumber)
+                    .ToListAsync();
+
+                int maxFound = 2000;
+                foreach (var on in existingOrderNumbers)
+                {
+                    var clean = on.Replace("ORD-", "");
+                    if (int.TryParse(clean, out int parsed) && parsed > maxFound)
+                    {
+                        maxFound = parsed;
+                    }
+                }
+                _lastOrderSeq = maxFound;
+            }
+
+            _lastOrderSeq++;
+            string orderNumber = $"ORD-{_lastOrderSeq:D4}";
+            while (await _db.RestaurantOrders.AnyAsync(o => o.OrderNumber == orderNumber))
+            {
+                _lastOrderSeq++;
+                orderNumber = $"ORD-{_lastOrderSeq:D4}";
+            }
+
+            return orderNumber;
+        }
+        finally
+        {
+            _orderSeqLock.Release();
+        }
+    }
+
+    private async Task<string> GenerateUniqueKitchenTicketAsync()
+    {
+        await _orderSeqLock.WaitAsync();
+        try
+        {
+            if (_lastKotSeq == 0)
+            {
+                var existingKot = await _db.RestaurantOrders
+                    .Where(o => o.KotNumber.StartsWith("KOT-"))
+                    .Select(o => o.KotNumber)
+                    .ToListAsync();
+
+                int maxFound = 200;
+                foreach (var kot in existingKot)
+                {
+                    var clean = kot.Replace("KOT-", "");
+                    if (int.TryParse(clean, out int parsed) && parsed > maxFound)
+                    {
+                        maxFound = parsed;
+                    }
+                }
+                _lastKotSeq = maxFound;
+            }
+
+            _lastKotSeq++;
+            return $"KOT-{_lastKotSeq}";
+        }
+        finally
+        {
+            _orderSeqLock.Release();
+        }
     }
 
     public record CreateRestaurantOrderRequest(
@@ -52,7 +220,7 @@ public class RestaurantController : ControllerBase
         string? ServerName,
         string? PaymentMethod,
         string? Notes,
-        List<RestaurantOrderItemDto> Items
+        List<RestaurantOrderItemDto>? Items
     );
 
     public record RestaurantOrderItemDto(string? ProductId, string? ProductName, double UnitPrice, int Quantity, string? Notes);
@@ -60,12 +228,9 @@ public class RestaurantController : ControllerBase
     [HttpPost("api/restaurant/orders")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateRestaurantOrderRequest req)
     {
-        if (req.Items == null || req.Items.Count == 0)
-        {
-            return BadRequest(ApiResponse.Fail("Order must have at least one item."));
-        }
+        var items = req.Items ?? new List<RestaurantOrderItemDto>();
 
-        foreach (var item in req.Items)
+        foreach (var item in items)
         {
             if (item.Quantity <= 0)
             {
@@ -79,7 +244,7 @@ public class RestaurantController : ControllerBase
         try
         {
             // Stock Validation and Deduction for Tracked Products
-            foreach (var item in req.Items)
+            foreach (var item in items)
             {
                 POSProduct? product = null;
 
@@ -120,11 +285,33 @@ public class RestaurantController : ControllerBase
                             product.Stock = 0;
                             product.IsAvailable = false;
                         }
-                    }
-                    else
-                    {
-                        // Handmade or prepared item (Tea, Momo, etc.)
-                        // Do not check stock quantity. Do not decrease any menu stock.
+
+                        // Requirement 3: Deduct stock from Restaurant Inventory only when linked to a tracked inventory item
+                        InventoryItem? invItem = null;
+                        if (!string.IsNullOrWhiteSpace(product.InventoryItemId))
+                        {
+                            invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Id == product.InventoryItemId && i.Department == "RESTAURANT");
+                        }
+                        else
+                        {
+                            invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Department == "RESTAURANT" && (i.Name.ToLower() == product.Name.ToLower() || (!string.IsNullOrEmpty(i.Sku) && i.Sku.ToLower() == product.Name.ToLower())));
+                        }
+
+                        if (invItem != null)
+                        {
+                            invItem.CurrentStock = Math.Max(0, invItem.CurrentStock - item.Quantity);
+                            invItem.LastRestocked = DateTime.UtcNow;
+                            _db.StockMovements.Add(new StockMovement
+                            {
+                                ItemId = invItem.Id,
+                                Department = "RESTAURANT",
+                                Quantity = -item.Quantity,
+                                Type = "POS_CONSUMPTION",
+                                Reason = "Restaurant Order sale deduction",
+                                PerformedBy = req.ServerName ?? "Restaurant Staff",
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
                     }
                 }
             }
@@ -132,13 +319,79 @@ public class RestaurantController : ControllerBase
             var hotel = await _db.Hotels.FirstOrDefaultAsync();
             var hotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
 
-            var count = await _db.RestaurantOrders.CountAsync();
-            var orderNumber = $"ORD-{3001 + count}";
-            var kotNumber = $"KOT-{201 + count}";
-            var subtotal = req.Items.Sum(i => i.UnitPrice * i.Quantity);
+            // Requirement 10: Prevent multiple active dine-in orders from accidentally being created for the same occupied table.
+            if (!string.IsNullOrWhiteSpace(req.TableId))
+            {
+                var existingOrder = await _db.RestaurantOrders
+                    .Include(o => o.Items)
+                    .Include(o => o.Table)
+                    .FirstOrDefaultAsync(o => o.TableId == req.TableId && o.Status != "COMPLETED" && o.Status != "CANCELLED");
+
+                if (existingOrder != null)
+                {
+                    // Append new items to the existing active order
+                    foreach (var item in items)
+                    {
+                        existingOrder.Items.Add(new RestaurantOrderItem
+                        {
+                            OrderId = existingOrder.Id,
+                            ProductId = item.ProductId ?? Guid.NewGuid().ToString("N"),
+                            ProductName = item.ProductName ?? "Item",
+                            UnitPrice = item.UnitPrice,
+                            Quantity = item.Quantity,
+                            Total = item.UnitPrice * item.Quantity,
+                            Notes = item.Notes
+                        });
+                    }
+
+                    var countKot = await _db.RestaurantOrders.CountAsync();
+                    var supplementaryKot = $"KOT-{201 + countKot}";
+                    existingOrder.KotNumber = string.IsNullOrWhiteSpace(existingOrder.KotNumber) 
+                        ? supplementaryKot 
+                        : $"{existingOrder.KotNumber}, {supplementaryKot}";
+
+                    var newSubtotal = existingOrder.Items.Sum(i => i.UnitPrice * i.Quantity);
+                    var newTax = Math.Round(newSubtotal * 0.10, 2);
+                    var newService = Math.Round(newSubtotal * 0.05, 2);
+
+                    existingOrder.Subtotal = newSubtotal;
+                    existingOrder.Tax = newTax;
+                    existingOrder.ServiceCharge = newService;
+                    existingOrder.Total = newSubtotal + newTax + newService;
+                    existingOrder.UpdatedAt = DateTime.UtcNow;
+
+                    if (!string.IsNullOrWhiteSpace(req.Notes))
+                    {
+                        existingOrder.Notes = string.IsNullOrWhiteSpace(existingOrder.Notes) 
+                            ? req.Notes 
+                            : $"{existingOrder.Notes} | {req.Notes}";
+                    }
+
+                    // Ensure table status is OCCUPIED
+                    var tableRef = await _db.RestaurantTables.FindAsync(req.TableId);
+                    if (tableRef != null)
+                    {
+                        tableRef.Status = "OCCUPIED";
+                    }
+
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return Ok(ApiResponse.Ok(existingOrder, $"Items added to active Order {existingOrder.OrderNumber} ({supplementaryKot})."));
+                }
+            }
+
+            var orderNumber = await GenerateUniqueOrderNumberAsync();
+            var kotNumber = await GenerateUniqueKitchenTicketAsync();
+            var subtotal = items.Sum(i => i.UnitPrice * i.Quantity);
             var tax = Math.Round(subtotal * 0.10, 2);
             var service = Math.Round(subtotal * 0.05, 2);
             var total = subtotal + tax + service;
+
+            var isDineIn = string.IsNullOrEmpty(req.RoomId);
+            var defaultOrderType = isDineIn 
+                ? (string.IsNullOrWhiteSpace(req.TableId) ? "NO_TABLE" : "DINE_IN") 
+                : "ROOM_SERVICE";
 
             var order = new RestaurantOrder
             {
@@ -150,23 +403,24 @@ public class RestaurantController : ControllerBase
                 RoomId = req.RoomId,
                 GuestId = req.GuestId,
                 Status = "RECEIVED",
-                OrderType = req.OrderType ?? (string.IsNullOrEmpty(req.RoomId) ? "DINE_IN" : "ROOM_SERVICE"),
-                ServerName = req.ServerName ?? "Front Desk",
+                OrderType = req.OrderType ?? defaultOrderType,
+                ServerName = req.ServerName ?? "Waiter",
                 Subtotal = subtotal,
                 Tax = tax,
                 ServiceCharge = service,
                 Total = total,
-                PaymentMethod = req.PaymentMethod ?? "ROOM_FOLIO",
-                IsPaid = req.PaymentMethod != "ROOM_FOLIO",
+                PaymentMethod = req.PaymentMethod,
+                IsPaid = false,
                 Notes = req.Notes,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
 
-            foreach (var item in req.Items)
+            foreach (var item in items)
             {
                 order.Items.Add(new RestaurantOrderItem
                 {
+                    OrderId = order.Id,
                     ProductId = item.ProductId ?? Guid.NewGuid().ToString("N"),
                     ProductName = item.ProductName ?? "Item",
                     UnitPrice = item.UnitPrice,
@@ -176,7 +430,17 @@ public class RestaurantController : ControllerBase
                 });
             }
 
-            // If charged to room folio, add to active reservation folio
+            // If table is specified, mark table as OCCUPIED
+            if (!string.IsNullOrWhiteSpace(req.TableId))
+            {
+                var table = await _db.RestaurantTables.FindAsync(req.TableId);
+                if (table != null)
+                {
+                    table.Status = "OCCUPIED";
+                }
+            }
+
+            // If immediate Room Service charge to folio is requested
             if (req.PaymentMethod == "ROOM_FOLIO" && !string.IsNullOrEmpty(req.RoomId))
             {
                 var activeRes = await _db.Reservations
@@ -186,6 +450,7 @@ public class RestaurantController : ControllerBase
                 {
                     activeRes.FolioItems.Add(new FolioItem
                     {
+                        ReservationId = activeRes.Id,
                         Outlet = req.Outlet ?? "RESTAURANT",
                         Description = $"{req.Outlet ?? "Restaurant"} Order #{orderNumber}",
                         UnitPrice = total,
@@ -195,6 +460,7 @@ public class RestaurantController : ControllerBase
                         BilledBy = req.ServerName ?? "Front Desk"
                     });
                     activeRes.TotalAmount += total;
+                    order.IsPaid = true;
                 }
             }
 
@@ -202,13 +468,488 @@ public class RestaurantController : ControllerBase
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            return Ok(ApiResponse.Ok(order, $"Order {orderNumber} created successfully."));
+            return Ok(ApiResponse.Ok(order, $"Order {orderNumber} created successfully ({kotNumber})."));
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            return StatusCode(500, ApiResponse.Fail($"Failed to create restaurant order: {ex.Message}"));
+            var detail = ex.InnerException != null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
+            return StatusCode(500, ApiResponse.Fail($"Failed to create restaurant order: {detail}"));
         }
+    }
+
+    public record AddOrderItemsRequest(
+        List<RestaurantOrderItemDto> Items,
+        string? Notes
+    );
+
+    [HttpPost("api/restaurant/orders/{id}/items")]
+    public async Task<IActionResult> AddItemsToOrder(string id, [FromBody] AddOrderItemsRequest req)
+    {
+        if (req.Items == null || req.Items.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("At least one item must be added."));
+        }
+
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+        }
+
+        if (order.Status == "COMPLETED" || order.Status == "CANCELLED")
+        {
+            return BadRequest(ApiResponse.Fail($"Cannot add items to an order with status '{order.Status}'."));
+        }
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            // Stock Validation and Deduction for Newly Added Items
+            foreach (var item in req.Items)
+            {
+                if (item.Quantity <= 0)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(ApiResponse.Fail($"Invalid quantity ({item.Quantity}) for '{item.ProductName}'."));
+                }
+
+                POSProduct? product = null;
+                if (!string.IsNullOrWhiteSpace(item.ProductId))
+                {
+                    product = await _db.POSProducts.FirstOrDefaultAsync(p => p.Id == item.ProductId);
+                }
+                if (product == null && !string.IsNullOrWhiteSpace(item.ProductName))
+                {
+                    var clean = item.ProductName.Trim().ToLower();
+                    product = await _db.POSProducts.FirstOrDefaultAsync(p => p.Name.ToLower() == clean);
+                }
+
+                if (product != null && product.TrackStock)
+                {
+                    if (!product.IsAvailable || product.Stock < item.Quantity)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest(ApiResponse.Fail($"Insufficient stock for '{product.Name}'. Available: {product.Stock}, Requested: {item.Quantity}."));
+                    }
+
+                    product.Stock -= item.Quantity;
+                    if (product.Stock <= 0)
+                    {
+                        product.Stock = 0;
+                        product.IsAvailable = false;
+                    }
+                }
+
+                order.Items.Add(new RestaurantOrderItem
+                {
+                    OrderId = order.Id,
+                    ProductId = item.ProductId ?? Guid.NewGuid().ToString("N"),
+                    ProductName = item.ProductName ?? "Item",
+                    UnitPrice = item.UnitPrice,
+                    Quantity = item.Quantity,
+                    Total = item.UnitPrice * item.Quantity,
+                    Notes = item.Notes
+                });
+            }
+
+            var countKot = await _db.RestaurantOrders.CountAsync();
+            var supplementaryKot = $"KOT-{201 + countKot}";
+            order.KotNumber = string.IsNullOrWhiteSpace(order.KotNumber) 
+                ? supplementaryKot 
+                : $"{order.KotNumber}, {supplementaryKot}";
+
+            var newSubtotal = order.Items.Sum(i => i.UnitPrice * i.Quantity);
+            var newTax = Math.Round(newSubtotal * 0.10, 2);
+            var newService = Math.Round(newSubtotal * 0.05, 2);
+
+            order.Subtotal = newSubtotal;
+            order.Tax = newTax;
+            order.ServiceCharge = newService;
+            order.Total = newSubtotal + newTax + newService;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            if (!string.IsNullOrWhiteSpace(req.Notes))
+            {
+                order.Notes = string.IsNullOrWhiteSpace(order.Notes) ? req.Notes : $"{order.Notes} | {req.Notes}";
+            }
+
+            // Ensure table remains occupied
+            if (!string.IsNullOrEmpty(order.TableId))
+            {
+                var table = await _db.RestaurantTables.FindAsync(order.TableId);
+                if (table != null) table.Status = "OCCUPIED";
+            }
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(ApiResponse.Ok(order, $"Items sent to kitchen ({supplementaryKot})."));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to add items: {ex.Message}"));
+        }
+    }
+
+    public record GenerateBillRequest(
+        double? DiscountPercent,
+        double? DiscountAmount,
+        double? RoundOff,
+        string? Remarks
+    );
+
+    [HttpPost("api/restaurant/orders/{id}/generate-bill")]
+    public async Task<IActionResult> GenerateBill(string id, [FromBody] GenerateBillRequest? req)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+        }
+
+        order.Status = "BILLED";
+        order.UpdatedAt = DateTime.UtcNow;
+
+        if (req != null)
+        {
+            if (req.DiscountPercent.HasValue && req.DiscountPercent.Value > 0)
+            {
+                order.DiscountPercent = req.DiscountPercent.Value;
+                var disc = Math.Round((order.Subtotal * order.DiscountPercent) / 100, 2);
+                order.DiscountAmount = disc;
+                order.Total = Math.Max(0, order.Subtotal - disc + order.Tax + order.ServiceCharge);
+            }
+            else if (req.DiscountAmount.HasValue && req.DiscountAmount.Value > 0)
+            {
+                order.DiscountAmount = req.DiscountAmount.Value;
+                order.DiscountPercent = order.Subtotal > 0 ? Math.Round((order.DiscountAmount / order.Subtotal) * 100, 1) : 0;
+                order.Total = Math.Max(0, order.Subtotal - order.DiscountAmount + order.Tax + order.ServiceCharge);
+            }
+
+            if (!string.IsNullOrWhiteSpace(req.Remarks))
+            {
+                order.Notes = string.IsNullOrWhiteSpace(order.Notes) ? req.Remarks : $"{order.Notes} | {req.Remarks}";
+            }
+        }
+
+        if (order.Table != null)
+        {
+            order.Table.Status = "BILLED";
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(order, $"Bill generated for Order {order.OrderNumber}."));
+    }
+
+    public record SettleRestaurantOrderRequest(
+        string PaymentMethod, // CASH, CARD, UPI, ROOM_FOLIO
+        string? RoomNumber,
+        string? RoomId,
+        string? ReservationId,
+        string? ServerName,
+        double? PaidAmount,
+        double? DiscountPercent,
+        double? DiscountAmount,
+        double? RoundOff,
+        string? Remarks
+    );
+
+    [HttpPost("api/restaurant/orders/{id}/settle")]
+    public async Task<IActionResult> SettleOrder(string id, [FromBody] SettleRestaurantOrderRequest req)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+        }
+
+        if (order.Status == "COMPLETED")
+        {
+            return Ok(ApiResponse.Ok(order, "Order is already completed and paid."));
+        }
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var pMethod = (req.PaymentMethod ?? "CASH").ToUpper().Trim();
+
+            // Handle discounts if provided at settlement
+            if (req.DiscountPercent.HasValue && req.DiscountPercent.Value > 0)
+            {
+                order.DiscountPercent = req.DiscountPercent.Value;
+                var disc = Math.Round((order.Subtotal * order.DiscountPercent) / 100, 2);
+                order.DiscountAmount = disc;
+                order.Total = Math.Max(0, order.Subtotal - disc + order.Tax + order.ServiceCharge);
+            }
+            else if (req.DiscountAmount.HasValue && req.DiscountAmount.Value > 0)
+            {
+                order.DiscountAmount = req.DiscountAmount.Value;
+                order.DiscountPercent = order.Subtotal > 0 ? Math.Round((order.DiscountAmount / order.Subtotal) * 100, 1) : 0;
+                order.Total = Math.Max(0, order.Subtotal - order.DiscountAmount + order.Tax + order.ServiceCharge);
+            }
+
+            // Requirement 9: Hotel Restaurant - Charge to Room
+            if (pMethod == "ROOM_FOLIO")
+            {
+                Reservation? activeRes = null;
+
+                if (!string.IsNullOrWhiteSpace(req.ReservationId))
+                {
+                    activeRes = await _db.Reservations
+                        .Include(r => r.FolioItems)
+                        .Include(r => r.Room)
+                        .Include(r => r.Guest)
+                        .FirstOrDefaultAsync(r => r.Id == req.ReservationId && r.Status == "CHECKED_IN");
+                }
+
+                if (activeRes == null && !string.IsNullOrWhiteSpace(req.RoomNumber))
+                {
+                    var cleanRNum = req.RoomNumber.Trim().ToLower();
+                    activeRes = await _db.Reservations
+                        .Include(r => r.FolioItems)
+                        .Include(r => r.Room)
+                        .Include(r => r.Guest)
+                        .FirstOrDefaultAsync(r => r.Room != null && r.Room.Number.ToLower() == cleanRNum && r.Status == "CHECKED_IN");
+                }
+
+                if (activeRes == null && !string.IsNullOrWhiteSpace(req.RoomId))
+                {
+                    activeRes = await _db.Reservations
+                        .Include(r => r.FolioItems)
+                        .Include(r => r.Room)
+                        .Include(r => r.Guest)
+                        .FirstOrDefaultAsync(r => r.RoomId == req.RoomId && r.Status == "CHECKED_IN");
+                }
+
+                if (activeRes == null)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(ApiResponse.Fail($"Could not verify active hotel stay for Room '{req.RoomNumber ?? req.RoomId}'. Ensure the guest is checked in."));
+                }
+
+                var tableLabel = order.Table?.TableNumber != null ? $"Table {order.Table.TableNumber}" : "Dining";
+                var folioDescription = $"Restaurant Order #{order.OrderNumber} ({tableLabel})";
+
+                activeRes.FolioItems.Add(new FolioItem
+                {
+                    ReservationId = activeRes.Id,
+                    Outlet = "RESTAURANT",
+                    Description = folioDescription,
+                    UnitPrice = order.Total,
+                    Quantity = 1,
+                    Total = order.Total,
+                    Timestamp = DateTime.UtcNow,
+                    BilledBy = req.ServerName ?? order.ServerName ?? "Cashier"
+                });
+
+                activeRes.TotalAmount += order.Total;
+                activeRes.UpdatedAt = DateTime.UtcNow;
+
+                order.RoomId = activeRes.RoomId;
+                order.GuestId = activeRes.GuestId;
+            }
+
+            order.PaymentMethod = pMethod;
+            order.IsPaid = true;
+            order.Status = "COMPLETED";
+            order.UpdatedAt = DateTime.UtcNow;
+
+            if (!string.IsNullOrWhiteSpace(req.Remarks))
+            {
+                order.Notes = string.IsNullOrWhiteSpace(order.Notes) ? req.Remarks : $"{order.Notes} | {req.Remarks}";
+            }
+
+            // Shift Accounting: Update active CashRegister if open
+            var activeRegister = await _db.CashRegisters
+                .Where(r => r.Status == "OPEN")
+                .OrderByDescending(r => r.OpenedAt)
+                .FirstOrDefaultAsync();
+
+            if (activeRegister != null)
+            {
+                if (pMethod == "CASH")
+                {
+                    activeRegister.CashSales += order.Total;
+                }
+                else if (pMethod == "CARD" || pMethod == "UPI")
+                {
+                    activeRegister.CardSales += order.Total;
+                }
+            }
+
+            // Requirement 7: After successful payment and completion, release the table (if assigned)
+            if (!string.IsNullOrWhiteSpace(order.TableId))
+            {
+                var table = await _db.RestaurantTables.FindAsync(order.TableId);
+                if (table != null)
+                {
+                    table.Status = "FREE";
+                }
+            }
+
+            // Complete linked table reservation if one exists
+            if (!string.IsNullOrWhiteSpace(order.ReservationId))
+            {
+                var linkedRes = await _db.TableReservations.FindAsync(order.ReservationId);
+                if (linkedRes != null && linkedRes.Status == "SEATED")
+                {
+                    linkedRes.Status = "COMPLETED";
+                    linkedRes.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+            else
+            {
+                var linkedRes = await _db.TableReservations
+                    .FirstOrDefaultAsync(r => r.OrderId == order.Id && r.Status == "SEATED");
+                if (linkedRes != null)
+                {
+                    linkedRes.Status = "COMPLETED";
+                    linkedRes.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(ApiResponse.Ok(new
+            {
+                Order = order,
+                ReleasedTableId = order.TableId,
+                Message = $"Order {order.OrderNumber} completed via {pMethod}." + (!string.IsNullOrWhiteSpace(order.TableId) ? " Table is now available." : "")
+            }));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to settle order: {ex.Message}"));
+        }
+    }
+
+    public record AssignTableRequest(string TableId);
+
+    [HttpPost("api/restaurant/orders/{id}/assign-table")]
+    public async Task<IActionResult> AssignTable(string id, [FromBody] AssignTableRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.TableId))
+        {
+            return BadRequest(ApiResponse.Fail("Table ID is required to assign a table."));
+        }
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var order = await _db.RestaurantOrders
+                .Include(o => o.Items)
+                .Include(o => o.Table)
+                .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
+
+            if (order == null)
+            {
+                return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+            }
+
+            if (order.Status == "COMPLETED" || order.Status == "CANCELLED")
+            {
+                return BadRequest(ApiResponse.Fail($"Cannot assign a table to a {order.Status.ToLower()} order."));
+            }
+
+            var targetTable = await _db.RestaurantTables
+                .FirstOrDefaultAsync(t => t.Id == req.TableId);
+
+            if (targetTable == null)
+            {
+                return NotFound(ApiResponse.Fail($"Table '{req.TableId}' not found."));
+            }
+
+            // Verify that the table is eligible and available - Requirement 8
+            var existingActiveOrder = await _db.RestaurantOrders
+                .FirstOrDefaultAsync(o => o.TableId == targetTable.Id && o.Id != order.Id && o.Status != "COMPLETED" && o.Status != "CANCELLED");
+
+            if (existingActiveOrder != null || targetTable.Status == "OCCUPIED" || targetTable.Status == "BILLED")
+            {
+                return BadRequest(ApiResponse.Fail($"Table {targetTable.TableNumber} is currently occupied by active order #{existingActiveOrder?.OrderNumber ?? "another order"}. Please choose an available table."));
+            }
+
+            // If this order was previously assigned to a different table, release the old table
+            if (!string.IsNullOrWhiteSpace(order.TableId) && order.TableId != targetTable.Id)
+            {
+                var oldTable = await _db.RestaurantTables.FindAsync(order.TableId);
+                if (oldTable != null)
+                {
+                    oldTable.Status = "FREE";
+                }
+            }
+
+            // Update order and table state consistently
+            order.TableId = targetTable.Id;
+            order.OrderType = "DINE_IN";
+            order.UpdatedAt = DateTime.UtcNow;
+
+            targetTable.Status = order.Status == "BILLED" ? "BILLED" : "OCCUPIED";
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            await _db.Entry(order).Reference(o => o.Table).LoadAsync();
+
+            return Ok(ApiResponse.Ok(order, $"Table {targetTable.TableNumber} successfully assigned to Order {order.OrderNumber}."));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to assign table: {ex.Message}"));
+        }
+    }
+
+    [HttpGet("api/restaurant/verify-room/{roomNumber}")]
+    public async Task<IActionResult> VerifyRoom(string roomNumber)
+    {
+        if (string.IsNullOrWhiteSpace(roomNumber))
+        {
+            return BadRequest(ApiResponse.Fail("Room number is required."));
+        }
+
+        var clean = roomNumber.Trim().ToLower();
+        var res = await _db.Reservations
+            .Include(r => r.Room)
+            .Include(r => r.Guest)
+            .FirstOrDefaultAsync(r => r.Room != null && r.Room.Number.ToLower() == clean && r.Status == "CHECKED_IN");
+
+        if (res == null)
+        {
+            return Ok(ApiResponse.Fail($"No active checked-in stay found for Room '{roomNumber}'."));
+        }
+
+        return Ok(ApiResponse.Ok(new
+        {
+            Valid = true,
+            ReservationId = res.Id,
+            RoomId = res.RoomId,
+            RoomNumber = res.Room?.Number,
+            GuestId = res.GuestId,
+            GuestName = $"{res.Guest?.FirstName} {res.Guest?.LastName}".Trim(),
+            GuestPhone = res.Guest?.Phone,
+            BookingCode = res.BookingCode,
+            CheckIn = res.CheckIn,
+            CheckOut = res.CheckOut,
+            TotalAmount = res.TotalAmount,
+            PaidAmount = res.PaidAmount
+        }, "Active hotel stay verified successfully."));
     }
 
     public record UpdateRestaurantOrderStatusRequest(string Status, string? Notes);
@@ -218,6 +959,7 @@ public class RestaurantController : ControllerBase
     {
         var order = await _db.RestaurantOrders
             .Include(o => o.Items)
+            .Include(o => o.Table)
             .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
 
         if (order == null)
@@ -256,6 +998,13 @@ public class RestaurantController : ControllerBase
                     order.Notes = string.IsNullOrEmpty(order.Notes) ? req.Notes : $"{order.Notes} | {req.Notes}";
                 }
 
+                // If table is associated, release table
+                if (!string.IsNullOrEmpty(order.TableId))
+                {
+                    var table = await _db.RestaurantTables.FindAsync(order.TableId);
+                    if (table != null) table.Status = "FREE";
+                }
+
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -275,6 +1024,13 @@ public class RestaurantController : ControllerBase
             order.Notes = string.IsNullOrEmpty(order.Notes) ? req.Notes : $"{order.Notes} | {req.Notes}";
         }
 
+        // If completed, release table
+        if (newStatus == "COMPLETED" && !string.IsNullOrEmpty(order.TableId))
+        {
+            var table = await _db.RestaurantTables.FindAsync(order.TableId);
+            if (table != null) table.Status = "FREE";
+        }
+
         await _db.SaveChangesAsync();
         return Ok(ApiResponse.Ok(order, $"Order {order.OrderNumber} status updated to {newStatus}."));
     }
@@ -290,11 +1046,51 @@ public class RestaurantController : ControllerBase
     public async Task<IActionResult> GetTables()
     {
         var tables = await _db.RestaurantTables
-            .Include(t => t.Orders.Where(o => o.Status != "BILLED" && o.Status != "CANCELLED"))
+            .Include(t => t.Orders.Where(o => o.Status != "COMPLETED" && o.Status != "CANCELLED"))
+                .ThenInclude(o => o.Items)
+            .Include(t => t.Reservations.Where(r => r.Status == "CONFIRMED" || r.Status == "SEATED" || r.Status == "PENDING"))
             .OrderBy(t => t.TableNumber)
             .ToListAsync();
 
         return Ok(ApiResponse.Ok(tables));
+    }
+
+    [HttpPost("api/restaurant/tables/{id}/release")]
+    [HttpPatch("api/restaurant/tables/{id}/release")]
+    public async Task<IActionResult> ReleaseTable(string id)
+    {
+        var table = await _db.RestaurantTables.FindAsync(id);
+        if (table == null)
+        {
+            return NotFound(ApiResponse.Fail($"Table '{id}' not found."));
+        }
+
+        table.Status = "FREE";
+
+        // Mark any remaining active orders as COMPLETED
+        var activeOrders = await _db.RestaurantOrders
+            .Where(o => o.TableId == id && o.Status != "COMPLETED" && o.Status != "CANCELLED")
+            .ToListAsync();
+
+        foreach (var o in activeOrders)
+        {
+            o.Status = "COMPLETED";
+            o.IsPaid = true;
+            o.UpdatedAt = DateTime.UtcNow;
+        }
+
+        // Also complete any seated table reservations for this table
+        var seatedReservations = await _db.TableReservations
+            .Where(r => r.TableId == id && r.Status == "SEATED")
+            .ToListAsync();
+        foreach (var sr in seatedReservations)
+        {
+            sr.Status = "COMPLETED";
+            sr.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(table, $"Table {table.TableNumber} released and is now Available."));
     }
 
     [HttpPost("api/restaurant/tables")]
@@ -317,4 +1113,906 @@ public class RestaurantController : ControllerBase
 
         return Ok(ApiResponse.Ok(table, "Table created successfully."));
     }
+
+    // =========================================================================
+    // TABLE RESERVATIONS (AVAILABILITY, BOOKING, SEATING & CONCURRENCY)
+    // =========================================================================
+
+    public record CreateTableReservationRequest(
+        string CustomerName,
+        string PhoneNumber,
+        DateTime ReservationDate,
+        string ReservationTime,
+        int? PartySize,
+        int? DurationMinutes,
+        string? TableId,
+        string? SpecialRequests,
+        string? InternalNotes,
+        string? Status
+    );
+
+    public record UpdateTableReservationRequest(
+        string? CustomerName,
+        string? PhoneNumber,
+        DateTime? ReservationDate,
+        string? ReservationTime,
+        int? PartySize,
+        int? DurationMinutes,
+        string? TableId,
+        string? SpecialRequests,
+        string? InternalNotes,
+        string? Status
+    );
+
+    public record UpdateReservationStatusRequest(
+        string Status,
+        string? Notes
+    );
+
+    public record SeatGuestsRequest(
+        string? TableId,
+        string? ServerName
+    );
+
+    private static DateTime ParseReservationDateTime(DateTime date, string timeStr)
+    {
+        var baseDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+        if (TimeSpan.TryParse(timeStr, out var ts))
+        {
+            return baseDate.Add(ts);
+        }
+        if (DateTime.TryParse(timeStr, out var parsedDt))
+        {
+            return baseDate.Add(parsedDt.TimeOfDay);
+        }
+        return baseDate.AddHours(19);
+    }
+
+    private static bool ReservationsOverlap(DateTime startA, int durationA, DateTime startB, int durationB)
+    {
+        var endA = startA.AddMinutes(durationA > 0 ? durationA : 120);
+        var endB = startB.AddMinutes(durationB > 0 ? durationB : 120);
+        return startA < endB && endA > startB;
+    }
+
+    [HttpGet("api/restaurant/reservations")]
+    public async Task<IActionResult> GetTableReservations(
+        [FromQuery] DateTime? date,
+        [FromQuery] string? status,
+        [FromQuery] string? tableId,
+        [FromQuery] string? search)
+    {
+        var query = _db.TableReservations
+            .Include(r => r.Table)
+            .Include(r => r.Guest)
+            .AsQueryable();
+
+        if (date.HasValue)
+        {
+            var targetUtcDate = DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc);
+            query = query.Where(r => r.ReservationDate.Date == targetUtcDate.Date);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var statuses = status.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                 .Select(s => s.ToUpper())
+                                 .ToList();
+            if (statuses.Count == 1)
+            {
+                query = query.Where(r => r.Status.ToUpper() == statuses[0]);
+            }
+            else if (statuses.Count > 1)
+            {
+                query = query.Where(r => statuses.Contains(r.Status.ToUpper()));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(tableId))
+        {
+            query = query.Where(r => r.TableId == tableId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(r => r.CustomerName.ToLower().Contains(s) || r.PhoneNumber.Contains(s) || r.ReservationCode.ToLower().Contains(s));
+        }
+
+        var reservations = await query
+            .OrderBy(r => r.ReservationDate)
+            .ThenBy(r => r.ReservationTime)
+            .ToListAsync();
+
+        return Ok(ApiResponse.Ok(reservations));
+    }
+
+    [HttpGet("api/restaurant/reservations/{id}")]
+    public async Task<IActionResult> GetTableReservation(string id)
+    {
+        var res = await _db.TableReservations
+            .Include(r => r.Table)
+            .Include(r => r.Guest)
+            .FirstOrDefaultAsync(r => r.Id == id || r.ReservationCode == id);
+
+        if (res == null)
+        {
+            return NotFound(ApiResponse.Fail($"Table reservation '{id}' not found."));
+        }
+
+        return Ok(ApiResponse.Ok(res));
+    }
+
+    [HttpGet("api/restaurant/reservations/available-tables")]
+    public async Task<IActionResult> GetAvailableTables(
+        [FromQuery] DateTime? date,
+        [FromQuery] string? time,
+        [FromQuery] int? partySize,
+        [FromQuery] int? durationMinutes,
+        [FromQuery] string? excludeReservationId)
+    {
+        var targetDate = date.HasValue ? DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc) : DateTime.UtcNow.Date;
+        var timeStr = string.IsNullOrWhiteSpace(time) ? "19:00" : time.Trim();
+        var guests = partySize ?? 2;
+        var duration = durationMinutes ?? 120;
+
+        var targetStart = ParseReservationDateTime(targetDate, timeStr);
+        var targetEnd = targetStart.AddMinutes(duration);
+
+        var allTables = await _db.RestaurantTables
+            .Include(t => t.Orders.Where(o => o.Status != "COMPLETED" && o.Status != "CANCELLED"))
+            .OrderBy(t => t.TableNumber)
+            .ToListAsync();
+
+        var query = _db.TableReservations
+            .Where(r => r.Status != "CANCELLED" && r.Status != "NO_SHOW" && r.Status != "COMPLETED");
+
+        if (!string.IsNullOrWhiteSpace(excludeReservationId))
+        {
+            query = query.Where(r => r.Id != excludeReservationId);
+        }
+
+        var activeReservations = await query.ToListAsync();
+
+        var nowUtc = DateTime.UtcNow;
+        var isForTodayNearNow = Math.Abs((targetStart - nowUtc).TotalHours) < 3;
+
+        var results = allTables.Select(table =>
+        {
+            var capacityFits = table.Capacity >= guests;
+            
+            // Check overlapping reservations on this table
+            var tableReservations = activeReservations
+                .Where(r => r.TableId == table.Id && r.ReservationDate.Date == targetDate.Date)
+                .ToList();
+
+            TableReservation? conflictingRes = null;
+            foreach (var r in tableReservations)
+            {
+                var rStart = ParseReservationDateTime(r.ReservationDate, r.ReservationTime);
+                if (ReservationsOverlap(targetStart, duration, rStart, r.DurationMinutes))
+                {
+                    conflictingRes = r;
+                    break;
+                }
+            }
+
+            var isCurrentlyOccupied = isForTodayNearNow && (table.Status == "OCCUPIED" || table.Orders.Any());
+
+            var isAvailable = capacityFits && conflictingRes == null && !isCurrentlyOccupied;
+
+            string? conflictReason = null;
+            if (!capacityFits)
+            {
+                conflictReason = $"Capacity too small ({table.Capacity} seats for {guests} guests)";
+            }
+            else if (conflictingRes != null)
+            {
+                conflictReason = $"Reserved by {conflictingRes.CustomerName} ({conflictingRes.ReservationTime}, {conflictingRes.DurationMinutes} min)";
+            }
+            else if (isCurrentlyOccupied)
+            {
+                conflictReason = "Table is currently occupied by active diners";
+            }
+
+            return new
+            {
+                table.Id,
+                table.TableNumber,
+                table.Section,
+                table.Capacity,
+                table.Status,
+                IsAvailable = isAvailable,
+                CapacityFits = capacityFits,
+                ConflictReason = conflictReason,
+                ConflictingReservation = conflictingRes != null ? new
+                {
+                    conflictingRes.Id,
+                    conflictingRes.ReservationCode,
+                    conflictingRes.CustomerName,
+                    conflictingRes.ReservationTime,
+                    conflictingRes.DurationMinutes
+                } : null
+            };
+        }).ToList();
+
+        var availableTables = results.Where(t => t.IsAvailable).ToList();
+
+        return Ok(ApiResponse.Ok(new
+        {
+            RequestedDate = targetDate.ToString("yyyy-MM-dd"),
+            RequestedTime = timeStr,
+            PartySize = guests,
+            DurationMinutes = duration,
+            AvailableCount = availableTables.Count,
+            TotalTables = results.Count,
+            AvailableTables = availableTables,
+            AllTables = results
+        }));
+    }
+
+    [HttpPost("api/restaurant/reservations")]
+    public async Task<IActionResult> CreateTableReservation([FromBody] CreateTableReservationRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.CustomerName))
+        {
+            return BadRequest(ApiResponse.Fail("Customer name is required for reservations."));
+        }
+
+        if (string.IsNullOrWhiteSpace(req.PhoneNumber))
+        {
+            return BadRequest(ApiResponse.Fail("Phone number is required for reservations."));
+        }
+
+        if (string.IsNullOrWhiteSpace(req.ReservationTime))
+        {
+            return BadRequest(ApiResponse.Fail("Reservation time is required."));
+        }
+
+        var guests = req.PartySize.HasValue && req.PartySize.Value > 0 ? req.PartySize.Value : 2;
+        var duration = req.DurationMinutes.HasValue && req.DurationMinutes.Value > 0 ? req.DurationMinutes.Value : 120;
+        var resDate = DateTime.SpecifyKind(req.ReservationDate.Date, DateTimeKind.Utc);
+        var targetStart = ParseReservationDateTime(resDate, req.ReservationTime);
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            RestaurantTable? table = null;
+            if (!string.IsNullOrWhiteSpace(req.TableId))
+            {
+                table = await _db.RestaurantTables.FindAsync(req.TableId);
+                if (table == null)
+                {
+                    await transaction.RollbackAsync();
+                    return NotFound(ApiResponse.Fail($"Table '{req.TableId}' not found."));
+                }
+
+                // Check for concurrent/overlapping active reservations on this table
+                var activeResOnTable = await _db.TableReservations
+                    .Where(r => r.TableId == table.Id &&
+                                r.ReservationDate.Date == resDate.Date &&
+                                r.Status != "CANCELLED" &&
+                                r.Status != "NO_SHOW" &&
+                                r.Status != "COMPLETED")
+                    .ToListAsync();
+
+                foreach (var existing in activeResOnTable)
+                {
+                    var exStart = ParseReservationDateTime(existing.ReservationDate, existing.ReservationTime);
+                    if (ReservationsOverlap(targetStart, duration, exStart, existing.DurationMinutes))
+                    {
+                        await transaction.RollbackAsync();
+                        return Conflict(ApiResponse.Fail(
+                            $"Table {table.TableNumber} already has a reservation ({existing.ReservationCode}) for {existing.CustomerName} from {existing.ReservationTime} ({existing.DurationMinutes} mins). Please choose another table or time."));
+                    }
+                }
+            }
+
+            // Customer Linking (Requirement 4): Reuse existing guest record if phone matches, otherwise allow reservation without account
+            string? guestId = null;
+            var cleanPhone = req.PhoneNumber.Trim();
+            var existingGuest = await _db.Guests.FirstOrDefaultAsync(g => g.Phone == cleanPhone);
+            if (existingGuest != null)
+            {
+                guestId = existingGuest.Id;
+            }
+
+            var hotel = await _db.Hotels.FirstOrDefaultAsync();
+            var hotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
+
+            var count = await _db.TableReservations.CountAsync();
+            var reservationCode = $"TR-{1001 + count}";
+
+            var status = string.IsNullOrWhiteSpace(req.Status) ? "CONFIRMED" : req.Status.ToUpper().Trim();
+
+            var reservation = new TableReservation
+            {
+                HotelId = hotelId,
+                TableId = table?.Id,
+                GuestId = guestId,
+                CustomerName = req.CustomerName.Trim(),
+                PhoneNumber = cleanPhone,
+                ReservationDate = resDate,
+                ReservationTime = req.ReservationTime.Trim(),
+                PartySize = guests,
+                DurationMinutes = duration,
+                Status = status,
+                SpecialRequests = req.SpecialRequests,
+                InternalNotes = req.InternalNotes,
+                ReservationCode = reservationCode,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _db.TableReservations.Add(reservation);
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            reservation.Table = table;
+            reservation.Guest = existingGuest;
+
+            return CreatedAtAction(nameof(GetTableReservation), new { id = reservation.Id }, ApiResponse.Ok(reservation, $"Reservation {reservationCode} created successfully."));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to create reservation: {ex.Message}"));
+        }
+    }
+
+    [HttpPut("api/restaurant/reservations/{id}")]
+    public async Task<IActionResult> UpdateTableReservation(string id, [FromBody] UpdateTableReservationRequest req)
+    {
+        var res = await _db.TableReservations.FirstOrDefaultAsync(r => r.Id == id || r.ReservationCode == id);
+        if (res == null)
+        {
+            return NotFound(ApiResponse.Fail($"Reservation '{id}' not found."));
+        }
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var targetTableId = req.TableId ?? res.TableId;
+            var targetDate = req.ReservationDate.HasValue 
+                ? DateTime.SpecifyKind(req.ReservationDate.Value.Date, DateTimeKind.Utc) 
+                : res.ReservationDate;
+            var targetTime = req.ReservationTime ?? res.ReservationTime;
+            var targetDuration = req.DurationMinutes ?? res.DurationMinutes;
+            var targetStart = ParseReservationDateTime(targetDate, targetTime);
+
+            if (!string.IsNullOrWhiteSpace(targetTableId))
+            {
+                var table = await _db.RestaurantTables.FindAsync(targetTableId);
+                if (table == null)
+                {
+                    await transaction.RollbackAsync();
+                    return NotFound(ApiResponse.Fail($"Table '{targetTableId}' not found."));
+                }
+
+                // Check conflict against other active reservations on this table
+                var activeResOnTable = await _db.TableReservations
+                    .Where(r => r.Id != res.Id &&
+                                r.TableId == targetTableId &&
+                                r.ReservationDate.Date == targetDate.Date &&
+                                r.Status != "CANCELLED" &&
+                                r.Status != "NO_SHOW" &&
+                                r.Status != "COMPLETED")
+                    .ToListAsync();
+
+                foreach (var existing in activeResOnTable)
+                {
+                    var exStart = ParseReservationDateTime(existing.ReservationDate, existing.ReservationTime);
+                    if (ReservationsOverlap(targetStart, targetDuration, exStart, existing.DurationMinutes))
+                    {
+                        await transaction.RollbackAsync();
+                        return Conflict(ApiResponse.Fail(
+                            $"Table {table.TableNumber} already has a reservation ({existing.ReservationCode}) for {existing.CustomerName} from {existing.ReservationTime} ({existing.DurationMinutes} mins)."));
+                    }
+                }
+
+                res.TableId = targetTableId;
+            }
+            else
+            {
+                res.TableId = null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(req.CustomerName)) res.CustomerName = req.CustomerName.Trim();
+            if (!string.IsNullOrWhiteSpace(req.PhoneNumber)) res.PhoneNumber = req.PhoneNumber.Trim();
+            if (req.ReservationDate.HasValue) res.ReservationDate = targetDate;
+            if (!string.IsNullOrWhiteSpace(req.ReservationTime)) res.ReservationTime = targetTime.Trim();
+            if (req.PartySize.HasValue && req.PartySize.Value > 0) res.PartySize = req.PartySize.Value;
+            if (req.DurationMinutes.HasValue && req.DurationMinutes.Value > 0) res.DurationMinutes = req.DurationMinutes.Value;
+            if (req.SpecialRequests != null) res.SpecialRequests = req.SpecialRequests;
+            if (req.InternalNotes != null) res.InternalNotes = req.InternalNotes;
+            if (!string.IsNullOrWhiteSpace(req.Status)) res.Status = req.Status.ToUpper().Trim();
+
+            res.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(ApiResponse.Ok(res, $"Reservation {res.ReservationCode} updated successfully."));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to update reservation: {ex.Message}"));
+        }
+    }
+
+    [HttpPatch("api/restaurant/reservations/{id}/status")]
+    public async Task<IActionResult> UpdateReservationStatus(string id, [FromBody] UpdateReservationStatusRequest req)
+    {
+        var res = await _db.TableReservations.FirstOrDefaultAsync(r => r.Id == id || r.ReservationCode == id);
+        if (res == null)
+        {
+            return NotFound(ApiResponse.Fail($"Reservation '{id}' not found."));
+        }
+
+        var newStatus = req.Status.ToUpper().Trim();
+        res.Status = newStatus;
+        res.UpdatedAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(req.Notes))
+        {
+            res.InternalNotes = string.IsNullOrWhiteSpace(res.InternalNotes)
+                ? req.Notes
+                : $"{res.InternalNotes} | {req.Notes}";
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(res, $"Reservation {res.ReservationCode} status updated to {newStatus}."));
+    }
+
+    [HttpPost("api/restaurant/reservations/{id}/seat")]
+    public async Task<IActionResult> SeatGuests(string id, [FromBody] SeatGuestsRequest? req)
+    {
+        var res = await _db.TableReservations
+            .Include(r => r.Table)
+            .Include(r => r.Guest)
+            .FirstOrDefaultAsync(r => r.Id == id || r.ReservationCode == id);
+
+        if (res == null)
+        {
+            return NotFound(ApiResponse.Fail($"Reservation '{id}' not found."));
+        }
+
+        if (res.Status == "COMPLETED" || res.Status == "CANCELLED")
+        {
+            return BadRequest(ApiResponse.Fail($"Cannot seat reservation '{res.ReservationCode}' with status {res.Status}."));
+        }
+
+        var targetTableId = req?.TableId ?? res.TableId;
+        if (string.IsNullOrWhiteSpace(targetTableId))
+        {
+            return BadRequest(ApiResponse.Fail("Please select an available table to seat the guests."));
+        }
+
+        var table = await _db.RestaurantTables.FindAsync(targetTableId);
+        if (table == null)
+        {
+            return NotFound(ApiResponse.Fail($"Table '{targetTableId}' not found."));
+        }
+
+        // Check if table is already occupied by another active order
+        var existingActiveOrder = await _db.RestaurantOrders
+            .FirstOrDefaultAsync(o => o.TableId == table.Id && o.Status != "COMPLETED" && o.Status != "CANCELLED");
+
+        if (existingActiveOrder != null && existingActiveOrder.ReservationId != res.Id)
+        {
+            return BadRequest(ApiResponse.Fail($"Table {table.TableNumber} is currently occupied by active order #{existingActiveOrder.OrderNumber}. Please assign another available table."));
+        }
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            // 1. Mark table as occupied
+            table.Status = "OCCUPIED";
+
+            // 2. Update reservation
+            res.TableId = table.Id;
+            res.Status = "SEATED";
+            res.UpdatedAt = DateTime.UtcNow;
+
+            // 3. Link or create restaurant order
+            RestaurantOrder? order = existingActiveOrder;
+            if (order == null)
+            {
+                var countOrders = await _db.RestaurantOrders.CountAsync();
+                var orderNum = $"ORD-{101 + countOrders}";
+                var kotNum = $"KOT-{201 + countOrders}";
+
+                order = new RestaurantOrder
+                {
+                    HotelId = res.HotelId,
+                    TableId = table.Id,
+                    GuestId = res.GuestId,
+                    ReservationId = res.Id,
+                    OrderNumber = orderNum,
+                    KotNumber = kotNum,
+                    Outlet = "RESTAURANT",
+                    OrderType = "DINE_IN",
+                    ServerName = req?.ServerName ?? "Waiter",
+                    Status = "RECEIVED",
+                    Notes = $"Reservation {res.ReservationCode} - {res.CustomerName} ({res.PartySize} guests). {(string.IsNullOrWhiteSpace(res.SpecialRequests) ? "" : "Special: " + res.SpecialRequests)}".Trim(),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _db.RestaurantOrders.Add(order);
+                await _db.SaveChangesAsync();
+            }
+            else
+            {
+                order.ReservationId = res.Id;
+                if (!string.IsNullOrWhiteSpace(res.CustomerName))
+                {
+                    order.Notes = $"Reservation {res.ReservationCode} - {res.CustomerName}. {order.Notes}".Trim();
+                }
+            }
+
+            res.OrderId = order.Id;
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(ApiResponse.Ok(new
+            {
+                Reservation = res,
+                Table = table,
+                Order = order,
+                Message = $"Guests seated at Table {table.TableNumber}. Order #{order.OrderNumber} created and linked."
+            }));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to seat guests: {ex.Message}"));
+        }
+    }
+
+    // =========================================================================
+    // QUICK SALE / COUNTER SALE FEATURE
+    // =========================================================================
+
+    public record QuickSaleItemDto(
+        string? ProductId,
+        string? ProductName,
+        double UnitPrice,
+        int Quantity,
+        string? Notes
+    );
+
+    public record QuickSaleRequest(
+        List<QuickSaleItemDto> Items,
+        string? PaymentMethod, // CASH, CARD, UPI, QR
+        double? PaidAmount,
+        double? DiscountPercent,
+        double? DiscountAmount,
+        double? Tax,
+        double? ServiceCharge,
+        string? ServerName,
+        string? CustomerName,
+        string? CustomerPhone,
+        string? Notes,
+        bool? SendToKitchen,
+        string? Outlet
+    );
+
+    [HttpPost("api/restaurant/quick-sale")]
+    public async Task<IActionResult> ProcessQuickSale([FromBody] QuickSaleRequest req)
+    {
+        if (req.Items == null || req.Items.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("Quick sale must contain at least one item."));
+        }
+
+        foreach (var item in req.Items)
+        {
+            if (item.Quantity <= 0)
+            {
+                return BadRequest(ApiResponse.Fail($"Invalid quantity ({item.Quantity}) for item '{item.ProductName}'."));
+            }
+            if (item.UnitPrice < 0)
+            {
+                return BadRequest(ApiResponse.Fail($"Price cannot be negative for item '{item.ProductName}'."));
+            }
+        }
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            // 1. Stock Tracking & Validation for Tracked Items (Requirement 6)
+            foreach (var item in req.Items)
+            {
+                POSProduct? product = null;
+                if (!string.IsNullOrWhiteSpace(item.ProductId))
+                {
+                    product = await _db.POSProducts.FirstOrDefaultAsync(p => p.Id == item.ProductId);
+                }
+                if (product == null && !string.IsNullOrWhiteSpace(item.ProductName))
+                {
+                    var cleanName = item.ProductName.Trim().ToLower();
+                    product = await _db.POSProducts.FirstOrDefaultAsync(p => p.Name.ToLower() == cleanName);
+                }
+
+                if (product != null && product.TrackStock)
+                {
+                    if (!product.IsAvailable || product.Stock <= 0)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest(ApiResponse.Fail($"Product '{product.Name}' is out of stock / unavailable."));
+                    }
+
+                    if (product.Stock < item.Quantity)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest(ApiResponse.Fail($"Insufficient stock for '{product.Name}'. Available: {product.Stock}, Requested: {item.Quantity}."));
+                    }
+
+                    // Deduct stock once per sale
+                    product.Stock -= item.Quantity;
+                    if (product.Stock <= 0)
+                    {
+                        product.Stock = 0;
+                        product.IsAvailable = false;
+                    }
+
+                    // Deduct matching Restaurant inventory item stock if linked
+                    InventoryItem? invItem = null;
+                    if (!string.IsNullOrWhiteSpace(product.InventoryItemId))
+                    {
+                        invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Id == product.InventoryItemId && i.Department == "RESTAURANT");
+                    }
+                    else
+                    {
+                        invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Department == "RESTAURANT" && (i.Name.ToLower() == product.Name.ToLower() || (!string.IsNullOrEmpty(i.Sku) && i.Sku.ToLower() == product.Name.ToLower())));
+                    }
+
+                    if (invItem != null)
+                    {
+                        invItem.CurrentStock = Math.Max(0, invItem.CurrentStock - item.Quantity);
+                        invItem.LastRestocked = DateTime.UtcNow;
+                        _db.StockMovements.Add(new StockMovement
+                        {
+                            ItemId = invItem.Id,
+                            Department = "RESTAURANT",
+                            Quantity = -item.Quantity,
+                            Type = "POS_CONSUMPTION",
+                            Reason = "Quick Sale POS deduction",
+                            PerformedBy = req.ServerName ?? "POS Cashier",
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+            }
+
+            var hotel = await _db.Hotels.FirstOrDefaultAsync();
+            var hotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
+
+            // 2. Financial & Billing Calculations
+            var subtotal = Math.Round(req.Items.Sum(i => i.UnitPrice * i.Quantity), 2);
+            var discAmt = req.DiscountAmount ?? 0;
+            if (!req.DiscountAmount.HasValue && req.DiscountPercent.HasValue && req.DiscountPercent.Value > 0)
+            {
+                discAmt = Math.Round((subtotal * req.DiscountPercent.Value) / 100.0, 2);
+            }
+            discAmt = Math.Min(subtotal, Math.Max(0, discAmt));
+
+            var netAfterDiscount = Math.Max(0, subtotal - discAmt);
+            var tax = req.Tax ?? Math.Round(netAfterDiscount * 0.10, 2);
+            var service = req.ServiceCharge ?? 0.0;
+            var total = Math.Round(netAfterDiscount + tax + service, 2);
+
+            var pMethod = string.IsNullOrWhiteSpace(req.PaymentMethod) ? "CASH" : req.PaymentMethod.Trim().ToUpper();
+            if (pMethod == "QR") pMethod = "UPI";
+
+            var count = await _db.RestaurantOrders.CountAsync();
+            var orderNumber = $"ORD-{2001 + count}";
+            var sendToKitchen = req.SendToKitchen ?? false;
+            var kotNumber = sendToKitchen ? $"KOT-{101 + count}" : "";
+            var status = sendToKitchen ? "RECEIVED" : "COMPLETED";
+
+            // Optional customer linkage (no account required)
+            string? guestId = null;
+            if (!string.IsNullOrWhiteSpace(req.CustomerPhone))
+            {
+                var cleanPhone = req.CustomerPhone.Trim();
+                var existingGuest = await _db.Guests.FirstOrDefaultAsync(g => g.Phone == cleanPhone);
+                if (existingGuest != null)
+                {
+                    guestId = existingGuest.Id;
+                }
+            }
+
+            var notesBuilder = new List<string>();
+            if (!string.IsNullOrWhiteSpace(req.CustomerName))
+            {
+                notesBuilder.Add($"Customer: {req.CustomerName.Trim()}");
+            }
+            if (!string.IsNullOrWhiteSpace(req.CustomerPhone))
+            {
+                notesBuilder.Add($"Phone: {req.CustomerPhone.Trim()}");
+            }
+            if (!string.IsNullOrWhiteSpace(req.Notes))
+            {
+                notesBuilder.Add(req.Notes.Trim());
+            }
+
+            var order = new RestaurantOrder
+            {
+                HotelId = hotelId,
+                TableId = null, // Counter sale is separate from tables
+                RoomId = null,
+                GuestId = guestId,
+                OrderNumber = orderNumber,
+                KotNumber = kotNumber,
+                Outlet = req.Outlet ?? "RESTAURANT",
+                Status = status,
+                OrderType = "COUNTER_SALE",
+                ServerName = req.ServerName ?? "Cashier",
+                Subtotal = subtotal,
+                DiscountAmount = discAmt,
+                DiscountPercent = req.DiscountPercent ?? (subtotal > 0 ? Math.Round((discAmt / subtotal) * 100, 1) : 0),
+                Tax = tax,
+                ServiceCharge = service,
+                Total = total,
+                PaymentMethod = pMethod,
+                IsPaid = true,
+                Notes = notesBuilder.Count > 0 ? string.Join(" | ", notesBuilder) : null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            foreach (var item in req.Items)
+            {
+                order.Items.Add(new RestaurantOrderItem
+                {
+                    ProductId = item.ProductId ?? Guid.NewGuid().ToString("N"),
+                    ProductName = item.ProductName ?? "Item",
+                    UnitPrice = item.UnitPrice,
+                    Quantity = item.Quantity,
+                    Total = Math.Round(item.UnitPrice * item.Quantity, 2),
+                    Notes = item.Notes
+                });
+            }
+
+            // 3. Shift Accounting: Update active CashRegister if open
+            var activeRegister = await _db.CashRegisters
+                .Where(r => r.Status == "OPEN")
+                .OrderByDescending(r => r.OpenedAt)
+                .FirstOrDefaultAsync();
+
+            if (activeRegister != null)
+            {
+                if (pMethod == "CASH")
+                {
+                    activeRegister.CashSales += total;
+                }
+                else if (pMethod == "CARD" || pMethod == "UPI")
+                {
+                    activeRegister.CardSales += total;
+                }
+            }
+
+            _db.RestaurantOrders.Add(order);
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            var paidAmount = req.PaidAmount ?? total;
+            var changeDue = Math.Max(0, paidAmount - total);
+
+            return Ok(ApiResponse.Ok(new
+            {
+                order,
+                receipt = new
+                {
+                    orderNumber = order.OrderNumber,
+                    kotNumber = order.KotNumber,
+                    status = order.Status,
+                    outlet = order.Outlet,
+                    orderType = order.OrderType,
+                    cashierName = order.ServerName,
+                    customerName = req.CustomerName,
+                    customerPhone = req.CustomerPhone,
+                    items = order.Items.Select(i => new
+                    {
+                        productId = i.ProductId,
+                        productName = i.ProductName,
+                        unitPrice = i.UnitPrice,
+                        quantity = i.Quantity,
+                        total = i.Total,
+                        notes = i.Notes
+                    }),
+                    subtotal,
+                    discountAmount = discAmt,
+                    discountPercent = order.DiscountPercent,
+                    tax,
+                    serviceCharge = service,
+                    total,
+                    paymentMethod = pMethod,
+                    paidAmount,
+                    changeDue,
+                    timestamp = order.CreatedAt
+                },
+                message = $"Quick sale {order.OrderNumber} completed successfully via {pMethod}."
+            }));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to process quick sale: {ex.Message}"));
+        }
+    }
+
+    [HttpGet("api/restaurant/daily-sales")]
+    public async Task<IActionResult> GetDailySales([FromQuery] string? date)
+    {
+        DateTime targetDate = DateTime.UtcNow.Date;
+        if (!string.IsNullOrWhiteSpace(date) && DateTime.TryParse(date, out var parsed))
+        {
+            targetDate = parsed.Date;
+        }
+
+        var startOfDay = DateTime.SpecifyKind(targetDate, DateTimeKind.Utc);
+        var endOfDay = startOfDay.AddDays(1);
+
+        var orders = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .Where(o => o.CreatedAt >= startOfDay && o.CreatedAt < endOfDay && o.IsPaid)
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+
+        var totalSales = Math.Round(orders.Sum(o => o.Total), 2);
+        var totalSubtotal = Math.Round(orders.Sum(o => o.Subtotal), 2);
+        var totalTax = Math.Round(orders.Sum(o => o.Tax), 2);
+        var totalDiscounts = Math.Round(orders.Sum(o => o.DiscountAmount), 2);
+
+        var dineInSales = Math.Round(orders.Where(o => o.OrderType == "DINE_IN").Sum(o => o.Total), 2);
+        var quickSales = Math.Round(orders.Where(o => o.OrderType == "COUNTER_SALE" || o.OrderType == "TAKEAWAY").Sum(o => o.Total), 2);
+        var roomServiceSales = Math.Round(orders.Where(o => o.OrderType == "ROOM_SERVICE").Sum(o => o.Total), 2);
+
+        var cashSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "CASH").Sum(o => o.Total), 2);
+        var cardSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "CARD").Sum(o => o.Total), 2);
+        var upiSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "UPI" || (o.PaymentMethod ?? "").ToUpper() == "QR").Sum(o => o.Total), 2);
+        var roomFolioSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "ROOM_FOLIO").Sum(o => o.Total), 2);
+
+        return Ok(ApiResponse.Ok(new
+        {
+            date = targetDate.ToString("yyyy-MM-dd"),
+            totalOrders = orders.Count,
+            totalSales,
+            totalSubtotal,
+            totalTax,
+            totalDiscounts,
+            breakdownByType = new
+            {
+                dineInSales,
+                quickSales,
+                roomServiceSales
+            },
+            breakdownByPayment = new
+            {
+                cashSales,
+                cardSales,
+                upiSales,
+                roomFolioSales
+            },
+            recentOrders = orders.Take(30).Select(o => new
+            {
+                id = o.Id,
+                orderNumber = o.OrderNumber,
+                kotNumber = o.KotNumber,
+                orderType = o.OrderType,
+                tableNumber = o.Table?.TableNumber,
+                status = o.Status,
+                serverName = o.ServerName,
+                total = o.Total,
+                paymentMethod = o.PaymentMethod,
+                itemCount = o.Items.Sum(i => i.Quantity),
+                createdAt = o.CreatedAt
+            })
+        }));
+    }
 }
+

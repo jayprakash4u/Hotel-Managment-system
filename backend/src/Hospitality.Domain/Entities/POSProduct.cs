@@ -16,6 +16,8 @@ public class POSProduct : BaseEntity
     public bool TrackStock { get; set; } = false;
     public bool IsAvailable { get; set; } = true;
     public string? ImageUrl { get; set; }
+    public string? InventoryItemId { get; set; }
+    public InventoryItem? InventoryItem { get; set; }
 
     [NotMapped]
     public bool IsActive
