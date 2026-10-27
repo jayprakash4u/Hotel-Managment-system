@@ -119,8 +119,12 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""reservationId"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountAmount"" double precision DEFAULT 0;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountPercent"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""cleaningStatus"" text DEFAULT 'CLEAN';
+            ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""maintenanceNotes"" text;
 
             ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'HOTEL';
+            ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""trackStock"" boolean DEFAULT true;
+            UPDATE ""InventoryItem"" SET ""trackStock"" = false, ""currentStock"" = 0, ""minThreshold"" = 0 WHERE ""category"" IN ('FOOD_RAW', 'PANTRY', 'LINEN', 'TOILETRIES', 'CLEANING_SUPPLIES', 'EQUIPMENT', 'RESTAURANT_SUPPLIES') AND ""sku"" NOT IN ('RES-BEV-201', 'RES-BEV-202', 'HOT-AMN-401');
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'HOTEL';
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""sourceDepartment"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""destinationDepartment"" text;
@@ -154,12 +158,50 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS ""ix_tablereservation_hotel_date"" ON ""TableReservation"" (""hotelId"", ""reservationDate"");
             CREATE INDEX IF NOT EXISTS ""ix_tablereservation_table_status"" ON ""TableReservation"" (""tableId"", ""status"");
             CREATE INDEX IF NOT EXISTS ""ix_inventoryitem_dept"" ON ""InventoryItem"" (""department"");
+
+            CREATE TABLE IF NOT EXISTS ""Bill"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""billNumber"" text NOT NULL,
+                ""billingType"" text NOT NULL DEFAULT 'QUICK_BILL',
+                ""orderId"" text,
+                ""orderNumber"" text,
+                ""reservationId"" text,
+                ""bookingCode"" text,
+                ""guestId"" text,
+                ""roomNumber"" text,
+                ""tableNumber"" text,
+                ""serverOrStaff"" text,
+                ""customerName"" text,
+                ""customerPhone"" text,
+                ""subtotal"" double precision NOT NULL DEFAULT 0,
+                ""discountAmount"" double precision NOT NULL DEFAULT 0,
+                ""discountPercent"" double precision NOT NULL DEFAULT 0,
+                ""taxAmount"" double precision NOT NULL DEFAULT 0,
+                ""serviceCharge"" double precision NOT NULL DEFAULT 0,
+                ""roundOff"" double precision NOT NULL DEFAULT 0,
+                ""grandTotal"" double precision NOT NULL DEFAULT 0,
+                ""amountPaid"" double precision NOT NULL DEFAULT 0,
+                ""balanceDue"" double precision NOT NULL DEFAULT 0,
+                ""paymentStatus"" text NOT NULL DEFAULT 'PAID',
+                ""paymentMethod"" text NOT NULL DEFAULT 'CASH',
+                ""itemsJson"" text NOT NULL DEFAULT '[]',
+                ""paymentsJson"" text NOT NULL DEFAULT '[]',
+                ""notes"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ""ix_bill_hotel_number"" ON ""Bill"" (""hotelId"", ""billNumber"");
+            CREATE INDEX IF NOT EXISTS ""ix_bill_type"" ON ""Bill"" (""billingType"");
+            CREATE INDEX IF NOT EXISTS ""ix_bill_status"" ON ""Bill"" (""paymentStatus"");
+            CREATE INDEX IF NOT EXISTS ""ix_bill_created"" ON ""Bill"" (""createdAt"");
         ");
-        logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, and Inventory departments ready.");
+        logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Inventory, and unified Bills table ready.");
     }
     catch (Exception ex)
     {
-        logger.LogWarning(ex, "Could not execute automatic schema update for TableReservation / POSProduct.");
+        logger.LogWarning(ex, "Could not execute automatic schema update for TableReservation / POSProduct / Bill.");
     }
 }
 

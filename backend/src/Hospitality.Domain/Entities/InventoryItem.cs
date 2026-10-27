@@ -19,6 +19,7 @@ public class InventoryItem : BaseEntity
         set => Sku = value;
     }
 
+    public bool TrackStock { get; set; } = true;
     public int CurrentStock { get; set; }
     public int MinThreshold { get; set; }
 

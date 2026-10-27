@@ -297,7 +297,7 @@ public class RestaurantController : ControllerBase
                             invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Department == "RESTAURANT" && (i.Name.ToLower() == product.Name.ToLower() || (!string.IsNullOrEmpty(i.Sku) && i.Sku.ToLower() == product.Name.ToLower())));
                         }
 
-                        if (invItem != null)
+                        if (invItem != null && invItem.TrackStock)
                         {
                             invItem.CurrentStock = Math.Max(0, invItem.CurrentStock - item.Quantity);
                             invItem.LastRestocked = DateTime.UtcNow;
@@ -647,9 +647,82 @@ public class RestaurantController : ControllerBase
             order.Table.Status = "BILLED";
         }
 
+        // Shared Billing System: Create or update permanent Bill
+        var existingBill = await _db.Bills.FirstOrDefaultAsync(b => b.OrderId == order.Id);
+        if (existingBill == null)
+        {
+            var billType = order.OrderType == "ROOM_SERVICE" ? "ROOM_SERVICE" : (order.TableId != null ? "TABLE_ORDER" : "WALK_IN");
+            var billNo = await BillingController.GenerateBillNumberAsync(_db, order.HotelId);
+
+            var itemsList = order.Items.Select(i => new
+            {
+                name = i.ProductName,
+                quantity = i.Quantity,
+                unitPrice = i.UnitPrice,
+                total = i.Total,
+                notes = i.Notes
+            }).ToList();
+
+            existingBill = new Bill
+            {
+                HotelId = order.HotelId,
+                BillNumber = billNo,
+                BillingType = billType,
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                TableNumber = order.Table?.TableNumber,
+                RoomNumber = order.Room?.Number,
+                GuestId = order.GuestId,
+                CustomerName = order.Guest != null ? $"{order.Guest.FirstName} {order.Guest.LastName}".Trim() : null,
+                CustomerPhone = order.Guest?.Phone,
+                ServerOrStaff = order.ServerName,
+                Subtotal = order.Subtotal,
+                DiscountAmount = order.DiscountAmount,
+                DiscountPercent = order.DiscountPercent,
+                TaxAmount = order.Tax,
+                ServiceCharge = order.ServiceCharge,
+                GrandTotal = order.Total,
+                AmountPaid = 0,
+                BalanceDue = order.Total,
+                PaymentStatus = "UNPAID",
+                PaymentMethod = "UNPAID",
+                ItemsJson = System.Text.Json.JsonSerializer.Serialize(itemsList),
+                PaymentsJson = "[]",
+                Notes = order.Notes,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Bills.Add(existingBill);
+        }
+        else
+        {
+            // Concurrency & reprint safety: update existing financial snapshot without creating duplicate
+            existingBill.Subtotal = order.Subtotal;
+            existingBill.DiscountAmount = order.DiscountAmount;
+            existingBill.DiscountPercent = order.DiscountPercent;
+            existingBill.TaxAmount = order.Tax;
+            existingBill.ServiceCharge = order.ServiceCharge;
+            existingBill.GrandTotal = order.Total;
+            existingBill.BalanceDue = Math.Max(0, order.Total - existingBill.AmountPaid);
+            var itemsList = order.Items.Select(i => new
+            {
+                name = i.ProductName,
+                quantity = i.Quantity,
+                unitPrice = i.UnitPrice,
+                total = i.Total,
+                notes = i.Notes
+            }).ToList();
+            existingBill.ItemsJson = System.Text.Json.JsonSerializer.Serialize(itemsList);
+            existingBill.UpdatedAt = DateTime.UtcNow;
+        }
+
         await _db.SaveChangesAsync();
 
-        return Ok(ApiResponse.Ok(order, $"Bill generated for Order {order.OrderNumber}."));
+        return Ok(ApiResponse.Ok(new
+        {
+            order,
+            bill = existingBill
+        }, $"Bill {existingBill.BillNumber} generated for Order {order.OrderNumber}."));
     }
 
     public record SettleRestaurantOrderRequest(
@@ -790,6 +863,74 @@ public class RestaurantController : ControllerBase
                 {
                     activeRegister.CardSales += order.Total;
                 }
+            }
+
+            // Shared Billing System: Create or finalize permanent Bill
+            var billForOrder = await _db.Bills.FirstOrDefaultAsync(b => b.OrderId == order.Id);
+            var itemsList = order.Items.Select(i => new
+            {
+                name = i.ProductName,
+                quantity = i.Quantity,
+                unitPrice = i.UnitPrice,
+                total = i.Total,
+                notes = i.Notes
+            }).ToList();
+
+            var paymentEntry = new
+            {
+                Id = $"PAY-{Guid.NewGuid():N}"[..12].ToUpper(),
+                Amount = order.Total,
+                PaymentMethod = pMethod,
+                PaymentDate = DateTime.UtcNow,
+                ReceivedBy = req.ServerName ?? order.ServerName ?? "Cashier",
+                Notes = pMethod == "ROOM_FOLIO" ? $"Charged to Room {req.RoomNumber ?? order.Room?.Number}" : "Settled"
+            };
+
+            if (billForOrder == null)
+            {
+                var billType = order.OrderType == "ROOM_SERVICE" ? "ROOM_SERVICE" : (order.TableId != null ? "TABLE_ORDER" : "WALK_IN");
+                var billNo = await BillingController.GenerateBillNumberAsync(_db, order.HotelId);
+
+                billForOrder = new Bill
+                {
+                    HotelId = order.HotelId,
+                    BillNumber = billNo,
+                    BillingType = billType,
+                    OrderId = order.Id,
+                    OrderNumber = order.OrderNumber,
+                    TableNumber = order.Table?.TableNumber,
+                    RoomNumber = order.Room?.Number,
+                    GuestId = order.GuestId,
+                    CustomerName = order.Guest != null ? $"{order.Guest.FirstName} {order.Guest.LastName}".Trim() : null,
+                    CustomerPhone = order.Guest?.Phone,
+                    ServerOrStaff = req.ServerName ?? order.ServerName,
+                    Subtotal = order.Subtotal,
+                    DiscountAmount = order.DiscountAmount,
+                    DiscountPercent = order.DiscountPercent,
+                    TaxAmount = order.Tax,
+                    ServiceCharge = order.ServiceCharge,
+                    GrandTotal = order.Total,
+                    AmountPaid = order.Total,
+                    BalanceDue = 0,
+                    PaymentStatus = "PAID",
+                    PaymentMethod = pMethod,
+                    ItemsJson = System.Text.Json.JsonSerializer.Serialize(itemsList),
+                    PaymentsJson = System.Text.Json.JsonSerializer.Serialize(new[] { paymentEntry }),
+                    Notes = order.Notes,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _db.Bills.Add(billForOrder);
+            }
+            else
+            {
+                billForOrder.AmountPaid = order.Total;
+                billForOrder.BalanceDue = 0;
+                billForOrder.PaymentStatus = "PAID";
+                billForOrder.PaymentMethod = pMethod;
+                billForOrder.ItemsJson = System.Text.Json.JsonSerializer.Serialize(itemsList);
+                billForOrder.PaymentsJson = System.Text.Json.JsonSerializer.Serialize(new[] { paymentEntry });
+                billForOrder.UpdatedAt = DateTime.UtcNow;
             }
 
             // Requirement 7: After successful payment and completion, release the table (if assigned)
@@ -1112,6 +1253,100 @@ public class RestaurantController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(ApiResponse.Ok(table, "Table created successfully."));
+    }
+
+    public record UpdateTableStatusRequest(
+        string? Status,
+        string? CleaningStatus,
+        string? MaintenanceNotes
+    );
+
+    [HttpPatch("api/restaurant/tables/{id}/status")]
+    public async Task<IActionResult> UpdateTableStatus(string id, [FromBody] UpdateTableStatusRequest req)
+    {
+        var table = await _db.RestaurantTables.FindAsync(id);
+        if (table == null)
+        {
+            return NotFound(ApiResponse.Fail($"Table '{id}' not found."));
+        }
+
+        // Rule: Do not mark an occupied table clean or disrupt its active order
+        if (!string.IsNullOrWhiteSpace(req.CleaningStatus))
+        {
+            var cleanReq = req.CleaningStatus.Trim().ToUpper();
+            if (cleanReq == "CLEAN" && table.Status == "OCCUPIED")
+            {
+                return BadRequest(ApiResponse.Fail("Cannot mark an occupied table clean while guests are dining."));
+            }
+            table.CleaningStatus = cleanReq;
+        }
+
+        if (!string.IsNullOrWhiteSpace(req.Status))
+        {
+            var newStatus = req.Status.Trim().ToUpper();
+            if (newStatus == "OUT_OF_SERVICE")
+            {
+                // Rule: Preserves actual cleaning status
+                table.Status = "OUT_OF_SERVICE";
+                if (!string.IsNullOrWhiteSpace(req.MaintenanceNotes))
+                {
+                    table.MaintenanceNotes = req.MaintenanceNotes;
+                }
+            }
+            else if (newStatus == "AVAILABLE" || newStatus == "FREE")
+            {
+                // Returning table to service must preserve its actual cleaning status
+                table.Status = "FREE";
+            }
+            else
+            {
+                table.Status = newStatus;
+            }
+        }
+
+        if (req.MaintenanceNotes != null)
+        {
+            table.MaintenanceNotes = req.MaintenanceNotes;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(table, $"Table {table.TableNumber} status updated."));
+    }
+
+    [HttpPost("api/restaurant/tables/{id}/mark-served")]
+    public async Task<IActionResult> MarkTableServed(string id)
+    {
+        var orders = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Where(o => o.TableId == id && o.Status != "COMPLETED" && o.Status != "CANCELLED")
+            .ToListAsync();
+
+        if (orders.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("No active uncompleted order found on this table."));
+        }
+
+        foreach (var ord in orders)
+        {
+            ord.Status = "SERVED";
+            ord.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(orders, "All active items on table marked as SERVED."));
+    }
+
+    [HttpGet("api/restaurant/tables/{id}/history")]
+    public async Task<IActionResult> GetTableOrderHistory(string id)
+    {
+        var orders = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Where(o => o.TableId == id)
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(10)
+            .ToListAsync();
+
+        return Ok(ApiResponse.Ok(orders));
     }
 
     // =========================================================================
@@ -1768,7 +2003,7 @@ public class RestaurantController : ControllerBase
                         invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Department == "RESTAURANT" && (i.Name.ToLower() == product.Name.ToLower() || (!string.IsNullOrEmpty(i.Sku) && i.Sku.ToLower() == product.Name.ToLower())));
                     }
 
-                    if (invItem != null)
+                    if (invItem != null && invItem.TrackStock)
                     {
                         invItem.CurrentStock = Math.Max(0, invItem.CurrentStock - item.Quantity);
                         invItem.LastRestocked = DateTime.UtcNow;
@@ -1894,6 +2129,47 @@ public class RestaurantController : ControllerBase
                 }
             }
 
+            // Shared Billing System: Generate permanent unique Bill Number & record
+            var billNo = await BillingController.GenerateBillNumberAsync(_db, hotelId);
+            var quickBill = new Bill
+            {
+                HotelId = hotelId,
+                BillNumber = billNo,
+                BillingType = "QUICK_BILL",
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                CustomerName = string.IsNullOrWhiteSpace(req.CustomerName) ? "Counter Guest" : req.CustomerName.Trim(),
+                CustomerPhone = req.CustomerPhone,
+                ServerOrStaff = req.ServerName ?? "Cashier",
+                Subtotal = subtotal,
+                DiscountAmount = discAmt,
+                DiscountPercent = req.DiscountPercent ?? (subtotal > 0 ? Math.Round((discAmt / subtotal) * 100, 1) : 0),
+                TaxAmount = tax,
+                ServiceCharge = service,
+                RoundOff = 0,
+                GrandTotal = total,
+                AmountPaid = total,
+                BalanceDue = 0,
+                PaymentStatus = "PAID",
+                PaymentMethod = pMethod,
+                ItemsJson = System.Text.Json.JsonSerializer.Serialize(req.Items.Select(i => new
+                {
+                    name = i.ProductName,
+                    quantity = i.Quantity,
+                    unitPrice = i.UnitPrice,
+                    total = Math.Round(i.UnitPrice * i.Quantity, 2),
+                    notes = i.Notes
+                })),
+                PaymentsJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                {
+                    new { Id = $"PAY-{Guid.NewGuid():N}"[..12].ToUpper(), Amount = total, PaymentMethod = pMethod, PaymentDate = DateTime.UtcNow, ReceivedBy = req.ServerName ?? "Cashier", Notes = "Quick Sale Cashier Receipt" }
+                }),
+                Notes = order.Notes,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Bills.Add(quickBill);
+
             _db.RestaurantOrders.Add(order);
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
@@ -1904,8 +2180,10 @@ public class RestaurantController : ControllerBase
             return Ok(ApiResponse.Ok(new
             {
                 order,
+                bill = quickBill,
                 receipt = new
                 {
+                    billNumber = quickBill.BillNumber,
                     orderNumber = order.OrderNumber,
                     kotNumber = order.KotNumber,
                     status = order.Status,
@@ -1934,7 +2212,7 @@ public class RestaurantController : ControllerBase
                     changeDue,
                     timestamp = order.CreatedAt
                 },
-                message = $"Quick sale {order.OrderNumber} completed successfully via {pMethod}."
+                message = $"Quick sale {order.OrderNumber} completed successfully via {pMethod}. Permanent Bill {quickBill.BillNumber} created."
             }));
         }
         catch (Exception ex)

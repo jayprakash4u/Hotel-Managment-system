@@ -21,8 +21,19 @@ import {
   User,
   BarChart3,
   Zap,
+  Boxes,
+  ShoppingCart,
+  Users,
+  ArrowLeftRight,
+  FileText,
+  LayoutDashboard,
+  Table2,
+  CalendarCheck,
+  CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useBusinessModules } from '@/lib/businessSetup';
+import { useRole } from '@/context/RoleContext';
 
 export interface NavBoxItem {
   id: string;
@@ -60,6 +71,22 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     description: 'Walk-in takeaway & fast counter checkout',
   },
   {
+    id: 'inventory',
+    name: 'Inventory',
+    href: '/inventory',
+    icon: Boxes,
+    tag: 'STOCK',
+    description: 'Hotel & restaurant stock, purchases, suppliers & transfers',
+  },
+  {
+    id: 'billing',
+    name: 'Bills & Invoices',
+    href: '/billing',
+    icon: FileText,
+    tag: 'BILLS',
+    description: 'Central hotel & restaurant bills, tax invoices & settlements',
+  },
+  {
     id: 'hotel-setup',
     name: 'Master Setup',
     href: '/hotel',
@@ -94,6 +121,105 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
   },
 ];
 
+export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
+  {
+    id: 'dashboard',
+    name: 'Dashboard',
+    href: '/',
+    icon: LayoutDashboard,
+    tag: 'OVERVIEW',
+    description: 'Daily restaurant sales, active tables & summary',
+  },
+  {
+    id: 'table-board',
+    name: 'Table Board',
+    href: '/tables',
+    icon: Table2,
+    tag: 'TABLES',
+    description: 'Floor layout, seating status & live table cards',
+  },
+  {
+    id: 'table-reservations',
+    name: 'Table Reservations',
+    href: '/tables?tab=RESERVATIONS',
+    icon: CalendarCheck,
+    tag: 'BOOKING',
+    description: 'Advance dining reservations & guest seating',
+  },
+  {
+    id: 'orders',
+    name: 'Orders',
+    href: '/tables?tab=ACTIVE_ORDERS',
+    icon: Receipt,
+    tag: 'ORDERS',
+    description: 'Live table, walk-in & takeaway active orders',
+  },
+  {
+    id: 'kitchen-display',
+    name: 'Kitchen Display',
+    href: '/restaurant-management?section=kitchen',
+    icon: ChefHat,
+    tag: 'KDS',
+    description: 'Live kitchen order tickets & prep queue',
+  },
+  {
+    id: 'quick-bill',
+    name: 'Quick Bill',
+    href: '/quick-sale',
+    icon: Zap,
+    tag: 'POS',
+    description: 'Counter sales, takeaway & instant billing',
+  },
+  {
+    id: 'menu',
+    name: 'Menu',
+    href: '/menu',
+    icon: UtensilsCrossed,
+    tag: 'MENU',
+    description: 'Food & drinks catalog, portion rates & categories',
+  },
+  {
+    id: 'restaurant-inventory',
+    name: 'Restaurant Inventory',
+    href: '/inventory?dept=RESTAURANT',
+    icon: Boxes,
+    tag: 'STOCK',
+    description: 'Kitchen raw materials, beverages & pantry stock',
+  },
+  {
+    id: 'purchases',
+    name: 'Purchases',
+    href: '/inventory?tab=purchases',
+    icon: ShoppingCart,
+    tag: 'PURCHASE',
+    description: 'Supplier purchase orders, receiving & invoices',
+  },
+  {
+    id: 'bills-invoices',
+    name: 'Bills & Invoices',
+    href: '/billing',
+    icon: FileText,
+    tag: 'BILLS',
+    description: 'All central bills, tax invoices & audit trail',
+  },
+  {
+    id: 'payments-refunds',
+    name: 'Payments & Refunds',
+    href: '/billing?status=PAID',
+    icon: CreditCard,
+    tag: 'PAYMENTS',
+    description: 'Settled receipts, payment records & refunds',
+  },
+  {
+    id: 'reports',
+    name: 'Reports',
+    href: '/reports?section=restaurant',
+    icon: BarChart3,
+    tag: 'REPORTS',
+    description: 'Restaurant revenue, popular items & shift summaries',
+  },
+];
+
 const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [
   {
     id: 'help',
@@ -117,10 +243,12 @@ export const Sidebar: React.FC<{
   isOpen: boolean;
   onToggle?: () => void;
   onClose: () => void;
+  onOpenProfile?: () => void;
 }> = ({
   isOpen,
   onToggle,
   onClose,
+  onOpenProfile,
 }) => {
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
@@ -132,17 +260,183 @@ export const Sidebar: React.FC<{
     }
   }, [pathname]);
 
+  const { moduleType, isHotelEnabled, isRestaurantEnabled } = useBusinessModules();
+  const { role } = useRole();
+
+  const isRestaurantPath = useMemo(() => {
+    return [
+      '/tables',
+      '/quick-sale',
+      '/menu',
+      '/restaurant-management',
+      '/kitchen',
+      '/cafe',
+    ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  }, [pathname]);
+
+  const isHotelPath = useMemo(() => {
+    return [
+      '/hotel-management',
+      '/front-desk',
+      '/room-board',
+      '/rooms',
+      '/booking',
+      '/check-in',
+      '/checkout',
+      '/reservations',
+      '/active-stays',
+      '/housekeeping',
+      '/guests',
+      '/hotel',
+    ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  }, [pathname]);
+
+  const [viewMode, setViewMode] = useState<'RESTAURANT' | 'HOTEL'>(() => {
+    if (moduleType === 'RESTAURANT_ONLY') return 'RESTAURANT';
+    if (moduleType === 'HOTEL_ONLY') return 'HOTEL';
+    if (isRestaurantPath) return 'RESTAURANT';
+    return 'HOTEL';
+  });
+
+  useEffect(() => {
+    if (moduleType === 'RESTAURANT_ONLY') {
+      setViewMode('RESTAURANT');
+    } else if (moduleType === 'HOTEL_ONLY') {
+      setViewMode('HOTEL');
+    } else if (isRestaurantPath) {
+      setViewMode('RESTAURANT');
+    } else if (isHotelPath) {
+      setViewMode('HOTEL');
+    }
+  }, [pathname, moduleType, isRestaurantPath, isHotelPath]);
+
+  const availableModuleOptions = useMemo(() => {
+    return HOTEL_MODULE_OPTIONS.filter((item) => {
+      if (item.id === 'hotel-management' || item.id === 'hotel-setup') return isHotelEnabled;
+      if (item.id === 'restaurant-management' || item.id === 'quick-sale') return isRestaurantEnabled;
+      return true;
+    });
+  }, [isHotelEnabled, isRestaurantEnabled]);
+
+  const roleFilteredRestaurantOptions = useMemo(() => {
+    if (!isRestaurantEnabled) return [];
+    return RESTAURANT_SIDEBAR_OPTIONS.filter((item) => {
+      if (role === 'CHEF') {
+        return ['kitchen-display', 'orders', 'menu', 'restaurant-inventory', 'reports'].includes(item.id);
+      }
+      if (role === 'HOUSEKEEPING') {
+        return ['table-board'].includes(item.id);
+      }
+      if (role === 'POS_CASHIER') {
+        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'menu', 'bills-invoices', 'payments-refunds'].includes(item.id);
+      }
+      if (role === 'FRONT_DESK') {
+        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'bills-invoices', 'payments-refunds'].includes(item.id);
+      }
+      return true;
+    });
+  }, [role, isRestaurantEnabled]);
+
+  const displayModuleOptions = useMemo(() => {
+    if (viewMode === 'RESTAURANT') {
+      return roleFilteredRestaurantOptions;
+    }
+    return availableModuleOptions;
+  }, [viewMode, roleFilteredRestaurantOptions, availableModuleOptions]);
+
   // Real-time search filter for navigation box widgets
   const filteredOptions = useMemo(() => {
-    if (!searchQuery.trim()) return HOTEL_MODULE_OPTIONS;
+    if (!searchQuery.trim()) return displayModuleOptions;
     const q = searchQuery.toLowerCase().trim();
-    return HOTEL_MODULE_OPTIONS.filter((item) => {
+    return displayModuleOptions.filter((item) => {
       const matchName = item.name.toLowerCase().includes(q);
       const matchTag = item.tag.toLowerCase().includes(q);
       const matchDesc = item.description && item.description.toLowerCase().includes(q);
       return matchName || matchTag || matchDesc;
     });
-  }, [searchQuery]);
+  }, [searchQuery, displayModuleOptions]);
+
+  const getIsActive = (item: NavBoxItem) => {
+    const isQuery = item.href.includes('?');
+    const [baseHref, queryStr] = item.href.split('?');
+
+    if (item.id === 'dashboard') {
+      return pathname === '/' || (pathname === '/restaurant-management' && (!currentSearch || currentSearch === ''));
+    }
+    if (item.id === 'table-board') {
+      return pathname === '/tables' && (!currentSearch || currentSearch === '' || currentSearch.includes('tab=TABLE_BOARD') || currentSearch.includes('tab=FLOOR_PLAN'));
+    }
+    if (item.id === 'table-reservations') {
+      return pathname === '/tables' && currentSearch.includes('tab=RESERVATIONS');
+    }
+    if (item.id === 'orders') {
+      return pathname === '/tables' && currentSearch.includes('tab=ACTIVE_ORDERS');
+    }
+    if (item.id === 'kitchen-display') {
+      return pathname === '/restaurant-management' && currentSearch.includes('section=kitchen');
+    }
+    if (item.id === 'quick-bill') {
+      return pathname.startsWith('/quick-sale');
+    }
+    if (item.id === 'menu') {
+      return pathname.startsWith('/menu');
+    }
+    if (item.id === 'restaurant-inventory') {
+      return pathname.startsWith('/inventory') && (currentSearch.includes('dept=RESTAURANT') || currentSearch.includes('tab=restaurant'));
+    }
+    if (item.id === 'purchases') {
+      return pathname.startsWith('/inventory') && currentSearch.includes('tab=purchases');
+    }
+    if (item.id === 'bills-invoices') {
+      return pathname.startsWith('/billing') && (!currentSearch || !currentSearch.includes('status=PAID'));
+    }
+    if (item.id === 'payments-refunds') {
+      return pathname.startsWith('/billing') && currentSearch.includes('status=PAID');
+    }
+    if (item.id === 'reports') {
+      return pathname.startsWith('/reports');
+    }
+    if (item.id === 'hotel-management') {
+      return [
+        '/hotel-management',
+        '/front-desk',
+        '/room-board',
+        '/rooms',
+        '/booking',
+        '/check-in',
+        '/checkout',
+        '/reservations',
+        '/active-stays',
+        '/housekeeping',
+        '/guests',
+      ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    }
+    if (item.id === 'restaurant-management') {
+      return ['/restaurant-management', '/restaurant'].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    }
+    if (item.id === 'quick-sale') {
+      return pathname.startsWith('/quick-sale');
+    }
+    if (item.id === 'inventory') {
+      return pathname === '/inventory' || pathname.startsWith('/inventory/');
+    }
+    if (item.id === 'billing') {
+      return pathname === '/billing' || pathname.startsWith('/billing/');
+    }
+    if (item.id === 'finance') {
+      return pathname === '/finance' || pathname.startsWith('/finance/');
+    }
+    if (item.id === 'administration') {
+      return ['/administration', '/staff', '/settings'].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    }
+    if (isQuery) {
+      return pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
+    }
+    if (item.href === '/') {
+      return pathname === '/';
+    }
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  };
 
   const [hoveredItem, setHoveredItem] = useState<{
     item: NavBoxItem;
@@ -174,7 +468,7 @@ export const Sidebar: React.FC<{
         {isOpen ? (
           <div className="flex h-16 items-center justify-between px-4 border-b border-[#E2E8F0] bg-white dark:bg-[#0F172A] dark:border-[#334155] shrink-0">
             <Link href="/" className="flex items-center gap-2.5 group min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B3D32] text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-primary)] text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div className="truncate">
@@ -182,7 +476,7 @@ export const Sidebar: React.FC<{
                   AURA GRAND
                 </h1>
                 <p className="text-[10px] font-semibold text-[#64748B] dark:text-[#94A3B8] truncate">
-                  Hospitality OS · Front Desk
+                  {viewMode === 'RESTAURANT' ? 'Restaurant POS & Outlets' : 'Hospitality OS · Front Desk'}
                 </p>
               </div>
             </Link>
@@ -201,24 +495,71 @@ export const Sidebar: React.FC<{
             <Link
               href="/"
               title="Aura Grand Hospitality OS"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B3D32] text-white shadow-xs hover:scale-105 transition-transform shrink-0"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-primary)] text-white shadow-xs hover:scale-105 transition-transform shrink-0"
             >
               <Building2 className="w-5 h-5 text-white" />
             </Link>
           </div>
         )}
 
+        {/* ===================== MODULE MODE SWITCHER (HOTEL vs RESTAURANT) ===================== */}
+        {isHotelEnabled && isRestaurantEnabled && (
+          isOpen ? (
+            <div className="px-3 pt-2.5 pb-1 bg-white dark:bg-[#071F1A] shrink-0">
+              <div className="grid grid-cols-2 p-0.5 rounded-[4px] bg-[#F1F5F9] dark:bg-[#0B1A16] border border-[#CBD5E1] dark:border-[#145447]/60">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('RESTAURANT')}
+                  className={cn(
+                    'flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold rounded-[3px] transition-all cursor-pointer',
+                    viewMode === 'RESTAURANT'
+                      ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  )}
+                >
+                  <UtensilsCrossed className="w-3.5 h-3.5" />
+                  <span>Restaurant</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('HOTEL')}
+                  className={cn(
+                    'flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold rounded-[3px] transition-all cursor-pointer',
+                    viewMode === 'HOTEL'
+                      ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  )}
+                >
+                  <Hotel className="w-3.5 h-3.5" />
+                  <span>Hotel</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="py-2 flex justify-center border-b border-[#E2E8F0] dark:border-[#334155] shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode(viewMode === 'RESTAURANT' ? 'HOTEL' : 'RESTAURANT')}
+                title={viewMode === 'RESTAURANT' ? 'Switch to Hotel Navigation' : 'Switch to Restaurant Navigation'}
+                className="h-8 w-8 rounded-lg flex items-center justify-center bg-[#F1F5F9] dark:bg-[#0B1A16] border border-[#CBD5E1] dark:border-[#145447] text-[var(--brand-primary)] hover:scale-105 transition-all cursor-pointer shadow-2xs"
+              >
+                {viewMode === 'RESTAURANT' ? <UtensilsCrossed className="w-4 h-4" /> : <Hotel className="w-4 h-4" />}
+              </button>
+            </div>
+          )
+        )}
+
         {/* ===================== SEARCH BAR ===================== */}
         {isOpen && (
           <div className="p-3 border-b border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0B1120] shrink-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] dark:text-[#64748B]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] dark:text-[#64736C]" />
               <input
                 type="text"
-                placeholder="Search widgets & lists..."
+                placeholder={viewMode === 'RESTAURANT' ? 'Search restaurant tasks...' : 'Search widgets & lists...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-[3px] border border-[#CBD5E1] bg-white py-2 pl-9 pr-8 text-xs font-medium text-[#1E293B] placeholder-[#94A3B8] shadow-2xs transition-all focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#334155] dark:bg-[#1E293B] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#0B3D32]"
+                className="w-full rounded-[3px] border border-[#CBD5E1] bg-white py-2 pl-9 pr-8 text-xs font-medium text-[#1E293B] placeholder-[#94A3B8] shadow-2xs transition-all focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] dark:border-[#334155] dark:bg-[#1E293B] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[var(--brand-primary)]"
               />
               {searchQuery && (
                 <button
@@ -235,83 +576,32 @@ export const Sidebar: React.FC<{
         {/* ===================== NAVIGATION CONTENT ===================== */}
         {isOpen ? (
           /* EXPANDED: 2-Column Grid Box Layout with Sub-Options Accordion */
-          <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+          <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
               {filteredOptions.map((item) => {
-                const isQuery = item.href.includes('?');
-                const [baseHref, queryStr] = item.href.split('?');
-
-                let isActive = false;
-                if (item.id === 'hotel-management') {
-                  isActive = [
-                    '/hotel-management',
-                    '/front-desk',
-                    '/room-board',
-                    '/rooms',
-                    '/booking',
-                    '/check-in',
-                    '/checkout',
-                    '/reservations',
-                    '/active-stays',
-                    '/housekeeping',
-                    '/guests',
-                  ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-                } else if (item.id === 'restaurant-management') {
-                  isActive = [
-                    '/restaurant-management',
-                    '/restaurant',
-                    '/tables',
-                    '/menu',
-                  ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-                } else if (item.id === 'quick-sale') {
-                  isActive = pathname.startsWith('/quick-sale');
-                } else if (item.id === 'finance') {
-                  isActive = pathname === '/finance' || pathname.startsWith('/finance/');
-                } else if (item.id === 'reports') {
-                  isActive = pathname === '/reports' || pathname.startsWith('/reports/');
-                } else if (item.id === 'administration') {
-                  isActive = [
-                    '/administration',
-                    '/staff',
-                    '/settings',
-                  ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-                } else if (isQuery) {
-                  isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
-                } else if (item.href === '/') {
-                  isActive = pathname === '/';
-                } else if (pathname === item.href) {
-                  if (item.id === 'table' && currentSearch.includes('action=book')) {
-                    isActive = false;
-                  } else if (item.id === 'rooms' && currentSearch.includes('tab=housekeeping')) {
-                    isActive = false;
-                  } else {
-                    isActive = true;
-                  }
-                } else {
-                  isActive = pathname.startsWith(`${item.href}/`);
-                }
-
+                const isActive = getIsActive(item);
                 const Icon = item.icon;
 
                 return (
                   <Link
                     key={item.id}
                     href={item.href}
-                  onClick={() => {
-                    if (item.href.includes('?')) {
-                      setCurrentSearch(`?${item.href.split('?')[1]}`);
-                    } else {
-                      setCurrentSearch('');
-                    }
-                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-                      onClose();
-                    }
-                  }}
+                    onClick={() => {
+                      if (item.href.includes('?')) {
+                        setCurrentSearch(`?${item.href.split('?')[1]}`);
+                      } else {
+                        setCurrentSearch('');
+                      }
+                      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                        onClose();
+                      }
+                    }}
                     className={cn(
                       'group relative flex flex-col items-center justify-center rounded-[3px] border p-3 pt-4 text-center transition-all duration-150 shadow-2xs',
                       'min-h-[88px] sm:min-h-[94px]',
                       isActive
-                        ? 'border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] shadow-xs ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200'
-                        : 'border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#0B3D32] hover:bg-[#F8FAFC] hover:shadow-xs dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#E2E8F0] dark:hover:border-emerald-400 dark:hover:bg-[#1E293B]/80'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle)] text-[var(--brand-primary)] shadow-xs ring-1 ring-[var(--brand-primary)]'
+                        : 'border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[var(--brand-primary)] hover:bg-[#F8FAFC] hover:shadow-xs dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#E2E8F0] dark:hover:border-[var(--brand-primary)] dark:hover:bg-[#1E293B]/80'
                     )}
                   >
                     {/* Top-Right Widget Badge */}
@@ -319,7 +609,7 @@ export const Sidebar: React.FC<{
                       className={cn(
                         'absolute top-1.5 right-1.5 rounded-[2px] px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider',
                         isActive
-                          ? 'border border-[#0B3D32]/30 bg-[#0B3D32]/10 text-[#0B3D32] dark:border-emerald-700/50 dark:bg-emerald-950 dark:text-emerald-300'
+                          ? 'border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]'
                           : 'border border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B] dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#94A3B8]'
                       )}
                     >
@@ -340,8 +630,8 @@ export const Sidebar: React.FC<{
                       className={cn(
                         'text-xs font-semibold leading-tight line-clamp-2 px-1',
                         isActive
-                          ? 'font-bold text-[#0B3D32] dark:text-emerald-200'
-                          : 'text-[#1E293B] group-hover:text-[#0B3D32] dark:text-white dark:group-hover:text-emerald-300'
+                          ? 'font-bold text-[var(--brand-primary)]'
+                          : 'text-[#1E293B] group-hover:text-[var(--brand-primary)] dark:text-white dark:group-hover:text-emerald-300'
                       )}
                     >
                       {item.name}
@@ -356,11 +646,11 @@ export const Sidebar: React.FC<{
               <div className="py-8 text-center">
                 <Search className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                 <p className="text-xs font-semibold text-[#64748B] dark:text-[#94A3B8]">
-                  No widgets match &ldquo;{searchQuery}&rdquo;
+                  No items match &ldquo;{searchQuery}&rdquo;
                 </p>
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="mt-2 text-xs font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline"
+                  className="mt-2 text-xs font-bold text-[var(--brand-primary)] hover:underline"
                 >
                   Clear Search
                 </button>
@@ -373,60 +663,8 @@ export const Sidebar: React.FC<{
             className="flex-1 overflow-y-auto py-3 px-2 custom-scrollbar flex flex-col items-center gap-1.5"
             onScroll={() => setHoveredItem(null)}
           >
-            {HOTEL_MODULE_OPTIONS.map((item) => {
-              const isQuery = item.href.includes('?');
-              const [baseHref, queryStr] = item.href.split('?');
-
-              let isActive = false;
-              if (item.id === 'hotel-management') {
-                isActive = [
-                  '/hotel-management',
-                  '/front-desk',
-                  '/room-board',
-                  '/rooms',
-                  '/booking',
-                  '/check-in',
-                  '/checkout',
-                  '/reservations',
-                  '/active-stays',
-                  '/housekeeping',
-                  '/guests',
-                ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-              } else if (item.id === 'restaurant-management') {
-                isActive = [
-                  '/restaurant-management',
-                  '/restaurant',
-                  '/tables',
-                  '/menu',
-                ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-              } else if (item.id === 'quick-sale') {
-                isActive = pathname.startsWith('/quick-sale');
-              } else if (item.id === 'finance') {
-                isActive = pathname === '/finance' || pathname.startsWith('/finance/');
-              } else if (item.id === 'reports') {
-                isActive = pathname === '/reports' || pathname.startsWith('/reports/');
-              } else if (item.id === 'administration') {
-                isActive = [
-                  '/administration',
-                  '/staff',
-                  '/settings',
-                ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-              } else if (isQuery) {
-                isActive = pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
-              } else if (item.href === '/') {
-                isActive = pathname === '/';
-              } else if (pathname === item.href) {
-                if (item.id === 'table' && currentSearch.includes('action=book')) {
-                  isActive = false;
-                } else if (item.id === 'rooms' && currentSearch.includes('tab=housekeeping')) {
-                  isActive = false;
-                } else {
-                  isActive = true;
-                }
-              } else {
-                isActive = pathname.startsWith(`${item.href}/`);
-              }
-
+            {displayModuleOptions.map((item) => {
+              const isActive = getIsActive(item);
               const Icon = item.icon;
 
               return (
@@ -455,13 +693,13 @@ export const Sidebar: React.FC<{
                   className={cn(
                     'relative flex h-11 w-11 items-center justify-center rounded-lg border transition-all duration-150 group shrink-0',
                     isActive
-                      ? 'border-[#0B3D32] bg-[#E8F2EE] shadow-xs ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40'
+                      ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle)] shadow-xs ring-1 ring-[var(--brand-primary)]'
                       : 'border-transparent hover:border-[#CBD5E1] hover:bg-slate-50 dark:hover:border-[#334155] dark:hover:bg-[#1E293B]'
                   )}
                 >
                   <Icon className="w-5 h-5 text-[#DC2626] dark:text-[#EF4444]" />
                   {isActive && (
-                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[#0B3D32] dark:bg-emerald-400" />
+                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[var(--brand-primary)]" />
                   )}
                 </Link>
               );
@@ -479,7 +717,11 @@ export const Sidebar: React.FC<{
               <Link
                 key={item.id}
                 href={item.href}
-                onClick={() => {
+                onClick={(e) => {
+                  if (item.id === 'profile' && onOpenProfile) {
+                    e.preventDefault();
+                    onOpenProfile();
+                  }
                   if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                     onClose();
                   }
@@ -487,7 +729,7 @@ export const Sidebar: React.FC<{
                 className={cn(
                   'flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-all duration-150',
                   isActive
-                    ? 'border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200'
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle)] text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]'
                     : 'border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 dark:text-slate-300 dark:hover:border-slate-800 dark:hover:bg-slate-800/60'
                 )}
               >
@@ -511,7 +753,11 @@ export const Sidebar: React.FC<{
                   });
                 }}
                 onMouseLeave={() => setHoveredItem(null)}
-                onClick={() => {
+                onClick={(e) => {
+                  if (item.id === 'profile' && onOpenProfile) {
+                    e.preventDefault();
+                    onOpenProfile();
+                  }
                   setHoveredItem(null);
                   if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                     onClose();
@@ -520,7 +766,7 @@ export const Sidebar: React.FC<{
                 className={cn(
                   'relative flex h-10 w-10 mx-auto items-center justify-center rounded-lg border transition-all duration-150 group shrink-0',
                   isActive
-                    ? 'border-[#0B3D32] bg-[#E8F2EE] shadow-xs ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40'
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle)] shadow-xs ring-1 ring-[var(--brand-primary)]'
                     : 'border-transparent hover:border-[#CBD5E1] hover:bg-slate-50 dark:hover:border-[#334155] dark:hover:bg-[#1E293B]'
                 )}
               >
@@ -549,12 +795,12 @@ export const Sidebar: React.FC<{
             onMouseLeave={() => setHoveredToggle(null)}
             title={isOpen ? 'Collapse sidebar (<)' : 'Expand sidebar (>)'}
             aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5D0] bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#0B3D32] dark:border-[#334155] dark:bg-[#1E293B] dark:text-emerald-400 transition-all cursor-pointer shadow-2xs group"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5D0] bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[var(--brand-primary)] dark:border-[#334155] dark:bg-[#1E293B] transition-all cursor-pointer shadow-2xs group"
           >
             {isOpen ? (
-              <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-[#0B3D32] dark:text-emerald-400" />
+              <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-[var(--brand-primary)]" />
             ) : (
-              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-[#0B3D32] dark:text-emerald-400" />
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-[var(--brand-primary)]" />
             )}
           </button>
         </div>

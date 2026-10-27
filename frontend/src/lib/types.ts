@@ -245,8 +245,10 @@ export interface POSProductData {
 export interface InventoryItemData {
   id: string;
   name: string;
+  department?: 'HOTEL' | 'RESTAURANT';
   category: string;
   sku: string;
+  trackStock?: boolean;
   currentStock: number;
   minThreshold: number;
   unit: string;
@@ -454,5 +456,77 @@ export interface ActiveRestaurantOrderData {
   createdAt: string;
   updatedAt: string;
   items: RestaurantOrderItemData[];
+}
+
+export type BillingType = 'QUICK_BILL' | 'WALK_IN' | 'TABLE_ORDER' | 'ROOM_SERVICE' | 'HOTEL_CHECKOUT';
+export type BillPaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'VOID' | 'REFUNDED';
+
+export interface BillLineItem {
+  productId?: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+  category?: string;
+  notes?: string;
+}
+
+export interface BillPaymentRecord {
+  id: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  transactionRef?: string;
+  receivedBy?: string;
+  notes?: string;
+}
+
+export interface BillData {
+  id: string;
+  hotelId: string;
+  billNumber: string;
+  billingType: BillingType;
+  orderId?: string | null;
+  orderNumber?: string | null;
+  reservationId?: string | null;
+  bookingCode?: string | null;
+  guestId?: string | null;
+  roomNumber?: string | null;
+  tableNumber?: string | null;
+  serverOrStaff?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  subtotal: number;
+  discountAmount: number;
+  discountPercent: number;
+  taxAmount: number;
+  serviceCharge: number;
+  roundOff: number;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  paymentStatus: BillPaymentStatus;
+  paymentMethod: string;
+  itemsJson: string;
+  paymentsJson: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BillingSummaryData {
+  totalBilled: number;
+  totalPaid: number;
+  totalDue: number;
+  totalBills: number;
+}
+
+export interface GetBillsResponse {
+  items: BillData[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  summary: BillingSummaryData;
 }
 

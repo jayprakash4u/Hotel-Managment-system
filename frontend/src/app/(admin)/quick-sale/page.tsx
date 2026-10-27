@@ -2,12 +2,12 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Zap,
+  UtensilsCrossed,
   Search,
-  ShoppingCart,
+  X,
   Plus,
   Minus,
   Trash2,
@@ -15,29 +15,38 @@ import {
   Printer,
   CheckCircle2,
   RotateCcw,
-  CreditCard,
-  Banknote,
-  QrCode,
   ChefHat,
+  BedDouble,
+  Check,
+  Edit2,
+  TrendingUp,
+  History,
+  Clock,
+  ArrowLeft,
   User,
   Phone,
-  AlertTriangle,
-  Clock,
-  Sparkles,
-  X,
-  History,
-  TrendingUp,
   Tag,
-  ArrowRight,
 } from 'lucide-react';
 import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
+import { RestaurantReceiptModal, ReceiptModalProps, ReceiptItem } from '@/components/common/RestaurantReceiptModal';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { cn, formatCurrency } from '@/lib/utils';
-import { POSProductData, QuickSaleReceipt, DailySalesSummaryData } from '@/lib/types';
-import { DEFAULT_MENU_CATALOG, MenuItemCatalogEntry, resolveItemUnitInfo } from '@/lib/menuData';
+import {
+  POSProductData,
+  QuickSalePayload,
+  QuickSaleReceipt,
+  DailySalesSummaryData,
+} from '@/lib/types';
+import {
+  DEFAULT_MENU_CATALOG,
+  MenuItemCatalogEntry,
+  getSettedMenuItems,
+  resolveItemUnitInfo,
+} from '@/lib/menuData';
 
-interface QuickCartItem {
+// Cart line item structure matching table order items
+export interface QuickCartItem {
   id: string;
   productId?: string;
   name: string;
@@ -47,63 +56,140 @@ interface QuickCartItem {
   availableUnits?: { unit: string; price: number }[];
   unitPrice: number;
   quantity: number;
-  trackStock: boolean;
+  remarks?: string;
+  trackStock?: boolean;
   stock?: number;
-  notes?: string;
 }
 
 export default function QuickSalePage() {
   const toast = useToast();
 
-  // Products state
-  const [posProducts, setPosProducts] = useState<POSProductData[]>([]);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  // Active Order / Ticket Number
+  const [activeOrderNumber, setActiveOrderNumber] = useState<string>('');
 
-  // Cart & Order state
+  // Cart State
   const [cart, setCart] = useState<QuickCartItem[]>([]);
-  const [discountType, setDiscountType] = useState<'PERCENT' | 'AMOUNT'>('PERCENT');
-  const [discountValue, setDiscountValue] = useState<string>('0');
-  const [isTaxEnabled, setIsTaxEnabled] = useState<boolean>(true);
-  const [serviceChargeRate, setServiceChargeRate] = useState<number>(0); // Default 0% for counter takeaway
+
+  // Search & Direct Add Input State
+  const [orderProductName, setOrderProductName] = useState('');
+  const [orderQuantity, setOrderQuantity] = useState(1);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+
+  // Dynamic In-Table Draft Rows for the "+ Add New" button feature
+  const [draftRows, setDraftRows] = useState<
+    { id: string; search: string; isOpen: boolean; selectedIndex: number }[]
+  >([]);
+
+  // Setted Menu Catalog (Menu items + POS Products)
+  const [menuCatalog, setMenuCatalog] = useState<MenuItemCatalogEntry[]>([]);
+  const [posProducts, setPosProducts] = useState<POSProductData[]>([]);
+
+  // Dedicated Billing Panel State (matching user reference screenshot)
+  const [billDisPercent, setBillDisPercent] = useState<string>('');
+  const [billDisAmt, setBillDisAmt] = useState<string>('');
+  const [billRoundOff, setBillRoundOff] = useState<string>('0');
+  const [billPaidAmt, setBillPaidAmt] = useState<string>('');
+  const [billMode, setBillMode] = useState<string>('Cash');
+  const [billRemarks, setBillRemarks] = useState<string>('');
   const [sendToKitchen, setSendToKitchen] = useState<boolean>(false);
-
-  // Customer & Cashier Info (strictly optional)
-  const [showCustomerFields, setShowCustomerFields] = useState<boolean>(false);
-  const [customerName, setCustomerName] = useState<string>('');
-  const [customerPhone, setCustomerPhone] = useState<string>('');
-  const [cashierName, setCashierName] = useState<string>('Counter Cashier');
-  const [orderRemarks, setOrderRemarks] = useState<string>('');
-
-  // Payment Tender state
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'UPI'>('CASH');
-  const [tenderedAmount, setTenderedAmount] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Receipt Modal state
-  const [activeReceipt, setActiveReceipt] = useState<QuickSaleReceipt | null>(null);
+  // Optional Customer Info (Never required for normal counter walk-in)
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [customerName, setCustomerName] = useState<string>('');
+  const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [customerNameInput, setCustomerNameInput] = useState<string>('');
+  const [customerPhoneInput, setCustomerPhoneInput] = useState<string>('');
+
+  // Category filter state for touch-friendly menu browsing
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  const categories = useMemo(() => {
+    return ['ALL', ...Array.from(new Set(menuCatalog.map((m) => m.category).filter(Boolean)))];
+  }, [menuCatalog]);
+
+  const categoryFilteredItems = useMemo(() => {
+    if (selectedCategory === 'ALL') {
+      return menuCatalog.slice(0, 18);
+    }
+    return menuCatalog.filter((m) => m.category === selectedCategory);
+  }, [menuCatalog, selectedCategory]);
+
+  // Charge to Room Verification State (for hotel guests at counter)
+  const [roomNumberInput, setRoomNumberInput] = useState<string>('');
+  const [isVerifyingRoom, setIsVerifyingRoom] = useState<boolean>(false);
+  const [verifiedStay, setVerifiedStay] = useState<{
+    valid: boolean;
+    reservationId?: string;
+    roomId?: string;
+    roomNumber?: string;
+    guestName?: string;
+    bookingCode?: string;
+  } | null>(null);
+
+  // Receipt Modal State
+  const [receiptData, setReceiptData] = useState<ReceiptModalProps | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
 
-  // Daily Sales Summary Drawer / Modal state
+  // Daily Sales Summary Modal State
   const [dailySales, setDailySales] = useState<DailySalesSummaryData | null>(null);
   const [isDailySalesModalOpen, setIsDailySalesModalOpen] = useState<boolean>(false);
   const [isLoadingDailySales, setIsLoadingDailySales] = useState<boolean>(false);
 
-  // Fetch POS Products & Daily Sales from API
-  const loadProducts = async () => {
-    setIsLoadingProducts(true);
-    try {
-      const data = await api.getPOSProducts({ outlet: 'RESTAURANT' });
-      if (data && data.length > 0) {
-        setPosProducts(data);
-      }
-    } catch (err) {
-      console.warn('Using local fallback catalog for POS products', err);
-    } finally {
-      setIsLoadingProducts(false);
-    }
+  // Generate a clean fresh order ticket
+  const generateNewOrderNumber = () => {
+    const today = new Date();
+    const dateStr = today.toISOString().slice(2, 10).replace(/-/g, '');
+    const rand = Math.floor(100 + Math.random() * 900);
+    return `QS-${dateStr}-${rand}`;
   };
+
+  // Initial Load: Generate Ticket & Fetch Menu / Products
+  useEffect(() => {
+    setActiveOrderNumber(generateNewOrderNumber());
+
+    // Load setted menu items
+    const localMenu = getSettedMenuItems();
+    setMenuCatalog(localMenu);
+
+    // Load backend POS products & daily sales
+    (async () => {
+      try {
+        const products = await api.getPOSProducts({ outlet: 'RESTAURANT' });
+        if (products && products.length > 0) {
+          setPosProducts(products);
+
+          // Merge backend products into menu catalog if not already present
+          const existingCodes = new Set(localMenu.map((m) => m.code.toLowerCase()));
+          const existingNames = new Set(localMenu.map((m) => m.name.toLowerCase()));
+          const merged: MenuItemCatalogEntry[] = [...localMenu];
+
+          products.forEach((p) => {
+            const clean = p.name.toLowerCase().trim();
+            if (!existingNames.has(clean) && !existingCodes.has(p.id.toLowerCase())) {
+              merged.push({
+                id: p.id,
+                code: p.id.slice(0, 8).toUpperCase(),
+                name: p.name,
+                baseName: p.name,
+                category: p.category || 'Counter & Retail',
+                price: p.price,
+                trackStock: p.trackStock ?? false,
+                stock: p.stock ?? 0,
+                isAvailable: p.isAvailable ?? true,
+              });
+            }
+          });
+
+          setMenuCatalog(merged);
+        }
+      } catch (err) {
+        console.warn('Could not load POS products from backend, using setted menu', err);
+      }
+    })();
+
+    loadDailySales();
+  }, []);
 
   const loadDailySales = async () => {
     setIsLoadingDailySales(true);
@@ -119,253 +205,387 @@ export default function QuickSalePage() {
     }
   };
 
-  useEffect(() => {
-    loadProducts();
-    loadDailySales();
-  }, []);
-
-  // Merged Catalog (Backend POS Products + Menu Catalog entries)
-  const unifiedCatalog = useMemo(() => {
-    const list: Array<{
-      id: string;
-      productId?: string;
-      name: string;
-      baseName?: string;
-      category: string;
-      unit?: string;
-      availableUnits?: { unit: string; price: number }[];
-      price: number;
-      trackStock: boolean;
-      stock: number;
-      isAvailable: boolean;
-      imageUrl?: string | null;
-    }> = [];
-
-    // Add POS products from database
-    const posNameMap = new Set<string>();
-    posProducts.forEach((p) => {
-      posNameMap.add(p.name.toLowerCase().trim());
-      list.push({
-        id: p.id,
-        productId: p.id,
-        name: p.name,
-        baseName: p.name,
-        category: p.category || 'Retail & Drinks',
-        price: p.price,
-        trackStock: p.trackStock ?? false,
-        stock: p.stock ?? 0,
-        isAvailable: p.isAvailable ?? true,
-        imageUrl: p.imageUrl,
-      });
-    });
-
-    // Add default menu catalog items that aren't already represented
-    DEFAULT_MENU_CATALOG.forEach((m) => {
-      const clean = m.name.toLowerCase().trim();
-      const cleanBase = (m.baseName || m.name).toLowerCase().trim();
-      if (!posNameMap.has(clean) && !posNameMap.has(cleanBase)) {
-        list.push({
-          id: m.id,
-          productId: undefined,
-          name: m.name,
-          baseName: m.baseName,
-          category: m.category,
-          unit: m.unit,
-          availableUnits: m.availableUnits,
-          price: m.price,
-          trackStock: m.trackStock ?? false,
-          stock: m.stock ?? 999,
-          isAvailable: m.isAvailable ?? true,
-        });
-      }
-    });
-
-    return list;
-  }, [posProducts]);
-
-  // Available Categories
-  const categories = useMemo(() => {
-    const cats = Array.from(new Set(unifiedCatalog.map((c) => c.category))).filter(Boolean);
-    return ['ALL', ...cats];
-  }, [unifiedCatalog]);
-
-  // Filtered Catalog
-  const filteredProducts = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return unifiedCatalog.filter((item) => {
-      const matchCat = selectedCategory === 'ALL' || item.category.toLowerCase() === selectedCategory.toLowerCase();
-      const matchSearch =
-        !q ||
+  // Filtered autocomplete suggestions for the main search bar
+  const suggestions = useMemo(() => {
+    const q = orderProductName.toLowerCase().trim();
+    if (!q) {
+      return menuCatalog;
+    }
+    return menuCatalog.filter((item) => {
+      return (
         item.name.toLowerCase().includes(q) ||
-        (item.baseName && item.baseName.toLowerCase().includes(q)) ||
-        item.category.toLowerCase().includes(q);
-      return matchCat && matchSearch;
+        item.code.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q)
+      );
     });
-  }, [unifiedCatalog, selectedCategory, searchQuery]);
+  }, [menuCatalog, orderProductName]);
 
-  // ---------------------------------------------------------------------------
-  // Cart Actions
-  // ---------------------------------------------------------------------------
-  const handleAddToCart = (product: (typeof unifiedCatalog)[0]) => {
-    // Check if out of stock
-    if (product.trackStock && (product.stock <= 0 || !product.isAvailable)) {
-      toast.error('Out of Stock', `"${product.name}" is currently out of stock.`);
+  // Calculations
+  const basicTotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  }, [cart]);
+
+  const parsedDisAmt = parseFloat(billDisAmt) || 0;
+  const parsedDisPercent = parseFloat(billDisPercent) || 0;
+  const effectiveDisAmt =
+    billDisAmt !== ''
+      ? parsedDisAmt
+      : billDisPercent !== ''
+      ? (basicTotal * parsedDisPercent) / 100
+      : 0;
+
+  const parsedRoundOff = parseFloat(billRoundOff) || 0;
+  const netAmount = Math.max(0, Math.round((basicTotal - effectiveDisAmt + parsedRoundOff) * 100) / 100);
+  const parsedPaidAmt = billPaidAmt === '' ? netAmount : parseFloat(billPaidAmt) || 0;
+  const changeDue = Math.max(0, Math.round((parsedPaidAmt - netAmount) * 100) / 100);
+  const refDue = Math.max(0, Math.round((netAmount - parsedPaidAmt) * 100) / 100);
+
+  // Discount Percentage & Amount Bidirectional Sync
+  const handleDisPercentChange = (val: string) => {
+    setBillDisPercent(val);
+    if (val === '') {
+      setBillDisAmt('');
+      return;
+    }
+    const num = Math.min(100, Math.max(0, parseFloat(val) || 0));
+    const calculatedAmt = (basicTotal * num) / 100;
+    setBillDisAmt(calculatedAmt > 0 ? (Math.round(calculatedAmt * 100) / 100).toString() : '0');
+  };
+
+  const handleDisAmtChange = (val: string) => {
+    setBillDisAmt(val);
+    if (val === '') {
+      setBillDisPercent('');
+      return;
+    }
+    const num = Math.min(basicTotal, Math.max(0, parseFloat(val) || 0));
+    const calculatedPercent = basicTotal > 0 ? (num / basicTotal) * 100 : 0;
+    setBillDisPercent(calculatedPercent > 0 ? (Math.round(calculatedPercent * 10) / 10).toString() : '0');
+  };
+
+  // Add Item Directly from Search Autocomplete (1-Click)
+  const handleAddDirectMenuItem = (menuItem: MenuItemCatalogEntry, qtyOverride?: number) => {
+    const unitInfo = resolveItemUnitInfo(menuItem, menuCatalog);
+    const name = unitInfo.baseName || menuItem.baseName || menuItem.name.replace(/\s*\([^)]*\)$/, '').trim();
+    const price = menuItem.price;
+    const qty = qtyOverride && qtyOverride > 0 ? qtyOverride : Math.max(1, orderQuantity);
+
+    // Stock check for tracked items
+    if (menuItem.trackStock && menuItem.stock !== undefined && menuItem.stock <= 0) {
+      toast.error('Out of Stock', `"${name}" is currently out of stock.`);
       return;
     }
 
     setCart((prev) => {
-      const existingIndex = prev.findIndex((i) => i.productId === product.productId && i.name === product.name);
-      if (existingIndex >= 0) {
-        const item = prev[existingIndex];
-        // Check stock limit for tracked items
-        if (product.trackStock && item.quantity >= product.stock) {
-          toast.error('Stock Limit Reached', `Only ${product.stock} units of "${product.name}" available in stock.`);
+      const existing = prev.find((i) => i.name.toLowerCase() === name.toLowerCase());
+
+      if (menuItem.trackStock && menuItem.stock !== undefined) {
+        const currentQty = existing ? existing.quantity : 0;
+        if (currentQty + qty > menuItem.stock) {
+          toast.error('Stock Limit Reached', `Only ${menuItem.stock} units of "${name}" available in stock.`);
           return prev;
         }
-
-        const updated = [...prev];
-        updated[existingIndex] = { ...item, quantity: item.quantity + 1 };
-        toast.info('Item Incremented', `${product.name} (x${item.quantity + 1})`);
-        return updated;
       }
 
-      toast.success('Item Added', `${product.name} · Rs. ${product.price}`);
+      if (existing) {
+        return prev.map((i) =>
+          i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
+        );
+      }
+
       return [
         ...prev,
         {
-          id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          productId: product.productId,
-          name: product.name,
-          baseName: product.baseName,
-          category: product.category,
-          unit: product.unit,
-          availableUnits: product.availableUnits,
-          unitPrice: product.price,
-          quantity: 1,
-          trackStock: product.trackStock,
-          stock: product.stock,
+          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          productId: menuItem.id,
+          name,
+          baseName: unitInfo.baseName,
+          category: menuItem.category,
+          unit: unitInfo.unit,
+          availableUnits: unitInfo.availableUnits,
+          unitPrice: price,
+          quantity: qty,
+          trackStock: menuItem.trackStock,
+          stock: menuItem.stock,
         },
       ];
     });
+
+    toast.success('Item Added', `${qty}x ${name} (Rs. ${price * qty}) added to Quick Sale.`);
+    setOrderProductName('');
+    setOrderQuantity(1);
+    setIsSuggestionsOpen(false);
   };
 
-  const handleUpdateQuantity = (cartId: string, delta: number) => {
+  // ---------------------------------------------------------------------------
+  // In-Table "Add New" Draft Row Actions (Matching User Reference Layout)
+  // ---------------------------------------------------------------------------
+  const handleAddNewDraftRow = () => {
+    const newId = `draft-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    setDraftRows((prev) => [
+      ...prev,
+      { id: newId, search: '', isOpen: true, selectedIndex: 0 },
+    ]);
+  };
+
+  const handleRemoveDraftRow = (draftId: string) => {
+    setDraftRows((prev) => prev.filter((d) => d.id !== draftId));
+  };
+
+  const handleUpdateDraftSearch = (draftId: string, search: string) => {
+    setDraftRows((prev) =>
+      prev.map((d) => (d.id === draftId ? { ...d, search, isOpen: true, selectedIndex: 0 } : d))
+    );
+  };
+
+  const handleSelectMenuItemForDraft = (draftId: string, menuItem: MenuItemCatalogEntry) => {
+    const unitInfo = resolveItemUnitInfo(menuItem, menuCatalog);
+    const name = unitInfo.baseName || menuItem.baseName || menuItem.name.replace(/\s*\([^)]*\)$/, '').trim();
+    const price = menuItem.price;
+    const qty = 1;
+
+    setCart((prev) => {
+      const existing = prev.find((i) => i.name.toLowerCase() === name.toLowerCase());
+      if (existing) {
+        return prev.map((i) =>
+          i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          productId: menuItem.id,
+          name,
+          baseName: unitInfo.baseName,
+          category: menuItem.category,
+          unit: unitInfo.unit,
+          availableUnits: unitInfo.availableUnits,
+          unitPrice: price,
+          quantity: qty,
+          trackStock: menuItem.trackStock,
+          stock: menuItem.stock,
+        },
+      ];
+    });
+
+    toast.success('Item Added', `${name} (Rs. ${price}) added to Quick Sale.`);
+    setDraftRows((prev) => prev.filter((d) => d.id !== draftId));
+  };
+
+  // Change order item unit/portion (e.g. Momo Half <-> Full)
+  const handleUpdateItemUnit = (itemId: string, newUnit: string) => {
+    setCart((prev) =>
+      prev.map((i) => {
+        if (i.id !== itemId) return i;
+        const unitMeta = resolveItemUnitInfo(
+          { name: i.name, price: i.unitPrice, unit: i.unit, baseName: i.baseName, availableUnits: i.availableUnits },
+          menuCatalog
+        );
+        const targetTier =
+          unitMeta.availableUnits.find((u) => u.unit.toLowerCase() === newUnit.toLowerCase()) ||
+          unitMeta.availableUnits.find((u) => u.unit === newUnit);
+
+        const newPrice = targetTier ? targetTier.price : i.unitPrice;
+        const cleanBase = unitMeta.baseName || i.baseName || i.name.replace(/\s*\([^)]*\)$/, '').trim();
+
+        toast.info('Unit Updated', `${cleanBase} set to ${newUnit} · Rs. ${newPrice}`);
+
+        return {
+          ...i,
+          name: cleanBase,
+          baseName: cleanBase,
+          unit: newUnit,
+          unitPrice: newPrice,
+          availableUnits: unitMeta.availableUnits,
+        };
+      })
+    );
+  };
+
+  // Adjust item quantity
+  const handleUpdateItemQuantity = (itemId: string, delta: number) => {
     setCart((prev) =>
       prev
-        .map((item) => {
-          if (item.id === cartId) {
-            if (delta > 0 && item.trackStock && item.stock !== undefined && item.quantity >= item.stock) {
-              toast.error('Stock Limit', `Only ${item.stock} units available in stock.`);
-              return item;
-            }
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
+        .map((i) => {
+          if (i.id !== itemId) return i;
+          if (delta > 0 && i.trackStock && i.stock !== undefined && i.quantity >= i.stock) {
+            toast.error('Stock Limit', `Only ${i.stock} units available in stock.`);
+            return i;
           }
-          return item;
+          const nextQty = i.quantity + delta;
+          return nextQty > 0 ? { ...i, quantity: nextQty } : null;
         })
         .filter(Boolean) as QuickCartItem[]
     );
   };
 
-  const handleRemoveFromCart = (cartId: string) => {
-    setCart((prev) => prev.filter((i) => i.id !== cartId));
+  // Update item remarks
+  const handleUpdateItemRemarks = (itemId: string, remarks: string) => {
+    setCart((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, remarks } : i))
+    );
   };
 
+  // Remove item from cart
+  const handleRemoveFromCart = (itemId: string) => {
+    setCart((prev) => prev.filter((i) => i.id !== itemId));
+  };
+
+  // Reset entire sale
   const handleClearCart = () => {
     setCart([]);
-    setDiscountValue('0');
-    setTenderedAmount('');
+    setDraftRows([]);
+    setBillDisPercent('');
+    setBillDisAmt('');
+    setBillRoundOff('0');
+    setBillPaidAmt('');
+    setBillRemarks('');
+    setCustomerName('');
+    setCustomerPhone('');
+    setActiveOrderNumber(generateNewOrderNumber());
+    toast.info('Sale Cleared', 'Order reset for next counter customer.');
   };
 
-  // ---------------------------------------------------------------------------
-  // Calculations
-  // ---------------------------------------------------------------------------
-  const subtotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  }, [cart]);
-
-  const discountAmount = useMemo(() => {
-    const parsed = parseFloat(discountValue) || 0;
-    if (parsed <= 0 || subtotal <= 0) return 0;
-    if (discountType === 'AMOUNT') {
-      return Math.min(subtotal, parsed);
-    }
-    return (subtotal * Math.min(100, parsed)) / 100;
-  }, [subtotal, discountType, discountValue]);
-
-  const netAfterDiscount = Math.max(0, subtotal - discountAmount);
-  const taxAmount = isTaxEnabled ? Math.round(netAfterDiscount * 0.10 * 100) / 100 : 0;
-  const serviceChargeAmount = serviceChargeRate > 0 ? Math.round(netAfterDiscount * (serviceChargeRate / 100) * 100) / 100 : 0;
-  const grandTotal = Math.max(0, Math.round((netAfterDiscount + taxAmount + serviceChargeAmount) * 100) / 100);
-
-  const parsedTendered = parseFloat(tenderedAmount) || 0;
-  const changeDue = Math.max(0, parsedTendered - grandTotal);
-
-  // ---------------------------------------------------------------------------
-  // Complete Quick Sale Handler
-  // ---------------------------------------------------------------------------
-  const handleProcessSale = async () => {
-    if (cart.length === 0) {
-      toast.error('Cart is Empty', 'Please select at least one item from the catalog.');
+  // Verify room stay for room charging
+  const handleVerifyRoom = async (roomNumberToVerify?: string) => {
+    const num = (roomNumberToVerify || roomNumberInput).trim();
+    if (!num) {
+      toast.error('Room Number Required', 'Please enter a valid room number to verify active stay.');
       return;
     }
 
-    if (paymentMethod === 'CASH' && tenderedAmount && parsedTendered < grandTotal) {
-      toast.error('Insufficient Payment', `Tendered amount (Rs. ${parsedTendered}) is less than Total (Rs. ${grandTotal}).`);
+    setIsVerifyingRoom(true);
+    try {
+      const res = await api.verifyRoomStay(num);
+      if (res && res.valid) {
+        setVerifiedStay(res);
+        toast.celebrate('Stay Verified', `Guest: ${res.guestName} · Room ${res.roomNumber}`);
+        if (!customerName) {
+          setCustomerName(res.guestName || '');
+        }
+      } else {
+        setVerifiedStay(null);
+        toast.error('Stay Not Found', res?.message || `No active checked-in stay found for Room ${num}.`);
+      }
+    } catch (err: any) {
+      setVerifiedStay(null);
+      toast.error('Verification Failed', err.message || 'Error occurred while verifying room stay.');
+    } finally {
+      setIsVerifyingRoom(false);
+    }
+  };
+
+  // Save optional customer details from modal
+  const handleSaveCustomerInfo = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCustomerName(customerNameInput.trim());
+    setCustomerPhone(customerPhoneInput.trim());
+    setIsCustomerModalOpen(false);
+    toast.success('Customer Details Saved', customerNameInput.trim() || 'Details updated.');
+  };
+
+  // ---------------------------------------------------------------------------
+  // Complete Quick Sale & Settle
+  // ---------------------------------------------------------------------------
+  const handleCompleteSale = async (shouldPrint = false) => {
+    if (cart.length === 0) {
+      toast.error('Cart is Empty', 'Please add at least one item before completing the sale.');
+      return;
+    }
+
+    // Room charge validation
+    if ((billMode === 'Charge to Room' || billMode === 'Room Charge') && (!verifiedStay || !verifiedStay.valid)) {
+      toast.error('Room Stay Not Verified', 'Please verify an active checked-in room stay to charge this bill.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: QuickSalePayload = {
         items: cart.map((i) => ({
           productId: i.productId,
           productName: i.name,
           unitPrice: i.unitPrice,
           quantity: i.quantity,
-          notes: i.notes,
+          notes: i.remarks,
         })),
-        paymentMethod,
-        paidAmount: paymentMethod === 'CASH' && parsedTendered > 0 ? parsedTendered : grandTotal,
-        discountPercent: discountType === 'PERCENT' ? parseFloat(discountValue) || 0 : undefined,
-        discountAmount: discountAmount > 0 ? discountAmount : undefined,
-        tax: taxAmount,
-        serviceCharge: serviceChargeAmount,
-        serverName: cashierName.trim() || 'Counter Cashier',
+        paymentMethod: billMode,
+        paidAmount: parsedPaidAmt,
+        discountPercent: parsedDisPercent > 0 ? parsedDisPercent : undefined,
+        discountAmount: effectiveDisAmt > 0 ? effectiveDisAmt : undefined,
+        tax: 0,
+        serviceCharge: 0,
+        serverName: 'Counter Cashier',
         customerName: customerName.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
-        notes: orderRemarks.trim() || undefined,
+        notes: billRemarks.trim() || undefined,
         sendToKitchen,
         outlet: 'RESTAURANT',
       };
 
       const result = await api.quickSale(payload);
 
-      toast.celebrate('Sale Completed!', `Bill #${result.receipt?.orderNumber || 'ORD'} paid successfully via ${paymentMethod}.`);
+      const savedOrderNumber = result.receipt?.orderNumber || activeOrderNumber;
+      toast.celebrate(
+        'Sale Completed Successfully!',
+        `Bill #${savedOrderNumber} settled for Rs. ${netAmount.toFixed(0)} (${billMode}).`
+      );
 
-      // Set active receipt and open receipt modal for immediate printing
-      setActiveReceipt(result.receipt);
-      setIsReceiptModalOpen(true);
+      // Prepare receipt data
+      const receiptProps: ReceiptModalProps = {
+        isOpen: true,
+        onClose: () => setIsReceiptModalOpen(false),
+        orderNumber: savedOrderNumber,
+        receiptNumber: `REC-${savedOrderNumber.replace('QS-', '').replace('ORD-', '')}`,
+        orderType: 'COUNTER_SALE',
+        tableNumber: null,
+        seatingNote: 'Counter Takeaway',
+        createdAt: new Date().toISOString(),
+        serverName: 'Counter Cashier',
+        customerName: customerName.trim() || 'Walk-in Customer',
+        customerPhone: customerPhone.trim() || undefined,
+        items: cart.map((i) => ({
+          productName: i.name,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          total: i.unitPrice * i.quantity,
+          notes: i.remarks,
+        })),
+        subtotal: basicTotal,
+        discountAmount: effectiveDisAmt,
+        discountPercent: parsedDisPercent,
+        tax: 0,
+        serviceCharge: 0,
+        total: netAmount,
+        paidAmount: parsedPaidAmt,
+        changeDue: changeDue,
+        paymentMethod: billMode,
+        paymentStatus: 'PAID',
+      };
 
-      // Reset cart and tender
+      setReceiptData(receiptProps);
+
+      if (shouldPrint) {
+        setIsReceiptModalOpen(true);
+        setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            window.print();
+          }
+        }, 300);
+      } else {
+        setIsReceiptModalOpen(true);
+      }
+
+      // Reset cart and tender for next customer
       handleClearCart();
-      setCustomerName('');
-      setCustomerPhone('');
-      setOrderRemarks('');
 
-      // Refresh product stock and daily sales
-      await loadProducts();
+      // Refresh daily sales
       await loadDailySales();
     } catch (err: any) {
       toast.error('Sale Failed', err.message || 'Error occurred while completing counter sale.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handlePrintReceipt = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
     }
   };
 
@@ -388,38 +608,65 @@ export default function QuickSalePage() {
       </div>
 
       {/* =======================================================================
-          HEADER BAR: TITLE, DAILY SALES SUMMARY & RECENT RECEIPTS
+          TOP SERVICE & CUSTOMER INFORMATION STRIP (MATCHING TABLE ORDER PAGE)
           ======================================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] shadow-2xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-[3px] bg-amber-500 text-white flex items-center justify-center shadow-xs">
-            <Zap className="w-5 h-5 fill-current" />
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[3px] bg-[#FAFBF9] dark:bg-[#07241E] border border-[#DCE3DF] dark:border-[#145447] text-xs">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-[#64736C] dark:text-[#879B90]">Service:</span>
+            <span className="rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+              Quick Sale · Counter POS (Takeaway / Walk-In)
+            </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black text-[#24352F] dark:text-white font-heading">
-                Quick Sale · Counter POS
-              </h1>
-              <span className="px-2 py-0.5 rounded-[2px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[10px] font-bold uppercase tracking-wider">
-                Walk-In / Takeaway
-              </span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-[#64736C] dark:text-[#879B90]">Order No:</span>
+            <strong className="font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
+              {activeOrderNumber}
+            </strong>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-[#64736C] dark:text-[#879B90]">Customer:</span>
+            <strong className="font-bold text-[#24352F] dark:text-white">
+              {customerName.trim() || 'Walk-in Customer'}
+            </strong>
+          </div>
+
+          {customerPhone && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-[#64736C] dark:text-[#879B90]">Phone:</span>
+              <strong className="font-mono font-bold text-[#24352F] dark:text-white">
+                {customerPhone}
+              </strong>
             </div>
-            <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
-              No table or registration required · Instant inventory stock deduction & tax invoice
-            </p>
-          </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Customer Details Optional Edit Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setCustomerNameInput(customerName);
+              setCustomerPhoneInput(customerPhone);
+              setIsCustomerModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#071F1A] text-[11px] font-bold text-[#0B3D32] dark:text-emerald-400 hover:bg-[#FAFBF9] dark:hover:bg-[#093027] transition-colors cursor-pointer shadow-2xs"
+          >
+            <Edit2 className="w-3 h-3" />
+            <span>Customer Details (Optional)</span>
+          </button>
+
           {/* Daily Sales Quick Metric Button */}
           {dailySales && (
             <button
               type="button"
               onClick={() => setIsDailySalesModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[3px] border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 text-[#0B3D32] dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 transition-all cursor-pointer"
-              title="Click to view daily sales & payment report"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 text-[#0B3D32] dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-100 transition-all cursor-pointer shadow-2xs"
+              title="Click to view daily sales & audit report"
             >
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+              <TrendingUp className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
               <span>Today: Rs. {dailySales.totalSales.toFixed(0)}</span>
               <span className="font-mono text-[10px] opacity-75">({dailySales.totalOrders} bills)</span>
             </button>
@@ -429,624 +676,934 @@ export default function QuickSalePage() {
           <button
             type="button"
             onClick={() => setIsDailySalesModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] text-[#24352F] dark:text-white hover:bg-slate-50 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] text-[#24352F] dark:text-white hover:bg-slate-50 text-[11px] font-semibold shadow-2xs cursor-pointer"
           >
-            <History className="w-3.5 h-3.5 text-slate-500" />
+            <History className="w-3 h-3 text-slate-500" />
             <span>Recent Bills</span>
           </button>
+
+          {/* Reset / Clear Sale Button */}
+          {cart.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearCart}
+              className="inline-flex items-center gap-1 rounded-[3px] border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-[#A51F36] hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 transition-colors cursor-pointer"
+              title="Clear all cart items and reset tender"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Clear</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* =======================================================================
-          MAIN 2-COLUMN POS TERMINAL LAYOUT
-          LEFT (65%): PRODUCT CATALOG WITH CATEGORIES & SEARCH
-          RIGHT (35%): BILLING TERMINAL & PAYMENT REGISTER
-          ======================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* =====================================================================
-            LEFT PANEL: PRODUCT SEARCH, CATEGORIES & PRODUCT CARDS GRID
-            ===================================================================== */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-3">
-          {/* Search Bar & Category Scroller */}
-          <div className="p-3 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] shadow-2xs space-y-2.5">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                autoFocus
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search menu item, bottled drink, snack, or retail product..."
-                className="w-full rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] dark:bg-[#061B16] py-2 pl-9 pr-8 text-xs font-semibold text-[#24352F] dark:text-white placeholder-slate-400 shadow-2xs focus:border-[#0B3D32] focus:bg-white focus:outline-none dark:border-[#145447]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-              {categories.map((cat) => {
-                const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={cn(
-                      'px-3 py-1 rounded-[3px] text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0',
-                      isSelected
-                        ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
-                        : 'bg-white border border-[#DCE3DF] text-[#4A6B5D] hover:bg-slate-50 dark:bg-[#07241E] dark:border-[#145447] dark:text-[#A4B8AE]'
-                    )}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Product Cards Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-4 gap-2.5">
-            {filteredProducts.map((product) => {
-              const isOutOfStock = product.trackStock && (product.stock <= 0 || !product.isAvailable);
-              const cartItem = cart.find((i) => i.productId === product.productId && i.name === product.name);
-
-              return (
-                <div
-                  key={product.id}
-                  onClick={() => handleAddToCart(product)}
-                  className={cn(
-                    'relative flex flex-col justify-between p-3 rounded-[4px] border transition-all duration-150 shadow-2xs cursor-pointer select-none min-h-[110px]',
-                    isOutOfStock
-                      ? 'bg-slate-100/70 border-slate-200 opacity-60 dark:bg-slate-900/40 dark:border-slate-800 cursor-not-allowed'
-                      : cartItem
-                      ? 'bg-amber-50/60 border-amber-300 dark:bg-amber-950/20 dark:border-amber-700 ring-1 ring-amber-400'
-                      : 'bg-white border-[#DCE3DF] hover:border-[#0B3D32] hover:shadow-xs dark:bg-[#07241E] dark:border-[#145447] dark:hover:border-emerald-500'
-                  )}
-                >
-                  {/* Top: Category & Stock Pill */}
-                  <div className="flex items-center justify-between gap-1 mb-1">
-                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
-                      {product.category}
-                    </span>
-
-                    {product.trackStock ? (
-                      isOutOfStock ? (
-                        <span className="px-1.5 py-0.2 rounded-[2px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 text-[8px] font-bold uppercase tracking-wider">
-                          Out of Stock
-                        </span>
-                      ) : (
-                        <span className="px-1.5 py-0.2 rounded-[2px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[8px] font-bold font-mono">
-                          {product.stock} in stock
-                        </span>
-                      )
-                    ) : (
-                      <span className="px-1 py-0.2 rounded-[2px] bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-[8px] font-semibold">
-                        Fresh Prep
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Middle: Product Name */}
-                  <h3 className="text-xs font-bold text-[#24352F] dark:text-white line-clamp-2 leading-snug">
-                    {product.name}
-                  </h3>
-
-                  {/* Bottom: Price & Add Button */}
-                  <div className="flex items-center justify-between pt-2 mt-1 border-t border-[#EAEFEA] dark:border-[#145447]/60">
-                    <span className="text-xs font-black font-mono text-[#0B3D32] dark:text-emerald-300">
-                      Rs. {product.price.toFixed(0)}
-                    </span>
-
-                    {cartItem ? (
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white font-bold text-[10px] font-mono shadow-xs">
-                        {cartItem.quantity}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-[2px] bg-[#0B3D32] text-white hover:bg-[#093027] text-xs font-bold transition-all shadow-2xs">
-                        +
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {filteredProducts.length === 0 && (
-            <div className="p-12 text-center rounded-[4px] border border-[#DCE3DF] bg-white dark:border-[#145447] dark:bg-[#07241E]">
-              <Search className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-              <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200">No items match your search</h3>
-              <p className="text-[11px] text-slate-500 mt-1">Try another term or pick from category pills above.</p>
-            </div>
-          )}
+      {/* =========================================================================
+          SEARCH / ADD ITEM WITH INSTANT AUTOCOMPLETE SUGGESTIONS
+          Fetches directly from Setted Menu & POS Products Catalog
+          ========================================================================= */}
+      <div className="space-y-3 max-w-5xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold font-heading text-[#24352F] dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+            <UtensilsCrossed className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+            <span>Add Order · Quick Sale</span>
+          </h2>
         </div>
 
-        {/* =====================================================================
-            RIGHT PANEL: BILLING REGISTER & PAYMENT TERMINAL
-            ===================================================================== */}
-        <div className="lg:col-span-5 xl:col-span-4 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] shadow-sm flex flex-col overflow-hidden">
-          {/* Cart Header */}
-          <div className="px-4 py-3 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[#24352F] dark:text-white font-heading">
-                  Active Bill · Counter
-                </h2>
-                <span className="text-[10px] text-slate-500 font-mono">
-                  {cart.reduce((s, i) => s + i.quantity, 0)} Items Selected
-                </span>
-              </div>
-            </div>
-
-            {cart.length > 0 && (
+        {/* Search Input Bar with Instant Dropdown Suggestions Below */}
+        <div className="relative w-full max-w-sm sm:max-w-md">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#879B90]" />
+            <input
+              type="text"
+              placeholder="search item & Add"
+              value={orderProductName}
+              onFocus={() => setIsSuggestionsOpen(true)}
+              onChange={(e) => {
+                setOrderProductName(e.target.value);
+                setIsSuggestionsOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (suggestions.length > 0) {
+                    handleAddDirectMenuItem(suggestions[0]);
+                  }
+                }
+              }}
+              className="w-full rounded-[3px] border border-[#DCE3DF] bg-white dark:bg-[#061D18] pl-9 pr-8 py-2.5 text-xs text-[#24352F] placeholder-[#879B90] dark:border-[#145447] dark:text-white focus:outline-none focus:border-[#0B3D32] shadow-2xs transition-colors"
+            />
+            {orderProductName && (
               <button
                 type="button"
-                onClick={handleClearCart}
-                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
+                onClick={() => setOrderProductName('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                title="Clear search"
               >
-                Clear All
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Optional Customer Information Toggle */}
-          <div className="px-4 py-2 border-b border-[#E5EEE9] dark:border-[#145447] bg-slate-50/50 dark:bg-slate-900/20">
+          {/* Suggestions Dropdown Appearing Directly Below Input */}
+          {isSuggestionsOpen && (
+            <>
+              {/* Transparent backdrop to dismiss on click outside */}
+              <div
+                className="fixed inset-0 z-30 cursor-default bg-transparent"
+                onClick={() => setIsSuggestionsOpen(false)}
+              />
+
+              {/* Dropdown Menu */}
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-40 max-h-72 overflow-y-auto rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] shadow-xl py-1 text-xs divide-y divide-slate-100 dark:divide-slate-800/60 animate-in fade-in-0 zoom-in-95 duration-100">
+                <div className="px-3 py-1.5 bg-[#FAFBF9] dark:bg-[#061D18] text-[10px] font-bold uppercase tracking-wider text-[#64736C] dark:text-[#879B90] flex items-center justify-between">
+                  <span>
+                    {orderProductName.trim()
+                      ? `Matching Menu Suggestions (${suggestions.length})`
+                      : `All Setted Menu Items (${menuCatalog.length})`}
+                  </span>
+                  <span className="text-[9px] font-normal normal-case opacity-75">
+                    Click item to add directly
+                  </span>
+                </div>
+
+                {suggestions.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-[#879B90] dark:text-[#64736C]">
+                    <p className="font-semibold text-[#24352F] dark:text-white">
+                      No menu items found for &quot;{orderProductName}&quot;
+                    </p>
+                  </div>
+                ) : (
+                  suggestions.map((item) => (
+                    <div
+                      key={item.id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleAddDirectMenuItem(item);
+                      }}
+                      className="px-3 py-2 flex items-center justify-between gap-3 hover:bg-[#F2F6F4] dark:hover:bg-[#093027] cursor-pointer transition-colors group"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[#24352F] dark:text-white group-hover:text-[#0B3D32] dark:group-hover:text-emerald-300">
+                            {item.name}
+                          </span>
+                          <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.2 rounded-[2px] bg-slate-100 dark:bg-[#0E3B31] text-[#64736C] dark:text-[#A4B8AE]">
+                            {item.category}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-[#879B90] flex items-center gap-2 mt-0.5">
+                          <span className="font-mono font-medium">{item.code}</span>
+                          <span>·</span>
+                          <span>{item.portion || '1 Portion'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400">
+                          Rs. {item.price.toFixed(0)}
+                        </span>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#0B3D32] group-hover:bg-[#093027] text-white text-[11px] font-bold shadow-2xs transition-colors dark:bg-emerald-600 dark:group-hover:bg-emerald-500"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Touch-Friendly Category Filter Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+        {categories.map((cat) => {
+          const isSelected = selectedCategory === cat;
+          return (
             <button
+              key={cat}
               type="button"
-              onClick={() => setShowCustomerFields(!showCustomerFields)}
-              className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-[#0B3D32] cursor-pointer"
+              onClick={() => setSelectedCategory(cat)}
+              className={cn(
+                'px-3 py-1.5 rounded-[3px] text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0',
+                isSelected
+                  ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                  : 'bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+              )}
             >
-              <span className="flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-slate-400" />
-                <span>Customer Info (Optional)</span>
-              </span>
-              <span className="text-[10px] text-slate-400">{showCustomerFields ? '▲ Hide' : '▼ Add'}</span>
+              {cat === 'ALL' ? '🍽️ All Items' : cat}
             </button>
+          );
+        })}
+      </div>
 
-            {showCustomerFields && (
-              <div className="grid grid-cols-2 gap-2 pt-2 pb-1 animate-in fade-in duration-150">
-                <input
-                  type="text"
-                  placeholder="Customer Name"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="rounded-[3px] border border-[#DCE3DF] bg-white py-1 px-2 text-xs text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                />
-                <input
-                  type="tel"
-                  placeholder="Phone Number"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="rounded-[3px] border border-[#DCE3DF] bg-white py-1 px-2 text-xs font-mono text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Cart Items List */}
-          <div className="p-3 max-h-[300px] overflow-y-auto space-y-2 divide-y divide-[#E5EEE9] dark:divide-[#145447]/60 custom-scrollbar">
-            {cart.length === 0 ? (
-              <div className="py-8 text-center text-slate-400">
-                <ShoppingCart className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2 opacity-50" />
-                <p className="text-xs font-semibold">Cart is currently empty</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Click any product on the left to add it.</p>
-              </div>
-            ) : (
-              cart.map((item) => (
-                <div key={item.id} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-[#24352F] dark:text-white truncate">
-                      {item.name}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-mono">
-                      Rs. {item.unitPrice.toFixed(0)} × {item.quantity} = Rs. {(item.unitPrice * item.quantity).toFixed(0)}
-                    </div>
-                  </div>
-
-                  {/* Quantity Stepper */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateQuantity(item.id, -1)}
-                      className="w-6 h-6 rounded-[2px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] hover:bg-slate-100 flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <span className="w-5 text-center font-mono font-bold text-xs text-[#24352F] dark:text-white">
-                      {item.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateQuantity(item.id, 1)}
-                      className="w-6 h-6 rounded-[2px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] hover:bg-slate-100 flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFromCart(item.id)}
-                      className="p-1 rounded-[2px] text-slate-400 hover:text-rose-600 transition-colors ml-1 cursor-pointer"
-                      title="Remove item"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Billing Calculations Breakdown */}
-          <div className="p-3 border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] space-y-2 text-xs">
-            {/* Subtotal */}
-            <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-              <span>Subtotal</span>
-              <span className="font-mono font-bold text-[#24352F] dark:text-white">
-                Rs. {subtotal.toFixed(2)}
+      {/* Quick-Pick Menu Item Cards (Large touch-friendly for counter staff) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        {categoryFilteredItems.slice(0, 12).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => handleAddDirectMenuItem(item)}
+            className="group flex flex-col justify-between p-2.5 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] hover:border-[#0B3D32] hover:shadow-xs transition-all text-left cursor-pointer min-h-[72px]"
+          >
+            <div className="min-w-0">
+              <span className="block font-bold text-xs text-[#24352F] dark:text-white group-hover:text-[#0B3D32] dark:group-hover:text-emerald-300 truncate">
+                {item.name}
+              </span>
+              <span className="text-[10px] text-slate-400 block truncate">
+                {item.portion || item.category || 'Standard'}
               </span>
             </div>
+            <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400">
+                Rs. {item.price.toFixed(0)}
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-[#0B3D32] dark:text-emerald-300">
+                + Add
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
 
-            {/* Discount Row */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-600 dark:text-slate-300">Discount</span>
-                <div className="flex items-center gap-0.5 rounded-[2px] border border-[#DCE3DF] bg-white dark:bg-[#07241E] text-[10px] p-0.5">
+      {/* ===================================================================
+          TOP SECTION: STRUCTURED ORDER TABLE (MATCHING EXACT TABLE ORDER LAYOUT)
+          # | Particular | Unit | Rate | Qty | Amount | Status | Remarks | Add New
+          =================================================================== */}
+      <div
+        className={cn(
+          'border border-slate-200 dark:border-slate-800 rounded-md bg-white dark:bg-[#071F1A] shadow-2xs transition-all',
+          draftRows.some((d) => d.isOpen) ? 'min-h-[380px] pb-32' : 'overflow-hidden'
+        )}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-[#F8FAFC] dark:bg-[#061D18]">
+                <th className="py-2 px-3 text-center w-12 border-r border-slate-200 dark:border-slate-800">#</th>
+                <th className="py-2 px-3.5 text-left border-r border-slate-200 dark:border-slate-800">Particular</th>
+                <th className="py-2 px-2.5 text-center w-28 border-r border-slate-200 dark:border-slate-800">Unit</th>
+                <th className="py-2 px-3.5 text-right w-28 border-r border-slate-200 dark:border-slate-800">Rate</th>
+                <th className="py-2 px-3 text-center w-20 border-r border-slate-200 dark:border-slate-800">Qty</th>
+                <th className="py-2 px-3.5 text-right w-28 border-r border-slate-200 dark:border-slate-800">Amount</th>
+                <th className="py-2 px-2.5 text-center w-28 border-r border-slate-200 dark:border-slate-800">Status</th>
+                <th className="py-2 px-3 text-left border-r border-slate-200 dark:border-slate-800">Remarks</th>
+                <th className="py-1 px-2 text-center w-28">
                   <button
                     type="button"
-                    onClick={() => setDiscountType('PERCENT')}
-                    className={cn('px-1.5 py-0.2 rounded-[1px] font-bold cursor-pointer', discountType === 'PERCENT' ? 'bg-[#0B3D32] text-white' : 'text-slate-500')}
+                    onClick={handleAddNewDraftRow}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white dark:bg-emerald-950/60 dark:hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 dark:hover:text-white font-bold text-[11px] shadow-2xs transition-all cursor-pointer select-none"
+                    title="Click to add new row"
                   >
-                    %
+                    <Plus className="w-3 h-3" />
+                    <span>Add New</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setDiscountType('AMOUNT')}
-                    className={cn('px-1.5 py-0.2 rounded-[1px] font-bold cursor-pointer', discountType === 'AMOUNT' ? 'bg-[#0B3D32] text-white' : 'text-slate-500')}
-                  >
-                    Rs
-                  </button>
-                </div>
-              </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {cart.length === 0 && draftRows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-10 text-center text-xs text-[#879B90] dark:text-[#64736C]">
+                    <UtensilsCrossed className="w-7 h-7 mx-auto mb-2 opacity-40" />
+                    <p className="font-bold text-sm text-[#24352F] dark:text-white">
+                      No items in Quick Sale yet
+                    </p>
+                    <p className="text-xs text-[#879B90] dark:text-[#64736C] mt-1 max-w-sm mx-auto">
+                      Click &quot;Add New&quot; above to add a row and search dishes directly, or search above.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAddNewDraftRow}
+                      className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add New Row</span>
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {/* Existing Cart Items */}
+                  {cart.map((item, index) => {
+                    const unitMeta = resolveItemUnitInfo(
+                      { name: item.name, price: item.unitPrice, unit: item.unit, baseName: item.baseName, availableUnits: item.availableUnits },
+                      menuCatalog
+                    );
+                    const currentUnit = item.unit || unitMeta.unit;
+                    const hasMultipleUnits = unitMeta.availableUnits && unitMeta.availableUnits.length > 1;
+                    const itemAmount = item.unitPrice * item.quantity;
+                    const particularName =
+                      item.baseName || unitMeta.baseName || item.name.replace(/\s*\([^)]*\)$/, '').trim();
 
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  min={0}
-                  max={discountType === 'PERCENT' ? 100 : subtotal}
-                  value={discountValue}
-                  onChange={(e) => setDiscountValue(e.target.value)}
-                  className="w-16 rounded-[2px] border border-[#DCE3DF] bg-white px-1.5 py-0.5 text-right text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                />
-                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold min-w-[70px] text-right">
-                  -Rs. {discountAmount.toFixed(2)}
-                </span>
-              </div>
-            </div>
+                    return (
+                      <tr
+                        key={item.id}
+                        className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-[#FAFBF9] dark:hover:bg-[#07241E]/80 transition-colors"
+                      >
+                        {/* # Serial Number */}
+                        <td className="py-2 px-3 text-center text-xs text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800/80">
+                          {index + 1}
+                        </td>
 
-            {/* Tax (10% VAT) */}
-            <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isTaxEnabled}
-                  onChange={(e) => setIsTaxEnabled(e.target.checked)}
-                  className="rounded text-[#0B3D32] focus:ring-[#0B3D32]"
-                />
-                <span>VAT (10%)</span>
-              </label>
-              <span className="font-mono font-semibold text-[#24352F] dark:text-white">
-                Rs. {taxAmount.toFixed(2)}
-              </span>
-            </div>
+                        {/* Particular */}
+                        <td className="py-2 px-3.5 text-xs text-[#24352F] dark:text-white border-r border-slate-100 dark:border-slate-800/80 font-medium">
+                          {particularName}
+                        </td>
 
-            {/* Grand Total */}
-            <div className="pt-2 border-t border-[#E5EEE9] dark:border-[#145447] flex items-baseline justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-[#24352F] dark:text-white">
-                Grand Total
-              </span>
-              <span className="text-xl font-black font-mono text-[#0B3D32] dark:text-emerald-400">
-                Rs. {grandTotal.toFixed(2)}
-              </span>
-            </div>
+                        {/* Unit */}
+                        <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          {hasMultipleUnits ? (
+                            <select
+                              value={currentUnit}
+                              onChange={(e) => handleUpdateItemUnit(item.id, e.target.value)}
+                              className="w-full text-center rounded-[2px] border border-slate-200 bg-white dark:bg-[#061D18] dark:border-slate-700 py-0.5 px-1.5 text-xs text-[#0B3D32] dark:text-emerald-300 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+                              title="Change portion / unit"
+                            >
+                              {unitMeta.availableUnits.map((u) => (
+                                <option key={u.unit} value={u.unit}>
+                                  {u.unit}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[11px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                              {currentUnit || 'Standard'}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Rate (Styled with light grey background box matching screenshot) */}
+                        <td className="py-2 px-3 border-r border-slate-100 dark:border-slate-800/80">
+                          <div className="bg-[#E9ECEF] dark:bg-slate-800/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-slate-800 dark:text-slate-200">
+                            {item.unitPrice.toFixed(2)}
+                          </div>
+                        </td>
+
+                        {/* Qty */}
+                        <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          <div className="inline-flex items-center gap-1.5 justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateItemQuantity(item.id, -1)}
+                              className="w-4 h-4 rounded text-[10px] text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center justify-center cursor-pointer"
+                              title="Decrease"
+                            >
+                              <Minus className="w-2.5 h-2.5" />
+                            </button>
+                            <span className="w-5 text-center text-xs font-mono font-medium text-slate-800 dark:text-white">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateItemQuantity(item.id, 1)}
+                              className="w-4 h-4 rounded text-[10px] text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center justify-center cursor-pointer"
+                              title="Increase"
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Amount (Styled with light grey background box matching screenshot) */}
+                        <td className="py-2 px-3 border-r border-slate-100 dark:border-slate-800/80">
+                          <div className="bg-[#E9ECEF] dark:bg-slate-800/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-slate-900 dark:text-white">
+                            {itemAmount.toFixed(0)}
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          {sendToKitchen ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                              <ChefHat className="w-2.5 h-2.5" />
+                              Kitchen KOT
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              Ready
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Remarks */}
+                        <td className="py-1.5 px-2 text-left border-r border-slate-100 dark:border-slate-800/80">
+                          <input
+                            type="text"
+                            placeholder="Optional notes..."
+                            value={item.remarks || ''}
+                            onChange={(e) => handleUpdateItemRemarks(item.id, e.target.value)}
+                            className="w-full px-1.5 py-0.5 text-xs bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-[#0B3D32] focus:outline-none text-slate-700 dark:text-slate-300"
+                          />
+                        </td>
+
+                        {/* Action / Delete */}
+                        <td className="py-2 px-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFromCart(item.id)}
+                            className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                            title="Delete item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* Active In-Table Draft Rows (Matching Reference Design) */}
+                  {draftRows.map((draft, draftIdx) => {
+                    const filteredDraftItems = menuCatalog.filter((item) => {
+                      const q = draft.search.toLowerCase().trim();
+                      if (!q) return true;
+                      return (
+                        item.name.toLowerCase().includes(q) ||
+                        item.category.toLowerCase().includes(q) ||
+                        item.code.toLowerCase().includes(q)
+                      );
+                    });
+
+                    return (
+                      <tr
+                        key={draft.id}
+                        className="border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-[#071F1A]"
+                      >
+                        {/* # Serial Number */}
+                        <td className="py-2 px-3 text-center text-xs text-slate-400 font-mono border-r border-slate-100 dark:border-slate-800/80">
+                          {cart.length + draftIdx + 1}
+                        </td>
+
+                        {/* Particular Input with Green Border & Autocomplete Popover */}
+                        <td className="py-1 px-2 relative border-r border-slate-100 dark:border-slate-800/80">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              autoFocus
+                              placeholder="search item & Add"
+                              value={draft.search}
+                              onChange={(e) => handleUpdateDraftSearch(draft.id, e.target.value)}
+                              onFocus={() => {
+                                setDraftRows((prev) =>
+                                  prev.map((d) => (d.id === draft.id ? { ...d, isOpen: true } : d))
+                                );
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'ArrowDown') {
+                                  e.preventDefault();
+                                  setDraftRows((prev) =>
+                                    prev.map((d) =>
+                                      d.id === draft.id
+                                        ? {
+                                            ...d,
+                                            selectedIndex: Math.min(
+                                              filteredDraftItems.length - 1,
+                                              d.selectedIndex + 1
+                                            ),
+                                          }
+                                        : d
+                                    )
+                                  );
+                                } else if (e.key === 'ArrowUp') {
+                                  e.preventDefault();
+                                  setDraftRows((prev) =>
+                                    prev.map((d) =>
+                                      d.id === draft.id
+                                        ? { ...d, selectedIndex: Math.max(0, d.selectedIndex - 1) }
+                                        : d
+                                    )
+                                  );
+                                } else if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (
+                                    filteredDraftItems.length > 0 &&
+                                    filteredDraftItems[draft.selectedIndex]
+                                  ) {
+                                    handleSelectMenuItemForDraft(
+                                      draft.id,
+                                      filteredDraftItems[draft.selectedIndex]
+                                    );
+                                  }
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  handleRemoveDraftRow(draft.id);
+                                }
+                              }}
+                              className="w-full px-2 py-1 text-xs bg-white dark:bg-[#061D18] border border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 rounded-[2px] text-slate-900 dark:text-white font-medium"
+                            />
+
+                            {/* Popover Table Directly Under Input (Matching Reference Screenshot) */}
+                            {draft.isOpen && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40 bg-transparent cursor-default"
+                                  onClick={() => {
+                                    setDraftRows((prev) =>
+                                      prev.map((d) => (d.id === draft.id ? { ...d, isOpen: false } : d))
+                                    );
+                                  }}
+                                />
+                                <div className="absolute left-0 top-full mt-1 z-50 w-[520px] bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 shadow-2xl rounded-[2px] overflow-hidden animate-in fade-in-0 duration-75">
+                                  {/* Teal Header Bar */}
+                                  <div className="bg-[#00838F] text-white px-2.5 py-1.5 flex items-center text-[10px] font-bold tracking-wider uppercase select-none border-b border-[#006978]">
+                                    <span className="w-44 text-left">ITEM</span>
+                                    <span className="w-32 text-left">GENERIC NAME</span>
+                                    <span className="w-20 text-right">RATE</span>
+                                    <span className="w-16 text-center">SRATE</span>
+                                    <span className="w-12 text-center">QTY</span>
+                                  </div>
+
+                                  {/* Items List */}
+                                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                                    {filteredDraftItems.length === 0 ? (
+                                      <div className="py-5 text-center text-xs text-slate-500">
+                                        No items found for &quot;{draft.search}&quot;
+                                      </div>
+                                    ) : (
+                                      filteredDraftItems.map((item, idx) => {
+                                        const isSelected = idx === draft.selectedIndex;
+                                        return (
+                                          <div
+                                            key={item.id}
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              handleSelectMenuItemForDraft(draft.id, item);
+                                            }}
+                                            onMouseEnter={() => {
+                                              setDraftRows((prev) =>
+                                                prev.map((d) =>
+                                                  d.id === draft.id ? { ...d, selectedIndex: idx } : d
+                                                )
+                                              );
+                                            }}
+                                            className={cn(
+                                              'px-2.5 py-1.5 flex items-center cursor-pointer transition-colors text-xs font-sans',
+                                              isSelected
+                                                ? 'bg-[#1E293B] text-white dark:bg-[#0E3B31]'
+                                                : 'hover:bg-[#1E293B] hover:text-white text-slate-800 dark:text-slate-200 bg-white dark:bg-[#071F1A]'
+                                            )}
+                                          >
+                                            <span className="w-44 truncate font-medium text-left">
+                                              {item.name}
+                                            </span>
+                                            <span className="w-32 truncate text-left text-[11px] opacity-75">
+                                              {item.category || '-'}
+                                            </span>
+                                            <span className="w-20 font-mono text-right">
+                                              {item.price.toFixed(2)}
+                                            </span>
+                                            <span className="w-16 text-center text-[11px] opacity-75">
+                                              {item.portion || '0'}
+                                            </span>
+                                            <span className="w-12 text-center font-mono opacity-75">
+                                              0
+                                            </span>
+                                          </div>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Unit placeholder */}
+                        <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          <span className="text-[11px] text-slate-400">-</span>
+                        </td>
+
+                        {/* Rate placeholder */}
+                        <td className="py-2 px-3 border-r border-slate-100 dark:border-slate-800/80">
+                          <div className="bg-[#E9ECEF] dark:bg-slate-800/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-slate-400">
+                            0.00
+                          </div>
+                        </td>
+
+                        {/* Qty placeholder */}
+                        <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          <span className="text-xs font-mono text-slate-400">1</span>
+                        </td>
+
+                        {/* Amount placeholder */}
+                        <td className="py-2 px-3 border-r border-slate-100 dark:border-slate-800/80">
+                          <div className="bg-[#E9ECEF] dark:bg-slate-800/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-slate-400">
+                            0
+                          </div>
+                        </td>
+
+                        {/* Status placeholder */}
+                        <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          <span className="text-[10px] text-slate-400 font-medium">New</span>
+                        </td>
+
+                        {/* Remarks placeholder */}
+                        <td className="py-1.5 px-2 text-left border-r border-slate-100 dark:border-slate-800/80">
+                          <span className="text-xs text-slate-400"></span>
+                        </td>
+
+                        {/* Action / Delete draft row */}
+                        <td className="py-2 px-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDraftRow(draft.id)}
+                            className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                            title="Cancel row"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ===================================================================
+          BOTTOM SECTION: BILLING PANEL (EXACT DESIGN MATCHING USER SCREENSHOT)
+          =================================================================== */}
+      <div className="border border-slate-200 dark:border-slate-800 rounded-md p-3.5 bg-white dark:bg-[#071F1A] shadow-2xs space-y-3">
+        {/* Row 1: Basic Total | Dis % | Dis Amt | Round off | Net Amount | Paid Amt. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Basic Total
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={basicTotal.toFixed(0)}
+              className="w-full px-2.5 py-1.5 text-xs font-mono font-medium bg-[#E9ECEF] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-[3px] text-slate-800 dark:text-slate-200 cursor-default"
+            />
           </div>
 
-          {/* Kitchen KOT Toggle (Requirement 7) */}
-          <div className="px-4 py-2 border-t border-[#E5EEE9] dark:border-[#145447] bg-amber-50/50 dark:bg-amber-950/20">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Dis %
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step="0.1"
+              placeholder=""
+              value={billDisPercent}
+              onChange={(e) => handleDisPercentChange(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Dis Amt
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={basicTotal}
+              step="1"
+              placeholder="0"
+              value={billDisAmt}
+              onChange={(e) => handleDisAmtChange(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Round off
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="0"
+              value={billRoundOff}
+              onChange={(e) => setBillRoundOff(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Net Amount
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={netAmount.toFixed(0)}
+              className="w-full px-2.5 py-1.5 text-xs font-mono font-medium bg-[#E9ECEF] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-[3px] text-slate-800 dark:text-slate-200 cursor-default"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Paid Amt.
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="1"
+              placeholder={netAmount.toFixed(0)}
+              value={billPaidAmt}
+              onChange={(e) => setBillPaidAmt(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs font-mono font-medium bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
+            />
+          </div>
+        </div>
+
+        {/* Row 2: Ref. Due / Change | Payment Mode | Remarks | Send KOT | Action Buttons */}
+        <div className="flex flex-wrap items-end gap-3 pt-1">
+          <div className="w-28">
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              {changeDue > 0 ? 'Change Due' : 'Ref. Due'}
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={changeDue > 0 ? changeDue.toFixed(0) : refDue.toFixed(0)}
+              className={cn(
+                'w-full px-2.5 py-1.5 text-xs font-mono font-medium bg-[#E9ECEF] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-[3px] cursor-default',
+                refDue > 0
+                  ? 'text-rose-600 dark:text-rose-400 font-bold'
+                  : changeDue > 0
+                  ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+                  : 'text-slate-800 dark:text-slate-200'
+              )}
+            />
+          </div>
+
+          <div className="w-40">
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Payment Mode
+            </label>
+            <select
+              value={billMode}
+              onChange={(e) => setBillMode(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white font-medium focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+            >
+              <option value="Cash">Cash</option>
+              <option value="Credit Card">Credit Card</option>
+              <option value="Debit Card">Debit Card</option>
+              <option value="UPI / QR">UPI / QR</option>
+              <option value="Charge to Room">Charge to Room (Hotel Guest)</option>
+              <option value="Due / Credit">Due / Credit</option>
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Remarks / Notes
+            </label>
+            <input
+              type="text"
+              placeholder="Optional billing note..."
+              value={billRemarks}
+              onChange={(e) => setBillRemarks(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
+            />
+          </div>
+
+          {/* Kitchen KOT Toggle */}
+          <div className="flex items-center gap-1.5 pb-2 px-1">
+            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300 select-none">
               <input
                 type="checkbox"
                 checked={sendToKitchen}
                 onChange={(e) => setSendToKitchen(e.target.checked)}
-                className="rounded text-amber-600 focus:ring-amber-500"
+                className="rounded text-[#0B3D32] focus:ring-[#0B3D32] cursor-pointer"
               />
-              <div className="text-[11px] font-bold text-amber-900 dark:text-amber-300">
-                Send KOT to Kitchen Display (KDS)
-              </div>
+              <ChefHat className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Send KOT</span>
             </label>
           </div>
 
-          {/* Payment Method Selector & Cash Tender */}
-          <div className="p-3 border-t border-[#E5EEE9] dark:border-[#145447] space-y-2.5">
-            {/* Payment Method Pills */}
-            <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { id: 'CASH', label: 'Cash', icon: Banknote },
-                { id: 'CARD', label: 'Card', icon: CreditCard },
-                { id: 'UPI', label: 'QR / UPI', icon: QrCode },
-              ].map((p) => {
-                const Icon = p.icon;
-                const isSelected = paymentMethod === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setPaymentMethod(p.id as any);
-                      if (p.id === 'CASH' && !tenderedAmount) {
-                        setTenderedAmount(grandTotal > 0 ? grandTotal.toString() : '');
-                      }
-                    }}
-                    className={cn(
-                      'flex items-center justify-center gap-1.5 py-1.5 rounded-[3px] text-xs font-bold border transition-all cursor-pointer',
-                      isSelected
-                        ? 'bg-[#0B3D32] border-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600 dark:border-emerald-600'
-                        : 'bg-white border-[#DCE3DF] text-slate-700 hover:bg-slate-50 dark:bg-[#07241E] dark:border-[#145447] dark:text-slate-200'
-                    )}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{p.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Cash Tender Calculation */}
-            {paymentMethod === 'CASH' && (
-              <div className="p-2.5 rounded-[3px] border border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-1.5 animate-in fade-in duration-100">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">Tendered Cash:</span>
-                  <div className="relative w-28">
-                    <input
-                      type="number"
-                      placeholder={grandTotal.toFixed(0)}
-                      value={tenderedAmount}
-                      onChange={(e) => setTenderedAmount(e.target.value)}
-                      className="w-full rounded-[2px] border border-amber-300 bg-white py-1 px-2 text-right text-xs font-mono font-black text-[#24352F] focus:border-[#0B3D32] focus:outline-none dark:bg-[#07241E] dark:border-amber-800 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Tender Currency Pills */}
-                <div className="flex items-center gap-1 justify-end pt-1">
-                  {[
-                    { label: 'Exact', val: grandTotal },
-                    { label: '+100', val: Math.ceil(grandTotal / 100) * 100 },
-                    { label: '+500', val: Math.ceil(grandTotal / 500) * 500 },
-                    { label: '+1000', val: Math.ceil(grandTotal / 1000) * 100 },
-                  ].map((btn, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setTenderedAmount(btn.val.toString())}
-                      className="px-1.5 py-0.5 rounded-[2px] border border-amber-300 bg-white dark:bg-[#07241E] text-[10px] font-mono font-bold hover:bg-amber-100 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-
-                {parsedTendered > grandTotal && (
-                  <div className="flex items-center justify-between pt-1 border-t border-amber-200 dark:border-amber-900 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                    <span>Change Due:</span>
-                    <span className="font-mono text-sm">Rs. {changeDue.toFixed(2)}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Complete Sale Primary Button */}
+          {/* Action Buttons: Complete Quick Sale & Settle and Print */}
+          <div className="ml-auto flex items-end gap-2.5">
             <button
               type="button"
               disabled={isSubmitting || cart.length === 0}
-              onClick={handleProcessSale}
-              className="w-full py-2.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-black uppercase tracking-wider shadow-md transition-all active:scale-[0.98] disabled:opacity-50 dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer flex items-center justify-center gap-2"
+              onClick={() => handleCompleteSale(false)}
+              className="px-4 py-1.5 rounded-[4px] bg-[#28a745] hover:bg-[#218838] disabled:opacity-50 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              {isSubmitting ? (
-                <>
-                  <RotateCcw className="w-4 h-4 animate-spin" />
-                  <span>Processing Counter Sale...</span>
-                </>
-              ) : (
-                <>
-                  <Receipt className="w-4 h-4" />
-                  <span>Complete Sale & Print Bill (Rs. {grandTotal.toFixed(0)})</span>
-                </>
-              )}
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{isSubmitting ? 'Processing...' : 'Complete Quick Sale'}</span>
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting || cart.length === 0}
+              onClick={() => handleCompleteSale(true)}
+              className="px-4 py-1.5 rounded-[4px] bg-[#0B3D32] hover:bg-[#082e25] disabled:opacity-50 text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 font-semibold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Settle &amp; Print</span>
             </button>
           </div>
         </div>
-      </div>
 
-      {/* =======================================================================
-          RECEIPT MODAL / THERMAL BILL PREVIEW (REQUIREMENT 5)
-          ======================================================================= */}
-      {isReceiptModalOpen && activeReceipt && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setIsReceiptModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-[4px] bg-white text-slate-900 shadow-2xl overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100 border-b border-slate-200">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Payment Receipt
+        {/* Charge to Room Verification Panel */}
+        {(billMode === 'Charge to Room' || billMode === 'Room Charge') && (
+          <div className="p-3 bg-amber-50/70 dark:bg-[#0E2E25] border border-amber-300 dark:border-amber-700/60 rounded-md space-y-2 mt-2 animate-in fade-in-50 duration-150">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
+                <BedDouble className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>Charge to Hotel Room Folio</span>
+              </div>
+              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">
+                Verified Active Checked-In Stay Required
               </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-48">
+                <input
+                  type="text"
+                  placeholder="Room number (e.g. 101)"
+                  value={roomNumberInput}
+                  onChange={(e) => setRoomNumberInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleVerifyRoom();
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 text-xs font-bold font-mono bg-white dark:bg-[#071F1A] border border-amber-300 dark:border-amber-700 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
               <button
                 type="button"
-                onClick={() => setIsReceiptModalOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600 cursor-pointer"
+                onClick={() => handleVerifyRoom(roomNumberInput)}
+                disabled={isVerifyingRoom || !roomNumberInput.trim()}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-xs rounded transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                {isVerifyingRoom ? (
+                  <span>Verifying...</span>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Verify Stay</span>
+                  </>
+                )}
+              </button>
+              {verifiedStay && verifiedStay.valid && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 rounded text-xs text-emerald-900 dark:text-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>
+                    Verified: <strong>{verifiedStay.guestName}</strong> (Room {verifiedStay.roomNumber})
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* =========================================================================
+          OPTIONAL WALK-IN CUSTOMER DETAILS MODAL (MATCHING TABLE ORDER MODAL)
+          Never required for normal counter sales, but available if requested
+          ========================================================================= */}
+      {isCustomerModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsCustomerModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[3px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16]">
+              <div>
+                <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
+                  Customer Details (Optional)
+                </h3>
+                <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
+                  Optional for Quick Counter Sale
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCustomerModalOpen(false)}
+                className="p-1 rounded-[2px] text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Printable Thermal Receipt Document */}
-            <div id="quick-sale-receipt-print" className="p-6 font-mono text-xs space-y-3 bg-white text-black">
-              {/* Restaurant Header */}
-              <div className="text-center pb-3 border-b border-dashed border-slate-400 space-y-0.5">
-                <h2 className="text-sm font-black uppercase tracking-wider">AURA GRAND RESORT</h2>
-                <p className="text-[10px] font-medium text-slate-600">Restaurant & Counter Bar POS</p>
-                <p className="text-[9px] text-slate-500">Lakeside Blvd, Pokhara · PAN: 601239845</p>
-                <div className="pt-1 text-[10px] font-bold uppercase text-slate-800">
-                  TAX INVOICE · {activeReceipt.orderType}
+            <form onSubmit={handleSaveCustomerInfo}>
+              <div className="p-5 space-y-3.5">
+                <div className="p-2.5 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300">
+                  <p className="font-semibold">Quick Counter Sales Do Not Require Registration</p>
+                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    Orders proceed smoothly as walk-in customers. Only enter details if customer specifically requests an invoice with their name or phone.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
+                    CUSTOMER NAME (OPTIONAL)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sarah Jenkins"
+                    value={customerNameInput}
+                    onChange={(e) => setCustomerNameInput(e.target.value)}
+                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
+                    PHONE / MOBILE (OPTIONAL)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. +977 9801234567"
+                    value={customerPhoneInput}
+                    onChange={(e) => setCustomerPhoneInput(e.target.value)}
+                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
+                  />
                 </div>
               </div>
 
-              {/* Bill Details */}
-              <div className="text-[10px] space-y-0.5 pb-2 border-b border-dashed border-slate-400">
-                <div className="flex justify-between">
-                  <span>Bill No:</span>
-                  <span className="font-bold">{activeReceipt.orderNumber}</span>
-                </div>
-                {activeReceipt.kotNumber && (
-                  <div className="flex justify-between">
-                    <span>Kitchen KOT:</span>
-                    <span className="font-bold">{activeReceipt.kotNumber}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Date & Time:</span>
-                  <span>{new Date(activeReceipt.timestamp).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Cashier:</span>
-                  <span>{activeReceipt.cashierName}</span>
-                </div>
-                {activeReceipt.customerName && (
-                  <div className="flex justify-between">
-                    <span>Customer:</span>
-                    <span>{activeReceipt.customerName}</span>
-                  </div>
-                )}
+              <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16]">
+                <button
+                  type="button"
+                  onClick={() => setIsCustomerModalOpen(false)}
+                  className="rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-1.5 text-xs font-semibold text-[#64736C] hover:bg-slate-50 dark:border-[#145447] dark:bg-[#07241E] dark:text-[#A4B8AE] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
+                >
+                  Save Details
+                </button>
               </div>
-
-              {/* Items List */}
-              <div className="space-y-1.5 pb-2 border-b border-dashed border-slate-400 text-[11px]">
-                <div className="flex justify-between font-bold pb-1 text-[10px] border-b border-slate-200">
-                  <span>Item</span>
-                  <span>Qty × Rate</span>
-                  <span>Amount</span>
-                </div>
-                {activeReceipt.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-baseline">
-                    <span className="max-w-[150px] truncate">{item.productName}</span>
-                    <span className="text-[10px] text-slate-600">
-                      {item.quantity} × {item.unitPrice.toFixed(0)}
-                    </span>
-                    <span className="font-bold">{item.total.toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Breakdown */}
-              <div className="space-y-1 text-[11px] pb-2 border-b border-dashed border-slate-400">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>Rs. {activeReceipt.subtotal.toFixed(2)}</span>
-                </div>
-                {activeReceipt.discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-700">
-                    <span>Discount:</span>
-                    <span>-Rs. {activeReceipt.discountAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Tax (VAT 10%):</span>
-                  <span>Rs. {activeReceipt.tax.toFixed(2)}</span>
-                </div>
-                {activeReceipt.serviceCharge > 0 && (
-                  <div className="flex justify-between">
-                    <span>Service Charge:</span>
-                    <span>Rs. {activeReceipt.serviceCharge.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm font-black pt-1 border-t border-slate-300">
-                  <span>TOTAL:</span>
-                  <span>Rs. {activeReceipt.total.toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* Payment Summary */}
-              <div className="text-[10px] space-y-0.5">
-                <div className="flex justify-between">
-                  <span>Payment Mode:</span>
-                  <span className="font-bold uppercase">{activeReceipt.paymentMethod}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tendered:</span>
-                  <span>Rs. {activeReceipt.paidAmount.toFixed(2)}</span>
-                </div>
-                {activeReceipt.changeDue > 0 && (
-                  <div className="flex justify-between font-bold text-emerald-800">
-                    <span>Change Returned:</span>
-                    <span>Rs. {activeReceipt.changeDue.toFixed(2)}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="text-center pt-2 border-t border-dashed border-slate-400 text-[10px] text-slate-500">
-                <p>Thank you for dining with us!</p>
-                <p>Please visit again.</p>
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setIsReceiptModalOpen(false)}
-                className="px-3 py-1.5 rounded-[3px] border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                Close (New Sale)
-              </button>
-
-              <button
-                type="button"
-                onClick={handlePrintReceipt}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print Receipt</span>
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* =======================================================================
-          DAILY SALES & RECENT TRANSACTIONS DRAWER / MODAL (REQUIREMENT 8)
-          ======================================================================= */}
+      {/* =========================================================================
+          DAILY SALES AUDIT & RECENT BILLS MODAL
+          ========================================================================= */}
       {isDailySalesModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
           onClick={() => setIsDailySalesModalOpen(false)}
         >
           <div
-            className="w-full max-w-2xl rounded-[4px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col"
+            className="w-full max-w-2xl max-h-[85vh] rounded-[4px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -1055,7 +1612,7 @@ export default function QuickSalePage() {
                 <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <div>
                   <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
-                    Restaurant Daily Sales & Counter Audit
+                    Restaurant Daily Sales &amp; Counter Audit
                   </h3>
                   <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
                     Reconciled sales by order type, payment breakdown and recent receipts
@@ -1094,7 +1651,7 @@ export default function QuickSalePage() {
                       <div className="text-lg font-black font-mono text-amber-900 dark:text-amber-200">
                         Rs. {dailySales.breakdownByType.quickSales.toFixed(2)}
                       </div>
-                      <div className="text-[10px] text-amber-700/80">Counter & Takeaway</div>
+                      <div className="text-[10px] text-amber-700/80">Counter &amp; Takeaway</div>
                     </div>
 
                     <div className="p-3 rounded-[3px] border border-sky-200 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20">
@@ -1206,6 +1763,36 @@ export default function QuickSalePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* =========================================================================
+          PRINTABLE RESTAURANT RECEIPT MODAL
+          ========================================================================= */}
+      {receiptData && (
+        <RestaurantReceiptModal
+          isOpen={isReceiptModalOpen}
+          onClose={() => setIsReceiptModalOpen(false)}
+          orderNumber={receiptData.orderNumber}
+          receiptNumber={receiptData.receiptNumber}
+          orderType={receiptData.orderType}
+          tableNumber={receiptData.tableNumber}
+          seatingNote={receiptData.seatingNote}
+          createdAt={receiptData.createdAt}
+          serverName={receiptData.serverName}
+          customerName={receiptData.customerName}
+          customerPhone={receiptData.customerPhone}
+          items={receiptData.items}
+          subtotal={receiptData.subtotal}
+          discountAmount={receiptData.discountAmount}
+          discountPercent={receiptData.discountPercent}
+          tax={receiptData.tax}
+          serviceCharge={receiptData.serviceCharge}
+          total={receiptData.total}
+          paidAmount={receiptData.paidAmount}
+          changeDue={receiptData.changeDue}
+          paymentMethod={receiptData.paymentMethod}
+          paymentStatus={receiptData.paymentStatus}
+        />
       )}
     </div>
   );

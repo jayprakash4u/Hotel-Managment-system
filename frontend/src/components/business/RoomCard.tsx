@@ -21,7 +21,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className={`p-3.5 sm:p-4 rounded-[6px] border transition-all duration-200 cursor-pointer flex flex-col justify-between group shadow-2xs min-h-[185px] ${
+      className={`p-3.5 sm:p-4 rounded-[4px] border transition-all duration-200 cursor-pointer flex flex-col justify-between group shadow-2xs min-h-[185px] ${
         isOccupied
           ? 'bg-[#0B3D32] text-white border-[#082C24] hover:bg-[#093027] dark:bg-[#06241D] dark:border-[#0E3B31] shadow-sm'
           : isDirty

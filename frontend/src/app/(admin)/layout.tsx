@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/common/Sidebar';
 import { Header } from '@/components/common/Header';
+import { ProfileDrawer } from '@/components/common/ProfileDrawer';
 
 const SIDEBAR_STORAGE_KEY = 'hotel_sidebar_is_open';
 
@@ -13,6 +14,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const pathname = usePathname();
   const isHotelSetup = pathname === '/hotel' || pathname?.startsWith('/hotel');
 
@@ -45,6 +47,7 @@ export default function AdminLayout({
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={handleToggleSidebar}
+        onOpenProfile={() => setIsProfileDrawerOpen(true)}
         onClose={() => {
           setSidebarOpen(false);
           try {
@@ -55,7 +58,11 @@ export default function AdminLayout({
 
       {/* Main Content Area in Warm Ivory Background */}
       <div className="flex flex-1 flex-col min-w-0 h-screen overflow-hidden transition-all duration-300">
-        <Header isSidebarOpen={sidebarOpen} onToggleSidebar={handleToggleSidebar} />
+        <Header
+          isSidebarOpen={sidebarOpen}
+          onToggleSidebar={handleToggleSidebar}
+          onOpenProfile={() => setIsProfileDrawerOpen(true)}
+        />
         <main
           className={
             isHotelSetup
@@ -68,6 +75,12 @@ export default function AdminLayout({
           </div>
         </main>
       </div>
+
+      {/* Full Viewport Right-Side Profile & Appearance Slide-Over Drawer */}
+      <ProfileDrawer
+        isOpen={isProfileDrawerOpen}
+        onClose={() => setIsProfileDrawerOpen(false)}
+      />
     </div>
   );
 }

@@ -31,6 +31,7 @@ public class HospitalityDbContext : DbContext
     public DbSet<Expense> Expenses => Set<Expense>();
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
     public DbSet<Staff> Staff => Set<Staff>();
+    public DbSet<Bill> Bills => Set<Bill>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -165,5 +166,18 @@ public class HospitalityDbContext : DbContext
             .HasForeignKey(p => p.SupplierId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Bill>()
+            .HasIndex(b => new { b.HotelId, b.BillNumber })
+            .IsUnique();
+
+        modelBuilder.Entity<Bill>()
+            .HasIndex(b => b.BillingType);
+
+        modelBuilder.Entity<Bill>()
+            .HasIndex(b => b.PaymentStatus);
+
+        modelBuilder.Entity<Bill>()
+            .HasIndex(b => b.CreatedAt);
     }
 }

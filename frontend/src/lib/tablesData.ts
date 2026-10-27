@@ -40,6 +40,8 @@ export interface TableItem {
   section: string;
   capacity: number;
   status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'BILLED' | 'CLEANING' | 'OUT_OF_SERVICE';
+  cleaningStatus?: 'CLEAN' | 'DIRTY' | 'CLEANING';
+  maintenanceNotes?: string;
   currentGuest?: string;
   guestPhone?: string;
   orders?: OrderItem[];
@@ -84,30 +86,40 @@ export const DEFAULT_TABLES: TableItem[] = [
       },
     ],
   },
-  { id: 'tbl-2', tableNumber: 'T-02', section: 'Indoor Fine Dining', capacity: 2, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-3', tableNumber: 'T-03', section: 'Indoor Fine Dining', capacity: 4, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-4', tableNumber: 'T-04', section: 'Indoor Fine Dining', capacity: 6, status: 'OCCUPIED', currentGuest: 'Sophia Loren', guestPhone: '+1 555-0144', orders: [] },
-  { id: 'tbl-5', tableNumber: 'T-05', section: 'Indoor Fine Dining', capacity: 2, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-6', tableNumber: 'T-06', section: 'Indoor Fine Dining', capacity: 4, status: 'RESERVED', currentGuest: 'Marcus Sterling', guestPhone: '+1 555-0129', orders: [] },
-  { id: 'tbl-7', tableNumber: 'T-07', section: 'Skyline Rooftop Terrace', capacity: 4, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-8', tableNumber: 'T-08', section: 'Skyline Rooftop Terrace', capacity: 2, status: 'OCCUPIED', currentGuest: 'David Miller', guestPhone: '+1 555-0188', orders: [] },
-  { id: 'tbl-9', tableNumber: 'T-09', section: 'Skyline Rooftop Terrace', capacity: 4, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-10', tableNumber: 'T-10', section: 'Skyline Rooftop Terrace', capacity: 6, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-11', tableNumber: 'T-11', section: 'Poolside Lounge & Bar', capacity: 4, status: 'OCCUPIED', currentGuest: 'Elena Rostova', guestPhone: '+1 555-0163', orders: [] },
-  { id: 'tbl-12', tableNumber: 'T-12', section: 'Poolside Lounge & Bar', capacity: 2, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-13', tableNumber: 'T-13', section: 'Poolside Lounge & Bar', capacity: 4, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-14', tableNumber: 'T-14', section: 'Private Executive Dining', capacity: 10, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-15', tableNumber: 'T-15', section: 'Private Executive Dining', capacity: 12, status: 'OCCUPIED', currentGuest: 'Lady Genevieve', guestPhone: '+1 555-0111', orders: [] },
-  { id: 'tbl-16', tableNumber: 'T-16', section: 'Private Executive Dining', capacity: 8, status: 'AVAILABLE', orders: [] },
-  { id: 'tbl-17', tableNumber: 'T-17', section: 'Indoor Fine Dining', capacity: 4, status: 'CLEANING', orders: [] },
-  { id: 'tbl-18', tableNumber: 'T-18', section: 'Skyline Rooftop Terrace', capacity: 2, status: 'OUT_OF_SERVICE', orders: [] },
+  { id: 'tbl-2', tableNumber: 'T-02', section: 'Indoor Fine Dining', capacity: 2, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-3', tableNumber: 'T-03', section: 'Indoor Fine Dining', capacity: 4, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-4', tableNumber: 'T-04', section: 'Indoor Fine Dining', capacity: 6, status: 'OCCUPIED', cleaningStatus: 'CLEAN', currentGuest: 'Sophia Loren', guestPhone: '+1 555-0144', orders: [] },
+  { id: 'tbl-5', tableNumber: 'T-05', section: 'Indoor Fine Dining', capacity: 2, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-6', tableNumber: 'T-06', section: 'Indoor Fine Dining', capacity: 4, status: 'RESERVED', cleaningStatus: 'CLEAN', currentGuest: 'Marcus Sterling', guestPhone: '+1 555-0129', orders: [] },
+  { id: 'tbl-7', tableNumber: 'T-07', section: 'Skyline Rooftop Terrace', capacity: 4, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-8', tableNumber: 'T-08', section: 'Skyline Rooftop Terrace', capacity: 2, status: 'OCCUPIED', cleaningStatus: 'CLEAN', currentGuest: 'David Miller', guestPhone: '+1 555-0188', orders: [] },
+  { id: 'tbl-9', tableNumber: 'T-09', section: 'Skyline Rooftop Terrace', capacity: 4, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-10', tableNumber: 'T-10', section: 'Skyline Rooftop Terrace', capacity: 6, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-11', tableNumber: 'T-11', section: 'Poolside Lounge & Bar', capacity: 4, status: 'OCCUPIED', cleaningStatus: 'CLEAN', currentGuest: 'Elena Rostova', guestPhone: '+1 555-0163', orders: [] },
+  { id: 'tbl-12', tableNumber: 'T-12', section: 'Poolside Lounge & Bar', capacity: 2, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-13', tableNumber: 'T-13', section: 'Poolside Lounge & Bar', capacity: 4, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-14', tableNumber: 'T-14', section: 'Private Executive Dining', capacity: 10, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-15', tableNumber: 'T-15', section: 'Private Executive Dining', capacity: 12, status: 'OCCUPIED', cleaningStatus: 'CLEAN', currentGuest: 'Lady Genevieve', guestPhone: '+1 555-0111', orders: [] },
+  { id: 'tbl-16', tableNumber: 'T-16', section: 'Private Executive Dining', capacity: 8, status: 'AVAILABLE', cleaningStatus: 'CLEAN', orders: [] },
+  { id: 'tbl-17', tableNumber: 'T-17', section: 'Indoor Fine Dining', capacity: 4, status: 'AVAILABLE', cleaningStatus: 'DIRTY', orders: [] },
+  { id: 'tbl-18', tableNumber: 'T-18', section: 'Skyline Rooftop Terrace', capacity: 2, status: 'OUT_OF_SERVICE', cleaningStatus: 'CLEAN', maintenanceNotes: 'Table leg wobbling, scheduled for carpentry repair', orders: [] },
 ];
 
 export function loadTablesFromStorage(): TableItem[] {
   if (typeof window === 'undefined') return DEFAULT_TABLES;
   try {
-    const raw = localStorage.getItem('hotel_dining_tables');
-    if (raw) return JSON.parse(raw);
+    const raw = localStorage.getItem('aura_restaurant_tables_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((t: TableItem) => ({
+          ...t,
+          cleaningStatus: t.cleaningStatus || (t.status === 'CLEANING' ? 'DIRTY' : 'CLEAN'),
+          maintenanceNotes: t.maintenanceNotes || '',
+        }));
+      }
+    }
   } catch {}
   return DEFAULT_TABLES;
 }
+

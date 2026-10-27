@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Building, Percent, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AppearanceSettings } from '@/components/common/AppearanceSettings';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
@@ -51,7 +52,7 @@ export default function SettingsPage() {
       {/* Top Header */}
       <PageHeader
         title="System Settings & Configuration"
-        subtitle="Property profile, tax & surcharge rules, outlet operational parameters, and database seed controls"
+        subtitle="Property profile, tax & surcharge rules, theme & appearance, and database seed controls"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -105,15 +106,19 @@ export default function SettingsPage() {
             </div>
 
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <Button variant="gold" size="md" type="submit">
+              <Button variant="primary" size="md" type="submit">
                 Save Property Configuration
               </Button>
             </div>
           </form>
         </div>
 
-        {/* Right 1 Col: Data Management & Reset */}
+        {/* Right 1 Col: Appearance Theme Changer & Data Reset */}
         <div className="space-y-6">
+          {/* Appearance Settings Card matching user screenshot */}
+          <AppearanceSettings />
+
+          {/* Database Reset Card */}
           <div className={`p-6 ${cardClass} space-y-4`}>
             <div className="flex items-center gap-2">
               <RefreshCw className="w-4 h-4 text-slate-400" />

@@ -2,8 +2,9 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
 import {
   Search,
@@ -21,7 +22,6 @@ import {
   Printer,
   Clock,
   Sparkles,
-  MoreVertical,
   CalendarCheck,
   Calendar,
   CalendarDays,
@@ -30,7 +30,6 @@ import {
   User,
   CheckCheck,
   AlertTriangle,
-  Percent,
   ChefHat,
   Send,
   CheckCircle2,
@@ -41,6 +40,7 @@ import {
   ShoppingBag,
   DollarSign,
   Eye,
+  MoreVertical,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -48,6 +48,8 @@ import { cn } from '@/lib/utils';
 import { TableReservationData, ActiveRestaurantOrderData } from '@/lib/types';
 import { ActiveOrdersView } from '@/components/common/ActiveOrdersView';
 import { RestaurantReceiptModal, ReceiptModalProps } from '@/components/common/RestaurantReceiptModal';
+import { TableActionsDropdown } from '@/components/restaurant/TableActionsModal';
+import { TableHistoryModal, TableHistoryOrder } from '@/components/restaurant/TableHistoryModal';
 import {
   OrderItem,
   TableItem,
@@ -108,7 +110,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export default function TablesPage() {
+function TablesContent() {
   const toast = useToast();
   const [tables, setTables] = useState<TableItem[]>(DEFAULT_TABLES);
 
@@ -144,6 +146,15 @@ export default function TablesPage() {
 
   // Receipt Modal State (Requirement 7)
   const [receiptModalData, setReceiptModalData] = useState<ReceiptModalProps | null>(null);
+
+  // Contextual Table Actions State (Dropdown positioned below 3 dots)
+  const [openTableMenuId, setOpenTableMenuId] = useState<string | null>(null);
+  const [tableActionsModalItem, setTableActionsModalItem] = useState<TableItem | null>(null);
+
+  // Table Order & Payment History Modal State
+  const [historyModalTable, setHistoryModalTable] = useState<TableItem | null>(null);
+  const [tableHistoryList, setTableHistoryList] = useState<TableHistoryOrder[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   // Search & Status filters (for Grid view)
   const [searchQuery, setSearchQuery] = useState('');
@@ -191,9 +202,6 @@ export default function TablesPage() {
   const [bookingTable, setBookingTable] = useState<TableItem | null>(null);
   const [bookingName, setBookingName] = useState('');
   const [bookingPhone, setBookingPhone] = useState('');
-
-  // 3-dots Option Menu open state (Matching Room Board Card logic)
-  const [openOptionMenuId, setOpenOptionMenuId] = useState<string | null>(null);
 
   // Add Table Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -254,6 +262,19 @@ export default function TablesPage() {
     setMenuCatalog(getSettedMenuItems());
   }, [activeOrderTableId]);
 
+  const [selectedOrderCategory, setSelectedOrderCategory] = useState<string>('ALL');
+
+  const menuCategories = useMemo(() => {
+    return ['ALL', ...Array.from(new Set(menuCatalog.map((m) => m.category).filter(Boolean)))];
+  }, [menuCatalog]);
+
+  const categoryFilteredMenuItems = useMemo(() => {
+    if (selectedOrderCategory === 'ALL') {
+      return menuCatalog.slice(0, 18);
+    }
+    return menuCatalog.filter((m) => m.category === selectedOrderCategory);
+  }, [menuCatalog, selectedOrderCategory]);
+
   // Sync billing state with active table
   useEffect(() => {
     if (activeTable) {
@@ -294,18 +315,25 @@ export default function TablesPage() {
   }, [menuCatalog, orderProductName]);
 
   // Auto-open booking modal when navigated with ?action=book or activate tabs
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
   const hasAutoOpenedRef = React.useRef(false);
+
+  useEffect(() => {
+    if (tabParam === 'ACTIVE_ORDERS') {
+      setActiveTab('ACTIVE_ORDERS');
+      fetchActiveOrders();
+    } else if (tabParam === 'RESERVATIONS') {
+      setActiveTab('RESERVATIONS');
+      fetchReservations();
+    } else if (tabParam === 'FLOOR_PLAN') {
+      setActiveTab('FLOOR_PLAN');
+    }
+  }, [tabParam]);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && !hasAutoOpenedRef.current) {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get('tab');
-      if (tabParam === 'ACTIVE_ORDERS') {
-        setActiveTab('ACTIVE_ORDERS');
-      } else if (tabParam === 'RESERVATIONS') {
-        setActiveTab('RESERVATIONS');
-      }
-
-      if (params.get('action') === 'book') {
+      if (searchParams.get('action') === 'book') {
         const available = tables.find((t) => t.status === 'AVAILABLE');
         if (available) {
           hasAutoOpenedRef.current = true;
@@ -313,7 +341,7 @@ export default function TablesPage() {
         }
       }
     }
-  }, [tables]);
+  }, [tables, searchParams]);
 
   // Load Tables & Reservations from API
   const fetchTables = async () => {
@@ -346,6 +374,8 @@ export default function TablesPage() {
               section: t.section || 'Indoor Fine Dining',
               capacity: t.capacity || 4,
               status: effectiveStatus,
+              cleaningStatus: (t.cleaningStatus || 'CLEAN') as 'CLEAN' | 'DIRTY' | 'CLEANING',
+              maintenanceNotes: t.maintenanceNotes || '',
               currentGuest: activeOrder?.guest ? `${activeOrder.guest.firstName} ${activeOrder.guest.lastName}`.trim() : t.currentGuest || (activeOrder ? 'Dine-In Guest' : undefined),
               guestPhone: activeOrder?.guest?.phone || t.guestPhone,
               activeOrderId: activeOrder?.id,
@@ -629,6 +659,24 @@ export default function TablesPage() {
   // ---------------------------------------------------------------------------
   const handleStartDineInOrder = (table: TableItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+
+    // Business Rules:
+    // 1. Out of service tables cannot accept orders
+    if (table.status === 'OUT_OF_SERVICE') {
+      toast.error('Table Out of Service', 'Cannot start an order on an out-of-service table.');
+      return;
+    }
+    // 2. Dirty tables cannot accept orders or new guests until cleaned
+    if (table.cleaningStatus === 'DIRTY') {
+      toast.error('Table is Dirty', 'Please mark table as clean before starting an order or seating new guests.');
+      return;
+    }
+    // 3. Occupied tables must not receive a second unrelated active order
+    if (table.status === 'OCCUPIED' && (table.orders?.length || 0) > 0) {
+      handleOpenOrderPage(table.id);
+      return;
+    }
+
     const targetId = table.id;
 
     setTables((prev) =>
@@ -651,6 +699,211 @@ export default function TablesPage() {
     setOrderPrice('');
     setIsBillPanelOpen(false);
     toast.success(`Table ${table.tableNumber} Order Started`, 'No registration needed. Add items & click Send Order.');
+  };
+
+  // ---------------------------------------------------------------------------
+  // Contextual Table Actions Modal Handlers
+  // ---------------------------------------------------------------------------
+  const handleUpdateCleaningStatus = async (
+    table: TableItem,
+    newStatus: 'CLEAN' | 'DIRTY' | 'CLEANING'
+  ) => {
+    // Rule: Do not mark an occupied table clean or disrupt its active order
+    if (table.status === 'OCCUPIED' && newStatus === 'CLEAN') {
+      toast.error('Cannot Mark Occupied Table Clean', 'Table is currently occupied with active diners.');
+      return;
+    }
+
+    setTables((prev) =>
+      prev.map((t) => (t.id === table.id ? { ...t, cleaningStatus: newStatus } : t))
+    );
+
+    try {
+      await (api as any).updateTableStatus?.(table.id, { cleaningStatus: newStatus });
+    } catch (err: any) {
+      console.warn('Backend cleaning update error:', err);
+    }
+
+    toast.success(
+      `Table ${table.tableNumber} Cleaning Status`,
+      newStatus === 'CLEAN'
+        ? 'Marked as clean and ready for guests.'
+        : 'Marked as dirty for housekeeping.'
+    );
+  };
+
+  const handleUpdateServiceStatus = async (
+    table: TableItem,
+    newStatus: 'AVAILABLE' | 'OUT_OF_SERVICE',
+    reason?: string
+  ) => {
+    if (table.status === 'OCCUPIED' && newStatus === 'OUT_OF_SERVICE') {
+      toast.error('Cannot Take Occupied Table Out of Service', 'Please settle and clear the active order first.');
+      return;
+    }
+
+    // Rule: Returning a table to service must preserve its actual cleaning status
+    const preservedCleaningStatus = table.cleaningStatus || 'CLEAN';
+
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === table.id
+          ? {
+              ...t,
+              status: newStatus,
+              cleaningStatus: preservedCleaningStatus,
+              maintenanceNotes: newStatus === 'OUT_OF_SERVICE' ? (reason || 'Under maintenance') : '',
+            }
+          : t
+      )
+    );
+
+    try {
+      await (api as any).updateTableStatus?.(table.id, {
+        status: newStatus,
+        cleaningStatus: preservedCleaningStatus,
+        maintenanceNotes: newStatus === 'OUT_OF_SERVICE' ? (reason || 'Under maintenance') : '',
+      });
+    } catch (err: any) {
+      console.warn('Backend service status update error:', err);
+    }
+
+    toast.info(
+      `Table ${table.tableNumber}`,
+      newStatus === 'OUT_OF_SERVICE'
+        ? 'Table placed Out of Service.'
+        : `Table returned to service (Cleaning: ${preservedCleaningStatus}).`
+    );
+  };
+
+  const handleMarkTableServed = async (table: TableItem) => {
+    setTables((prev) =>
+      prev.map((t) => {
+        if (t.id !== table.id) return t;
+        return {
+          ...t,
+          orders: (t.orders || []).map((o) => ({ ...o, status: 'SERVED' as const })),
+        };
+      })
+    );
+
+    try {
+      await (api as any).markTableServed?.(table.id);
+    } catch (err: any) {
+      console.warn('Backend mark served error:', err);
+    }
+
+    toast.success(`Table ${table.tableNumber} Served`, 'All active items have been marked as served.');
+  };
+
+  const handleViewTableHistory = async (table: TableItem) => {
+    setHistoryModalTable(table);
+    setIsHistoryLoading(true);
+    try {
+      const data = await (api as any).getTableOrderHistory?.(table.id);
+      if (data && Array.isArray(data)) {
+        setTableHistoryList(data);
+      } else {
+        setTableHistoryList([]);
+      }
+    } catch (err) {
+      setTableHistoryList([]);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  const handleReprintFromHistory = (order: TableHistoryOrder) => {
+    setReceiptModalData({
+      isOpen: true,
+      onClose: () => setReceiptModalData(null),
+      orderNumber: order.orderNumber,
+      receiptNumber: `REC-${order.orderNumber.replace('ORD-', '')}`,
+      orderType: (order.orderType || 'DINE_IN') as any,
+      tableNumber: historyModalTable?.tableNumber,
+      createdAt: order.createdAt,
+      serverName: order.serverName || 'Staff',
+      customerName: order.guestName,
+      items: (order.items || []).map((i) => ({
+        productName: i.productName,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.total || i.unitPrice * i.quantity,
+      })),
+      subtotal: order.subtotal,
+      discountAmount: 0,
+      discountPercent: 0,
+      tax: 0,
+      serviceCharge: 0,
+      total: order.total,
+      paidAmount: order.paidAmount || order.total,
+      changeDue: 0,
+      paymentMethod: order.paymentMethod || 'CASH',
+      paymentStatus: order.isPaid ? 'PAID' : (order.status as any),
+    });
+  };
+
+  const handlePrintBillForTable = (table: TableItem) => {
+    // Existing billing records lookup (prevents duplicate bills, payments, or stock deductions)
+    const matchingOrder = activeOrders.find(
+      (o) => o.tableId === table.id || (table.activeOrderId && o.id === table.activeOrderId)
+    );
+    if (matchingOrder) {
+      handlePrintReceiptForOrder(matchingOrder);
+    } else if (table.orders && table.orders.length > 0) {
+      const subtotal = table.orders.reduce((sum, i) => sum + (i.price || 0) * (i.quantity || 1), 0);
+      setReceiptModalData({
+        isOpen: true,
+        onClose: () => setReceiptModalData(null),
+        orderNumber: table.orderNumber || table.activeOrderId || `ORD-${table.tableNumber}`,
+        receiptNumber: `REC-${table.tableNumber}`,
+        orderType: 'DINE_IN',
+        tableNumber: table.tableNumber,
+        createdAt: new Date().toISOString(),
+        serverName: 'Staff',
+        customerName: table.currentGuest,
+        customerPhone: table.guestPhone,
+        items: table.orders.map((i) => ({
+          productName: i.name,
+          quantity: i.quantity,
+          unitPrice: i.price,
+          total: i.price * i.quantity,
+          notes: i.remarks,
+        })),
+        subtotal,
+        discountAmount: 0,
+        discountPercent: 0,
+        tax: 0,
+        serviceCharge: 0,
+        total: subtotal,
+        paidAmount: 0,
+        changeDue: 0,
+        paymentMethod: 'CASH',
+        paymentStatus: table.status === 'BILLED' ? 'BILLED' : 'UNPAID',
+      });
+    } else {
+      toast.info('No Active Bill', 'This table currently has no active bill to print.');
+    }
+  };
+
+  const handleCancelReservationFromTable = async (
+    table: TableItem,
+    res?: TableReservationData
+  ) => {
+    if (res) {
+      await handleUpdateReservationStatus(res.id, 'CANCELLED');
+    } else if (table.upcomingReservations && table.upcomingReservations.length > 0) {
+      const firstRes = table.upcomingReservations[0];
+      await handleUpdateReservationStatus(firstRes.id, 'CANCELLED');
+    }
+    if (table.status === 'RESERVED') {
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === table.id ? { ...t, status: 'AVAILABLE', upcomingReservations: [] } : t
+        )
+      );
+    }
+    toast.info(`Table ${table.tableNumber}`, 'Reservation cancelled and table released.');
   };
 
   // ---------------------------------------------------------------------------
@@ -992,6 +1245,7 @@ export default function TablesPage() {
               ? {
                   ...t,
                   status: 'AVAILABLE',
+                  cleaningStatus: 'DIRTY', // Guests finished dining; table must be sanitized before seating new guests
                   currentGuest: undefined,
                   guestPhone: undefined,
                   orders: [],
@@ -2135,6 +2389,57 @@ export default function TablesPage() {
             )}
           </div>
 
+          {/* Touch-Friendly Category Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+            {menuCategories.map((cat) => {
+              const isSelected = selectedOrderCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedOrderCategory(cat)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-[3px] text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0',
+                    isSelected
+                      ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
+                      : 'bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                  )}
+                >
+                  {cat === 'ALL' ? '🍽️ All Items' : cat}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick-Pick Menu Item Cards (Large touch-friendly for restaurant staff) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {categoryFilteredMenuItems.slice(0, 12).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleAddDirectMenuItem(item)}
+                className="group flex flex-col justify-between p-2.5 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] hover:border-[#0B3D32] hover:shadow-xs transition-all text-left cursor-pointer min-h-[72px]"
+              >
+                <div className="min-w-0">
+                  <span className="block font-bold text-xs text-[#24352F] dark:text-white group-hover:text-[#0B3D32] dark:group-hover:text-emerald-300 truncate">
+                    {item.name}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block truncate">
+                    {item.portion || item.category || 'Standard'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400">
+                    Rs. {item.price.toFixed(0)}
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-[#0B3D32] dark:text-emerald-300">
+                    + Add
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+
           {/* ===================================================================
               TOP SECTION: STRUCTURED ORDER TABLE (MATCHING USER SCREENSHOT)
               # | Particular | Unit | Rate | Qty | Amount | Remarks | Add New
@@ -2900,7 +3205,7 @@ export default function TablesPage() {
               )}
             >
               <Table2 className="w-3.5 h-3.5" />
-              <span>Floor Plan</span>
+              <span>Table Board</span>
               <span className="text-[10px] font-mono opacity-80">({tables.length})</span>
             </button>
 
@@ -2918,7 +3223,7 @@ export default function TablesPage() {
               )}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Active Orders</span>
+              <span>Orders</span>
               {activeOrders.length > 0 && (
                 <span className="rounded-full bg-[#0B3D32] text-white dark:bg-emerald-600 px-1.5 py-0.2 text-[9px] font-mono font-bold">
                   {activeOrders.length}
@@ -2937,7 +3242,7 @@ export default function TablesPage() {
               )}
             >
               <CalendarCheck className="w-3.5 h-3.5" />
-              <span>Reservations</span>
+              <span>Table Reservations</span>
               {activeReservationsCount > 0 && (
                 <span className="rounded-full bg-emerald-600 text-white px-1.5 py-0.2 text-[9px] font-mono font-bold">
                   {activeReservationsCount}
@@ -3071,9 +3376,6 @@ export default function TablesPage() {
          ========================================================================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4">
         {filteredTables.map((table) => {
-          const isOccupied = table.status === 'OCCUPIED';
-          const isAvailable = table.status === 'AVAILABLE';
-          const isReserved = table.status === 'RESERVED';
           const statusMeta = STATUS_CONFIG[table.status] || STATUS_CONFIG.AVAILABLE;
           const orderTotal = (table.orders || []).reduce(
             (sum, item) => sum + calculateOrderItemTotal(item).total,
@@ -3082,488 +3384,277 @@ export default function TablesPage() {
           const activeRes = (table.upcomingReservations || []).find(
             (r: any) => r.status === 'CONFIRMED' || r.status === 'PENDING'
           );
+          const guestCount = (table.orders?.[0] as any)?.guest ? 1 : activeRes?.partySize;
+
+          const isOccupied = table.status === 'OCCUPIED';
+          const isAvailable = table.status === 'AVAILABLE';
+          const isReserved = table.status === 'RESERVED';
+          const isCleaning = table.status === 'CLEANING';
+          const isOutOfService = table.status === 'OUT_OF_SERVICE';
 
           return (
             <div
               key={table.id}
               onClick={() => {
-                if (isOccupied || table.status === 'BILLED') {
-                  // OCCUPIED / BILLED CARD IS CLICKABLE -> OPENS ADD ORDER PAGE!
-                  handleOpenOrderPage(table.id);
-                } else if (isAvailable) {
-                  // Requirement 1 & 2: Click available table -> Start Order without requiring customer registration
-                  handleStartDineInOrder(table);
-                } else {
-                  handleToggleStatus(table.id);
-                }
+                setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
               }}
               className={cn(
-                'group relative flex flex-col justify-between p-3.5 sm:p-4 rounded-[6px] border transition-all duration-150 shadow-2xs hover:shadow-xs cursor-pointer select-none min-h-[185px]',
-                openOptionMenuId === table.id
-                  ? (isOccupied ? 'z-50 shadow-md ring-2 ring-white/60' : 'z-50 shadow-md ring-2 ring-[#0B3D32]')
-                  : 'z-0',
-                // 1. Occupied: THE ONLY SOLID DARK CARD (Signature Pine Emerald #0B3D32)
+                'group relative flex flex-col justify-between p-4 rounded-[4px] border transition-all duration-150 shadow-sm hover:shadow-md cursor-pointer select-none min-h-[200px] max-h-[220px]',
+                openTableMenuId === table.id ? 'z-30 ring-2 ring-emerald-500 shadow-lg' : 'z-10',
+                'border-[#E5EEE9] dark:border-[#145447]/60',
                 isOccupied
-                  ? 'bg-[#0B3D32] border-[#082C24] text-white hover:bg-[#093027] dark:bg-[#06241D] dark:border-[#0E3B31] shadow-sm'
-                  : isReserved || activeRes
-                  ? 'bg-[#F8FBFF] dark:bg-[#081B26] border-sky-200 dark:border-sky-800/80 hover:border-sky-400 hover:shadow-xs text-[#24352F] dark:text-white'
-                  : 'bg-white dark:bg-[#07241E] border-[#DCE3DF] dark:border-[#145447] hover:border-[#0B3D32] dark:hover:border-emerald-500 hover:shadow-xs text-[#24352F] dark:text-white'
-              )}
-              title={
-                isOccupied
-                  ? `Click to view / add to order for Table ${table.tableNumber}`
+                  ? 'bg-[#0B3D32] border-[#082C24] text-white shadow-sm'
                   : table.status === 'BILLED'
-                  ? `Click to review and settle bill for Table ${table.tableNumber}`
-                  : activeRes
-                  ? `Reserved for ${activeRes.customerName} at ${activeRes.reservationTime}. Click to view or seat guests.`
-                  : isReserved
-                  ? `Click to view or seat guests for Table ${table.tableNumber}`
-                  : `Click to Start Dine-In Order for Table ${table.tableNumber}`
-              }
+                  ? 'bg-amber-50 dark:bg-amber-900/40 border-amber-100 dark:border-amber-800/40 text-amber-900 dark:text-amber-100'
+                  : isReserved || activeRes
+                  ? 'bg-[#F8FBFF] dark:bg-[#081B26] border-sky-100 dark:border-sky-800/40 text-sky-900 dark:text-sky-100'
+                  : isCleaning
+                  ? 'bg-amber-50 dark:bg-amber-900/40 border-amber-100 dark:border-amber-800/40 text-amber-900 dark:text-amber-100'
+                  : isOutOfService
+                  ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 opacity-70'
+                  : 'bg-white dark:bg-[#07241E] text-[#24352F] dark:text-white'
+              )}
+              title={table.tableNumber}
             >
-              <div>
-                {/* Top Row: Table Number & Status Badge */}
-                <div
-                  className={cn(
-                    'flex items-center justify-between gap-1 pb-2.5 border-b',
-                    isOccupied ? 'border-white/20' : 'border-[#EAEFEA] dark:border-[#145447]/60'
-                  )}
-                >
-                  <div className="min-w-0 flex-1 pr-1.5">
-                    <div className="flex items-baseline gap-1.5">
-                      <span
-                        className={cn(
-                          'font-mono text-xl sm:text-2xl font-black tracking-tight',
-                          isOccupied ? 'text-white' : 'text-[#24352F] dark:text-white'
-                        )}
-                      >
-                        {table.tableNumber}
-                      </span>
-                      <span
-                        className={cn(
-                          'text-[10px] font-semibold uppercase tracking-wider',
-                          isOccupied ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'
-                        )}
-                      >
-                        {table.capacity} Seats
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Status Pill Badge AND 3-DOTS BUTTON */}
-                  <div className="shrink-0 flex items-center gap-1.5">
-                    {isOccupied ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-white/20 text-white border border-white/30 backdrop-blur-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        <span>Occupied</span>
-                      </span>
-                    ) : isReserved || activeRes ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800">
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                        <span>Reserved</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-[#E8F2EE] text-[#0B3D32] border border-[#C5DED3] dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span>Available</span>
+              {/* Top: Table Number + Cleaning status badge + Status badge + 3-Dot More Actions button */}
+                <div className="flex items-center justify-between gap-1.5 mb-2">
+                  <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-lg sm:text-xl font-black font-mono tracking-tight leading-tight">
+                      {table.tableNumber}
+                    </span>
+                    {table.cleaningStatus === 'DIRTY' && !isOccupied && (
+                      <span className="px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                        Dirty
                       </span>
                     )}
-
-                    {/* 3-DOTS OPTION TRIGGER BUTTON (Matching Room Board Card) */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenOptionMenuId(openOptionMenuId === table.id ? null : table.id);
-                      }}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span
                       className={cn(
-                        'w-6 h-6 flex items-center justify-center rounded-[3px] border transition-colors cursor-pointer',
+                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider shadow-xs',
                         isOccupied
-                          ? openOptionMenuId === table.id
-                            ? 'border-white bg-white text-[#0B3D32]'
-                            : 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
-                          : openOptionMenuId === table.id
-                          ? 'border-[#0B3D32] bg-[#0B3D32] text-white dark:border-emerald-600 dark:bg-emerald-600'
-                          : 'border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] text-slate-600 group-hover:text-[#0B3D32] group-hover:bg-[#F2F6F4] dark:text-slate-300 dark:group-hover:bg-[#093027]'
+                          ? 'bg-white/15 text-emerald-300 border border-white/20 backdrop-blur-xs'
+                          : table.status === 'BILLED'
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border border-amber-200/40'
+                          : isReserved || activeRes
+                          ? 'bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300 border border-sky-200/40'
+                          : isCleaning
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border border-amber-200/40'
+                          : isOutOfService
+                          ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400 border border-slate-300/40'
+                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border border-emerald-200/40'
                       )}
-                      title={`Table ${table.tableNumber} Options`}
                     >
-                      <MoreVertical className="w-3.5 h-3.5" />
-                    </button>
+                      {isOutOfService ? 'Out of Service' : statusMeta.label}
+                    </span>
+                    
+                    {/* 3-Dots Button Container with attached Dropdown */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
+                        }}
+                        className={cn(
+                          'p-1 rounded-[4px] transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer',
+                          isOccupied
+                            ? 'text-white/80 hover:text-white hover:bg-white/20'
+                            : 'text-slate-400 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                        )}
+                        title={`Table ${table.tableNumber} Contextual Actions`}
+                        aria-label={`Table ${table.tableNumber} Contextual Actions`}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {openTableMenuId === table.id && (
+                        <TableActionsDropdown
+                          table={table}
+                          onClose={() => setOpenTableMenuId(null)}
+                          onStartOrder={(t) => {
+                            setOpenTableMenuId(null);
+                            handleStartDineInOrder(t);
+                          }}
+                          onAddItems={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenOrderPage(t.id);
+                          }}
+                          onViewOrder={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenOrderPage(t.id);
+                          }}
+                          onMarkServed={(t) => {
+                            handleMarkTableServed(t);
+                          }}
+                          onViewOrderHistory={(t) => {
+                            setOpenTableMenuId(null);
+                            handleViewTableHistory(t);
+                          }}
+                          onBookTable={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenNewReservation(t);
+                          }}
+                          onViewReservation={(t, res) => {
+                            setOpenTableMenuId(null);
+                            if (res) handleOpenEditReservation(res);
+                            else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
+                          }}
+                          onEditReservation={(t, res) => {
+                            setOpenTableMenuId(null);
+                            if (res) handleOpenEditReservation(res);
+                            else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
+                          }}
+                          onCancelReservation={(t, res) => {
+                            setOpenTableMenuId(null);
+                            handleCancelReservationFromTable(t, res);
+                          }}
+                          onSeatGuests={(t, res) => {
+                            setOpenTableMenuId(null);
+                            if (res) handleSeatReservation(res, t.id);
+                            else if (t.upcomingReservations?.[0]) handleSeatReservation(t.upcomingReservations[0], t.id);
+                          }}
+                          onViewBill={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenOrderPage(t.id);
+                            setIsBillPanelOpen(true);
+                          }}
+                          onSettleBill={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenOrderPage(t.id);
+                            setIsBillPanelOpen(true);
+                          }}
+                          onPrintBill={(t) => {
+                            handlePrintBillForTable(t);
+                          }}
+                          onViewPaymentHistory={(t) => {
+                            setOpenTableMenuId(null);
+                            handleViewTableHistory(t);
+                          }}
+                          onUpdateCleaningStatus={handleUpdateCleaningStatus}
+                          onUpdateServiceStatus={handleUpdateServiceStatus}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Middle Row: Section, Context, Guest / Capacity info */}
-                <div className="py-2.5 flex flex-col justify-center text-xs space-y-1.5">
-                  <div className="flex items-center justify-between gap-1">
-                    <p
+                {/* Card Body */}
+                <div className="flex-1 flex flex-col gap-2 py-2">
+                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+                    <span
                       className={cn(
-                        'text-xs font-bold truncate',
-                        isOccupied ? 'text-white' : 'text-[#24352F] dark:text-white'
+                        'text-slate-500 dark:text-slate-400',
+                        isOccupied ? 'text-white' : 'text-slate-500 dark:text-slate-400'
                       )}
                     >
                       {table.section}
-                    </p>
+                    </span>
                     {orderTotal > 0 && (
-                      <span
-                        className={cn(
-                          'font-mono font-bold text-[11px] shrink-0',
-                          isOccupied ? 'text-white/90' : 'text-[#0B3D32] dark:text-emerald-400'
-                        )}
-                      >
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
                         Rs. {orderTotal.toFixed(2)}
                       </span>
                     )}
                   </div>
 
                   {isOccupied && table.currentGuest ? (
-                    <div className="text-[10px] space-y-0.5">
-                      <p className="font-medium text-emerald-100 truncate flex items-center gap-1">
-                        <span className="opacity-75 font-normal">Guest:</span>
-                        <strong className="font-bold text-white">{table.currentGuest}</strong>
-                      </p>
-                      <p className="text-[10px] text-emerald-200/80 truncate flex items-center gap-1">
-                        <Clock className="w-3 h-3 opacity-80" />
-                        <span>Seated · {table.guestPhone || 'Dine-In'}</span>
-                      </p>
+                    <div className="text-xs flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                      <span className="font-normal opacity-75">Guest:</span>
+                      <strong className="font-medium">{table.currentGuest}</strong>
                     </div>
                   ) : activeRes ? (
-                    <div className="text-[10px] space-y-0.5 p-1 rounded bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800">
-                      <p className="font-semibold text-sky-900 dark:text-sky-200 truncate flex items-center gap-1">
-                        <CalendarCheck className="w-3 h-3 text-sky-600 shrink-0" />
-                        <span className="truncate">Res: {activeRes.reservationTime} · {activeRes.customerName}</span>
-                      </p>
-                      <p className="text-[9px] text-sky-700 dark:text-sky-400 truncate flex items-center justify-between">
-                        <span>{activeRes.partySize} Guests · {activeRes.durationMinutes}m</span>
-                        <span className="font-mono font-bold text-sky-800 dark:text-sky-300">{activeRes.reservationCode}</span>
-                      </p>
-                    </div>
-                  ) : isReserved && table.currentGuest ? (
-                    <div className="text-[10px] space-y-0.5">
-                      <p className="font-medium text-sky-800 dark:text-sky-300 truncate flex items-center gap-1">
-                        <span className="opacity-75 font-normal">Reserved:</span>
-                        <strong className="font-bold text-slate-900 dark:text-white">{table.currentGuest}</strong>
-                      </p>
-                      <p className="text-[10px] text-sky-700 dark:text-sky-400 truncate flex items-center gap-1">
-                        <Clock className="w-3 h-3 opacity-80" />
-                        <span>Booking: {table.guestPhone || 'Reserved Table'}</span>
-                      </p>
+                    <div className="text-xs flex items-center gap-1 text-sky-700 dark:text-sky-400">
+                      <CalendarCheck className="w-3 h-3 shrink-0" />
+                      <span>{activeRes.customerName} · {activeRes.partySize} guests</span>
                     </div>
                   ) : (
-                    <div className="text-[10px] space-y-0.5">
-                      <p className="font-medium text-[#64736C] dark:text-[#A4B8AE] truncate">
-                        {table.capacity} Persons capacity
-                      </p>
-                      <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        <span>Table Ready & Sanitized</span>
-                      </p>
+                    <div className="text-xs flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                      <Sparkles className="w-3 h-3 shrink-0" />
+                      <span>Table Ready</span>
                     </div>
                   )}
-                </div>
-              </div>
 
-              {/* Bottom Row: Capacity on Left, High-contrast Action on Right */}
-              <div
-                className={cn(
-                  'flex items-center justify-between pt-2.5 border-t min-h-[34px] mt-auto',
-                  isOccupied
-                    ? 'border-white/20 text-emerald-100/90'
-                    : isReserved || activeRes
-                    ? 'border-sky-100 dark:border-sky-900/40 text-sky-800 dark:text-sky-300'
-                    : 'border-[#E5EEE9] dark:border-[#145447]/60'
-                )}
-              >
-                {/* Left side: Capacity Pill Badge */}
-                <div className="flex items-center gap-1">
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
-                      isOccupied
-                        ? 'bg-white/20 text-white border-white/30 backdrop-blur-xs'
-                        : isReserved || activeRes
-                        ? 'bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800'
-                        : 'bg-[#F2F6F4] text-[#0B3D32] border-[#DCE3DF] dark:bg-[#093027] dark:text-emerald-300 dark:border-[#145447]'
-                    )}
-                  >
-                    <Users className="w-3 h-3" />
+                  <div className="mt-auto flex items-center gap-1 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                    <Users className="w-3 h-3 shrink-0" />
                     <span>{table.capacity} Seats</span>
-                  </span>
+                  </div>
                 </div>
 
-                {/* Right side: Clean Action Box Button */}
-                <div>
-                  {isAvailable ? (
-                    <div className="flex items-center gap-1.5">
-                      {activeRes && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSeatReservation(activeRes, table.id);
-                          }}
-                          className="inline-flex items-center gap-1 justify-center px-2 py-1 rounded-[3px] bg-sky-600 hover:bg-sky-700 text-white font-bold text-[10px] shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
-                          title="Seat reserved guests at this table and start order"
-                        >
-                          <Users className="w-3 h-3" />
-                          <span>Seat Guests</span>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartDineInOrder(table);
-                        }}
-                        className="inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 font-bold text-[11px] shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
-                        title="Start order without customer registration"
-                      >
-                        <UtensilsCrossed className="w-3 h-3" />
-                        <span>Start Order</span>
-                      </button>
-                    </div>
-                  ) : table.status === 'BILLED' ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenOrderPage(table.id);
-                      }}
-                      className="inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-xs transition-all active:scale-95 cursor-pointer"
-                      title="Review order and settle payment"
-                    >
-                      <Receipt className="w-3 h-3" />
-                      <span>Settle Bill</span>
-                    </button>
-                  ) : isOccupied ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenOrderPage(table.id);
-                      }}
-                      className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-white text-[#0B3D32] hover:bg-emerald-50 font-bold text-[11px] shadow-xs transition-all active:scale-95 cursor-pointer"
-                    >
-                      {orderTotal > 0 ? `Rs. ${orderTotal.toFixed(0)}` : 'Add Order'}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeRes) {
-                          handleSeatReservation(activeRes, table.id);
-                        } else {
-                          handleStartDineInOrder(table);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-[3px] bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
-                    >
-                      <Users className="w-3 h-3" />
-                      <span>Seat Guests</span>
-                    </button>
+              {/* Card Footer: Capacity + Primary Action */}
+              <div className="mt-auto pt-2 border-t border-t-[#E5EEE9] dark:border-[#145447]/60 flex items-center justify-between text-xs">
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] font-semibold border shadow-2xs',
+                    isOccupied
+                      ? 'bg-white/20 text-white border-white/30 backdrop-blur-xs'
+                      : isReserved || activeRes
+                      ? 'bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800'
+                      : 'bg-[#F2F6F4] text-[#0B3D32] border-[#DCE3DF] dark:bg-[#093027] dark:text-emerald-300 dark:border-[#145447]'
                   )}
-                </div>
+                >
+                  <Users className="w-3 h-3 shrink-0" />
+                  <span>{table.capacity} Seats</span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isOccupied || table.status === 'BILLED') {
+                      handleOpenOrderPage(table.id);
+                    } else if (isAvailable && activeRes) {
+                      handleSeatReservation(activeRes, table.id);
+                    } else if (isAvailable) {
+                      handleStartDineInOrder(table);
+                    } else if (isCleaning) {
+                      setTables((prev) =>
+                        prev.map((t) => (t.id === table.id ? { ...t, status: 'AVAILABLE' } : t))
+                      );
+                      toast.info(`Table ${table.tableNumber} Ready`, 'Marked as available.');
+                    } else if (isReserved) {
+                      handleOpenNewReservation(table);
+                    } else {
+                      handleToggleStatus(table.id);
+                    }
+                  }}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 justify-center px-3 py-1 rounded-[4px] font-bold shadow-sm hover:shadow-md transition-all active:scale-95 cursor-pointer border',
+                    isOccupied || table.status === 'BILLED'
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 dark:bg-emerald-500'
+                      : isAvailable && activeRes
+                      ? 'bg-sky-600 hover:bg-sky-700 text-white border-sky-600'
+                      : isAvailable
+                      ? 'bg-[#0B3D32] hover:bg-[#093027] text-white border-[#0B3D32] dark:bg-emerald-600 dark:hover:bg-emerald-500 dark:border-emerald-500'
+                      : isCleaning
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500 dark:bg-amber-900/40'
+                      : isReserved
+                      ? 'bg-sky-500 hover:bg-sky-600 text-white border-sky-500'
+                      : isOutOfService
+                      ? 'bg-slate-200 text-slate-500 border-slate-300 cursor-not-allowed hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  )}
+                >
+                  {isOccupied || table.status === 'BILLED'
+                    ? orderTotal > 0
+                      ? `Rs. ${orderTotal.toFixed(0)}`
+                      : 'Add Order'
+                    : isAvailable && activeRes
+                    ? 'Seat Guests'
+                    : isAvailable
+                    ? 'Start Order'
+                    : isCleaning
+                    ? 'Mark Ready'
+                    : isReserved
+                    ? 'View Reservation'
+                    : isOutOfService
+                    ? 'Out of Service'
+                    : 'Toggle Status'}
+                </button>
               </div>
 
-              {/* Floating Dropdown Menu (Anchored under 3-dots button, matching Room Board Card logic) */}
-              {openOptionMenuId === table.id && (
-                <>
-                  {/* Transparent Backdrop to close on outside click */}
-                  <div
-                    className="fixed inset-0 z-40 cursor-default bg-transparent"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenOptionMenuId(null);
-                    }}
-                  />
+              {/* Floating Dropdown Menu removed in favor of inline primary action button */}
 
-                  {/* Floating Dropdown anchored right below 3-dots button */}
-                  <div
-                    className="absolute right-2.5 top-11 z-50 w-52 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xl py-1 text-xs select-none animate-in fade-in-0 zoom-in-95 duration-100"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Active Guest Info Header when table has guest or orders */}
-                    {(table.currentGuest || orderTotal > 0) && (
-                      <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                        <div className="font-bold text-slate-800 dark:text-slate-100 truncate">
-                          {table.currentGuest || `Table ${table.tableNumber}`}
-                        </div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                          <span>{isOccupied ? 'Seated Dine-In' : 'Reserved'}</span>
-                          {orderTotal > 0 && (
-                            <span className="font-bold text-[#0B3D32] dark:text-emerald-400 font-mono">
-                              Rs. {orderTotal.toFixed(2)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Table Actions based on table state */}
-                    {isAvailable && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            handleStartDineInOrder(table);
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
-                        >
-                          <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                          <span>Start Dine-In Order</span>
-                        </button>
-                        {activeRes && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenOptionMenuId(null);
-                              handleSeatReservation(activeRes, table.id);
-                            }}
-                            className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors cursor-pointer"
-                          >
-                            <Users className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                            <span>Seat Reserved Guests</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            handleOpenNewReservation(table);
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          <CalendarCheck className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                          <span>New Reservation for Table</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            setTables((prev) =>
-                              prev.map((t) =>
-                                t.id === table.id
-                                  ? { ...t, status: 'RESERVED', currentGuest: 'Reserved Guest' }
-                                  : t
-                              )
-                            );
-                            toast.info(`Table ${table.tableNumber} Reserved`, 'Status set to Reserved.');
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                          <span>Hold / Reserve</span>
-                        </button>
-                      </>
-                    )}
-
-                    {isOccupied && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            handleOpenOrderPage(table.id);
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          <UtensilsCrossed className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                          <span>View / Add Order</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            handleOpenOrderPage(table.id);
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          <Percent className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                          <span>Discount</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            toast.info('Printing Bill', `Printing KOT/Bill for Table ${table.tableNumber}...`);
-                            if (typeof window !== 'undefined') window.print();
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          <Printer className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                          <span>Print Bill / KOT</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            handleClearTable(table.id);
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                        >
-                          <Receipt className="w-3.5 h-3.5 text-rose-500" />
-                          <span>Settle & Vacate</span>
-                        </button>
-                      </>
-                    )}
-
-                    {isReserved && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            setTables((prev) =>
-                              prev.map((t) => (t.id === table.id ? { ...t, status: 'OCCUPIED' } : t))
-                            );
-                            handleOpenOrderPage(table.id);
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          <Users className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                          <span>Seat Guests (Check-In)</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenOptionMenuId(null);
-                            setTables((prev) =>
-                              prev.map((t) =>
-                                t.id === table.id
-                                  ? { ...t, status: 'AVAILABLE', currentGuest: undefined, guestPhone: undefined }
-                                  : t
-                              )
-                            );
-                            toast.info(`Table ${table.tableNumber} Released`, 'Reservation cancelled.');
-                          }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5 text-rose-500" />
-                          <span>Cancel Reservation</span>
-                        </button>
-                      </>
-                    )}
-
-                    {/* Divider */}
-                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-
-                    {/* Maintenance & Sanitation */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpenOptionMenuId(null);
-                        toast.celebrate('Table Sanitized', `Table ${table.tableNumber} sanitized and ready.`);
-                      }}
-                      className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                      <span>Mark Sanitized / Clean</span>
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
           );
         })}
@@ -4772,11 +4863,36 @@ export default function TablesPage() {
         </div>
       )}
 
+
+
+      {/* =========================================================================
+          TABLE ORDER & PAYMENT HISTORY MODAL
+          View historical billing records & reprint receipts without creating duplicates.
+         ========================================================================= */}
+      {historyModalTable && (
+        <TableHistoryModal
+          isOpen={!!historyModalTable}
+          onClose={() => setHistoryModalTable(null)}
+          table={historyModalTable}
+          history={tableHistoryList}
+          isLoading={isHistoryLoading}
+          onReprintOrder={handleReprintFromHistory}
+        />
+      )}
+
       {/* =========================================================================
           PRINTED BILL / RECEIPT MODAL (Requirement 7)
           Thermal receipt format with print trigger for all order types.
          ========================================================================= */}
       {receiptModalData && <RestaurantReceiptModal {...receiptModalData} />}
     </div>
+  );
+}
+
+export default function TablesPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-medium">Loading Restaurant Table Board...</div>}>
+      <TablesContent />
+    </Suspense>
   );
 }

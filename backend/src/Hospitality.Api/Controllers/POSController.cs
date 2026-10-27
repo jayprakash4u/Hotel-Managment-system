@@ -354,7 +354,7 @@ public class POSController : ControllerBase
                             invItem = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Department == "RESTAURANT" && (i.Name.ToLower() == product.Name.ToLower() || (!string.IsNullOrEmpty(i.Sku) && i.Sku.ToLower() == product.Name.ToLower())));
                         }
 
-                        if (invItem != null)
+                        if (invItem != null && invItem.TrackStock)
                         {
                             invItem.CurrentStock = Math.Max(0, invItem.CurrentStock - item.Quantity);
                             invItem.LastRestocked = DateTime.UtcNow;

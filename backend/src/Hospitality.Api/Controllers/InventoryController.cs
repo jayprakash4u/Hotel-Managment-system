@@ -85,6 +85,112 @@ public class InventoryController : ControllerBase
         return Ok(ApiResponse.Ok(item));
     }
 
+    [HttpGet("items/{id}/history")]
+    public async Task<IActionResult> GetItemHistory(string id)
+    {
+        var item = await _db.InventoryItems
+            .Include(i => i.Supplier)
+            .FirstOrDefaultAsync(i => i.Id == id || i.Sku.ToLower() == id.ToLower());
+
+        if (item == null)
+        {
+            return NotFound(ApiResponse.Fail($"Item '{id}' not found."));
+        }
+
+        var movements = await _db.StockMovements
+            .Where(m => m.ItemId == item.Id)
+            .OrderBy(m => m.CreatedAt)
+            .ToListAsync();
+
+        int totalStockAdded = movements.Where(m => m.Quantity > 0).Sum(m => m.Quantity);
+        int totalStockRemoved = movements.Where(m => m.Quantity < 0).Sum(m => Math.Abs(m.Quantity));
+
+        var initialMovement = movements.FirstOrDefault(m => m.Type == "INITIAL_STOCK");
+        int openingStock = initialMovement != null
+            ? initialMovement.Quantity
+            : Math.Max(0, item.CurrentStock - totalStockAdded + totalStockRemoved);
+
+        int runningBalance = openingStock;
+        var historyRows = new List<object>();
+
+        foreach (var m in movements)
+        {
+            int stockIn = m.Quantity > 0 ? m.Quantity : 0;
+            int stockOut = m.Quantity < 0 ? Math.Abs(m.Quantity) : 0;
+
+            if (m.Type == "INITIAL_STOCK")
+            {
+                runningBalance = m.Quantity;
+            }
+            else
+            {
+                runningBalance += m.Quantity;
+            }
+
+            var balance = m.ResultingBalance ?? runningBalance;
+
+            string activity = m.Type switch
+            {
+                "PURCHASE" => "Purchase",
+                "INITIAL_STOCK" => "Opening Stock",
+                "POS_CONSUMPTION" or "SALE" or "DINE_IN" => "Sale",
+                "HOUSEKEEPING_USAGE" => "Housekeeping Usage",
+                "KITCHEN_USAGE" => "Kitchen Usage",
+                "TRANSFER_IN" => "Transfer In",
+                "TRANSFER_OUT" => "Transfer Out",
+                "ADJUSTMENT_IN" or "ADJUSTMENT_OUT" or "ADJUSTMENT" => "Adjustment",
+                "RETURN" => "Return",
+                _ => m.Type
+            };
+
+            string reference = !string.IsNullOrWhiteSpace(m.TransferNumber)
+                ? m.TransferNumber
+                : (!string.IsNullOrWhiteSpace(m.Reason) ? m.Reason : m.Id.Substring(0, Math.Min(8, m.Id.Length)));
+
+            historyRows.Add(new
+            {
+                id = m.Id,
+                date = m.CreatedAt,
+                activity,
+                rawType = m.Type,
+                reference,
+                stockIn,
+                stockOut,
+                balance,
+                reason = m.Reason,
+                performedBy = m.PerformedBy
+            });
+        }
+
+        historyRows.Reverse();
+
+        var result = new
+        {
+            item = new
+            {
+                id = item.Id,
+                name = item.Name,
+                department = item.Department,
+                category = item.Category,
+                sku = item.Sku,
+                unit = item.Unit,
+                currentStock = item.CurrentStock,
+                minThreshold = item.MinThreshold,
+                costPerUnit = item.CostPerUnit
+            },
+            summary = new
+            {
+                openingStock,
+                totalStockAdded,
+                totalStockRemoved,
+                currentStock = item.CurrentStock
+            },
+            history = historyRows
+        };
+
+        return Ok(ApiResponse.Ok(result));
+    }
+
     public record CreateInventoryItemRequest(
         string Name,
         string? Department,
@@ -94,7 +200,8 @@ public class InventoryController : ControllerBase
         int MinThreshold,
         string Unit,
         double CostPerUnit,
-        string? SupplierId
+        string? SupplierId,
+        bool? TrackStock = true
     );
 
     [HttpPost("items")]
@@ -105,14 +212,23 @@ public class InventoryController : ControllerBase
             return BadRequest(ApiResponse.Fail("Item name is required."));
         }
 
-        var hotel = await _db.Hotels.FirstOrDefaultAsync();
-        var hotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
-
         var dept = (req.Department ?? "HOTEL").Trim().ToUpper();
         if (dept != "HOTEL" && dept != "RESTAURANT")
         {
             dept = "HOTEL";
         }
+
+        // Validate uniqueness: prevent duplicate item in the same department
+        var existing = await _db.InventoryItems.FirstOrDefaultAsync(i =>
+            i.Department.ToUpper() == dept &&
+            i.Name.ToLower() == req.Name.Trim().ToLower());
+        if (existing != null)
+        {
+            return BadRequest(ApiResponse.Fail($"An item named '{req.Name.Trim()}' already exists in {dept} Inventory."));
+        }
+
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
 
         var sku = req.Sku?.Trim().ToUpper();
         if (string.IsNullOrWhiteSpace(sku))
@@ -122,6 +238,9 @@ public class InventoryController : ControllerBase
             sku = $"{prefix}-{catPrefix}-{Random.Shared.Next(100, 999)}";
         }
 
+        var isTrackStock = req.TrackStock ?? true;
+
+        // Item creation never automatically increases stock. Stock starts at 0 until user adds stock.
         var item = new InventoryItem
         {
             HotelId = hotelId,
@@ -129,8 +248,9 @@ public class InventoryController : ControllerBase
             Department = dept,
             Category = req.Category.Trim().ToUpper(),
             Sku = sku,
-            CurrentStock = req.CurrentStock,
-            MinThreshold = req.MinThreshold,
+            TrackStock = isTrackStock,
+            CurrentStock = 0,
+            MinThreshold = isTrackStock ? req.MinThreshold : 0,
             Unit = string.IsNullOrWhiteSpace(req.Unit) ? "pieces" : req.Unit.Trim(),
             CostPerUnit = req.CostPerUnit,
             SupplierId = req.SupplierId,
@@ -138,23 +258,10 @@ public class InventoryController : ControllerBase
         };
 
         _db.InventoryItems.Add(item);
-
-        if (req.CurrentStock > 0)
-        {
-            _db.StockMovements.Add(new StockMovement
-            {
-                ItemId = item.Id,
-                Department = dept,
-                Quantity = req.CurrentStock,
-                Type = "INITIAL_STOCK",
-                Reason = "Initial inventory setup",
-                PerformedBy = "Inventory Manager",
-                CreatedAt = DateTime.UtcNow
-            });
-        }
-
         await _db.SaveChangesAsync();
-        return Ok(ApiResponse.Ok(item, $"Inventory item '{item.Name}' added to {dept} Inventory."));
+
+        var desc = isTrackStock ? "configured for stock tracking (resale)" : "configured for purchase history only (no stock balance)";
+        return Ok(ApiResponse.Ok(item, $"Item '{item.Name}' registered in {dept} Inventory ({desc})."));
     }
 
     public record UpdateInventoryItemRequest(
@@ -163,7 +270,8 @@ public class InventoryController : ControllerBase
         int MinThreshold,
         string Unit,
         double CostPerUnit,
-        string? SupplierId
+        string? SupplierId,
+        bool? TrackStock
     );
 
     [HttpPut("items/{id}")]
@@ -177,7 +285,11 @@ public class InventoryController : ControllerBase
 
         item.Name = req.Name.Trim();
         item.Category = req.Category.Trim().ToUpper();
-        item.MinThreshold = req.MinThreshold;
+        if (req.TrackStock.HasValue)
+        {
+            item.TrackStock = req.TrackStock.Value;
+        }
+        item.MinThreshold = item.TrackStock ? req.MinThreshold : 0;
         item.Unit = req.Unit.Trim();
         item.CostPerUnit = req.CostPerUnit;
         item.SupplierId = req.SupplierId;
@@ -254,7 +366,7 @@ public class InventoryController : ControllerBase
 
     public record AddStockRequest(
         string ItemId,
-        int QuantityAdded,
+        double QuantityAdded,
         string Unit,
         double TotalCost,
         string? SupplierId,
@@ -290,7 +402,7 @@ public class InventoryController : ControllerBase
 
         var purchaseDate = req.PurchaseDate ?? DateTime.UtcNow;
 
-        // 2. Prevent duplicate stock additions caused by repeated submissions
+        // 2. Prevent duplicate submissions caused by repeated clicks
         if (!string.IsNullOrWhiteSpace(req.IdempotencyKey))
         {
             if (_processedAddStocks.TryGetValue(req.IdempotencyKey, out var processedTime))
@@ -301,8 +413,8 @@ public class InventoryController : ControllerBase
                     return Ok(ApiResponse.Ok(new
                     {
                         item = existingItem,
-                        message = "Duplicate submission prevented. Stock was already added."
-                    }, "Duplicate stock addition prevented by idempotency lock."));
+                        message = "Duplicate submission prevented. Purchase was already saved."
+                    }, "Duplicate submission prevented by idempotency lock."));
                 }
             }
         }
@@ -318,43 +430,86 @@ public class InventoryController : ControllerBase
                 return NotFound(ApiResponse.Fail("Selected inventory item was not found."));
             }
 
-            var previousBalance = item.CurrentStock;
-            var newBalance = previousBalance + req.QuantityAdded;
+            int? previousBalance = null;
+            int? newBalance = null;
+            StockMovement? movement = null;
 
-            // Update item stock and unit
-            item.CurrentStock = newBalance;
-            item.Unit = req.Unit.Trim();
-            item.LastRestocked = purchaseDate;
-
-            if (!string.IsNullOrWhiteSpace(req.SupplierId))
+            // Behavior 1: Products Bought for Resale (TrackStock == true)
+            // Examples: Beer, Coca-Cola, Bottled Water, Packaged Juice, Snacks
+            if (item.TrackStock)
             {
-                item.SupplierId = req.SupplierId;
+                previousBalance = item.CurrentStock;
+                var addInt = (int)Math.Round(req.QuantityAdded);
+                newBalance = previousBalance + addInt;
+
+                // Update item stock and unit
+                item.CurrentStock = newBalance.Value;
+                item.Unit = req.Unit.Trim();
+                item.LastRestocked = purchaseDate;
+
+                if (!string.IsNullOrWhiteSpace(req.SupplierId))
+                {
+                    item.SupplierId = req.SupplierId;
+                }
+
+                if (req.QuantityAdded > 0 && req.TotalCost >= 0)
+                {
+                    item.CostPerUnit = Math.Round(req.TotalCost / req.QuantityAdded, 2);
+                }
+
+                // Create StockMovement audit record with previous and resulting balance
+                var invoiceText = !string.IsNullOrWhiteSpace(req.InvoiceNumber) ? $" (Invoice: {req.InvoiceNumber.Trim()})" : "";
+                var reason = $"Stock purchase of {req.QuantityAdded} {item.Unit}{invoiceText}. Previous: {previousBalance}, New Balance: {newBalance} {item.Unit}. Total Cost: Rs. {req.TotalCost:N2}";
+
+                movement = new StockMovement
+                {
+                    ItemId = item.Id,
+                    Department = item.Department,
+                    Quantity = addInt,
+                    PreviousBalance = previousBalance,
+                    ResultingBalance = newBalance,
+                    Type = "PURCHASE",
+                    Reason = reason,
+                    PerformedBy = req.PerformedBy ?? "Inventory Manager",
+                    CreatedAt = purchaseDate
+                };
+                _db.StockMovements.Add(movement);
+
+                // Automatically synchronize stock with any linked POS product for resale
+                var linkedProducts = await _db.POSProducts
+                    .Where(p => p.InventoryItemId == item.Id || (p.TrackStock && p.Name.ToLower() == item.Name.ToLower()))
+                    .ToListAsync();
+                foreach (var lp in linkedProducts)
+                {
+                    lp.Stock += addInt;
+                    lp.TrackStock = true;
+                    if (lp.Stock > 0)
+                    {
+                        lp.IsAvailable = true;
+                    }
+                }
+            }
+            else
+            {
+                // Behavior 2: All Other Purchases — Purchase History Only (TrackStock == false)
+                // Examples: Kitchen ingredients, Equipment, Hotel supplies, Cleaning supplies
+                // - Do NOT track remaining stock.
+                // - Do NOT create a stock balance or StockMovement.
+                item.Unit = req.Unit.Trim();
+                item.LastRestocked = purchaseDate;
+
+                if (!string.IsNullOrWhiteSpace(req.SupplierId))
+                {
+                    item.SupplierId = req.SupplierId;
+                }
+
+                if (req.QuantityAdded > 0 && req.TotalCost >= 0)
+                {
+                    item.CostPerUnit = Math.Round(req.TotalCost / req.QuantityAdded, 2);
+                }
             }
 
-            if (req.QuantityAdded > 0 && req.TotalCost >= 0)
-            {
-                item.CostPerUnit = Math.Round(req.TotalCost / req.QuantityAdded, 2);
-            }
-
-            // Create StockMovement audit record with previous and resulting balance
-            var invoiceText = !string.IsNullOrWhiteSpace(req.InvoiceNumber) ? $" (Invoice: {req.InvoiceNumber.Trim()})" : "";
-            var reason = $"Stock purchase of {req.QuantityAdded} {item.Unit}{invoiceText}. Previous: {previousBalance}, New Balance: {newBalance} {item.Unit}. Total Cost: Rs. {req.TotalCost:N2}";
-
-            var movement = new StockMovement
-            {
-                ItemId = item.Id,
-                Department = item.Department,
-                Quantity = req.QuantityAdded,
-                PreviousBalance = previousBalance,
-                ResultingBalance = newBalance,
-                Type = "PURCHASE",
-                Reason = reason,
-                PerformedBy = req.PerformedBy ?? "Inventory Manager",
-                CreatedAt = purchaseDate
-            };
-            _db.StockMovements.Add(movement);
-
-            // Record the purchase order to preserve purchase history and supplier information
+            // Both behaviors: Record the purchase order to preserve purchase history and supplier information
             var poNumber = !string.IsNullOrWhiteSpace(req.InvoiceNumber)
                 ? $"INV-{req.InvoiceNumber.Trim()}"
                 : $"PO-{purchaseDate.Year}-{Random.Shared.Next(1000, 9999)}";
@@ -373,12 +528,15 @@ public class InventoryController : ControllerBase
                     {
                         itemId = item.Id,
                         itemName = item.Name,
+                        category = item.Category,
+                        department = item.Department,
                         quantity = req.QuantityAdded,
                         unit = req.Unit.Trim(),
                         totalCost = req.TotalCost,
                         invoiceNumber = req.InvoiceNumber?.Trim(),
                         previousBalance,
                         resultingBalance = newBalance,
+                        trackStock = item.TrackStock,
                         purchaseDate
                     }
                 }),
@@ -413,9 +571,10 @@ public class InventoryController : ControllerBase
                     name = item.Name,
                     department = item.Department,
                     sku = item.Sku,
+                    trackStock = item.TrackStock,
                     previousBalance,
                     resultingBalance = newBalance,
-                    currentStock = item.CurrentStock,
+                    currentStock = item.TrackStock ? item.CurrentStock : 0,
                     unit = item.Unit,
                     costPerUnit = item.CostPerUnit
                 },
@@ -429,7 +588,7 @@ public class InventoryController : ControllerBase
                     purchaseDate = po.OrderedAt,
                     supplierId = po.SupplierId
                 },
-                movement = new
+                movement = movement != null ? new
                 {
                     id = movement.Id,
                     quantity = movement.Quantity,
@@ -437,15 +596,19 @@ public class InventoryController : ControllerBase
                     resultingBalance = movement.ResultingBalance,
                     reason = movement.Reason,
                     createdAt = movement.CreatedAt
-                }
+                } : null
             };
 
-            return Ok(ApiResponse.Ok(result, $"Successfully added {req.QuantityAdded} {item.Unit} to '{item.Name}'. New stock balance is {newBalance} {item.Unit}."));
+            var successMsg = item.TrackStock
+                ? $"Stock purchase of {req.QuantityAdded} {item.Unit} saved. Current stock is now {item.CurrentStock} {item.Unit}."
+                : $"Purchase recorded for '{item.Name}' ({req.QuantityAdded} {item.Unit}, Rs. {req.TotalCost:N2}). Saved to purchase history without stock tracking.";
+
+            return Ok(ApiResponse.Ok(result, successMsg));
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            return StatusCode(500, ApiResponse.Fail($"Failed to save stock purchase: {ex.Message}"));
+            return StatusCode(500, ApiResponse.Fail($"Failed to save purchase: {ex.Message}"));
         }
     }
 
@@ -611,12 +774,16 @@ public class InventoryController : ControllerBase
 
                     if (hotelItem != null)
                     {
-                        hotelItem.CurrentStock += item.HotelQuantity;
+                        if (hotelItem.TrackStock)
+                        {
+                            hotelItem.CurrentStock += item.HotelQuantity;
+                        }
                         hotelItem.CostPerUnit = item.UnitPrice > 0 ? item.UnitPrice : hotelItem.CostPerUnit;
                         hotelItem.LastRestocked = DateTime.UtcNow;
                     }
                     else
                     {
+                        var isTrack = !new[] { "FOOD_RAW", "PANTRY", "LINEN", "CLEANING_SUPPLIES", "EQUIPMENT" }.Contains(item.Category?.ToUpper());
                         hotelItem = new InventoryItem
                         {
                             HotelId = hotelId,
@@ -624,8 +791,9 @@ public class InventoryController : ControllerBase
                             Name = item.ItemName.Trim(),
                             Category = !string.IsNullOrWhiteSpace(item.Category) ? item.Category.ToUpper() : "GUEST_AMENITIES",
                             Sku = $"HOT-PUR-{Random.Shared.Next(100, 999)}",
-                            CurrentStock = item.HotelQuantity,
-                            MinThreshold = 10,
+                            TrackStock = isTrack,
+                            CurrentStock = isTrack ? item.HotelQuantity : 0,
+                            MinThreshold = isTrack ? 10 : 0,
                             Unit = item.Unit,
                             CostPerUnit = item.UnitPrice,
                             SupplierId = req.SupplierId,
@@ -634,16 +802,19 @@ public class InventoryController : ControllerBase
                         _db.InventoryItems.Add(hotelItem);
                     }
 
-                    _db.StockMovements.Add(new StockMovement
+                    if (hotelItem.TrackStock)
                     {
-                        ItemId = hotelItem.Id,
-                        Department = "HOTEL",
-                        Quantity = item.HotelQuantity,
-                        Type = "PURCHASE",
-                        Reason = $"Purchase Order {po.PoNumber} allocation",
-                        PerformedBy = "Purchasing Officer",
-                        CreatedAt = DateTime.UtcNow
-                    });
+                        _db.StockMovements.Add(new StockMovement
+                        {
+                            ItemId = hotelItem.Id,
+                            Department = "HOTEL",
+                            Quantity = item.HotelQuantity,
+                            Type = "PURCHASE",
+                            Reason = $"Purchase Order {po.PoNumber} allocation",
+                            PerformedBy = "Purchasing Officer",
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
                 }
 
                 // Allocation to Restaurant Inventory
@@ -661,12 +832,16 @@ public class InventoryController : ControllerBase
 
                     if (resItem != null)
                     {
-                        resItem.CurrentStock += item.RestaurantQuantity;
+                        if (resItem.TrackStock)
+                        {
+                            resItem.CurrentStock += item.RestaurantQuantity;
+                        }
                         resItem.CostPerUnit = item.UnitPrice > 0 ? item.UnitPrice : resItem.CostPerUnit;
                         resItem.LastRestocked = DateTime.UtcNow;
                     }
                     else
                     {
+                        var isTrack = !new[] { "FOOD_RAW", "PANTRY", "LINEN", "CLEANING_SUPPLIES", "EQUIPMENT" }.Contains(item.Category?.ToUpper());
                         resItem = new InventoryItem
                         {
                             HotelId = hotelId,
@@ -674,8 +849,9 @@ public class InventoryController : ControllerBase
                             Name = item.ItemName.Trim(),
                             Category = !string.IsNullOrWhiteSpace(item.Category) ? item.Category.ToUpper() : "BEVERAGES",
                             Sku = $"RES-PUR-{Random.Shared.Next(100, 999)}",
-                            CurrentStock = item.RestaurantQuantity,
-                            MinThreshold = 10,
+                            TrackStock = isTrack,
+                            CurrentStock = isTrack ? item.RestaurantQuantity : 0,
+                            MinThreshold = isTrack ? 10 : 0,
                             Unit = item.Unit,
                             CostPerUnit = item.UnitPrice,
                             SupplierId = req.SupplierId,
@@ -684,16 +860,19 @@ public class InventoryController : ControllerBase
                         _db.InventoryItems.Add(resItem);
                     }
 
-                    _db.StockMovements.Add(new StockMovement
+                    if (resItem.TrackStock)
                     {
-                        ItemId = resItem.Id,
-                        Department = "RESTAURANT",
-                        Quantity = item.RestaurantQuantity,
-                        Type = "PURCHASE",
-                        Reason = $"Purchase Order {po.PoNumber} allocation",
-                        PerformedBy = "Purchasing Officer",
-                        CreatedAt = DateTime.UtcNow
-                    });
+                        _db.StockMovements.Add(new StockMovement
+                        {
+                            ItemId = resItem.Id,
+                            Department = "RESTAURANT",
+                            Quantity = item.RestaurantQuantity,
+                            Type = "PURCHASE",
+                            Reason = $"Purchase Order {po.PoNumber} allocation",
+                            PerformedBy = "Purchasing Officer",
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
                 }
             }
 
@@ -970,11 +1149,11 @@ public class InventoryController : ControllerBase
         var items = await itemsQuery.ToListAsync();
 
         var totalSkus = items.Count;
-        var totalStockQuantity = items.Sum(i => i.CurrentStock);
-        var totalValuation = Math.Round(items.Sum(i => i.CurrentStock * i.CostPerUnit), 2);
+        var totalStockQuantity = items.Where(i => i.TrackStock).Sum(i => i.CurrentStock);
+        var totalValuation = Math.Round(items.Where(i => i.TrackStock).Sum(i => i.CurrentStock * i.CostPerUnit), 2);
 
-        var lowStockItems = items.Where(i => i.CurrentStock <= i.MinThreshold).ToList();
-        var outOfStockItems = items.Where(i => i.CurrentStock <= 0).ToList();
+        var lowStockItems = items.Where(i => i.TrackStock && i.MinThreshold > 0 && i.CurrentStock <= i.MinThreshold).ToList();
+        var outOfStockItems = items.Where(i => i.TrackStock && i.CurrentStock <= 0).ToList();
 
         // Department breakdown
         var hotelItems = items.Where(i => i.Department.ToUpper() == "HOTEL").ToList();
@@ -995,6 +1174,7 @@ public class InventoryController : ControllerBase
                 sku = i.Sku,
                 department = i.Department,
                 category = i.Category,
+                trackStock = i.TrackStock,
                 currentStock = i.CurrentStock,
                 minThreshold = i.MinThreshold,
                 unit = i.Unit,
@@ -1006,16 +1186,16 @@ public class InventoryController : ControllerBase
                 hotel = new
                 {
                     skus = hotelItems.Count,
-                    stockQuantity = hotelItems.Sum(i => i.CurrentStock),
-                    valuation = Math.Round(hotelItems.Sum(i => i.CurrentStock * i.CostPerUnit), 2),
-                    lowStock = hotelItems.Count(i => i.CurrentStock <= i.MinThreshold)
+                    stockQuantity = hotelItems.Where(i => i.TrackStock).Sum(i => i.CurrentStock),
+                    valuation = Math.Round(hotelItems.Where(i => i.TrackStock).Sum(i => i.CurrentStock * i.CostPerUnit), 2),
+                    lowStock = hotelItems.Count(i => i.TrackStock && i.MinThreshold > 0 && i.CurrentStock <= i.MinThreshold)
                 },
                 restaurant = new
                 {
                     skus = restaurantItems.Count,
-                    stockQuantity = restaurantItems.Sum(i => i.CurrentStock),
-                    valuation = Math.Round(restaurantItems.Sum(i => i.CurrentStock * i.CostPerUnit), 2),
-                    lowStock = restaurantItems.Count(i => i.CurrentStock <= i.MinThreshold)
+                    stockQuantity = restaurantItems.Where(i => i.TrackStock).Sum(i => i.CurrentStock),
+                    valuation = Math.Round(restaurantItems.Where(i => i.TrackStock).Sum(i => i.CurrentStock * i.CostPerUnit), 2),
+                    lowStock = restaurantItems.Count(i => i.TrackStock && i.MinThreshold > 0 && i.CurrentStock <= i.MinThreshold)
                 }
             }
         };

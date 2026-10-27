@@ -263,6 +263,23 @@ export const api = {
     });
   },
 
+  updateTableStatus: (id: string, data: { status?: string; cleaningStatus?: string; maintenanceNotes?: string }) => {
+    return fetcher<any>(`/api/restaurant/tables/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  markTableServed: (id: string) => {
+    return fetcher<any>(`/api/restaurant/tables/${id}/mark-served`, {
+      method: 'POST',
+    });
+  },
+
+  getTableOrderHistory: (id: string) => {
+    return fetcher<any[]>(`/api/restaurant/tables/${id}/history`);
+  },
+
   getRestaurantOrders: (params?: { outlet?: string; status?: string; tableId?: string; orderType?: string; activeOnly?: boolean; search?: string }) => {
     const query = new URLSearchParams(
       Object.entries(params || {}).reduce((acc, [k, v]) => {
@@ -456,6 +473,55 @@ export const api = {
   // Analytics
   getAnalytics: () => {
     return fetcher<DashboardMetrics>('/api/analytics');
+  },
+
+  // Billing & Invoicing (Unified Shared System)
+  getBills: (params?: {
+    search?: string;
+    billingType?: string;
+    paymentStatus?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.billingType) query.append('billingType', params.billingType);
+    if (params?.paymentStatus) query.append('paymentStatus', params.paymentStatus);
+    if (params?.startDate) query.append('startDate', params.startDate);
+    if (params?.endDate) query.append('endDate', params.endDate);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.pageSize) query.append('pageSize', params.pageSize.toString());
+    return fetcher<import('./types').GetBillsResponse>(`/api/billing/bills?${query.toString()}`);
+  },
+
+  getBillById: (id: string) => {
+    return fetcher<{ bill: import('./types').BillData; hotel: any }>(`/api/billing/bills/${id}`);
+  },
+
+  recordBillPayment: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMethod: string;
+      transactionRef?: string;
+      receivedBy?: string;
+      notes?: string;
+      idempotencyKey?: string;
+    }
+  ) => {
+    return fetcher<import('./types').BillData>(`/api/billing/bills/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  voidBill: (id: string, data: { reason: string; authorizedBy?: string }) => {
+    return fetcher<import('./types').BillData>(`/api/billing/bills/${id}/void`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   // Seed / Reset

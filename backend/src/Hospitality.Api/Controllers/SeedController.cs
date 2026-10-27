@@ -215,29 +215,34 @@ public class SeedController : ControllerBase
         _db.Suppliers.AddRange(supplier1, supplier2);
         await _db.SaveChangesAsync();
 
-        var inv1 = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Egyptian Cotton King Sheet Sets (800 TC)", Category = "LINEN", Sku = "HOT-LIN-101", CurrentStock = 48, MinThreshold = 20, Unit = "sets", CostPerUnit = 85.0 };
-        var inv2 = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Hermès Paris Eau d'Orange Verte Shampoo (80ml)", Category = "TOILETRIES", Sku = "HOT-TOI-204", CurrentStock = 18, MinThreshold = 35, Unit = "bottles", CostPerUnit = 6.2, SupplierId = supplier2.Id };
-        var invTowel = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Plush Turkish Cotton Bath Towels", Category = "LINEN", Sku = "HOT-LIN-102", CurrentStock = 75, MinThreshold = 30, Unit = "pieces", CostPerUnit = 24.5 };
-        var invSoap = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Organic Guest Amenities Bath Soap Bars", Category = "TOILETRIES", Sku = "HOT-TOI-205", CurrentStock = 120, MinThreshold = 50, Unit = "pieces", CostPerUnit = 2.8, SupplierId = supplier2.Id };
-        var invCleaning = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Multi-Surface Disinfectant Concentrate (5L)", Category = "CLEANING_SUPPLIES", Sku = "HOT-CLN-301", CurrentStock = 15, MinThreshold = 8, Unit = "bottles", CostPerUnit = 28.0 };
-        var invHotelWater = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Bottled Spring Water (Minibar 500ml)", Category = "GUEST_AMENITIES", Sku = "HOT-AMN-401", CurrentStock = 85, MinThreshold = 40, Unit = "bottles", CostPerUnit = 0.8, SupplierId = supplier1.Id };
+        // Seed Resale vs Purchase-Only Inventory Items
+        // Resale items (TrackStock = true): stock is tracked, increased on purchase, deducted on sale
+        var invHotelWater = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Bottled Spring Water (Minibar 500ml)", Category = "GUEST_AMENITIES", Sku = "HOT-AMN-401", TrackStock = true, CurrentStock = 85, MinThreshold = 40, Unit = "bottles", CostPerUnit = 0.8, SupplierId = supplier1.Id };
+        var invWater = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "San Pellegrino Sparkling Water (750ml)", Category = "BEVERAGES", Sku = "RES-BEV-201", TrackStock = true, CurrentStock = 110, MinThreshold = 30, Unit = "bottles", CostPerUnit = 2.4, SupplierId = supplier1.Id };
+        var invBeer = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "Heineken Premium Lager Beer (330ml Can)", Category = "BEVERAGES", Sku = "RES-BEV-202", TrackStock = true, CurrentStock = 144, MinThreshold = 48, Unit = "cans", CostPerUnit = 1.9, SupplierId = supplier1.Id };
 
-        var inv3 = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "A5 Miyazaki Wagyu Striploin Loins (Whole)", Category = "FOOD_RAW", Sku = "RES-FNB-301", CurrentStock = 8, MinThreshold = 10, Unit = "kg", CostPerUnit = 140.0, SupplierId = supplier1.Id };
-        var invWater = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "San Pellegrino Sparkling Water (750ml)", Category = "BEVERAGES", Sku = "RES-BEV-201", CurrentStock = 110, MinThreshold = 30, Unit = "bottles", CostPerUnit = 2.4, SupplierId = supplier1.Id };
-        var invBeer = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "Heineken Premium Lager Beer (330ml Can)", Category = "BEVERAGES", Sku = "RES-BEV-202", CurrentStock = 144, MinThreshold = 48, Unit = "cans", CostPerUnit = 1.9, SupplierId = supplier1.Id };
-        var invSugar = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "Refined White Cane Sugar (25kg Bag)", Category = "PANTRY", Sku = "RES-PAN-101", CurrentStock = 35, MinThreshold = 15, Unit = "kg", CostPerUnit = 1.6, SupplierId = supplier1.Id };
-        var invFlour = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "Unbleached Premium Wheat Baking Flour", Category = "PANTRY", Sku = "RES-PAN-102", CurrentStock = 45, MinThreshold = 20, Unit = "kg", CostPerUnit = 1.4, SupplierId = supplier1.Id };
-        var invOil = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "Pure Sunflower Cooking Oil (5L Tin)", Category = "FOOD_RAW", Sku = "RES-FNB-302", CurrentStock = 20, MinThreshold = 8, Unit = "tins", CostPerUnit = 14.5, SupplierId = supplier1.Id };
+        // Purchase-Only items (TrackStock = false): ingredients, equipment, supplies (purchase history only, no stock balance)
+        var inv1 = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Egyptian Cotton King Sheet Sets (800 TC)", Category = "LINEN", Sku = "HOT-LIN-101", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "sets", CostPerUnit = 85.0 };
+        var inv2 = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Hermès Paris Eau d'Orange Verte Shampoo (80ml)", Category = "TOILETRIES", Sku = "HOT-TOI-204", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "bottles", CostPerUnit = 6.2, SupplierId = supplier2.Id };
+        var invTowel = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Plush Turkish Cotton Bath Towels", Category = "LINEN", Sku = "HOT-LIN-102", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "pieces", CostPerUnit = 24.5 };
+        var invSoap = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Organic Guest Amenities Bath Soap Bars", Category = "TOILETRIES", Sku = "HOT-TOI-205", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "pieces", CostPerUnit = 2.8, SupplierId = supplier2.Id };
+        var invCleaning = new InventoryItem { HotelId = hotelId, Department = "HOTEL", Name = "Multi-Surface Disinfectant Concentrate (5L)", Category = "CLEANING_SUPPLIES", Sku = "HOT-CLN-301", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "bottles", CostPerUnit = 28.0 };
 
-        _db.InventoryItems.AddRange(inv1, inv2, invTowel, invSoap, invCleaning, invHotelWater, inv3, invWater, invBeer, invSugar, invFlour, invOil);
+        var inv3 = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "A5 Miyazaki Wagyu Striploin Loins (Whole)", Category = "FOOD_RAW", Sku = "RES-FNB-301", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "kg", CostPerUnit = 140.0, SupplierId = supplier1.Id };
+        var invSugar = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "Refined White Cane Sugar (25kg Bag)", Category = "PANTRY", Sku = "RES-PAN-101", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "kg", CostPerUnit = 1.6, SupplierId = supplier1.Id };
+        var invFlour = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "Unbleached Premium Wheat Baking Flour", Category = "PANTRY", Sku = "RES-PAN-102", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "kg", CostPerUnit = 1.4, SupplierId = supplier1.Id };
+        var invOil = new InventoryItem { HotelId = hotelId, Department = "RESTAURANT", Name = "Pure Sunflower Cooking Oil (5L Tin)", Category = "FOOD_RAW", Sku = "RES-FNB-302", TrackStock = false, CurrentStock = 0, MinThreshold = 0, Unit = "tins", CostPerUnit = 14.5, SupplierId = supplier1.Id };
+
+        _db.InventoryItems.AddRange(invHotelWater, invWater, invBeer, inv1, inv2, invTowel, invSoap, invCleaning, inv3, invSugar, invFlour, invOil);
         await _db.SaveChangesAsync();
 
-        pBurger.InventoryItemId = inv3.Id;
-        pBurger.TrackStock = true;
-        pBurger.Stock = 15;
+        // Resale product linkages
+        var pBeer = new POSProduct { HotelId = hotelId, Outlet = "RESTAURANT", Category = "Beverages", Name = "Heineken Premium Lager Beer (330ml Can)", Description = "Chilled premium lager beer can", Price = 8.5, Stock = 144, TrackStock = true, InventoryItemId = invBeer.Id };
+        var pWater = new POSProduct { HotelId = hotelId, Outlet = "RESTAURANT", Category = "Beverages", Name = "San Pellegrino Sparkling Water (750ml)", Description = "Italian sparkling mineral water bottle", Price = 6.0, Stock = 110, TrackStock = true, InventoryItemId = invWater.Id };
+        _db.POSProducts.AddRange(pBeer, pWater);
         await _db.SaveChangesAsync();
 
-        _db.StockMovements.Add(new StockMovement { ItemId = inv3.Id, Department = "RESTAURANT", Quantity = -2, Type = "POS_CONSUMPTION", Reason = "Dinner service orders ORD-1048 & ORD-1045", PerformedBy = "Chef Jean-Pierre" });
+        _db.StockMovements.Add(new StockMovement { ItemId = invBeer.Id, Department = "RESTAURANT", Quantity = 144, PreviousBalance = 0, ResultingBalance = 144, Type = "PURCHASE", Reason = "Initial stock purchase", PerformedBy = "Purchasing Officer" });
         _db.StockMovements.Add(new StockMovement { ItemId = invHotelWater.Id, Department = "HOTEL", Quantity = -12, Type = "HOUSEKEEPING_USAGE", Reason = "Daily room minibar restock Floor 3", PerformedBy = "Housekeeping Staff" });
 
         // 11. Seed Finance

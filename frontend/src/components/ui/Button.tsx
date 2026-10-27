@@ -23,15 +23,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     // - Outline: Transparent border #DCE3DF, text #4A6B5D
     // - Ghost: Transparent, hover #F2F6F4, text #4A6B5D
     const variants = {
-      primary: 'bg-[#0B3D32] hover:bg-[#093027] active:bg-[#06241D] text-white font-semibold shadow-xs border border-[#0B3D32] focus:ring-3 focus:ring-[#0B3D32]/25 dark:bg-emerald-600 dark:hover:bg-emerald-500',
-      brand: 'bg-[#0B3D32] hover:bg-[#093027] active:bg-[#06241D] text-white font-semibold shadow-xs border border-[#0B3D32] focus:ring-3 focus:ring-[#0B3D32]/25 dark:bg-emerald-600 dark:hover:bg-emerald-500',
+      primary: 'bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)] text-white font-semibold shadow-xs border border-[var(--brand-primary)] focus:ring-3 focus:ring-[var(--brand-ring)]/25',
+      brand: 'bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)] text-white font-semibold shadow-xs border border-[var(--brand-primary)] focus:ring-3 focus:ring-[var(--brand-ring)]/25',
       destructive: 'bg-[#A51F36] hover:bg-[#8E1B2F] active:bg-[#731526] text-white font-semibold shadow-xs border border-[#A51F36] focus:ring-3 focus:ring-[#A51F36]/25 dark:bg-rose-700 dark:hover:bg-rose-600',
       danger: 'bg-[#A51F36] hover:bg-[#8E1B2F] active:bg-[#731526] text-white font-semibold shadow-xs border border-[#A51F36] focus:ring-3 focus:ring-[#A51F36]/25 dark:bg-rose-700 dark:hover:bg-rose-600',
       warning: 'bg-[#92400E] hover:bg-[#78350F] active:bg-[#5B2808] text-white font-semibold shadow-xs border border-[#92400E] focus:ring-3 focus:ring-[#92400E]/25 dark:bg-amber-600 dark:hover:bg-amber-500',
       gold: 'bg-[#92400E] hover:bg-[#78350F] active:bg-[#5B2808] text-white font-semibold shadow-xs border border-[#92400E] focus:ring-3 focus:ring-[#92400E]/25 dark:bg-amber-600 dark:hover:bg-amber-500',
-      secondary: 'bg-white hover:bg-[#F2F6F4] active:bg-[#E5EEE9] text-[#24352F] border border-[#DCE3DF] shadow-2xs focus:ring-3 focus:ring-[#0B3D32]/20 dark:bg-[#071F1A] dark:hover:bg-[#093027] dark:text-[#E2E8F0] dark:border-[#145447]',
-      outline: 'bg-transparent hover:bg-[#F2F6F4] active:bg-[#E5EEE9] text-[#4A6B5D] hover:text-[#24352F] border border-[#DCE3DF] focus:ring-3 focus:ring-[#0B3D32]/20 dark:border-[#145447] dark:text-[#A4B8AE] dark:hover:bg-[#093027]',
-      ghost: 'bg-transparent hover:bg-[#F2F6F4] active:bg-[#E5EEE9] text-[#4A6B5D] hover:text-[#24352F] focus:ring-2 focus:ring-[#0B3D32]/20 dark:text-[#A4B8AE] dark:hover:bg-[#093027] dark:hover:text-white',
+      secondary: 'bg-white hover:bg-[#F2F6F4] active:bg-[#E5EEE9] text-[#24352F] border border-[#DCE3DF] shadow-2xs focus:ring-3 focus:ring-[var(--brand-ring)]/20 dark:bg-[#071F1A] dark:hover:bg-[#093027] dark:text-[#E2E8F0] dark:border-[#145447]',
+      outline: 'bg-transparent hover:bg-[#F2F6F4] active:bg-[#E5EEE9] text-[#4A6B5D] hover:text-[var(--brand-primary)] border border-[#DCE3DF] focus:ring-3 focus:ring-[var(--brand-ring)]/20 dark:border-[#145447] dark:text-[#A4B8AE] dark:hover:bg-[#093027]',
+      ghost: 'bg-transparent hover:bg-[#F2F6F4] active:bg-[#E5EEE9] text-[#4A6B5D] hover:text-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-ring)]/20 dark:text-[#A4B8AE] dark:hover:bg-[#093027] dark:hover:text-white',
     };
 
     // Consistent heights: 36px compact (sm), 40px standard (md), 44-48px touch (lg)

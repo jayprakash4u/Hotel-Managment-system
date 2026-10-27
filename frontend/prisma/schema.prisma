@@ -286,6 +286,7 @@ model InventoryItem {
   name          String
   category      String          // LINEN, TOILETRIES, BEVERAGES, FOOD_RAW, CLEANING_SUPPLIES, MINIBAR
   sku           String          @default(cuid())
+  trackStock    Boolean         @default(true)
   currentStock  Int
   minThreshold  Int
   unit          String          // pieces, bottles, kg, boxes, sets

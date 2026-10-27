@@ -6,11 +6,13 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Table2,
+  CalendarCheck,
   Receipt,
   ChefHat,
   UtensilsCrossed,
   Boxes,
   Zap,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -36,63 +38,83 @@ export const RESTAURANT_MANAGEMENT_OPTIONS: RestaurantManagementSubOption[] = [
   },
   {
     id: 'quick-sale',
-    name: 'Quick Sale',
+    name: 'Quick Bill',
     href: '/quick-sale',
     icon: Zap,
     iconColor: 'text-amber-500 dark:text-amber-400',
     tag: 'POS',
-    badge: 'Counter Sale',
+    badge: 'Quick Sale',
     description: 'Fast walk-in counter sales, takeaway & instant billing',
   },
   {
     id: 'tables',
-    name: 'Tables',
+    name: 'Table Board',
     href: '/tables',
     icon: Table2,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
-    tag: 'SEATING',
-    badge: 'Floor Layout',
-    description: 'Floor layout, seating status & reservations',
+    tag: 'TABLES',
+    badge: 'Live Floor',
+    description: 'Dining tables, seating status & live table cards',
+  },
+  {
+    id: 'reservations',
+    name: 'Table Reservations',
+    href: '/tables?tab=RESERVATIONS',
+    icon: CalendarCheck,
+    iconColor: 'text-sky-600 dark:text-sky-400',
+    tag: 'BOOKING',
+    badge: 'Advance',
+    description: 'Advance dining reservations & guest seating',
   },
   {
     id: 'orders',
-    name: 'Active Orders',
+    name: 'Orders',
     href: '/tables?tab=ACTIVE_ORDERS',
     icon: Receipt,
     iconColor: 'text-indigo-600 dark:text-indigo-400',
     tag: 'ORDERS',
     badge: 'Live Queue',
-    description: 'Table, No-Table & Takeaway active orders & billing',
+    description: 'Table, walk-in & takeaway active orders & billing',
   },
   {
     id: 'kitchen',
-    name: 'Kitchen',
+    name: 'Kitchen Display',
     href: '/restaurant-management?section=kitchen',
     icon: ChefHat,
     iconColor: 'text-amber-600 dark:text-amber-400',
     tag: 'KDS',
-    badge: 'Kitchen Display',
+    badge: 'Prep Queue',
     description: 'Kitchen Display System (KDS) & chef prep queue',
   },
   {
     id: 'menu',
-    name: 'Our Menu',
+    name: 'Menu',
     href: '/menu',
     icon: UtensilsCrossed,
     iconColor: 'text-rose-600 dark:text-rose-400',
-    tag: 'MENU',
-    badge: 'Dishes & Rates',
+    tag: 'CATALOG',
+    badge: 'Dishes',
     description: 'Food & beverage catalog, recipes & portion rates',
   },
   {
     id: 'inventory',
-    name: 'Restaurant Stock',
-    href: '/inventory?dept=RESTAURANT',
+    name: 'Restaurant Inventory',
+    href: '/inventory?filter=restaurant',
     icon: Boxes,
     iconColor: 'text-cyan-600 dark:text-cyan-400',
     tag: 'STOCK',
     badge: 'Supplies',
     description: 'Kitchen raw materials, pantry & reorder levels',
+  },
+  {
+    id: 'billing',
+    name: 'Bills & Invoices',
+    href: '/billing',
+    icon: FileText,
+    iconColor: 'text-emerald-700 dark:text-emerald-400',
+    tag: 'SHARED',
+    badge: 'Invoicing',
+    description: 'Shared billing history, invoices & settlements',
   },
 ];
 
@@ -105,17 +127,18 @@ export const RestaurantManagementNavBoxes: React.FC<{
 
   return (
     <div className={cn('select-none', className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2 sm:gap-2.5">
         {RESTAURANT_MANAGEMENT_OPTIONS.map((item) => {
           const Icon = item.icon;
           const isActive =
             activeId === item.id ||
             pathname === item.href ||
             (item.id === 'quick-sale' && pathname.startsWith('/quick-sale')) ||
-            (item.id === 'tables' && pathname.startsWith('/tables')) ||
+            (item.id === 'tables' && pathname === '/tables') ||
             (item.id === 'orders' && (pathname.startsWith('/cafe') || pathname.startsWith('/add-order'))) ||
             (item.id === 'menu' && pathname.startsWith('/menu')) ||
             (item.id === 'inventory' && pathname.startsWith('/inventory')) ||
+            (item.id === 'billing' && pathname.startsWith('/billing')) ||
             (item.id === 'dashboard' && pathname === '/');
 
           const handleClick = () => {

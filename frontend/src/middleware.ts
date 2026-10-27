@@ -3,9 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Direct access: redirect legacy login pages and separate panels straight to the unified admin dashboard
+  // Direct access: redirect legacy separate portals straight to the unified admin dashboard
   if (
-    pathname === '/login' ||
     pathname.startsWith('/platform') ||
     pathname.startsWith('/portal')
   ) {

@@ -20,13 +20,13 @@ export interface FinanceSubOption {
 export const FINANCE_SUB_OPTIONS: FinanceSubOption[] = [
   {
     id: 'billing',
-    name: 'Billing & Payments',
-    href: '/finance?tab=folios',
+    name: 'Bills & Invoices',
+    href: '/billing',
     icon: Receipt,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
-    tag: 'FOLIOS',
-    badge: 'Invoices & POS',
-    description: 'Guest invoices, room folios & settlements',
+    tag: 'BILLS',
+    badge: 'Hotel & Restaurant',
+    description: 'Central billing, guest invoices, receipts & settlements',
   },
   {
     id: 'expenses',
