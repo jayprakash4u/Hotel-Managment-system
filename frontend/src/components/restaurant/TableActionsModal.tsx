@@ -113,7 +113,7 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
   // Business Rules Checks
   const canStartOrder = isAvailable && isClean && !isReserved && !isOutOfService;
   const canSeatGuests = (isReserved || !!activeRes) && isClean && !isOutOfService;
-  const canBookTable = !isOutOfService;
+  const canBookTable = !isOutOfService && !isReserved && !activeRes;
   const canMarkClean = !isOccupied;
 
   const handleMarkDirty = () => {
@@ -335,7 +335,7 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                       {showReservationActions &&
                         renderOptionRow({
                           icon: Calendar,
-                          label: 'Book Table',
+                          label: 'Book Now',
                           disabled: !canBookTable,
                           onClick: () => {
                             onClose();

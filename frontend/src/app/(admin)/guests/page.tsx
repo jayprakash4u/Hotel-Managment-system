@@ -96,11 +96,11 @@ export default function GuestDirectoryPage() {
       {/* Header & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
         <div>
-          <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Contact className="w-4 h-4 text-teal-600" />
+          <h2 className="text-sm sm:text-base font-bold text-body dark:text-body flex items-center gap-2">
+            <Contact className="w-4 h-4 text-info" />
             Guest Directory ({guestList.length} Registered Guests)
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-muted dark:text-muted mt-0.5">
             Profiles, loyalty history, and contact records for all hotel guests.
           </p>
         </div>
@@ -111,8 +111,8 @@ export default function GuestDirectoryPage() {
             className={cn(
               'px-2.5 py-1.5 text-xs font-semibold rounded border transition-colors whitespace-nowrap',
               vipOnly
-                ? 'border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
-                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                ? 'border-warning bg-warning-subtle text-warning dark:bg-warning-subtle dark:text-warning'
+                : 'border-border-default dark:border-border-default text-muted dark:text-muted hover:bg-surface-muted'
             )}
           >
             VIP Guests Only

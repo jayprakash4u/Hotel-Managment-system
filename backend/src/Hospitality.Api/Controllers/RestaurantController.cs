@@ -1193,6 +1193,16 @@ public class RestaurantController : ControllerBase
             .OrderBy(t => t.TableNumber)
             .ToListAsync();
 
+        foreach (var t in tables)
+        {
+            var hasActiveOrder = t.Orders.Any(o => o.Status != "COMPLETED" && o.Status != "CANCELLED");
+            var hasActiveRes = t.Reservations.Any(r => r.Status == "CONFIRMED" || r.Status == "PENDING");
+            if (!hasActiveOrder && hasActiveRes && (t.Status == "FREE" || t.Status == "AVAILABLE"))
+            {
+                t.Status = "RESERVED";
+            }
+        }
+
         return Ok(ApiResponse.Ok(tables));
     }
 
@@ -1357,7 +1367,7 @@ public class RestaurantController : ControllerBase
         string CustomerName,
         string PhoneNumber,
         DateTime ReservationDate,
-        string ReservationTime,
+        string? ReservationTime,
         int? PartySize,
         int? DurationMinutes,
         string? TableId,
@@ -1599,15 +1609,12 @@ public class RestaurantController : ControllerBase
             return BadRequest(ApiResponse.Fail("Phone number is required for reservations."));
         }
 
-        if (string.IsNullOrWhiteSpace(req.ReservationTime))
-        {
-            return BadRequest(ApiResponse.Fail("Reservation time is required."));
-        }
+        var timeStr = string.IsNullOrWhiteSpace(req.ReservationTime) ? "19:00" : req.ReservationTime.Trim();
 
         var guests = req.PartySize.HasValue && req.PartySize.Value > 0 ? req.PartySize.Value : 2;
         var duration = req.DurationMinutes.HasValue && req.DurationMinutes.Value > 0 ? req.DurationMinutes.Value : 120;
         var resDate = DateTime.SpecifyKind(req.ReservationDate.Date, DateTimeKind.Utc);
-        var targetStart = ParseReservationDateTime(resDate, req.ReservationTime);
+        var targetStart = ParseReservationDateTime(resDate, timeStr);
 
         using var transaction = await _db.Database.BeginTransactionAsync();
         try
@@ -1668,7 +1675,7 @@ public class RestaurantController : ControllerBase
                 CustomerName = req.CustomerName.Trim(),
                 PhoneNumber = cleanPhone,
                 ReservationDate = resDate,
-                ReservationTime = req.ReservationTime.Trim(),
+                ReservationTime = timeStr,
                 PartySize = guests,
                 DurationMinutes = duration,
                 Status = status,
@@ -1680,6 +1687,16 @@ public class RestaurantController : ControllerBase
             };
 
             _db.TableReservations.Add(reservation);
+
+            // Mark table as RESERVED if not already occupied
+            if (table != null && (status == "CONFIRMED" || status == "PENDING"))
+            {
+                if (table.Status == "FREE" || table.Status == "AVAILABLE")
+                {
+                    table.Status = "RESERVED";
+                }
+            }
+
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -1762,6 +1779,16 @@ public class RestaurantController : ControllerBase
             if (req.InternalNotes != null) res.InternalNotes = req.InternalNotes;
             if (!string.IsNullOrWhiteSpace(req.Status)) res.Status = req.Status.ToUpper().Trim();
 
+            // Cancel any active alerts if reservation was rescheduled or cancelled
+            var activeAlertsToCancel = await _db.ReservationAlerts
+                .Where(a => a.ReservationId == res.Id && a.Status == "ACTIVE")
+                .ToListAsync();
+            foreach (var a in activeAlertsToCancel)
+            {
+                a.Status = "CANCELLED";
+                a.UpdatedAt = DateTime.UtcNow;
+            }
+
             res.UpdatedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
@@ -1793,6 +1820,44 @@ public class RestaurantController : ControllerBase
             res.InternalNotes = string.IsNullOrWhiteSpace(res.InternalNotes)
                 ? req.Notes
                 : $"{res.InternalNotes} | {req.Notes}";
+        }
+
+        // Cancel pending alerts if reservation is cancelled, no-show, or completed
+        if (newStatus == "CANCELLED" || newStatus == "NO_SHOW" || newStatus == "COMPLETED")
+        {
+            var activeAlerts = await _db.ReservationAlerts
+                .Where(a => a.ReservationId == res.Id && a.Status == "ACTIVE")
+                .ToListAsync();
+            foreach (var a in activeAlerts)
+            {
+                a.Status = "CANCELLED";
+                a.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        // Release or reserve table based on reservation status change
+        if (!string.IsNullOrWhiteSpace(res.TableId))
+        {
+            var table = await _db.RestaurantTables.FindAsync(res.TableId);
+            if (table != null)
+            {
+                if (newStatus == "CANCELLED" || newStatus == "NO_SHOW" || newStatus == "COMPLETED")
+                {
+                    var otherActiveRes = await _db.TableReservations
+                        .AnyAsync(r => r.TableId == table.Id && r.Id != res.Id && (r.Status == "CONFIRMED" || r.Status == "PENDING"));
+                    var hasActiveOrder = await _db.RestaurantOrders
+                        .AnyAsync(o => o.TableId == table.Id && o.Status != "COMPLETED" && o.Status != "CANCELLED");
+
+                    if (!otherActiveRes && !hasActiveOrder && table.Status == "RESERVED")
+                    {
+                        table.Status = "FREE";
+                    }
+                }
+                else if ((newStatus == "CONFIRMED" || newStatus == "PENDING") && table.Status == "FREE")
+                {
+                    table.Status = "RESERVED";
+                }
+            }
         }
 
         await _db.SaveChangesAsync();
@@ -1887,6 +1952,20 @@ public class RestaurantController : ControllerBase
             }
 
             res.OrderId = order.Id;
+
+            // Acknowledge any active table preparation or overdue alerts
+            var activeAlerts = await _db.ReservationAlerts
+                .Where(a => a.ReservationId == res.Id && a.Status == "ACTIVE")
+                .ToListAsync();
+            foreach (var a in activeAlerts)
+            {
+                a.Status = "ACKNOWLEDGED";
+                a.IsRead = true;
+                a.AcknowledgedBy = !string.IsNullOrWhiteSpace(req?.ServerName) ? req.ServerName : "Staff (Seated)";
+                a.AcknowledgedAt = DateTime.UtcNow;
+                a.UpdatedAt = DateTime.UtcNow;
+            }
+
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -2255,6 +2334,16 @@ public class RestaurantController : ControllerBase
         var upiSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "UPI" || (o.PaymentMethod ?? "").ToUpper() == "QR").Sum(o => o.Total), 2);
         var roomFolioSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "ROOM_FOLIO").Sum(o => o.Total), 2);
 
+        var recentOrdersList = orders.Count > 0 
+            ? orders.Take(30).ToList() 
+            : await _db.RestaurantOrders
+                .Include(o => o.Items)
+                .Include(o => o.Table)
+                .Where(o => o.IsPaid)
+                .OrderByDescending(o => o.CreatedAt)
+                .Take(30)
+                .ToListAsync();
+
         return Ok(ApiResponse.Ok(new
         {
             date = targetDate.ToString("yyyy-MM-dd"),
@@ -2276,21 +2365,143 @@ public class RestaurantController : ControllerBase
                 upiSales,
                 roomFolioSales
             },
-            recentOrders = orders.Take(30).Select(o => new
+            RecentOrders = recentOrdersList.Select(o => new
             {
-                id = o.Id,
-                orderNumber = o.OrderNumber,
-                kotNumber = o.KotNumber,
-                orderType = o.OrderType,
-                tableNumber = o.Table?.TableNumber,
-                status = o.Status,
-                serverName = o.ServerName,
-                total = o.Total,
-                paymentMethod = o.PaymentMethod,
-                itemCount = o.Items.Sum(i => i.Quantity),
-                createdAt = o.CreatedAt
+                Id = o.Id,
+                OrderNumber = o.OrderNumber,
+                KotNumber = o.KotNumber,
+                OrderType = o.OrderType,
+                TableNumber = o.Table?.TableNumber,
+                Status = o.Status,
+                ServerName = o.ServerName,
+                Total = o.Total,
+                PaymentMethod = o.PaymentMethod,
+                ItemCount = o.Items.Sum(i => i.Quantity),
+                Items = o.Items.Select(i => new
+                {
+                    ProductName = i.ProductName,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    Total = i.Total,
+                    Notes = i.Notes
+                }),
+                CreatedAt = o.CreatedAt
             })
         }));
+    }
+
+    public record AcknowledgeAlertRequest(string? StaffName, string? Notes);
+
+    [HttpGet("api/restaurant/alerts")]
+    public async Task<IActionResult> GetReservationAlerts(
+        [FromQuery] bool? activeOnly,
+        [FromQuery] string? status,
+        [FromQuery] string? tableId,
+        [FromQuery] string? role)
+    {
+        var query = _db.ReservationAlerts
+            .Include(a => a.Reservation)
+            .Include(a => a.Table)
+            .AsQueryable();
+
+        if (activeOnly != false)
+        {
+            query = query.Where(a => a.Status == "ACTIVE");
+        }
+        else if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(a => a.Status.ToUpper() == status.ToUpper());
+        }
+
+        if (!string.IsNullOrWhiteSpace(tableId))
+        {
+            query = query.Where(a => a.TableId == tableId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            var rUpper = role.ToUpper();
+            if (rUpper != "MANAGER" && rUpper != "ADMIN")
+            {
+                query = query.Where(a => a.TargetRoles.ToUpper().Contains(rUpper));
+            }
+        }
+
+        var alerts = await query
+            .OrderByDescending(a => a.Severity == "DANGER")
+            .ThenByDescending(a => a.Severity == "WARNING")
+            .ThenByDescending(a => a.TriggeredAt ?? a.ScheduledFor)
+            .Take(50)
+            .Select(a => new
+            {
+                id = a.Id,
+                hotelId = a.HotelId,
+                reservationId = a.ReservationId,
+                reservationCode = a.Reservation != null ? a.Reservation.ReservationCode : "",
+                customerName = a.Reservation != null ? a.Reservation.CustomerName : "",
+                phoneNumber = a.Reservation != null ? a.Reservation.PhoneNumber : "",
+                partySize = a.Reservation != null ? a.Reservation.PartySize : 2,
+                reservationTime = a.Reservation != null ? a.Reservation.ReservationTime : "",
+                reservationDate = a.Reservation != null ? a.Reservation.ReservationDate : (DateTime?)null,
+                tableId = a.TableId,
+                tableNumber = a.Table != null ? a.Table.TableNumber : "",
+                section = a.Table != null ? a.Table.Section : "",
+                tableCleaningStatus = a.Table != null ? a.Table.CleaningStatus : "CLEAN",
+                tableStatus = a.Table != null ? a.Table.Status : "FREE",
+                alertType = a.AlertType,
+                scheduledFor = a.ScheduledFor,
+                triggeredAt = a.TriggeredAt,
+                status = a.Status,
+                severity = a.Severity,
+                title = a.Title,
+                message = a.Message,
+                targetRoles = a.TargetRoles,
+                isRead = a.IsRead,
+                acknowledgedBy = a.AcknowledgedBy,
+                acknowledgedAt = a.AcknowledgedAt,
+                createdAt = a.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse.Ok(alerts));
+    }
+
+    [HttpPatch("api/restaurant/alerts/{id}/acknowledge")]
+    [HttpPost("api/restaurant/alerts/{id}/acknowledge")]
+    public async Task<IActionResult> AcknowledgeAlert(string id, [FromBody] AcknowledgeAlertRequest? req)
+    {
+        var alert = await _db.ReservationAlerts.FindAsync(id);
+        if (alert == null)
+        {
+            return NotFound(ApiResponse.Fail($"Alert '{id}' not found."));
+        }
+
+        alert.Status = "ACKNOWLEDGED";
+        alert.IsRead = true;
+        alert.AcknowledgedBy = !string.IsNullOrWhiteSpace(req?.StaffName) ? req.StaffName : "Staff";
+        alert.AcknowledgedAt = DateTime.UtcNow;
+        alert.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(alert, "Alert acknowledged successfully."));
+    }
+
+    [HttpPatch("api/restaurant/alerts/{id}/dismiss")]
+    [HttpPost("api/restaurant/alerts/{id}/dismiss")]
+    public async Task<IActionResult> DismissAlert(string id)
+    {
+        var alert = await _db.ReservationAlerts.FindAsync(id);
+        if (alert == null)
+        {
+            return NotFound(ApiResponse.Fail($"Alert '{id}' not found."));
+        }
+
+        alert.Status = "DISMISSED";
+        alert.IsRead = true;
+        alert.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(alert, "Alert dismissed."));
     }
 }
 

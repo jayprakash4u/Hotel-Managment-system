@@ -81,7 +81,7 @@ export default function QuickSalePage() {
   >([]);
 
   // Setted Menu Catalog (Menu items + POS Products)
-  const [menuCatalog, setMenuCatalog] = useState<MenuItemCatalogEntry[]>([]);
+  const [menuCatalog, setMenuCatalog] = useState<MenuItemCatalogEntry[]>(() => getSettedMenuItems());
   const [posProducts, setPosProducts] = useState<POSProductData[]>([]);
 
   // Dedicated Billing Panel State (matching user reference screenshot)
@@ -101,19 +101,6 @@ export default function QuickSalePage() {
   const [customerNameInput, setCustomerNameInput] = useState<string>('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState<string>('');
 
-  // Category filter state for touch-friendly menu browsing
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-
-  const categories = useMemo(() => {
-    return ['ALL', ...Array.from(new Set(menuCatalog.map((m) => m.category).filter(Boolean)))];
-  }, [menuCatalog]);
-
-  const categoryFilteredItems = useMemo(() => {
-    if (selectedCategory === 'ALL') {
-      return menuCatalog.slice(0, 18);
-    }
-    return menuCatalog.filter((m) => m.category === selectedCategory);
-  }, [menuCatalog, selectedCategory]);
 
   // Charge to Room Verification State (for hotel guests at counter)
   const [roomNumberInput, setRoomNumberInput] = useState<string>('');
@@ -135,6 +122,25 @@ export default function QuickSalePage() {
   const [dailySales, setDailySales] = useState<DailySalesSummaryData | null>(null);
   const [isDailySalesModalOpen, setIsDailySalesModalOpen] = useState<boolean>(false);
   const [isLoadingDailySales, setIsLoadingDailySales] = useState<boolean>(false);
+
+  // In-Page Recent Bills Table State
+  const [showRecentBills, setShowRecentBills] = useState<boolean>(false);
+  const [localRecentOrders, setLocalRecentOrders] = useState<any[]>([]);
+  const recentBillsRef = useRef<HTMLDivElement>(null);
+
+  // Load cached recent bills from localStorage on mount
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('hotel_recent_quick_bills');
+        if (stored) {
+          setLocalRecentOrders(JSON.parse(stored));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read cached quick bills', e);
+    }
+  }, []);
 
   // Generate a clean fresh order ticket
   const generateNewOrderNumber = () => {
@@ -191,29 +197,119 @@ export default function QuickSalePage() {
     loadDailySales();
   }, []);
 
+  const [dbOrders, setDbOrders] = useState<any[]>([]);
+
   const loadDailySales = async () => {
     setIsLoadingDailySales(true);
     try {
-      const data = await api.getDailySales();
-      if (data) {
-        setDailySales(data);
+      const [salesRes, ordersRes] = await Promise.allSettled([
+        api.getDailySales(),
+        api.getRestaurantOrders({ orderType: 'COUNTER_SALE,TAKEAWAY' }),
+      ]);
+
+      if (salesRes.status === 'fulfilled' && salesRes.value) {
+        setDailySales(salesRes.value);
+      }
+      if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value)) {
+        setDbOrders(ordersRes.value);
       }
     } catch (err) {
-      console.warn('Could not load daily sales summary', err);
+      console.warn('Could not load daily sales or orders from database', err);
     } finally {
       setIsLoadingDailySales(false);
     }
   };
 
+  // Combine and sort recent bills from database API (dailySales + restaurant orders) and local storage
+  const allRecentBills = useMemo(() => {
+    const apiOrders = dailySales?.recentOrders || [];
+    const map = new Map<string, any>();
+
+    // 1. Direct database orders
+    dbOrders.forEach((o) => {
+      if (o && o.orderNumber) {
+        map.set(o.orderNumber, {
+          ...o,
+          itemCount: o.itemCount || (o.items ? o.items.reduce((s: number, i: any) => s + (i.quantity || 1), 0) : 1),
+        });
+      }
+    });
+
+    // 2. Daily sales recent orders
+    apiOrders.forEach((o) => {
+      if (o && o.orderNumber && !map.has(o.orderNumber)) {
+        map.set(o.orderNumber, o);
+      }
+    });
+
+    // 3. Local recent orders cache
+    localRecentOrders.forEach((o) => {
+      if (o && o.orderNumber && !map.has(o.orderNumber)) {
+        map.set(o.orderNumber, o);
+      }
+    });
+
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  }, [dailySales, dbOrders, localRecentOrders]);
+
+  // Toggle in-page recent bills table and smooth scroll
+  const handleToggleRecentBills = () => {
+    setShowRecentBills((prev) => {
+      const next = !prev;
+      if (next) {
+        loadDailySales();
+        setTimeout(() => {
+          recentBillsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+      return next;
+    });
+  };
+
+  // View / Print receipt from recent bills row
+  const handleViewRecentBillReceipt = (ord: any) => {
+    if (ord.receiptData) {
+      setReceiptData(ord.receiptData);
+    } else {
+      setReceiptData({
+        isOpen: true,
+        onClose: () => setIsReceiptModalOpen(false),
+        orderNumber: ord.orderNumber,
+        receiptNumber: `REC-${ord.orderNumber.replace('QS-', '').replace('ORD-', '')}`,
+        orderType: ord.orderType || 'COUNTER_SALE',
+        tableNumber: ord.tableNumber || null,
+        seatingNote: ord.tableNumber ? `Table ${ord.tableNumber}` : 'Counter Takeaway',
+        createdAt: ord.createdAt || new Date().toISOString(),
+        serverName: ord.serverName || 'Counter Staff',
+        customerName: 'Walk-in Customer',
+        items: ord.items || [{ productName: 'Order Items', quantity: ord.itemCount || 1, unitPrice: ord.total, total: ord.total }],
+        subtotal: ord.total,
+        discountAmount: 0,
+        tax: 0,
+        serviceCharge: 0,
+        total: ord.total,
+        paidAmount: ord.total,
+        changeDue: 0,
+        paymentMethod: ord.paymentMethod || 'Cash',
+        paymentStatus: 'PAID',
+      });
+    }
+    setIsReceiptModalOpen(true);
+  };
+
   // Filtered autocomplete suggestions for the main search bar
   const suggestions = useMemo(() => {
+    const catalogList = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
     const q = orderProductName.toLowerCase().trim();
     if (!q) {
-      return menuCatalog;
+      return catalogList;
     }
-    return menuCatalog.filter((item) => {
+    return catalogList.filter((item) => {
       return (
         item.name.toLowerCase().includes(q) ||
+        (item.baseName && item.baseName.toLowerCase().includes(q)) ||
         item.code.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q)
       );
@@ -323,7 +419,7 @@ export default function QuickSalePage() {
   const handleAddNewDraftRow = () => {
     const newId = `draft-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     setDraftRows((prev) => [
-      ...prev,
+      ...prev.map((d) => ({ ...d, isOpen: false })),
       { id: newId, search: '', isOpen: true, selectedIndex: 0 },
     ]);
   };
@@ -582,6 +678,32 @@ export default function QuickSalePage() {
 
       // Refresh daily sales
       await loadDailySales();
+
+      // Immediately cache in local recent orders for instant in-table display
+      const newRecentRecord = {
+        id: `bill-${Date.now()}`,
+        orderNumber: savedOrderNumber,
+        orderType: 'COUNTER_SALE',
+        tableNumber: undefined,
+        status: 'PAID',
+        serverName: 'Counter Cashier',
+        total: netAmount,
+        paymentMethod: billMode,
+        itemCount: cart.reduce((s, i) => s + i.quantity, 0),
+        items: receiptProps.items,
+        receiptData: receiptProps,
+        createdAt: new Date().toISOString(),
+      };
+
+      setLocalRecentOrders((prev) => {
+        const updated = [newRecentRecord, ...prev.filter((o) => o.orderNumber !== savedOrderNumber)].slice(0, 50);
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('hotel_recent_quick_bills', JSON.stringify(updated));
+          }
+        } catch {}
+        return updated;
+      });
     } catch (err: any) {
       toast.error('Sale Failed', err.message || 'Error occurred while completing counter sale.');
     } finally {
@@ -610,53 +732,15 @@ export default function QuickSalePage() {
       {/* =======================================================================
           TOP SERVICE & CUSTOMER INFORMATION STRIP (MATCHING TABLE ORDER PAGE)
           ======================================================================= */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[3px] bg-[#FAFBF9] dark:bg-[#07241E] border border-[#DCE3DF] dark:border-[#145447] text-xs">
-        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-[#64736C] dark:text-[#879B90]">Service:</span>
-            <span className="rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-              Quick Sale · Counter POS (Takeaway / Walk-In)
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-[#64736C] dark:text-[#879B90]">Order No:</span>
-            <strong className="font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
-              {activeOrderNumber}
-            </strong>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-[#64736C] dark:text-[#879B90]">Customer:</span>
-            <strong className="font-bold text-[#24352F] dark:text-white">
-              {customerName.trim() || 'Walk-in Customer'}
-            </strong>
-          </div>
-
-          {customerPhone && (
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-[#64736C] dark:text-[#879B90]">Phone:</span>
-              <strong className="font-mono font-bold text-[#24352F] dark:text-white">
-                {customerPhone}
-              </strong>
-            </div>
-          )}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5 rounded-[3px] bg-[#FAFBF9] dark:bg-[#07241E] border border-[#DCE3DF] dark:border-[#145447] text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-[#64736C] dark:text-[#879B90]">Order No:</span>
+          <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400 bg-white dark:bg-[#061D18] px-2.5 py-0.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
+            {activeOrderNumber}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Customer Details Optional Edit Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setCustomerNameInput(customerName);
-              setCustomerPhoneInput(customerPhone);
-              setIsCustomerModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#071F1A] text-[11px] font-bold text-[#0B3D32] dark:text-emerald-400 hover:bg-[#FAFBF9] dark:hover:bg-[#093027] transition-colors cursor-pointer shadow-2xs"
-          >
-            <Edit2 className="w-3 h-3" />
-            <span>Customer Details (Optional)</span>
-          </button>
 
           {/* Daily Sales Quick Metric Button */}
           {dailySales && (
@@ -672,14 +756,32 @@ export default function QuickSalePage() {
             </button>
           )}
 
-          {/* Recent Bills History */}
+          {/* Recent Bills History Toggle */}
           <button
             type="button"
-            onClick={() => setIsDailySalesModalOpen(true)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] text-[#24352F] dark:text-white hover:bg-slate-50 text-[11px] font-semibold shadow-2xs cursor-pointer"
+            onClick={handleToggleRecentBills}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] text-xs font-semibold shadow-2xs cursor-pointer transition-all',
+              showRecentBills
+                ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-600 dark:border-emerald-500'
+                : 'border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] text-[#24352F] dark:text-white hover:bg-slate-50'
+            )}
+            title="Click to view recent bills history below"
           >
-            <History className="w-3 h-3 text-slate-500" />
+            <History className={cn('w-3.5 h-3.5', showRecentBills ? 'text-emerald-300' : 'text-slate-500')} />
             <span>Recent Bills</span>
+            {allRecentBills.length > 0 && (
+              <span
+                className={cn(
+                  'ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold',
+                  showRecentBills
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                )}
+              >
+                {allRecentBills.length}
+              </span>
+            )}
           </button>
 
           {/* Reset / Clear Sale Button */}
@@ -712,12 +814,13 @@ export default function QuickSalePage() {
         {/* Search Input Bar with Instant Dropdown Suggestions Below */}
         <div className="relative w-full max-w-sm sm:max-w-md">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#879B90]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#879B90] pointer-events-none z-40" />
             <input
               type="text"
               placeholder="search item & Add"
               value={orderProductName}
               onFocus={() => setIsSuggestionsOpen(true)}
+              onClick={() => setIsSuggestionsOpen(true)}
               onChange={(e) => {
                 setOrderProductName(e.target.value);
                 setIsSuggestionsOpen(true);
@@ -730,7 +833,7 @@ export default function QuickSalePage() {
                   }
                 }
               }}
-              className="w-full rounded-[3px] border border-[#DCE3DF] bg-white dark:bg-[#061D18] pl-9 pr-8 py-2.5 text-xs text-[#24352F] placeholder-[#879B90] dark:border-[#145447] dark:text-white focus:outline-none focus:border-[#0B3D32] shadow-2xs transition-colors"
+              className="relative z-40 w-full rounded-[3px] border border-[#DCE3DF] bg-white dark:bg-[#061D18] pl-9 pr-8 py-2.5 text-xs text-[#24352F] placeholder-[#879B90] dark:border-[#145447] dark:text-white focus:outline-none focus:border-[#0B3D32] shadow-2xs transition-colors"
             />
             {orderProductName && (
               <button
@@ -819,56 +922,6 @@ export default function QuickSalePage() {
         </div>
       </div>
 
-      {/* Touch-Friendly Category Filter Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-        {categories.map((cat) => {
-          const isSelected = selectedCategory === cat;
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={cn(
-                'px-3 py-1.5 rounded-[3px] text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0',
-                isSelected
-                  ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600'
-                  : 'bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] text-slate-700 dark:text-slate-300 hover:bg-slate-50'
-              )}
-            >
-              {cat === 'ALL' ? '🍽️ All Items' : cat}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Quick-Pick Menu Item Cards (Large touch-friendly for counter staff) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-        {categoryFilteredItems.slice(0, 12).map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => handleAddDirectMenuItem(item)}
-            className="group flex flex-col justify-between p-2.5 rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] hover:border-[#0B3D32] hover:shadow-xs transition-all text-left cursor-pointer min-h-[72px]"
-          >
-            <div className="min-w-0">
-              <span className="block font-bold text-xs text-[#24352F] dark:text-white group-hover:text-[#0B3D32] dark:group-hover:text-emerald-300 truncate">
-                {item.name}
-              </span>
-              <span className="text-[10px] text-slate-400 block truncate">
-                {item.portion || item.category || 'Standard'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-100 dark:border-slate-800">
-              <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400">
-                Rs. {item.price.toFixed(0)}
-              </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-[#0B3D32] dark:text-emerald-300">
-                + Add
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
 
       {/* ===================================================================
           TOP SECTION: STRUCTURED ORDER TABLE (MATCHING EXACT TABLE ORDER LAYOUT)
@@ -877,10 +930,15 @@ export default function QuickSalePage() {
       <div
         className={cn(
           'border border-slate-200 dark:border-slate-800 rounded-md bg-white dark:bg-[#071F1A] shadow-2xs transition-all',
-          draftRows.some((d) => d.isOpen) ? 'min-h-[380px] pb-32' : 'overflow-hidden'
+          draftRows.some((d) => d.isOpen) ? 'min-h-[420px] pb-44 overflow-visible' : 'overflow-hidden'
         )}
       >
-        <div className="overflow-x-auto">
+        <div
+          className={cn(
+            'w-full',
+            draftRows.some((d) => d.isOpen) ? 'overflow-visible' : 'overflow-x-auto'
+          )}
+        >
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-[#F8FAFC] dark:bg-[#061D18]">
@@ -1059,11 +1117,13 @@ export default function QuickSalePage() {
 
                   {/* Active In-Table Draft Rows (Matching Reference Design) */}
                   {draftRows.map((draft, draftIdx) => {
-                    const filteredDraftItems = menuCatalog.filter((item) => {
-                      const q = draft.search.toLowerCase().trim();
+                    const catalogList = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+                    const q = draft.search.toLowerCase().trim();
+                    const filteredDraftItems = catalogList.filter((item) => {
                       if (!q) return true;
                       return (
                         item.name.toLowerCase().includes(q) ||
+                        (item.baseName && item.baseName.toLowerCase().includes(q)) ||
                         item.category.toLowerCase().includes(q) ||
                         item.code.toLowerCase().includes(q)
                       );
@@ -1072,7 +1132,10 @@ export default function QuickSalePage() {
                     return (
                       <tr
                         key={draft.id}
-                        className="border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-[#071F1A]"
+                        className={cn(
+                          'border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-[#071F1A]',
+                          draft.isOpen && 'relative z-30'
+                        )}
                       >
                         {/* # Serial Number */}
                         <td className="py-2 px-3 text-center text-xs text-slate-400 font-mono border-r border-slate-100 dark:border-slate-800/80">
@@ -1080,8 +1143,8 @@ export default function QuickSalePage() {
                         </td>
 
                         {/* Particular Input with Green Border & Autocomplete Popover */}
-                        <td className="py-1 px-2 relative border-r border-slate-100 dark:border-slate-800/80">
-                          <div className="relative">
+                        <td className={cn('py-1 px-2 relative border-r border-slate-100 dark:border-slate-800/80', draft.isOpen && 'z-50')}>
+                          <div className={cn('relative', draft.isOpen && 'z-50')}>
                             <input
                               type="text"
                               autoFocus
@@ -1089,6 +1152,11 @@ export default function QuickSalePage() {
                               value={draft.search}
                               onChange={(e) => handleUpdateDraftSearch(draft.id, e.target.value)}
                               onFocus={() => {
+                                setDraftRows((prev) =>
+                                  prev.map((d) => (d.id === draft.id ? { ...d, isOpen: true } : d))
+                                );
+                              }}
+                              onClick={() => {
                                 setDraftRows((prev) =>
                                   prev.map((d) => (d.id === draft.id ? { ...d, isOpen: true } : d))
                                 );
@@ -1101,6 +1169,7 @@ export default function QuickSalePage() {
                                       d.id === draft.id
                                         ? {
                                             ...d,
+                                            isOpen: true,
                                             selectedIndex: Math.min(
                                               filteredDraftItems.length - 1,
                                               d.selectedIndex + 1
@@ -1114,7 +1183,7 @@ export default function QuickSalePage() {
                                   setDraftRows((prev) =>
                                     prev.map((d) =>
                                       d.id === draft.id
-                                        ? { ...d, selectedIndex: Math.max(0, d.selectedIndex - 1) }
+                                        ? { ...d, isOpen: true, selectedIndex: Math.max(0, d.selectedIndex - 1) }
                                         : d
                                     )
                                   );
@@ -1134,7 +1203,7 @@ export default function QuickSalePage() {
                                   handleRemoveDraftRow(draft.id);
                                 }
                               }}
-                              className="w-full px-2 py-1 text-xs bg-white dark:bg-[#061D18] border border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 rounded-[2px] text-slate-900 dark:text-white font-medium"
+                              className="relative z-50 w-full px-2 py-1 text-xs bg-white dark:bg-[#061D18] border border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 rounded-[2px] text-slate-900 dark:text-white font-medium shadow-xs"
                             />
 
                             {/* Popover Table Directly Under Input (Matching Reference Screenshot) */}
@@ -1148,7 +1217,7 @@ export default function QuickSalePage() {
                                     );
                                   }}
                                 />
-                                <div className="absolute left-0 top-full mt-1 z-50 w-[520px] bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 shadow-2xl rounded-[2px] overflow-hidden animate-in fade-in-0 duration-75">
+                                <div className="absolute left-0 top-full mt-1 z-50 w-[540px] max-w-[90vw] bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 shadow-2xl rounded-[4px] overflow-hidden animate-in fade-in-0 duration-75">
                                   {/* Teal Header Bar */}
                                   <div className="bg-[#00838F] text-white px-2.5 py-1.5 flex items-center text-[10px] font-bold tracking-wider uppercase select-none border-b border-[#006978]">
                                     <span className="w-44 text-left">ITEM</span>
@@ -1159,9 +1228,9 @@ export default function QuickSalePage() {
                                   </div>
 
                                   {/* Items List */}
-                                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                                  <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                                     {filteredDraftItems.length === 0 ? (
-                                      <div className="py-5 text-center text-xs text-slate-500">
+                                      <div className="py-6 text-center text-xs text-slate-500">
                                         No items found for &quot;{draft.search}&quot;
                                       </div>
                                     ) : (
@@ -1182,7 +1251,7 @@ export default function QuickSalePage() {
                                               );
                                             }}
                                             className={cn(
-                                              'px-2.5 py-1.5 flex items-center cursor-pointer transition-colors text-xs font-sans',
+                                              'px-2.5 py-2 flex items-center cursor-pointer transition-colors text-xs font-sans select-none',
                                               isSelected
                                                 ? 'bg-[#1E293B] text-white dark:bg-[#0E3B31]'
                                                 : 'hover:bg-[#1E293B] hover:text-white text-slate-800 dark:text-slate-200 bg-white dark:bg-[#071F1A]'
@@ -1194,14 +1263,14 @@ export default function QuickSalePage() {
                                             <span className="w-32 truncate text-left text-[11px] opacity-75">
                                               {item.category || '-'}
                                             </span>
-                                            <span className="w-20 font-mono text-right">
-                                              {item.price.toFixed(2)}
+                                            <span className="w-20 font-mono text-right font-medium">
+                                              Rs. {item.price.toFixed(2)}
                                             </span>
                                             <span className="w-16 text-center text-[11px] opacity-75">
-                                              {item.portion || '0'}
+                                              {item.portion || item.unit || '1'}
                                             </span>
                                             <span className="w-12 text-center font-mono opacity-75">
-                                              0
+                                              {item.stock !== undefined ? item.stock : '-'}
                                             </span>
                                           </div>
                                         );
@@ -1427,22 +1496,22 @@ export default function QuickSalePage() {
             </label>
           </div>
 
-          {/* Action Buttons: Complete Quick Sale & Settle and Print */}
-          <div className="ml-auto flex items-end gap-2.5">
+          {/* Action Buttons: Settle Payment & Settle and Print */}
+          <div className="ml-auto flex items-end gap-2">
             <button
               type="button"
               disabled={isSubmitting || cart.length === 0}
               onClick={() => handleCompleteSale(false)}
-              className="px-4 py-1.5 rounded-[4px] bg-[#28a745] hover:bg-[#218838] disabled:opacity-50 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-[3px] bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-50 text-white font-semibold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{isSubmitting ? 'Processing...' : 'Complete Quick Sale'}</span>
+              <span>{isSubmitting ? 'Processing...' : 'Settle Payment'}</span>
             </button>
             <button
               type="button"
               disabled={isSubmitting || cart.length === 0}
               onClick={() => handleCompleteSale(true)}
-              className="px-4 py-1.5 rounded-[4px] bg-[#0B3D32] hover:bg-[#082e25] disabled:opacity-50 text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 font-semibold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082e25] disabled:opacity-50 text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 font-semibold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Settle &amp; Print</span>
@@ -1508,91 +1577,175 @@ export default function QuickSalePage() {
       </div>
 
       {/* =========================================================================
-          OPTIONAL WALK-IN CUSTOMER DETAILS MODAL (MATCHING TABLE ORDER MODAL)
-          Never required for normal counter sales, but available if requested
+          RECENT BILLS & SALES HISTORY SECTION (DISPLAYED BELOW QUICK SALE FORM)
+          Clean, Simple & Professional Table Format
           ========================================================================= */}
-      {isCustomerModalOpen && (
+      {showRecentBills && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setIsCustomerModalOpen(false)}
+          ref={recentBillsRef}
+          className="rounded-[4px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-2xs overflow-hidden animate-in fade-in-50 duration-150 space-y-0"
         >
-          <div
-            className="w-full max-w-sm rounded-[3px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16]">
-              <div>
-                <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
-                  Customer Details (Optional)
-                </h3>
-                <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
-                  Optional for Quick Counter Sale
-                </p>
-              </div>
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-[#FAFBF9] dark:bg-[#061B16]">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+              <h3 className="text-xs font-bold font-heading text-slate-800 dark:text-white uppercase tracking-wider">
+                Recent Bills &amp; Sales History
+              </h3>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">
+                {allRecentBills.length} {allRecentBills.length === 1 ? 'Record' : 'Records'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsCustomerModalOpen(false)}
-                className="p-1 rounded-[2px] text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
+                onClick={loadDailySales}
+                disabled={isLoadingDailySales}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-[11px] font-semibold transition-colors cursor-pointer"
+                title="Refresh recent sales"
+              >
+                <RotateCcw className={cn('w-3 h-3', isLoadingDailySales && 'animate-spin')} />
+                <span>{isLoadingDailySales ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowRecentBills(false)}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
+                title="Hide Recent Bills"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
+          </div>
 
-            <form onSubmit={handleSaveCustomerInfo}>
-              <div className="p-5 space-y-3.5">
-                <div className="p-2.5 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300">
-                  <p className="font-semibold">Quick Counter Sales Do Not Require Registration</p>
-                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">
-                    Orders proceed smoothly as walk-in customers. Only enter details if customer specifically requests an invoice with their name or phone.
-                  </p>
-                </div>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50/60 dark:bg-[#061D18]">
+                  <th className="py-2.5 px-3 text-center w-12 border-r border-slate-100 dark:border-slate-800/80">#</th>
+                  <th className="py-2.5 px-3.5 text-left border-r border-slate-100 dark:border-slate-800/80">Bill / Order No</th>
+                  <th className="py-2.5 px-3 text-left border-r border-slate-100 dark:border-slate-800/80">Date &amp; Time</th>
+                  <th className="py-2.5 px-3 text-center w-28 border-r border-slate-100 dark:border-slate-800/80">Type</th>
+                  <th className="py-2.5 px-3 text-center w-24 border-r border-slate-100 dark:border-slate-800/80">Items</th>
+                  <th className="py-2.5 px-3 text-center w-32 border-r border-slate-100 dark:border-slate-800/80">Payment Method</th>
+                  <th className="py-2.5 px-3.5 text-right w-32 border-r border-slate-100 dark:border-slate-800/80">Net Amount</th>
+                  <th className="py-2.5 px-2.5 text-center w-24 border-r border-slate-100 dark:border-slate-800/80">Status</th>
+                  <th className="py-2.5 px-3 text-center w-24">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {allRecentBills.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-10 text-center text-xs text-slate-400">
+                      <History className="w-7 h-7 mx-auto mb-2 opacity-35" />
+                      <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">
+                        No Recent Bills Recorded Today
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Completed sales will appear in this table automatically.
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  allRecentBills.map((ord, idx) => {
+                    const formattedDate = ord.createdAt
+                      ? new Date(ord.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'Today';
+                    const formattedTime = ord.createdAt
+                      ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : '-';
 
-                <div>
-                  <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
-                    CUSTOMER NAME (OPTIONAL)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Sarah Jenkins"
-                    value={customerNameInput}
-                    onChange={(e) => setCustomerNameInput(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  />
-                </div>
+                    return (
+                      <tr
+                        key={ord.id || ord.orderNumber || idx}
+                        className="hover:bg-slate-50/80 dark:hover:bg-[#0E362C]/30 transition-colors"
+                      >
+                        {/* Serial Number */}
+                        <td className="py-2 px-3 text-center font-mono text-xs text-slate-400 border-r border-slate-100 dark:border-slate-800/80">
+                          {idx + 1}
+                        </td>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-[#64736C] dark:text-[#A4B8AE] mb-1">
-                    PHONE / MOBILE (OPTIONAL)
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. +977 9801234567"
-                    value={customerPhoneInput}
-                    onChange={(e) => setCustomerPhoneInput(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white"
-                  />
-                </div>
-              </div>
+                        {/* Order Number */}
+                        <td className="py-2 px-3.5 font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400 border-r border-slate-100 dark:border-slate-800/80">
+                          {ord.orderNumber}
+                        </td>
 
-              <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16]">
-                <button
-                  type="button"
-                  onClick={() => setIsCustomerModalOpen(false)}
-                  className="rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-1.5 text-xs font-semibold text-[#64736C] hover:bg-slate-50 dark:border-[#145447] dark:bg-[#07241E] dark:text-[#A4B8AE] transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
-                >
-                  Save Details
-                </button>
-              </div>
-            </form>
+                        {/* Date & Time */}
+                        <td className="py-2 px-3 text-xs text-slate-600 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/80">
+                          <span className="font-medium">{formattedTime}</span>
+                          <span className="text-[10px] text-slate-400 ml-1.5 opacity-80">· {formattedDate}</span>
+                        </td>
+
+                        {/* Order Type */}
+                        <td className="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          <span
+                            className={cn(
+                              'inline-block px-2 py-0.5 rounded-[2px] text-[10px] font-bold uppercase tracking-wider',
+                              ord.orderType === 'COUNTER_SALE'
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                : ord.tableNumber
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            )}
+                          >
+                            {ord.orderType === 'COUNTER_SALE'
+                              ? 'Counter'
+                              : ord.tableNumber
+                              ? `Table ${ord.tableNumber}`
+                              : 'Takeaway'}
+                          </span>
+                        </td>
+
+                        {/* Items count */}
+                        <td className="py-2 px-3 text-center font-mono text-xs text-slate-600 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/80">
+                          {ord.itemCount || (ord.items ? ord.items.reduce((s: number, i: any) => s + i.quantity, 0) : 1)}
+                        </td>
+
+                        {/* Payment Method */}
+                        <td className="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          <span className="inline-block px-2 py-0.5 rounded-[2px] text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800">
+                            {ord.paymentMethod || 'Cash'}
+                          </span>
+                        </td>
+
+                        {/* Net Amount */}
+                        <td className="py-2 px-3.5 text-right font-mono font-bold text-xs text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/80">
+                          Rs. {Number(ord.total || 0).toFixed(2)}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-2 px-2.5 text-center border-r border-slate-100 dark:border-slate-800/80">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            <span>Paid</span>
+                          </span>
+                        </td>
+
+                        {/* Action: Receipt */}
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleViewRecentBillReceipt(ord)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[2px] border border-slate-300 hover:border-[#0B3D32] hover:bg-[#0B3D32] hover:text-white dark:border-slate-700 dark:hover:bg-emerald-600 text-[10px] font-bold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer shadow-2xs"
+                            title="View or print receipt"
+                          >
+                            <Printer className="w-3 h-3" />
+                            <span>Receipt</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
+
+
 
       {/* =========================================================================
           DAILY SALES AUDIT & RECENT BILLS MODAL

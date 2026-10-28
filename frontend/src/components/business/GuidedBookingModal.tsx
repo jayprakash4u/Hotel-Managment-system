@@ -289,20 +289,20 @@ export function GuidedBookingModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-[4px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl select-text"
+        className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-[4px] bg-surface-card dark:bg-surface-card border border-border-default dark:border-border-default shadow-2xl select-text"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#DCE3DF] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] sticky top-0 z-10">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-default dark:border-border-default bg-white dark:bg-surface-card sticky top-0 z-10">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white">
+            <div className="flex h-7 w-7 items-center justify-center rounded-[3px] bg-brand text-white">
               <Plus className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-[#0B3D32] dark:text-emerald-400 font-heading">
+              <h2 className="text-base font-bold text-brand dark:text-brand font-heading">
                 Add New Booking & Check-In
               </h2>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-muted">
                 {checkInNow ? '● Instant Check-In & Room Key' : '○ Hold Room for Future Reservation'}
               </span>
             </div>
@@ -310,7 +310,7 @@ export function GuidedBookingModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            className="p-1 rounded text-muted hover:text-muted dark:hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
@@ -323,25 +323,25 @@ export function GuidedBookingModal({
             {/* Left */}
             <div className="space-y-3">
               <div className="grid grid-cols-3 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Booking Date *</label>
+                <label className="font-semibold text-body dark:text-body">Booking Date *</label>
                 <div className="col-span-2">
                   <input
                     type="date"
                     required
                     value={bookingDate}
                     onChange={(e) => setBookingDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-mono outline-none"
+                    className="w-full px-2.5 py-1.5 rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card font-mono outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Guest Name *</label>
+                <label className="font-semibold text-body dark:text-body">Guest Name *</label>
                 <div className="col-span-2 flex items-center gap-1.5">
                   <select
                     value={selectedGuestId}
                     onChange={(e) => setSelectedGuestId(e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-semibold outline-none cursor-pointer"
+                    className="flex-1 px-2.5 py-1.5 rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card font-semibold outline-none cursor-pointer"
                   >
                     {registeredGuests.map((g) => (
                       <option key={g.id} value={g.id}>
@@ -352,7 +352,7 @@ export function GuidedBookingModal({
                   <button
                     type="button"
                     onClick={() => setIsAddGuestModalOpen(true)}
-                    className="p-1.5 rounded bg-[#0B3D32] hover:bg-[#093027] text-white shrink-0 cursor-pointer"
+                    className="p-1.5 rounded bg-brand hover:bg-brand-hover text-white shrink-0 cursor-pointer"
                     title="Add Guest"
                   >
                     <UserPlus className="w-4 h-4" />
@@ -361,41 +361,41 @@ export function GuidedBookingModal({
               </div>
 
               <div className="grid grid-cols-3 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Check In Date *</label>
+                <label className="font-semibold text-body dark:text-body">Check In Date *</label>
                 <div className="col-span-2">
                   <input
                     type="date"
                     required
                     value={checkInDate}
                     onChange={(e) => setCheckInDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-mono outline-none"
+                    className="w-full px-2.5 py-1.5 rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card font-mono outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Check Out Date *</label>
+                <label className="font-semibold text-body dark:text-body">Check Out Date *</label>
                 <div className="col-span-2">
                   <input
                     type="date"
                     required
                     value={checkOutDate}
                     onChange={(e) => setCheckOutDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-mono outline-none"
+                    className="w-full px-2.5 py-1.5 rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card font-mono outline-none"
                   />
                 </div>
               </div>
 
               {/* The Check In Now Toggle */}
-              <div className="grid grid-cols-3 items-center gap-2 pt-2 border-t border-[#F0F4F2] dark:border-[#103D33]">
-                <label className="font-bold text-[#0B3D32] dark:text-emerald-400">Check In Now</label>
+              <div className="grid grid-cols-3 items-center gap-2 pt-2 border-t border-border-default dark:border-border-default">
+                <label className="font-bold text-brand dark:text-brand">Check In Now</label>
                 <div className="col-span-2 flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => setCheckInNow(!checkInNow)}
                     className={cn(
                       'relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
-                      checkInNow ? 'bg-[#0B3D32] dark:bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                      checkInNow ? 'bg-brand dark:bg-brand' : 'bg-surface-muted dark:bg-surface-muted'
                     )}
                   >
                     <span
@@ -405,7 +405,7 @@ export function GuidedBookingModal({
                       )}
                     />
                   </button>
-                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  <span className="text-[11px] font-semibold text-muted dark:text-body">
                     {checkInNow ? 'Yes (Instant Key & Occupied)' : 'No (Hold as Reservation)'}
                   </span>
                 </div>
@@ -415,12 +415,12 @@ export function GuidedBookingModal({
             {/* Right */}
             <div className="space-y-3">
               <div className="grid grid-cols-3 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Booking Type</label>
+                <label className="font-semibold text-body dark:text-body">Booking Type</label>
                 <div className="col-span-2">
                   <select
                     value={bookingType}
                     onChange={(e) => setBookingType(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] outline-none cursor-pointer"
+                    className="w-full px-2.5 py-1.5 rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card outline-none cursor-pointer"
                   >
                     <option value="Direct Walk-In">Direct Walk-In</option>
                     <option value="Front Desk Phone Call">Phone Call</option>
@@ -432,32 +432,32 @@ export function GuidedBookingModal({
               </div>
 
               <div className="grid grid-cols-3 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Phone Number *</label>
+                <label className="font-semibold text-body dark:text-body">Phone Number *</label>
                 <div className="col-span-2">
                   <input
                     type="text"
                     required
                     value={guestPhone}
                     onChange={(e) => setGuestPhone(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-mono outline-none"
+                    className="w-full px-2.5 py-1.5 rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card font-mono outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Email Address</label>
+                <label className="font-semibold text-body dark:text-body">Email Address</label>
                 <div className="col-span-2">
                   <input
                     type="email"
                     value={guestEmail}
                     onChange={(e) => setGuestEmail(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] outline-none"
+                    className="w-full px-2.5 py-1.5 rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Booking Pax</label>
+                <label className="font-semibold text-body dark:text-body">Booking Pax</label>
                 <div className="col-span-2">
                   <input
                     type="number"
@@ -465,7 +465,7 @@ export function GuidedBookingModal({
                     max={10}
                     value={paxCount}
                     onChange={(e) => setPaxCount(Math.max(1, Number(e.target.value) || 1))}
-                    className="w-24 px-2 py-1 rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] font-bold text-center outline-none"
+                    className="w-24 px-2 py-1 rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card font-bold text-center outline-none"
                   />
                 </div>
               </div>
@@ -473,63 +473,63 @@ export function GuidedBookingModal({
           </div>
 
           {/* Room Information Table */}
-          <div className="pt-3 border-t border-[#DCE3DF] dark:border-[#145447] space-y-2">
-            <h3 className="font-bold text-[#0B3D32] dark:text-emerald-400 flex items-center gap-1.5">
+          <div className="pt-3 border-t border-border-default dark:border-border-default space-y-2">
+            <h3 className="font-bold text-brand dark:text-brand flex items-center gap-1.5">
               <BedDouble className="w-4 h-4" />
               <span>Room Information</span>
             </h3>
 
-            <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#071F1A]">
+            <div className="overflow-x-auto border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#F4F6F8] dark:bg-[#0a231c] text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
+                <thead className="bg-surface-muted dark:bg-[#0a231c] text-xs font-semibold text-body dark:text-body border-b border-border-default dark:border-border-default">
                   <tr>
-                    <th className="py-2 px-3 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">Room Category</th>
-                    <th className="py-2 px-3 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">Assigned Room</th>
-                    <th className="py-2 px-3 border-r border-slate-300 dark:border-slate-700 text-right font-semibold text-slate-700 dark:text-slate-200 w-28">Amount (Rs.)</th>
-                    <th className="py-2 px-2.5 border-r border-slate-300 dark:border-slate-700 text-center font-semibold text-slate-700 dark:text-slate-200 w-16">Nights</th>
-                    <th className="py-2 px-3 border-r border-slate-300 dark:border-slate-700 text-right font-semibold text-slate-700 dark:text-slate-200 w-28">Discount</th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-200 w-32">Total (Rs.)</th>
+                    <th className="py-2 px-3 border-r border-border-default dark:border-border-default font-semibold text-body dark:text-body">Room Category</th>
+                    <th className="py-2 px-3 border-r border-border-default dark:border-border-default font-semibold text-body dark:text-body">Assigned Room</th>
+                    <th className="py-2 px-3 border-r border-border-default dark:border-border-default text-right font-semibold text-body dark:text-body w-28">Amount (Rs.)</th>
+                    <th className="py-2 px-2.5 border-r border-border-default dark:border-border-default text-center font-semibold text-body dark:text-body w-16">Nights</th>
+                    <th className="py-2 px-3 border-r border-border-default dark:border-border-default text-right font-semibold text-body dark:text-body w-28">Discount</th>
+                    <th className="py-2 px-3 text-right font-semibold text-body dark:text-body w-32">Total (Rs.)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-300 dark:divide-slate-700 bg-white dark:bg-[#071F1A]">
-                  <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
-                    <td className="py-1.5 px-3 border-r border-slate-300 dark:border-slate-700">
-                      <div className="text-xs text-slate-800 dark:text-slate-200 font-normal">
+                <tbody className="divide-y divide-border-default dark:divide-border-default bg-surface-card dark:bg-surface-card">
+                  <tr className="hover:bg-surface-hover dark:hover:bg-surface-hover">
+                    <td className="py-1.5 px-3 border-r border-border-default dark:border-border-default">
+                      <div className="text-xs text-body dark:text-body font-normal">
                         {selectedRoomObj.type}
                       </div>
                     </td>
 
-                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700">
-                      <div className="h-7 px-2 flex items-center text-xs text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#071F1A]">
+                    <td className="py-1.5 px-2 border-r border-border-default dark:border-border-default">
+                      <div className="h-7 px-2 flex items-center text-xs text-body dark:text-body border border-border-default dark:border-border-default rounded-xs bg-surface-card dark:bg-surface-card">
                         <span>Room {selectedRoomObj.number} ({selectedRoomObj.floorLevel})</span>
                       </div>
                     </td>
 
-                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700 text-right">
+                    <td className="py-1.5 px-2 border-r border-border-default dark:border-border-default text-right">
                       <input
                         type="number"
                         min={0}
                         step={100}
                         value={customRoomRate}
                         onChange={(e) => setCustomRoomRate(Math.max(0, Number(e.target.value) || 0))}
-                        className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-[#071F1A] focus:border-slate-400"
+                        className="w-full h-7 px-2 text-right font-mono text-xs bg-surface-muted dark:bg-surface-card border border-border-default dark:border-border-default text-body dark:text-body rounded-xs outline-none focus:bg-surface-card dark:focus:bg-surface-card focus:border-border-default"
                       />
                     </td>
 
-                    <td className="py-1.5 px-2.5 border-r border-slate-300 dark:border-slate-700 text-center text-xs text-slate-800 dark:text-slate-200 font-normal">{nights}</td>
+                    <td className="py-1.5 px-2.5 border-r border-border-default dark:border-border-default text-center text-xs text-body dark:text-body font-normal">{nights}</td>
 
-                    <td className="py-1.5 px-2 border-r border-slate-300 dark:border-slate-700 text-right">
+                    <td className="py-1.5 px-2 border-r border-border-default dark:border-border-default text-right">
                       <input
                         type="number"
                         min={0}
                         value={discountAmount}
                         onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value) || 0))}
-                        className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xs outline-none focus:border-slate-400"
+                        className="w-full h-7 px-2 text-right font-mono text-xs bg-surface-card dark:bg-surface-card border border-border-default dark:border-border-default text-body dark:text-body rounded-xs outline-none focus:border-border-default"
                       />
                     </td>
 
                     <td className="py-1.5 px-2 text-right">
-                      <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs tabular-nums">
+                      <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-surface-muted dark:bg-surface-card border border-border-default dark:border-border-default text-body dark:text-body rounded-xs tabular-nums">
                         {totalPayable.toLocaleString()}
                       </div>
                     </td>
@@ -540,28 +540,28 @@ export function GuidedBookingModal({
           </div>
 
           {/* Bottom Financial Stack */}
-          <div className="pt-3 border-t border-[#DCE3DF] dark:border-[#145447] flex flex-col sm:flex-row items-end justify-between gap-4">
-            <div className="text-[11px] text-slate-500 space-y-1">
+          <div className="pt-3 border-t border-border-default dark:border-border-default flex flex-col sm:flex-row items-end justify-between gap-4">
+            <div className="text-[11px] text-muted space-y-1">
               <p>• If guest pays partial, balance will be collected upon check-out.</p>
               <div className="flex items-center gap-1.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setAdvancedAmount(totalPayable)}
-                  className="px-2 py-0.5 rounded border border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] font-bold text-[10px]"
+                  className="px-2 py-0.5 rounded border border-brand bg-[#E8F2EE] text-brand font-bold text-[10px]"
                 >
                   Pay Full
                 </button>
                 <button
                   type="button"
                   onClick={() => setAdvancedAmount(Math.round(totalPayable * 0.5))}
-                  className="px-2 py-0.5 rounded border border-slate-300 text-[10px]"
+                  className="px-2 py-0.5 rounded border border-border-default text-[10px]"
                 >
                   50% Advance
                 </button>
                 <button
                   type="button"
                   onClick={() => setAdvancedAmount(0)}
-                  className="px-2 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800 text-[10px]"
+                  className="px-2 py-0.5 rounded border border-warning bg-warning-subtle text-warning text-[10px]"
                 >
                   Pay at Checkout
                 </button>
@@ -571,29 +571,29 @@ export function GuidedBookingModal({
             <div className="w-full sm:w-80 space-y-2">
               <div className="flex items-center justify-between text-xs font-bold border-b pb-1">
                 <span>Total Payable:</span>
-                <span className="font-mono text-sm text-[#0B3D32] dark:text-emerald-400">
+                <span className="font-mono text-sm text-brand dark:text-brand">
                   Rs. {totalPayable.toLocaleString()}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 items-center gap-2">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Advanced Amount:</label>
+                <label className="font-bold text-body dark:text-body">Advanced Amount:</label>
                 <input
                   type="number"
                   min={0}
                   value={advancedAmount}
                   onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
-                  className="w-full px-2 py-1 rounded border border-[#0B3D32] font-mono font-bold text-right outline-none text-[#0B3D32] dark:text-emerald-300"
+                  className="w-full px-2 py-1 rounded border border-brand font-mono font-bold text-right outline-none text-brand dark:text-brand"
                 />
               </div>
 
               <div className="grid grid-cols-2 items-center gap-2">
-                <span className="font-bold text-slate-700 dark:text-slate-300">Due Amount:</span>
+                <span className="font-bold text-body dark:text-body">Due Amount:</span>
                 <div className="text-right">
                   <span
                     className={cn(
                       'font-mono font-bold text-xs px-2 py-0.5 rounded inline-block',
-                      dueAmount === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      dueAmount === 0 ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'
                     )}
                   >
                     Rs. {dueAmount.toLocaleString()}
@@ -602,7 +602,7 @@ export function GuidedBookingModal({
               </div>
 
               <div className="grid grid-cols-2 items-center gap-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Payment Mode:</label>
+                <label className="font-semibold text-body dark:text-body">Payment Mode:</label>
                 <select
                   value={paymentMethod}
                   disabled={advancedAmount === 0}
@@ -620,17 +620,17 @@ export function GuidedBookingModal({
           </div>
 
           {/* Actions */}
-          <div className="pt-3 border-t border-[#DCE3DF] dark:border-[#145447] flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-border-default dark:border-border-default flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              className="px-4 py-2 rounded border border-border-default text-xs font-semibold text-body hover:bg-surface-hover cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+              className="px-5 py-2 rounded bg-brand hover:bg-brand-hover text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
             >
               {checkInNow ? 'Save & Check In' : 'Save Booking'}
             </button>
@@ -644,11 +644,11 @@ export function GuidedBookingModal({
             onClick={() => setIsAddGuestModalOpen(false)}
           >
             <div
-              className="w-full max-w-md rounded bg-white dark:bg-[#071F1A] border p-5 space-y-3 select-text shadow-2xl"
+              className="w-full max-w-md rounded bg-surface-card dark:bg-surface-card border p-5 space-y-3 select-text shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-2 border-b">
-                <h4 className="font-bold text-sm text-[#0B3D32] dark:text-emerald-400">Add New Guest</h4>
+                <h4 className="font-bold text-sm text-brand dark:text-brand">Add New Guest</h4>
                 <button type="button" onClick={() => setIsAddGuestModalOpen(false)}>
                   <X className="w-4 h-4" />
                 </button>
@@ -724,7 +724,7 @@ export function GuidedBookingModal({
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded bg-[#0B3D32] text-white text-xs font-bold"
+                    className="px-4 py-1.5 rounded bg-brand text-white text-xs font-bold"
                   >
                     Save & Select
                   </button>

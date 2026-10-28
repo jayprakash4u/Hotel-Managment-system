@@ -198,7 +198,7 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
               {/* Financial Year Row */}
               <div className="p-3.5 space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-800/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <div className="w-6 h-6 rounded-md bg-[var(--brand-primary-subtle-calc)] border border-[var(--brand-primary-border-calc)] flex items-center justify-center text-[var(--brand-primary)] shrink-0">
                     <Calendar className="w-3.5 h-3.5" />
                   </div>
                   <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -219,7 +219,7 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
               {/* Branch Row */}
               <div className="p-3.5 space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-800/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <div className="w-6 h-6 rounded-md bg-[var(--brand-primary-subtle-calc)] border border-[var(--brand-primary-border-calc)] flex items-center justify-center text-[var(--brand-primary)] shrink-0">
                     <GitBranch className="w-3.5 h-3.5" />
                   </div>
                   <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -254,7 +254,7 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
                 href="mailto:support@bigin.com"
                 className="p-3.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer"
               >
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-800/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-lg bg-[var(--brand-primary-subtle-calc)] border border-[var(--brand-primary-border-calc)] flex items-center justify-center text-[var(--brand-primary)] shrink-0 group-hover:scale-105 transition-transform">
                   <LifeBuoy className="w-4 h-4" />
                 </div>
                 <div className="truncate">

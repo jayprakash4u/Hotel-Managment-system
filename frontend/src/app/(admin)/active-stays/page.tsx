@@ -60,11 +60,11 @@ export default function InHouseGuestsPage() {
       {/* Header & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
         <div>
-          <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-4 h-4 text-cyan-600" />
+          <h2 className="text-sm sm:text-base font-bold text-body dark:text-body flex items-center gap-2">
+            <Users className="w-4 h-4 text-info" />
             In-House Guests Roster ({inHouseList.length} Active Stays)
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Real-time directory of all currently checked-in guests and active room folios.
           </p>
         </div>
@@ -76,7 +76,7 @@ export default function InHouseGuestsPage() {
             placeholder="Search guest, room or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#0B3D32]"
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card text-body dark:text-body placeholder-text-muted focus:outline-none focus:border-brand"
           />
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function InHouseGuestsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-semibold">
+              <tr className="border-b border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card text-muted dark:text-muted font-semibold">
                 <th className="py-3 px-3">Room</th>
                 <th className="py-3 px-3">Guest Information</th>
                 <th className="py-3 px-3">Contact</th>
@@ -95,7 +95,7 @@ export default function InHouseGuestsPage() {
                 <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-200">
+            <tbody className="divide-y divide-border-default dark:divide-border-default text-body dark:text-body">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-slate-400 text-xs">
@@ -131,7 +131,7 @@ export default function InHouseGuestsPage() {
                         </div>
                       </td>
 
-                      <td className="py-3 px-3 text-slate-500 dark:text-slate-400">
+                      <td className="py-3 px-3 text-muted">
                         <div className="flex items-center gap-1">
                           <Phone className="w-3 h-3 text-slate-400" />
                           <span>{b.guest.phone || 'N/A'}</span>

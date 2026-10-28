@@ -250,6 +250,10 @@ export const api = {
     return fetcher<any[]>('/api/restaurant/tables');
   },
 
+  getRestaurantTables: () => {
+    return fetcher<any[]>('/api/restaurant/tables');
+  },
+
   createTable: (data: any) => {
     return fetcher<any>('/api/restaurant/tables', {
       method: 'POST',
@@ -524,8 +528,32 @@ export const api = {
     });
   },
 
+  // Reservation Alerts (15-Minute Advance Preparation & Overdue Warnings)
+  getReservationAlerts: (params?: { activeOnly?: boolean; status?: string; tableId?: string; role?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.activeOnly !== undefined) query.append('activeOnly', params.activeOnly.toString());
+    if (params?.status) query.append('status', params.status);
+    if (params?.tableId) query.append('tableId', params.tableId);
+    if (params?.role) query.append('role', params.role);
+    return fetcher<import('./types').ReservationAlertData[]>(`/api/restaurant/alerts?${query.toString()}`);
+  },
+
+  acknowledgeReservationAlert: (id: string, staffName?: string, notes?: string) => {
+    return fetcher<any>(`/api/restaurant/alerts/${id}/acknowledge`, {
+      method: 'PATCH',
+      body: JSON.stringify({ staffName, notes }),
+    });
+  },
+
+  dismissReservationAlert: (id: string) => {
+    return fetcher<any>(`/api/restaurant/alerts/${id}/dismiss`, {
+      method: 'PATCH',
+    });
+  },
+
   // Seed / Reset
   seedDatabase: () => {
     return fetcher<any>('/api/seed', { method: 'POST' });
   },
 };
+

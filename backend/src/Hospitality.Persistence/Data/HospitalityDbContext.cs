@@ -32,6 +32,7 @@ public class HospitalityDbContext : DbContext
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<Bill> Bills => Set<Bill>();
+    public DbSet<ReservationAlert> ReservationAlerts => Set<ReservationAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -179,5 +180,23 @@ public class HospitalityDbContext : DbContext
 
         modelBuilder.Entity<Bill>()
             .HasIndex(b => b.CreatedAt);
+
+        modelBuilder.Entity<ReservationAlert>()
+            .HasOne(a => a.Reservation)
+            .WithMany()
+            .HasForeignKey(a => a.ReservationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ReservationAlert>()
+            .HasOne(a => a.Table)
+            .WithMany()
+            .HasForeignKey(a => a.TableId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ReservationAlert>()
+            .HasIndex(a => a.Status);
+
+        modelBuilder.Entity<ReservationAlert>()
+            .HasIndex(a => new { a.ReservationId, a.AlertType });
     }
 }

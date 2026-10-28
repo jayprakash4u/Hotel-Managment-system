@@ -43,6 +43,7 @@ import {
   getMasterItems,
   saveMasterItems,
   SimpleMasterItem,
+  MASTERS_UPDATED_EVENT,
 } from '@/lib/mastersData';
 
 export interface SubOptionBox {
@@ -180,11 +181,131 @@ const MASTER_CATEGORIES: MasterCategory[] = [
         description: 'Manage travel agents and booking agents for reservations',
       },
       {
+        id: 'relationships',
+        name: 'Relationships',
+        icon: HeartHandshake,
+        description: 'Manage guest relationship types for accompanying and additional guests',
+      },
+      {
         id: 'purpose-of-visit',
         name: 'Purpose of Visit',
         icon: Compass,
         description: 'Manage guest travel and visit purpose categories (Tourism, Corporate, Event, etc.)',
-      }
+      },
+    ],
+  },
+  {
+    id: 'restaurant-setup',
+    code: '02',
+    name: 'Restaurant Setup',
+    icon: UtensilsCrossed,
+    subBoxes: [
+      {
+        id: 'categories-setup',
+        name: 'Food Categories Setup',
+        icon: Layers,
+        description: 'Manage food & beverage categories like Appetizers, Main Course, Beverages, Desserts',
+      },
+      {
+        id: 'menu-items-setup',
+        name: 'Products Setup',
+        icon: UtensilsCrossed,
+        description: 'Manage dishes, beverages, item codes, orders, portion rates, and menu products',
+      },
+      {
+        id: 'table-setup',
+        name: 'Table Setup',
+        icon: Armchair,
+        description: 'Configure restaurant dining tables, seating capacity, table numbers, and statuses',
+      },
+      {
+        id: 'table-categories-setup',
+        name: 'Table Categories Setup',
+        icon: Building2,
+        description: 'Configure restaurant table sections: Fine Dining, Rooftop Terrace, Poolside Bar, VIP Salon',
+      },
+      {
+        id: 'quantity-setup',
+        name: 'Unit Setup',
+        icon: Scale,
+        description: 'Manage portion quantities and serving sizes: Full, Half, Regular, Small, Large, Pieces',
+      },
+    ],
+  },
+  {
+    id: 'room-setup',
+    code: '03',
+    name: 'Hotel & Room Setup',
+    icon: BedDouble,
+    subBoxes: [
+      {
+        id: 'add-room-setup',
+        name: 'Add Room',
+        icon: DoorOpen,
+        description: 'Register and configure hotel rooms, room types, floor levels, AC types, bed types, fare, and facilities',
+      },
+      {
+        id: 'room-type-master',
+        name: 'Room Types',
+        icon: BedDouble,
+        description: 'Configure hotel room categories, deluxe suites, standard rooms, and fares',
+      },
+      {
+        id: 'ac-type-master',
+        name: 'AC Types',
+        icon: Snowflake,
+        description: 'Configure air-conditioned (AC) and non-AC climate options',
+      },
+      {
+        id: 'bed-type-master',
+        name: 'Bed Types',
+        icon: BedSingle,
+        description: 'Configure bed configurations: Single, Double, Queen, King, and Twin beds',
+      },
+      {
+        id: 'floor-master',
+        name: 'Floor Levels',
+        icon: Building2,
+        description: 'Configure hotel floors and building levels: Ground, 1st, 2nd, 3rd floors',
+      },
+      {
+        id: 'facility-category-master',
+        name: 'Facility Categories',
+        icon: Layers,
+        description: 'Manage amenity classifications: Furniture, Bathroom, Electronics',
+      },
+      {
+        id: 'facility-master',
+        name: 'Room Facilities',
+        icon: Armchair,
+        description: 'Manage in-room items & amenities: Work Desk, Smart TV, Shower, Toilet',
+      },
+    ],
+  },
+  {
+    id: 'employee-setup',
+    code: '04',
+    name: 'Employee & Staff Setup',
+    icon: Users,
+    subBoxes: [
+      {
+        id: 'employee-setup',
+        name: 'Employee Directory',
+        icon: UserCheck,
+        description: 'Manage hotel & restaurant employee roster, contact details, shifts, and active staff profiles',
+      },
+      {
+        id: 'staff-roles-setup',
+        name: 'Staff Roles & Access',
+        icon: ShieldCheck,
+        description: 'Configure staff designations, role permissions, and operational duties',
+      },
+      {
+        id: 'departments-setup',
+        name: 'Departments',
+        icon: Building2,
+        description: 'Manage hotel departments: Food & Beverage, Front Office, Housekeeping, Accounts',
+      },
     ],
   },
 ];
@@ -813,6 +934,47 @@ const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
       isActive: true,
     },
   ],
+  'table-setup': [
+    { id: 'tbl-1', code: 'T-101', name: 'Table T-101', category: 'Indoor Fine Dining', capacity: 2, status: 'AVAILABLE', description: 'Window view table for couples', order: 1, isActive: true },
+    { id: 'tbl-2', code: 'T-102', name: 'Table T-102', category: 'Indoor Fine Dining', capacity: 4, status: 'AVAILABLE', description: 'Comfortable central booth', order: 2, isActive: true },
+    { id: 'tbl-3', code: 'T-103', name: 'Table T-103', category: 'Indoor Fine Dining', capacity: 4, status: 'AVAILABLE', description: 'Family dining center table', order: 3, isActive: true },
+    { id: 'tbl-4', code: 'T-104', name: 'Table T-104', category: 'Indoor Fine Dining', capacity: 6, status: 'AVAILABLE', description: 'Large dining round table', order: 4, isActive: true },
+    { id: 'tbl-5', code: 'ROOF-1', name: 'Table ROOF-1', category: 'Skyline Rooftop Terrace', capacity: 2, status: 'AVAILABLE', description: 'Panoramic mountain view terrace table', order: 5, isActive: true },
+    { id: 'tbl-6', code: 'ROOF-2', name: 'Table ROOF-2', category: 'Skyline Rooftop Terrace', capacity: 4, status: 'AVAILABLE', description: 'Rooftop cocktail lounge corner', order: 6, isActive: true },
+    { id: 'tbl-7', code: 'ROOF-3', name: 'Table ROOF-3', category: 'Skyline Rooftop Terrace', capacity: 4, status: 'AVAILABLE', description: 'Rooftop central dining space', order: 7, isActive: true },
+    { id: 'tbl-8', code: 'POOL-1', name: 'Table POOL-1', category: 'Poolside Lounge & Bar', capacity: 4, status: 'AVAILABLE', description: 'Sunbed poolside cabana table', order: 8, isActive: true },
+    { id: 'tbl-9', code: 'POOL-2', name: 'Table POOL-2', category: 'Poolside Lounge & Bar', capacity: 2, status: 'AVAILABLE', description: 'Pool deck high-top bistro', order: 9, isActive: true },
+    { id: 'tbl-10', code: 'VIP-1', name: 'VIP Salon', category: 'Private Executive Dining', capacity: 10, status: 'AVAILABLE', description: 'Soundproof executive salon with private service', order: 10, isActive: true },
+  ],
+  'table-categories-setup': [
+    { id: 'sec-1', code: 'FINE', name: 'Indoor Fine Dining', description: 'Climate-controlled restaurant hall with acoustic ambience', order: 1, isDefault: true, isActive: true },
+    { id: 'sec-2', code: 'ROOF', name: 'Skyline Rooftop Terrace', description: 'Open-air terrace with mountain sunset and skyline view', order: 2, isActive: true },
+    { id: 'sec-3', code: 'POOL', name: 'Poolside Lounge & Bar', description: 'Heated poolside deck with casual lounge seating and bar service', order: 3, isActive: true },
+    { id: 'sec-4', code: 'VIP', name: 'Private Executive Dining', description: 'Soundproof luxury private salons for corporate and VIP banquets', order: 4, isActive: true },
+    { id: 'sec-5', code: 'GARDEN', name: 'Garden Patio & Lawn', description: 'Lush green alfresco patio for daytime tea and garden dining', order: 5, isActive: true },
+  ],
+  'employee-setup': [
+    { id: 'emp-1', code: 'EMP-001', name: 'Ramesh Thapa', category: 'Front Desk', contact: 'ramesh@hotel.com', phone: '+977 9801122334', description: 'Front Desk Shift Supervisor · Morning Shift', order: 1, isActive: true },
+    { id: 'emp-2', code: 'EMP-002', name: 'Priya Sharma', category: 'Food & Beverage', contact: 'priya@hotel.com', phone: '+977 9802233445', description: 'Senior Restaurant Captain · Evening Shift', order: 2, isActive: true },
+    { id: 'emp-3', code: 'EMP-003', name: 'Suman Shrestha', category: 'Kitchen (KDS)', contact: 'suman@hotel.com', phone: '+977 9803344556', description: 'Executive Head Chef', order: 3, isActive: true },
+    { id: 'emp-4', code: 'EMP-004', name: 'Bikram Adhikari', category: 'Housekeeping', contact: 'bikram@hotel.com', phone: '+977 9804455667', description: 'Floor Housekeeping Lead', order: 4, isActive: true },
+    { id: 'emp-5', code: 'EMP-005', name: 'Sunita Gurung', category: 'Accounts & POS', contact: 'sunita@hotel.com', phone: '+977 9805566778', description: 'Senior Cashier & Audit Lead', order: 5, isActive: true },
+  ],
+  'staff-roles-setup': [
+    { id: 'role-1', code: 'ADMIN', name: 'Hotel Administrator', description: 'Full system access, configurations, master setups, and reports', order: 1, isDefault: true, isActive: true },
+    { id: 'role-2', code: 'FRONT_DESK', name: 'Front Desk Receptionist', description: 'Room bookings, check-in, check-out, guest registration', order: 2, isActive: true },
+    { id: 'role-3', code: 'CAPTAIN', name: 'Restaurant Captain / Waiter', description: 'Table order taking, KOT punching, bill settlements', order: 3, isActive: true },
+    { id: 'role-4', code: 'CHEF', name: 'Executive Chef / Kitchen Staff', description: 'Kitchen Display System (KDS) order prep and recipe tracking', order: 4, isActive: true },
+    { id: 'role-5', code: 'CASHIER', name: 'POS Cashier', description: 'Fast counter sales, quick bill receipts, cash collection', order: 5, isActive: true },
+    { id: 'role-6', code: 'HOUSEKEEPING', name: 'Housekeeping Attendant', description: 'Room cleaning status updates, linen, and minibar inspection', order: 6, isActive: true },
+  ],
+  'departments-setup': [
+    { id: 'dept-1', code: 'FNB', name: 'Food & Beverage (F&B)', description: 'Restaurant, kitchen, bar, banquets & room service operations', order: 1, isDefault: true, isActive: true },
+    { id: 'dept-2', code: 'FO', name: 'Front Office & Concierge', description: 'Lobby operations, reservations, check-ins, guest relations', order: 2, isActive: true },
+    { id: 'dept-3', code: 'HK', name: 'Housekeeping & Maintenance', description: 'Room sanitation, facility upkeep, laundry & linens', order: 3, isActive: true },
+    { id: 'dept-4', code: 'ACC', name: 'Accounts, Finance & Stores', description: 'Inventory, procurement, night audit, settlements & ledgers', order: 4, isActive: true },
+    { id: 'dept-5', code: 'MGT', name: 'Executive Management', description: 'General administration, HR, marketing & revenue strategy', order: 5, isActive: true },
+  ],
 };
 
 function getFallbackItemsForSubBox(subId: string, subName: string): MasterItemEntry[] {
@@ -830,9 +992,14 @@ function getFallbackItemsForSubBox(subId: string, subName: string): MasterItemEn
 
 function getSubBoxEntityName(box: { id: string; name: string }): string {
   if (box.id === 'add-room-setup') return 'Room';
-  if (box.id === 'menu-items-setup') return 'Menu Item';
-  if (box.id === 'categories-setup') return 'Menu Category';
+  if (box.id === 'menu-items-setup') return 'Menu Item / Product';
+  if (box.id === 'categories-setup') return 'Food Category';
   if (box.id === 'quantity-setup') return 'Portion / Unit';
+  if (box.id === 'table-setup') return 'Dining Table';
+  if (box.id === 'table-categories-setup') return 'Table Category / Section';
+  if (box.id === 'employee-setup') return 'Employee / Staff';
+  if (box.id === 'staff-roles-setup') return 'Staff Role';
+  if (box.id === 'departments-setup') return 'Department';
   if (box.id === 'room-type-master' || box.id === 'room-types-setup') return 'Room Type';
   if (box.id === 'ac-type-master') return 'AC Type';
   if (box.id === 'bed-type-master' || box.id === 'bed-types-setup') return 'Bed Type';
@@ -982,7 +1149,7 @@ function CategoryAutocomplete({
             }
           }}
           placeholder={placeholder}
-          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-3 pr-8 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-3 pr-8 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
         />
 
         {/* Clear and Dropdown Toggle */}
@@ -1171,7 +1338,7 @@ function QuantityAutocomplete({
             }
           }}
           placeholder={placeholder}
-          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-3 pr-8 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-3 pr-8 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
         />
 
         {/* Clear or Dropdown Chevron icon */}
@@ -1674,6 +1841,7 @@ export default function HotelSetupContent({
           nationalities: getMasterItems('nationalities'),
           'purpose-of-visit': getMasterItems('purposeOfVisit'),
           'agent-setup': getMasterItems('bookingAgents'),
+          'quantity-setup': getMasterItems('units') as unknown as MasterItemEntry[],
         }));
         const storedMenu = localStorage.getItem('hotel_menu_items');
         if (storedMenu) {
@@ -1687,6 +1855,23 @@ export default function HotelSetupContent({
         }
       } catch (err) {}
     }
+
+    const handleMastersUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (!customEvent.detail || customEvent.detail.type === 'units') {
+        setMasterItemsMap((prev) => ({
+          ...prev,
+          'quantity-setup': getMasterItems('units') as unknown as MasterItemEntry[],
+        }));
+      }
+    };
+    window.addEventListener(MASTERS_UPDATED_EVENT, handleMastersUpdate);
+    window.addEventListener('storage', handleMastersUpdate);
+
+    return () => {
+      window.removeEventListener(MASTERS_UPDATED_EVENT, handleMastersUpdate);
+      window.removeEventListener('storage', handleMastersUpdate);
+    };
   }, []);
 
   // New item form state (Code, Display Name, Description, Category, Quantity Prices, Order)
@@ -1719,7 +1904,12 @@ export default function HotelSetupContent({
 
   // Available quantities for quantity-based pricing
   const availableQuantities = useMemo(() => {
-    return masterItemsMap['quantity-setup'] || INITIAL_MASTER_ITEMS['quantity-setup'] || [];
+    return (
+      masterItemsMap['quantity-setup'] ||
+      (getMasterItems('units') as unknown as MasterItemEntry[]) ||
+      INITIAL_MASTER_ITEMS['quantity-setup'] ||
+      []
+    );
   }, [masterItemsMap]);
 
   // Available room types from room-type-master
@@ -1923,11 +2113,26 @@ export default function HotelSetupContent({
         ? availableFacilityCategories[0]?.name || 'Room Furniture'
         : availableCategories[0]?.name || ''
     );
-    setNewQuantityPrices(
-      availableQuantities.length > 0
-        ? [{ quantityName: availableQuantities[0].name, price: '' }]
-        : [{ quantityName: 'Regular / Standard', price: '' }]
-    );
+    if (activeSubBox.id === 'menu-items-setup') {
+      const defaultUnits = availableQuantities.slice(0, 2).map((q) => ({
+        quantityName: q.name,
+        price: '',
+      }));
+      setNewQuantityPrices(
+        defaultUnits.length > 0
+          ? defaultUnits
+          : [
+              { quantityName: 'Full Portion', price: '' },
+              { quantityName: 'Half Portion', price: '' },
+            ]
+      );
+    } else {
+      setNewQuantityPrices(
+        availableQuantities.length > 0
+          ? [{ quantityName: availableQuantities[0].name, price: '' }]
+          : [{ quantityName: 'Regular / Standard', price: '' }]
+      );
+    }
     setNewOrder(((masterItemsMap[activeSubBox.id] || currentItems).length + 1).toString());
     setShowAddForm(true);
   };
@@ -2218,6 +2423,7 @@ export default function HotelSetupContent({
         if (activeSubBox.id === 'nationalities') saveMasterItems('nationalities', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
           try {
             localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
@@ -2251,6 +2457,7 @@ export default function HotelSetupContent({
         if (activeSubBox.id === 'nationalities') saveMasterItems('nationalities', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
           try {
             localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
@@ -2295,6 +2502,7 @@ export default function HotelSetupContent({
       if (activeSubBox.id === 'nationalities') saveMasterItems('nationalities', updatedList as unknown as SimpleMasterItem[]);
       if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
       if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
       return {
         ...prev,
         [activeSubBox.id]: updatedList,
@@ -3013,8 +3221,8 @@ export default function HotelSetupContent({
                         autoFocus
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        placeholder="e.g. Chicken Steam Momo"
-                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                        placeholder="Dish name"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                       />
                     </div>
 
@@ -3030,7 +3238,7 @@ export default function HotelSetupContent({
                           onChange={(name) => setNewCategory(name)}
                           onAddNewCategory={handleAddNewCategory}
                           availableCategories={availableCategories}
-                          placeholder="Search or select category..."
+                          placeholder="Select category"
                         />
                       </div>
 
@@ -3044,8 +3252,8 @@ export default function HotelSetupContent({
                           required
                           value={newCode}
                           onChange={(e) => setNewCode(e.target.value)}
-                          placeholder="e.g. MOMO-CHK"
-                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                          placeholder="Code (optional)"
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs placeholder:normal-case"
                         />
                       </div>
 
@@ -3065,12 +3273,17 @@ export default function HotelSetupContent({
                       </div>
                     </div>
 
-                    {/* Unit & Pricing: Simple and clean */}
-                    <div className="space-y-1.5 pt-1">
+                    {/* Unit & Pricing: Select multiple units with prices */}
+                    <div className="space-y-2 pt-1">
                       <div className="flex items-center justify-between">
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
-                          Unit <span className="text-rose-500">*</span>
-                        </label>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Unit & Portion Prices <span className="text-rose-500">*</span>
+                          </label>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Select multiple units (Full, Half, Plate, etc.) and specify each portion price
+                          </span>
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
@@ -3084,14 +3297,14 @@ export default function HotelSetupContent({
                               },
                             ]);
                           }}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B3D32] hover:text-[#082b23] dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B3D32] hover:text-[#082b23] dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors cursor-pointer shrink-0"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>Add Unit</span>
+                          <span>Add Custom Unit</span>
                         </button>
                       </div>
 
-                      {/* Unit & Price Rows */}
+                      {/* Unit & Price Input Rows */}
                       <div className="space-y-2">
                         {newQuantityPrices.map((tier, idx) => {
                           const otherUsedNames = newQuantityPrices
@@ -3099,7 +3312,7 @@ export default function HotelSetupContent({
                             .map((t) => t.quantityName);
 
                           return (
-                            <div key={idx} className="flex items-center gap-2">
+                            <div key={idx} className="flex items-center gap-2 p-2 rounded-[3px] border border-[#DCE3DF] bg-white dark:bg-[#07241E] dark:border-[#145447] shadow-2xs">
                               {/* Searchable Combobox */}
                               <div className="flex-1 min-w-0">
                                 <QuantityAutocomplete
@@ -3111,13 +3324,13 @@ export default function HotelSetupContent({
                                   }}
                                   availableQuantities={availableQuantities}
                                   excludeNames={otherUsedNames}
-                                  placeholder="Unit (e.g. Plate, Full, Half)"
+                                  placeholder="Select unit"
                                 />
                               </div>
 
                               {/* Price Input with currency prefix */}
-                              <div className="w-32 sm:w-36 relative shrink-0">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400 dark:text-slate-500 pointer-events-none select-none">
+                              <div className="w-36 sm:w-44 relative shrink-0">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500 pointer-events-none select-none">
                                   रू
                                 </span>
                                 <input
@@ -3133,7 +3346,7 @@ export default function HotelSetupContent({
                                       prev.map((t, i) => (i === idx ? { ...t, price: val } : t))
                                     );
                                   }}
-                                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-7 pr-3 text-xs font-mono font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500"
+                                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-7 pr-3 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                                 />
                               </div>
 
@@ -3144,7 +3357,7 @@ export default function HotelSetupContent({
                                   onClick={() => {
                                     setNewQuantityPrices((prev) => prev.filter((_, i) => i !== idx));
                                   }}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-[3px] hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shrink-0"
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-[3px] hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shrink-0 cursor-pointer"
                                   title="Remove unit"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -3223,8 +3436,8 @@ export default function HotelSetupContent({
                         autoFocus
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        placeholder="e.g. Work Desk & Study Table, Smart LED TV 55&quot;, Rainfall Shower Set"
-                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                        placeholder="Facility name"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                       />
                     </div>
 
@@ -3240,7 +3453,7 @@ export default function HotelSetupContent({
                           onChange={(name) => setNewCategory(name)}
                           onAddNewCategory={handleAddNewCategory}
                           availableCategories={availableFacilityCategories}
-                          placeholder="Select category (e.g. Room Furniture)..."
+                          placeholder="Select category"
                         />
                       </div>
 
@@ -3253,8 +3466,8 @@ export default function HotelSetupContent({
                           required
                           value={newCode}
                           onChange={(e) => setNewCode(e.target.value)}
-                          placeholder="e.g. TBL"
-                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                          placeholder="Code (optional)"
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs placeholder:normal-case"
                         />
                       </div>
 
@@ -3282,8 +3495,8 @@ export default function HotelSetupContent({
                         type="text"
                         value={newDescription}
                         onChange={(e) => setNewDescription(e.target.value)}
-                        placeholder="e.g. Dimensions, brand, or feature notes"
-                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400 placeholder:font-normal"
+                        placeholder="Description (optional)"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                       />
                     </div>
                   </>
@@ -3473,8 +3686,8 @@ export default function HotelSetupContent({
                         autoFocus
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        placeholder={`e.g. ${getSubBoxEntityName(activeSubBox)} Name`}
-                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                        placeholder={`${getSubBoxEntityName(activeSubBox)} name`}
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                       />
                     </div>
 
@@ -3486,8 +3699,8 @@ export default function HotelSetupContent({
                         type="text"
                         value={newDescription}
                         onChange={(e) => setNewDescription(e.target.value)}
-                        placeholder="e.g. Specifications, dimensions, or details"
-                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                        placeholder="Description (optional)"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                       />
                     </div>
 
@@ -3501,8 +3714,8 @@ export default function HotelSetupContent({
                           required
                           value={newCode}
                           onChange={(e) => setNewCode(e.target.value)}
-                          placeholder="e.g. 01"
-                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                          placeholder="Code"
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs placeholder:normal-case"
                         />
                       </div>
 

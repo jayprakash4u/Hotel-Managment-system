@@ -17,8 +17,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Hotel,
-  HelpCircle,
-  User,
   BarChart3,
   Zap,
   Boxes,
@@ -30,6 +28,7 @@ import {
   Table2,
   CalendarCheck,
   CreditCard,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBusinessModules } from '@/lib/businessSetup';
@@ -220,24 +219,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
   },
 ];
 
-const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [
-  {
-    id: 'help',
-    name: 'Help & Support',
-    href: '/help',
-    icon: HelpCircle,
-    tag: 'HELP',
-    description: 'User manuals, hotkeys & support',
-  },
-  {
-    id: 'profile',
-    name: 'User Profile',
-    href: '/profile',
-    icon: User,
-    tag: 'PROFILE',
-    description: 'Account settings, role & active session',
-  },
-];
+const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [];
 
 export const Sidebar: React.FC<{
   isOpen: boolean;
@@ -271,6 +253,7 @@ export const Sidebar: React.FC<{
       '/restaurant-management',
       '/kitchen',
       '/cafe',
+      '/restaurant-setup',
     ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
   }, [pathname]);
 
@@ -458,7 +441,7 @@ export const Sidebar: React.FC<{
       <aside
         className={cn(
           'fixed top-0 bottom-0 left-0 z-40 flex flex-col border-r select-none shadow-xs transition-all duration-300 ease-in-out',
-          'bg-white border-[#DCE3DF] text-[#24352F] dark:bg-[#071F1A] dark:border-[#145447] dark:text-[#E5EEE9]',
+          'bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-body)] dark:bg-[var(--surface-card)] dark:border-[var(--border-default)] dark:text-[var(--text-body)]',
           isOpen
             ? 'w-72 sm:w-80 translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0'
             : '-translate-x-full lg:translate-x-0 lg:w-[68px] lg:sticky lg:top-0 lg:h-screen lg:shrink-0'
@@ -466,16 +449,16 @@ export const Sidebar: React.FC<{
       >
         {/* ===================== BRAND HEADER ===================== */}
         {isOpen ? (
-          <div className="flex h-16 items-center justify-between px-4 border-b border-[#E2E8F0] bg-white dark:bg-[#0F172A] dark:border-[#334155] shrink-0">
+          <div className="flex h-16 items-center justify-between px-4 border-b border-[var(--border-divider)] bg-[var(--surface-card)] dark:bg-[var(--surface-card)] dark:border-[var(--border-default)] shrink-0">
             <Link href="/" className="flex items-center gap-2.5 group min-w-0">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-primary)] text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div className="truncate">
-                <h1 className="text-sm font-black tracking-wide text-[#1E293B] dark:text-white leading-tight font-heading">
+                <h1 className="text-sm font-black tracking-wide text-[var(--text-heading)] dark:text-[var(--text-heading)] leading-tight font-heading">
                   AURA GRAND
                 </h1>
-                <p className="text-[10px] font-semibold text-[#64748B] dark:text-[#94A3B8] truncate">
+                <p className="text-[10px] font-semibold text-[var(--text-muted)] dark:text-[var(--text-muted)] truncate">
                   {viewMode === 'RESTAURANT' ? 'Restaurant POS & Outlets' : 'Hospitality OS · Front Desk'}
                 </p>
               </div>
@@ -491,7 +474,7 @@ export const Sidebar: React.FC<{
             </button>
           </div>
         ) : (
-          <div className="flex h-16 items-center justify-center border-b border-[#E2E8F0] bg-white dark:bg-[#0F172A] dark:border-[#334155] shrink-0">
+          <div className="flex h-16 items-center justify-center border-b border-[var(--border-divider)] bg-[var(--surface-card)] dark:bg-[var(--surface-card)] dark:border-[var(--border-default)] shrink-0">
             <Link
               href="/"
               title="Aura Grand Hospitality OS"
@@ -505,8 +488,8 @@ export const Sidebar: React.FC<{
         {/* ===================== MODULE MODE SWITCHER (HOTEL vs RESTAURANT) ===================== */}
         {isHotelEnabled && isRestaurantEnabled && (
           isOpen ? (
-            <div className="px-3 pt-2.5 pb-1 bg-white dark:bg-[#071F1A] shrink-0">
-              <div className="grid grid-cols-2 p-0.5 rounded-[4px] bg-[#F1F5F9] dark:bg-[#0B1A16] border border-[#CBD5E1] dark:border-[#145447]/60">
+            <div className="px-3 pt-2.5 pb-1 bg-[var(--surface-card)] dark:bg-[var(--surface-card)] shrink-0">
+              <div className="grid grid-cols-2 p-0.5 rounded-[4px] bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)] border border-[var(--border-default)] dark:border-[var(--border-default)]">
                 <button
                   type="button"
                   onClick={() => setViewMode('RESTAURANT')}
@@ -514,7 +497,7 @@ export const Sidebar: React.FC<{
                     'flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold rounded-[3px] transition-all cursor-pointer',
                     viewMode === 'RESTAURANT'
                       ? 'bg-[var(--brand-primary)] text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                      : 'text-[var(--text-muted)] hover:text-[var(--brand-primary)] dark:text-[var(--text-muted)] dark:hover:text-[var(--brand-primary)]'
                   )}
                 >
                   <UtensilsCrossed className="w-3.5 h-3.5" />
@@ -527,7 +510,7 @@ export const Sidebar: React.FC<{
                     'flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold rounded-[3px] transition-all cursor-pointer',
                     viewMode === 'HOTEL'
                       ? 'bg-[var(--brand-primary)] text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                      : 'text-[var(--text-muted)] hover:text-[var(--brand-primary)] dark:text-[var(--text-muted)] dark:hover:text-[var(--brand-primary)]'
                   )}
                 >
                   <Hotel className="w-3.5 h-3.5" />
@@ -541,7 +524,7 @@ export const Sidebar: React.FC<{
                 type="button"
                 onClick={() => setViewMode(viewMode === 'RESTAURANT' ? 'HOTEL' : 'RESTAURANT')}
                 title={viewMode === 'RESTAURANT' ? 'Switch to Hotel Navigation' : 'Switch to Restaurant Navigation'}
-                className="h-8 w-8 rounded-lg flex items-center justify-center bg-[#F1F5F9] dark:bg-[#0B1A16] border border-[#CBD5E1] dark:border-[#145447] text-[var(--brand-primary)] hover:scale-105 transition-all cursor-pointer shadow-2xs"
+                className="h-8 w-8 rounded-lg flex items-center justify-center bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)] border border-[var(--border-default)] dark:border-[var(--border-default)] text-[var(--brand-primary)] hover:scale-105 transition-all cursor-pointer shadow-2xs"
               >
                 {viewMode === 'RESTAURANT' ? <UtensilsCrossed className="w-4 h-4" /> : <Hotel className="w-4 h-4" />}
               </button>
@@ -551,20 +534,20 @@ export const Sidebar: React.FC<{
 
         {/* ===================== SEARCH BAR ===================== */}
         {isOpen && (
-          <div className="p-3 border-b border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0B1120] shrink-0">
+          <div className="p-3 border-b border-[var(--border-divider)] dark:border-[var(--border-default)] bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)] shrink-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] dark:text-[#64736C]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
               <input
                 type="text"
                 placeholder={viewMode === 'RESTAURANT' ? 'Search restaurant tasks...' : 'Search widgets & lists...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-[3px] border border-[#CBD5E1] bg-white py-2 pl-9 pr-8 text-xs font-medium text-[#1E293B] placeholder-[#94A3B8] shadow-2xs transition-all focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] dark:border-[#334155] dark:bg-[#1E293B] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[var(--brand-primary)]"
+                className="w-full rounded-[3px] border border-[var(--border-input)] bg-[var(--surface-card)] py-2 pl-9 pr-8 text-xs font-medium text-[var(--text-body)] placeholder-[var(--text-placeholder)] shadow-2xs transition-all focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus-ring-[var(--brand-primary)] dark:border-[var(--border-input)] dark:bg-[var(--surface-card)] dark:text-[var(--text-body)] dark:placeholder-[var(--text-muted)] dark:focus:border-[var(--brand-primary)]"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-body)] dark:hover:text-[var(--text-inverse)]"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -600,17 +583,17 @@ export const Sidebar: React.FC<{
                       'group relative flex flex-col items-center justify-center rounded-[3px] border p-3 pt-4 text-center transition-all duration-150 shadow-2xs',
                       'min-h-[88px] sm:min-h-[94px]',
                       isActive
-                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle)] text-[var(--brand-primary)] shadow-xs ring-1 ring-[var(--brand-primary)]'
-                        : 'border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[var(--brand-primary)] hover:bg-[#F8FAFC] hover:shadow-xs dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#E2E8F0] dark:hover:border-[var(--brand-primary)] dark:hover:bg-[#1E293B]/80'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle-calc)] text-[var(--brand-primary)] shadow-xs ring-1 ring-[var(--brand-ring)]'
+                        : 'border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-body)] hover:border-[var(--brand-primary)] hover:bg-[var(--surface-muted)] hover:shadow-xs dark:border-[var(--border-default)] dark:bg-[var(--surface-card)] dark:text-[var(--text-body)] dark:hover:border-[var(--brand-primary)] dark:hover:bg-[var(--surface-muted)]'
                     )}
                   >
                     {/* Top-Right Widget Badge */}
                     <span
                       className={cn(
                         'absolute top-1.5 right-1.5 rounded-[2px] px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider',
-                        isActive
-                          ? 'border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]'
-                          : 'border border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B] dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#94A3B8]'
+                          isActive
+                            ? 'border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]'
+                            : 'border border-[var(--border-default)] bg-[var(--surface-muted)] text-[var(--text-muted)] dark:border-[var(--border-default)] dark:bg-[var(--surface-muted)] dark:text-[var(--text-muted)]'
                       )}
                     >
                       {item.tag}
@@ -631,7 +614,7 @@ export const Sidebar: React.FC<{
                         'text-xs font-semibold leading-tight line-clamp-2 px-1',
                         isActive
                           ? 'font-bold text-[var(--brand-primary)]'
-                          : 'text-[#1E293B] group-hover:text-[var(--brand-primary)] dark:text-white dark:group-hover:text-emerald-300'
+                          : 'text-[var(--text-body)] group-hover:text-[var(--brand-primary)] dark:text-[var(--text-body)] dark:group-hover:text-[var(--brand-primary)]'
                       )}
                     >
                       {item.name}
@@ -693,11 +676,11 @@ export const Sidebar: React.FC<{
                   className={cn(
                     'relative flex h-11 w-11 items-center justify-center rounded-lg border transition-all duration-150 group shrink-0',
                     isActive
-                      ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle)] shadow-xs ring-1 ring-[var(--brand-primary)]'
-                      : 'border-transparent hover:border-[#CBD5E1] hover:bg-slate-50 dark:hover:border-[#334155] dark:hover:bg-[#1E293B]'
+                      ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle-calc)] shadow-xs ring-1 ring-[var(--brand-ring)]'
+                      : 'border-transparent hover:border-[var(--border-default)] hover:bg-[var(--surface-muted)] dark:hover:border-[var(--border-default)] dark:hover:bg-[var(--surface-muted)]'
                   )}
                 >
-                  <Icon className="w-5 h-5 text-[#DC2626] dark:text-[#EF4444]" />
+                  <Icon className="w-5 h-5 text-[var(--accent-danger)] dark:text-[var(--accent-danger)]" />
                   {isActive && (
                     <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[var(--brand-primary)]" />
                   )}
@@ -708,7 +691,7 @@ export const Sidebar: React.FC<{
         )}
 
         {/* ===================== BOTTOM UTILITY SECTION (HELP & PROFILE) ===================== */}
-        <div className="border-t border-[#E2E8F0] dark:border-[#334155] bg-white dark:bg-[#071F1A] p-2 space-y-1 shrink-0">
+        <div className="border-t border-[var(--border-divider)] dark:border-[var(--border-default)] bg-[var(--surface-card)] dark:bg-[var(--surface-card)] p-2 space-y-1 shrink-0">
           {BOTTOM_NAV_OPTIONS.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -729,15 +712,15 @@ export const Sidebar: React.FC<{
                 className={cn(
                   'flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-all duration-150',
                   isActive
-                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle)] text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]'
-                    : 'border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 dark:text-slate-300 dark:hover:border-slate-800 dark:hover:bg-slate-800/60'
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-subtle-calc)] text-[var(--brand-primary)] ring-1 ring-[var(--brand-ring)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:border-[var(--border-default)] hover:bg-[var(--surface-muted)] dark:text-[var(--text-muted)] dark:hover:border-[var(--border-default)] dark:hover:bg-[var(--surface-muted)]'
                 )}
               >
                 <div className="flex items-center gap-2.5">
                   <Icon className="w-4 h-4 text-[#DC2626] dark:text-[#EF4444]" />
                   <span>{item.name}</span>
                 </div>
-                <span className="rounded px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider border border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B] dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#94A3B8]">
+                <span className="rounded px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider border border-[var(--border-default)] bg-[var(--surface-muted)] text-[var(--text-muted)] dark:border-[var(--border-default)] dark:bg-[var(--surface-muted)] dark:text-[var(--text-muted)]">
                   {item.tag}
                 </span>
               </Link>

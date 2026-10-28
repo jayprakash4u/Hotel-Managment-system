@@ -117,7 +117,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
           {[
             { id: 'ALL', label: 'All Active Orders', count: orders.length },
             { id: 'TABLE', label: 'Table Orders', count: tableCount },
-            { id: 'NO_TABLE', label: 'No Table Orders', count: noTableCount },
+            { id: 'NO_TABLE', label: 'Quick Orders', count: noTableCount },
             { id: 'TAKEAWAY', label: 'Takeaway Orders', count: takeawayCount },
             { id: 'UNPAID', label: 'Unpaid Orders', count: unpaidCount },
             { id: 'READY', label: 'Ready Orders', count: readyCount },
@@ -201,7 +201,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
             >
               <Table2 className="w-3.5 h-3.5" />
-              <span>New Table Order</span>
+              <span>Table Order</span>
             </button>
             <button
               type="button"
@@ -209,7 +209,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
             >
               <Armchair className="w-3.5 h-3.5" />
-              <span>New No Table Order</span>
+              <span>Quick Order</span>
             </button>
           </div>
         </div>

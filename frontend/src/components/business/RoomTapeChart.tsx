@@ -807,16 +807,16 @@ export function RoomTapeChart({
       {/* ------------------------------------------------------------- */}
       {/* 1. CLEAN ENTERPRISE TOOLBAR                                   */}
       {/* ------------------------------------------------------------- */}
-      <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <div className="p-3 bg-surface-card dark:bg-surface-card rounded-lg border border-border-default dark:border-border-default shadow-2xs flex flex-wrap items-center justify-between gap-3">
         {/* Left: View Dropdown + < Today > Stepper + From Date Picker */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Timeline Duration Dropdown */}
-          <div className="flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">View:</span>
+          <div className="flex items-center gap-1.5 rounded-md border border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card px-2.5 py-1">
+            <span className="text-[11px] font-semibold text-muted dark:text-muted">View:</span>
             <select
               value={daysCount}
               onChange={(e) => setDaysCount(Number(e.target.value) as 3 | 7 | 10 | 15 | 30)}
-              className="text-xs font-semibold text-slate-800 dark:text-white bg-transparent outline-none cursor-pointer"
+              className="text-xs font-semibold text-body dark:text-white bg-transparent outline-none cursor-pointer"
               title="Select timeline duration"
             >
               <option value={3}>3 Days</option>
@@ -836,7 +836,7 @@ export function RoomTapeChart({
                 const prev = new Date(y, m - 1, d - daysCount);
                 setStartDateStr(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`);
               }}
-              className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-muted dark:text-white transition-colors cursor-pointer"
               title="Previous Range"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -847,8 +847,8 @@ export function RoomTapeChart({
               className={cn(
                 'px-3.5 py-1 text-xs font-bold rounded transition-all cursor-pointer',
                 startDateStr === getRelativeDate(0)
-                  ? 'bg-white text-[#1A73E8] shadow-2xs font-extrabold dark:bg-slate-700 dark:text-blue-400'
-                  : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 hover:bg-white/60'
+                  ? 'bg-white text-success dark:text-success shadow-2xs font-extrabold dark:bg-surface-card dark:text-success'
+                  : 'text-muted dark:text-slate-300 hover:bg-surface-card/60'
               )}
             >
               Today
@@ -860,7 +860,7 @@ export function RoomTapeChart({
                 const next = new Date(y, m - 1, d + daysCount);
                 setStartDateStr(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`);
               }}
-              className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-muted dark:text-white transition-colors cursor-pointer"
               title="Next Range"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -868,13 +868,13 @@ export function RoomTapeChart({
           </div>
 
           {/* "From" Date Picker */}
-          <div className="flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 rounded-md px-2.5 py-1 bg-slate-50 dark:bg-slate-800/60">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">From</span>
+          <div className="rounded-md border border-border-default dark:border-border-default rounded-md px-2.5 py-1 bg-surface-muted dark:bg-surface-card">
+            <span className="text-[11px] font-semibold text-muted dark:text-muted">From</span>
             <input
               type="date"
               value={startDateStr}
               onChange={(e) => setStartDateStr(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-slate-800 dark:text-white outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold text-body dark:text-white outline-none cursor-pointer"
             />
           </div>
         </div>
@@ -919,7 +919,7 @@ export function RoomTapeChart({
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-28 sm:w-36 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 py-1 pl-7 pr-2 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1A73E8]"
+              className="w-28 sm:w-36 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 py-1 pl-7 pr-2 text-xs text-body dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1A73E8]"
             />
           </div>
 
@@ -961,7 +961,7 @@ export function RoomTapeChart({
             }}
           >
             {/* Top Left Corner: Clean Minimal "Room" Header */}
-            <div className="sticky left-0 z-30 bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 font-semibold text-xs px-3 py-1.5 border-b border-r border-slate-200 dark:border-slate-800 select-none flex items-center">
+            <div className="sticky left-0 z-30 bg-surface-card dark:bg-surface-card text-left py-1.5 px-2.5 border-b border-r border-border-default dark:border-border-default transition-colors select-none">
               Room
             </div>
 
@@ -971,13 +971,12 @@ export function RoomTapeChart({
                 key={col.dateStr}
                 className={cn(
                   'bg-white dark:bg-slate-900 text-left py-1.5 px-2.5 border-b border-r border-slate-100/70 dark:border-slate-800/40 transition-colors select-none',
-                  col.isToday && 'bg-blue-50/40 dark:bg-blue-950/30 border-t-2 border-t-blue-500'
+                  col.isToday && 'bg-blue-50/40 dark:bg-blue-950/30 border-t-2 border-t-brand'
                 )}
               >
                 <div
                   className={cn(
-                    'text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5',
-                    col.isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
+                    'text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5', col.isToday ? 'text-brand dark:text-success' : 'text-muted dark:text-muted'
                   )}
                 >
                   {col.dayName}
@@ -985,7 +984,7 @@ export function RoomTapeChart({
                 <div
                   className={cn(
                     'text-xs font-bold font-sans leading-tight',
-                    col.isToday ? 'text-blue-600 dark:text-blue-400 font-extrabold' : 'text-slate-700 dark:text-slate-200'
+                    col.isToday ? 'text-brand dark:text-success font-extrabold' : 'text-body dark:text-white'
                   )}
                 >
                   {col.displayDate}
@@ -997,11 +996,11 @@ export function RoomTapeChart({
             {groupedRooms.map((group) => (
               <React.Fragment key={group.category}>
                 {/* Clean Neutral Category Divider Banner with Faint Lines */}
-                <div className="sticky left-0 z-20 bg-slate-50/80 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-wider px-3 py-1 border-b border-r border-slate-200 dark:border-slate-800 select-none flex items-center">
+                <div className="sticky left-0 z-20 bg-slate-50/80 dark:bg-slate-900 text-muted dark:text-muted font-bold text-[10px] uppercase tracking-wider px-3 py-1 border-b border-r border-slate-200 dark:border-slate-800 select-none flex items-center">
                   {group.category}
                 </div>
                 <div
-                  className="bg-slate-50/80 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800/40"
+                  className="bg-surface-muted/80 dark:bg-surface-card border-b border-border-default dark:border-border-default/40"
                   style={{
                     gridColumn: `span ${totalCols}`,
                     display: 'grid',
@@ -1047,7 +1046,7 @@ export function RoomTapeChart({
                         }}
                         title={`Room ${room.number} (${isOutOfService ? 'Out of Service' : isMaintenance ? 'Maintenance' : isDirty ? 'Dirty' : 'Clean'}) - Right click for Housekeeping options`}
                         className={cn(
-                          'group/room sticky left-0 z-20 px-3 h-[38px] flex items-center justify-between border-b border-r border-slate-200 dark:border-slate-800 select-none cursor-pointer transition-colors',
+                          'group/room sticky left-0 z-20 px-3 h-[38px] flex items-center justify-between border-b border-r border-border-default dark:border-border-default select-none cursor-pointer transition-colors',
                           isOutOfService
                             ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200'
                             : isMaintenance
@@ -1056,7 +1055,7 @@ export function RoomTapeChart({
                             ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200'
                             : isRowActive
                             ? 'bg-blue-50 dark:bg-slate-800 text-[#1A73E8] dark:text-blue-400'
-                            : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-850'
+                            : 'bg-white dark:bg-slate-900 text-body dark:text-white hover:bg-slate-50 dark:hover:bg-slate-850'
                         )}
                       >
                         <span
@@ -1068,7 +1067,7 @@ export function RoomTapeChart({
                               ? 'text-amber-950 dark:text-amber-100'
                               : isRowActive
                               ? 'text-[#1A73E8] dark:text-blue-400'
-                              : 'text-slate-800 dark:text-white'
+                              : 'text-body dark:text-white'
                           )}
                         >
                           {room.number}
@@ -1092,8 +1091,8 @@ export function RoomTapeChart({
                       {/* Date Cells & Booking Bars Container (38px height) */}
                       <div
                         className={cn(
-                          'relative border-b border-slate-100 dark:border-slate-800/40 h-[38px] transition-colors',
-                          isRowActive ? 'bg-slate-50/50 dark:bg-slate-900/40' : 'bg-white dark:bg-slate-900'
+                          'relative border-b border-border-default dark:border-border-default/40 h-[38px] transition-colors',
+                          isRowActive ? 'bg-surface-muted/50 dark:bg-surface-card/40' : 'bg-white dark:bg-slate-900'
                         )}
                         style={{
                           gridColumn: `span ${totalCols}`,
@@ -1119,23 +1118,23 @@ export function RoomTapeChart({
                                 handleOpenQuickBooking(room, col.dateStr);
                               }}
                               className={cn(
-                                'h-full border-r border-slate-100/70 dark:border-slate-800/30 transition-colors cursor-pointer relative select-none flex items-center justify-center group/cell',
+                                'h-full border-r border-border-default dark:border-border-default/30 transition-colors cursor-pointer relative select-none flex items-center justify-center group/cell',
                                 isBeingDragged
-                                  ? 'bg-blue-50 dark:bg-blue-950/60 border-2 border-dashed border-[#1A73E8] font-bold text-xs'
+                                  ? 'bg-success-subtle dark:bg-success-subtle border-2 border-dashed border-success font-bold text-xs'
                                   : col.isToday
-                                  ? 'bg-blue-50/20 dark:bg-blue-950/15 hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                                  : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                                  ? 'bg-info-subtle dark:bg-info-subtle hover:bg-surface-card dark:hover:bg-surface-card'
+                                  : 'hover:bg-surface-muted dark:hover:bg-surface-card'
                               )}
                               title={`Click or drag to book Room ${room.number} (${col.displayDate})`}
                             >
                               {isBeingDragged && colIdx === Math.min(dragState.startColIndex, dragState.currentColIndex) ? (
-                                <span className="text-[10px] text-white font-bold px-2 py-0.5 rounded bg-[#1A73E8] shadow-2xs z-10 whitespace-nowrap">
+                                <span className="text-white font-bold px-2 py-0.5 rounded bg-brand shadow-2xs z-10 whitespace-nowrap">
                                   + {Math.abs(dragState.currentColIndex - dragState.startColIndex) + 1} Days
                                 </span>
                               ) : (
                                 /* Interactive Hover State: Faint + Icon */
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity pointer-events-none">
-                                  <span className="w-4 h-4 rounded-full bg-blue-600/10 text-[#1A73E8] dark:bg-blue-400/20 dark:text-blue-400 flex items-center justify-center shadow-2xs hover:scale-110 transition-transform">
+                                  <span className="bg-info-subtle text-info dark:bg-info-subtle dark:text-info flex items-center justify-center shadow-2xs hover:scale-110 transition-transform">
                                     <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </span>
                                 </div>
@@ -1169,14 +1168,14 @@ export function RoomTapeChart({
                             const hasBalanceDue = fin.balanceDue > 0;
 
                             // Softer pastel colors:
-                            let barStyle = 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] hover:bg-[#FDE68A]';
+                            let barStyle = 'bg-warning-subtle text-warning border-warning hover:bg-warning-subtle';
 
                             if (isDeparting) {
-                              barStyle = 'bg-[#FFE4E6] text-[#9F1239] border border-[#FECDD3] hover:bg-[#FECDD3]';
+                              barStyle = 'bg-danger-subtle text-danger border-danger hover:bg-danger-subtle';
                             } else if (isOccupied) {
-                              barStyle = 'bg-[#DBEAFE] text-[#1E40AF] border border-[#BFDBFE] hover:bg-[#BFDBFE]';
+                              barStyle = 'bg-info-subtle text-info border-info hover:bg-info-subtle';
                             } else if (b.status === 'CHECKED_OUT') {
-                              barStyle = 'bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0] hover:bg-[#E2E8F0]';
+                              barStyle = 'bg-surface-muted text-muted border-border-default hover:bg-surface-muted';
                             }
 
                             return (
@@ -1234,7 +1233,7 @@ export function RoomTapeChart({
             {/* 3. BOTTOM "TOTALS" SECTION (Clean, Minimal Counts)            */}
             {/* ------------------------------------------------------------- */}
             {/* Totals Banner */}
-            <div className="sticky left-0 z-20 bg-slate-50/80 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-wider px-3 py-1 border-b border-t border-r border-slate-200 dark:border-slate-800 select-none flex items-center">
+            <div className="sticky left-0 z-20 bg-slate-50/80 dark:bg-slate-900 text-muted dark:text-muted font-bold text-[10px] uppercase tracking-wider px-3 py-1 border-b border-t border-r border-slate-200 dark:border-slate-800 select-none flex items-center">
               Totals
             </div>
             <div
@@ -1254,7 +1253,7 @@ export function RoomTapeChart({
             </div>
 
             {/* Totals Row 1: Booked */}
-            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-medium text-xs px-3 py-1.5 border-b border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
+            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-muted dark:text-white font-medium text-xs px-3 py-1.5 border-b border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-400" />
                 <span>Booked</span>
@@ -1287,7 +1286,7 @@ export function RoomTapeChart({
             })}
 
             {/* Totals Row 2: Occupied */}
-            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-medium text-xs px-3 py-1.5 border-b border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
+            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-muted dark:text-white font-medium text-xs px-3 py-1.5 border-b border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                 <span>Occupied</span>
@@ -1320,7 +1319,7 @@ export function RoomTapeChart({
             })}
 
             {/* Totals Row 3: Vacant */}
-            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-medium text-xs px-3 py-1.5 border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
+            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-muted dark:text-white font-medium text-xs px-3 py-1.5 border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full border border-slate-300 bg-white" />
                 <span>Vacant</span>
@@ -1426,7 +1425,7 @@ export function RoomTapeChart({
                             const nextOut = addDaysToDateStr(bookingModal.checkInDate, nextN);
                             setBookingModal({ ...bookingModal, nights: nextN, checkOutDate: nextOut });
                           }}
-                          className="w-6 h-6 rounded flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#145447] transition-colors cursor-pointer text-xs"
+                          className="w-6 h-6 rounded flex items-center justify-center font-bold text-muted dark:text-white hover:bg-slate-100 dark:hover:bg-[#145447] transition-colors cursor-pointer text-xs"
                           title="Decrease night"
                         >
                           -
@@ -1441,7 +1440,7 @@ export function RoomTapeChart({
                             const nextOut = addDaysToDateStr(bookingModal.checkInDate, nextN);
                             setBookingModal({ ...bookingModal, nights: nextN, checkOutDate: nextOut });
                           }}
-                          className="w-6 h-6 rounded flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#145447] transition-colors cursor-pointer text-xs"
+                          className="w-6 h-6 rounded flex items-center justify-center font-bold text-muted dark:text-white hover:bg-slate-100 dark:hover:bg-[#145447] transition-colors cursor-pointer text-xs"
                           title="Increase night"
                         >
                           +
@@ -1462,7 +1461,7 @@ export function RoomTapeChart({
                               'px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer border',
                               bookingModal.nights === num
                                 ? 'bg-[#0B3D32] text-white border-[#0B3D32] dark:bg-emerald-600 dark:border-emerald-600 shadow-2xs font-bold'
-                                : 'bg-white dark:bg-[#072D26] text-slate-600 dark:text-slate-300 border-[#DCE3DF] dark:border-[#145447] hover:bg-slate-50'
+                                : 'bg-white dark:bg-[#072D26] text-muted dark:text-white border-[#DCE3DF] dark:border-[#145447] hover:bg-slate-50'
                             )}
                           >
                             {num}D
@@ -1719,7 +1718,7 @@ export function RoomTapeChart({
                   <button
                     type="button"
                     onClick={() => handleQuickReservationAction('RESERVE')}
-                    className="h-10 px-5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-800 dark:text-white text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                    className="h-10 px-5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-body dark:text-white text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                     title="Save as confirmed room reservation"
                   >
                     <BookmarkCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
@@ -1775,7 +1774,7 @@ export function RoomTapeChart({
                   />
                   <span>Guest: {inspectedBooking.guest.firstName} {inspectedBooking.guest.lastName}</span>
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-muted dark:text-muted">
                   Room {inspectedBooking.room.number} · {inspectedBooking.room.type}
                 </p>
               </div>
@@ -1790,20 +1789,20 @@ export function RoomTapeChart({
 
             <div className="p-3.5 bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 rounded-lg space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Stay Duration:</span>
-                <span className="font-semibold text-slate-800 dark:text-white font-mono">
+                <span className="text-muted dark:text-muted">Stay Duration:</span>
+                <span className="font-semibold text-body dark:text-white font-mono">
                   {inspectedBooking.checkIn} → {inspectedBooking.checkOut} ({inspectedBooking.nights} Nights)
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Contact:</span>
-                <span className="font-semibold text-slate-800 dark:text-white">
+                <span className="text-muted dark:text-muted">Contact:</span>
+                <span className="font-semibold text-body dark:text-white">
                   {inspectedBooking.guest.phone}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Tariff:</span>
-                <span className="font-semibold text-slate-800 dark:text-white font-mono">
+                <span className="text-muted dark:text-muted">Tariff:</span>
+                <span className="font-semibold text-body dark:text-white font-mono">
                   Rs. {inspectedBooking.roomCharges?.toLocaleString()}
                 </span>
               </div>
@@ -1811,7 +1810,7 @@ export function RoomTapeChart({
                 const fin = getBookingFinancials(inspectedBooking);
                 return (
                   <div className="flex justify-between pt-1.5 border-t border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-800 dark:text-white font-bold flex items-center gap-1.5">
+                    <span className="text-body dark:text-white font-bold flex items-center gap-1.5">
                       <span className={cn('w-2 h-2 rounded-full', fin.balanceDue > 0 ? 'bg-rose-500' : 'bg-emerald-500')} />
                       <span>Payment Status:</span>
                     </span>
@@ -1829,7 +1828,7 @@ export function RoomTapeChart({
                 <button
                   type="button"
                   onClick={() => setInspectedBooking(null)}
-                  className="py-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
+                  className="py-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-muted dark:text-white text-xs font-semibold cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
@@ -1862,7 +1861,7 @@ export function RoomTapeChart({
                 <button
                   type="button"
                   onClick={() => setInspectedBooking(null)}
-                  className="py-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
+                  className="py-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-muted dark:text-white text-xs font-semibold cursor-pointer transition-colors"
                 >
                   Close
                 </button>
@@ -2014,7 +2013,7 @@ export function RoomTapeChart({
                     )}
                   >
                     <span>Maintenance</span>
-                    {isCurrentMaintenance && <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">✓</span>}
+                    {isCurrentMaintenance && <span className="text-[10px] text-muted dark:text-muted font-bold">✓</span>}
                   </button>
 
                   {/* 4. Out of Service */}

@@ -18,6 +18,7 @@ export const MASTERS_STORAGE_KEYS = {
   nationalities: 'hotel_nationalities_master',
   purposeOfVisit: 'hotel_purpose_of_visit_master',
   bookingAgents: 'hotel_booking_agents_master',
+  units: 'hotel_units_master',
 } as const;
 
 export type MasterType = keyof typeof MASTERS_STORAGE_KEYS;
@@ -93,12 +94,31 @@ export const DEFAULT_BOOKING_AGENTS: SimpleMasterItem[] = [
   { id: 'agt-8', code: 'AGT-008', name: 'Expedia Group', description: 'International online distribution channel', isActive: true, order: 8 },
 ];
 
+// 6. Default Restaurant & Bar Units / Quantities
+export const DEFAULT_UNITS: SimpleMasterItem[] = [
+  { id: 'qty-1', code: 'FULL', name: 'Full Portion', order: 1, isDefault: true, isActive: true },
+  { id: 'qty-2', code: 'HALF', name: 'Half Portion', order: 2, isActive: true },
+  { id: 'qty-3', code: 'REG', name: 'Regular / Standard', order: 3, isActive: true },
+  { id: 'qty-4', code: 'SML', name: 'Small Portion', order: 4, isActive: true },
+  { id: 'qty-5', code: 'LRG', name: 'Large Portion', order: 5, isActive: true },
+  { id: 'qty-6', code: '1PC', name: 'Single Piece (1 Pc)', order: 6, isActive: true },
+  { id: 'qty-7', code: '6PCS', name: 'Plate (6 Pcs)', order: 7, isActive: true },
+  { id: 'qty-8', code: '10PCS', name: 'Plate (10 Pcs)', order: 8, isActive: true },
+  { id: 'qty-9', code: 'PLTR', name: 'Platter / Family Pack', order: 9, isActive: true },
+  { id: 'qty-10', code: 'CUP', name: 'Cup / Mug', order: 10, isActive: true },
+  { id: 'qty-11', code: 'GLS', name: 'Glass (250ml)', order: 11, isActive: true },
+  { id: 'qty-12', code: 'BTL', name: 'Bottle (750ml)', order: 12, isActive: true },
+  { id: 'qty-13', code: 'BWL', name: 'Bowl', order: 13, isActive: true },
+  { id: 'qty-14', code: 'KG', name: 'Kilogram (Kg)', order: 14, isActive: true },
+];
+
 const DEFAULT_MAP: Record<MasterType, SimpleMasterItem[]> = {
   relationships: DEFAULT_RELATIONSHIPS,
   idDocumentTypes: DEFAULT_ID_DOCUMENT_TYPES,
   nationalities: DEFAULT_NATIONALITIES,
   purposeOfVisit: DEFAULT_PURPOSE_OF_VISIT,
   bookingAgents: DEFAULT_BOOKING_AGENTS,
+  units: DEFAULT_UNITS,
 };
 
 export function getMasterItems(type: MasterType): SimpleMasterItem[] {

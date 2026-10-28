@@ -17,6 +17,12 @@ export default function AdminLayout({
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const pathname = usePathname();
   const isHotelSetup = pathname === '/hotel' || pathname?.startsWith('/hotel');
+  const isSuperAdmin = pathname === '/super-admin' || pathname?.startsWith('/super-admin');
+
+  // Dedicated Super Admin Portal has its own custom navigation and layout
+  if (isSuperAdmin) {
+    return <>{children}</>;
+  }
 
   useEffect(() => {
     try {
@@ -42,8 +48,8 @@ export default function AdminLayout({
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F7F5F0] text-[#24352F] dark:bg-[#071512] dark:text-slate-100 transition-colors duration-150">
-      {/* Deep Forest Green Sidebar (#0B3D32) - Collapsible with smooth transition */}
+    <div className="flex h-screen overflow-hidden bg-[var(--surface-page)] text-[var(--text-body)] transition-colors duration-150">
+      {/* Sidebar surface (slightly distinct from page) */}
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={handleToggleSidebar}

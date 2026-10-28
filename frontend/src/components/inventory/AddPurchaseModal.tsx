@@ -334,7 +334,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs dark:bg-rose-950/40 dark:border-rose-800/50 dark:text-rose-300">
+          <div className="p-3 rounded-lg bg-danger-subtle dark:bg-danger-subtle border border-danger dark:border-danger text-danger dark:text-danger text-xs">
             {error}
           </div>
         )}
@@ -342,15 +342,15 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
         {/* ========================================================================= */}
         {/* ITEM SELECTION MODE TOGGLE */}
         {/* ========================================================================= */}
-        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800/70 rounded-xl">
+        <div className="flex items-center gap-2 p-1 bg-surface-muted dark:bg-surface-card rounded-xl">
           <button
             type="button"
             onClick={() => setItemMode('EXISTING')}
             className={cn(
               'flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5',
               itemMode === 'EXISTING'
-                ? 'bg-white dark:bg-[#071F1A] text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                ? 'bg-surface-card dark:bg-surface-card text-body dark:text-body shadow-xs'
+                : 'text-muted hover:text-body dark:text-muted dark:hover:text-body'
             )}
           >
             <Package className="w-3.5 h-3.5" />
@@ -362,8 +362,8 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
             className={cn(
               'flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5',
               itemMode === 'NEW'
-                ? 'bg-white dark:bg-[#071F1A] text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                ? 'bg-surface-card dark:bg-surface-card text-body dark:text-body shadow-xs'
+                : 'text-muted hover:text-body dark:text-muted dark:hover:text-body'
             )}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -382,14 +382,14 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
               </label>
               <div
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full h-10 px-3 flex items-center justify-between rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs cursor-pointer hover:border-slate-400 transition-colors"
+                className="w-full h-10 px-3 flex items-center justify-between rounded-lg border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card text-xs cursor-pointer hover:border-border-default transition-colors"
               >
                 {selectedItem ? (
                   <div className="flex items-center gap-2 truncate">
-                    <span className="font-semibold text-slate-900 dark:text-white truncate">
+                    <span className="font-semibold text-body dark:text-body truncate">
                       {selectedItem.name}
                     </span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-muted dark:bg-surface-card text-muted shrink-0">
                       {selectedItem.sku}
                     </span>
                     {selectedItem.trackStock === false ? (
@@ -403,27 +403,27 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                     )}
                   </div>
                 ) : (
-                  <span className="text-slate-400">Search or choose an item...</span>
+                  <span className="text-muted">Search or choose an item...</span>
                 )}
-                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                <ChevronDown className="w-4 h-4 text-muted shrink-0" />
               </div>
 
               {/* Popover Dropdown */}
               {isDropdownOpen && (
-                <div className="absolute z-50 left-0 right-0 mt-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                  <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
+                <div className="absolute z-50 left-0 right-0 mt-1 rounded-xl border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="p-2 border-b border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card">
                     <Input
                       autoFocus
                       placeholder="Type to filter items..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      leftIcon={<Search className="w-3.5 h-3.5 text-slate-400" />}
+                      leftIcon={<Search className="w-3.5 h-3.5 text-muted" />}
                       className="text-xs h-8"
                     />
                   </div>
-                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+                  <div className="max-h-56 overflow-y-auto divide-y divide-border-default dark:divide-border-default">
                     {filteredItems.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-400">
+                      <div className="p-4 text-center text-xs text-muted">
                         No matching items found.
                       </div>
                     ) : (
@@ -437,15 +437,15 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                               setIsDropdownOpen(false);
                             }}
                             className={cn(
-                              'p-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-xs',
-                              item.id === selectedItemId && 'bg-emerald-50/70 dark:bg-emerald-950/30'
+                              'p-2.5 flex items-center justify-between cursor-pointer hover:bg-surface-muted dark:hover:bg-surface-card transition-colors text-xs',
+                              item.id === selectedItemId && 'bg-success-subtle dark:bg-success-subtle'
                             )}
                           >
                             <div className="min-w-0 pr-2">
-                              <div className="font-medium text-slate-900 dark:text-white truncate">
+                              <div className="font-medium text-body dark:text-body truncate">
                                 {item.name}
                               </div>
-                              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
+                              <div className="flex items-center gap-1.5 text-[10px] text-muted font-mono mt-0.5">
                                 <span>{item.department}</span>
                                 <span>·</span>
                                 <span>{item.category}</span>
@@ -459,7 +459,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                                   Stock: {item.currentStock} {item.unit}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-muted text-muted border border-border-default dark:bg-surface-card dark:text-muted dark:border-border-default">
                                   Purchase Only
                                 </span>
                               )}
@@ -479,13 +479,13 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                 className={cn(
                   'p-3 rounded-xl border text-xs flex items-start gap-3',
                   selectedItem.trackStock !== false
-                    ? 'bg-emerald-50/60 border-emerald-200 text-emerald-900 dark:bg-emerald-950/20 dark:border-emerald-800/60 dark:text-emerald-200'
-                    : 'bg-blue-50/60 border-blue-200 text-blue-900 dark:bg-blue-950/20 dark:border-blue-800/60 dark:text-blue-200'
+                    ? 'bg-success-subtle border-success text-success dark:bg-success-subtle dark:border-success dark:text-success'
+                    : 'bg-info-subtle border-info text-info dark:bg-info-subtle dark:border-info dark:text-info'
                 )}
               >
                 {selectedItem.trackStock !== false ? (
                   <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-success dark:text-success shrink-0 mt-0.5" />
                     <div className="space-y-1">
                       <div className="font-bold flex items-center gap-2">
                         <span>Resale Product (Stock Tracked)</span>
@@ -493,7 +493,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                           Current Stock: {selectedItem.currentStock} {selectedItem.unit}
                         </span>
                       </div>
-                      <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80">
+                      <p className="text-[11px] text-success dark:text-success/80">
                         Saving this purchase will increase stock to{' '}
                         <strong className="font-mono">
                           {selectedItem.currentStock + (parseFloat(quantity) || 0)} {selectedItem.unit}
@@ -504,10 +504,10 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                    <FileText className="w-4 h-4 text-info dark:text-info shrink-0 mt-0.5" />
                     <div className="space-y-1">
                       <div className="font-bold">Purchase History Only (No Stock Balance)</div>
-                      <p className="text-[11px] text-blue-700 dark:text-blue-300/80">
+                      <p className="text-[11px] text-info dark:text-info/80">
                         This item records purchase expenses and supplier invoices without maintaining stock quantities or stock deductions.
                       </p>
                     </div>
@@ -523,8 +523,8 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
         {/* ========================================================================= */}
         {itemMode === 'NEW' && (
           <div className="space-y-3.5 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
-            <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 pb-1 border-b border-slate-200 dark:border-slate-800">
-              <Sparkles className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+            <div className="text-xs font-bold text-body dark:text-body flex items-center gap-1.5 pb-1 border-b border-border-default dark:border-border-default">
+              <Sparkles className="w-3.5 h-3.5 text-brand dark:text-success" />
               New Item Configuration
             </div>
 
@@ -583,13 +583,13 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                   className={cn(
                     'p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between text-xs',
                     newItemTrackStock
-                      ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100 ring-1 ring-emerald-500'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                      ? 'border-success bg-success-subtle dark:bg-success-subtle text-success dark:text-success ring-1 ring-success'
+                      : 'border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card text-muted dark:text-muted hover:border-border-default'
                   )}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-bold flex items-center gap-1.5">
-                      <Package className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <Package className="w-3.5 h-3.5 text-success dark:text-success" />
                       1. Track Stock for Resale
                     </span>
                     <input
@@ -597,10 +597,10 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                       name="purchasingBehavior"
                       checked={newItemTrackStock}
                       onChange={() => setNewItemTrackStock(true)}
-                      className="accent-[#0B3D32]"
+                      className="accent-brand"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <p className="text-[11px] text-slate-500 dark:text-muted leading-relaxed">
                     For products sold directly to guests (beer, soda, bottled water, snacks). Stock increases on purchase and deducts on sale.
                   </p>
                 </div>
@@ -611,13 +611,13 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                   className={cn(
                     'p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between text-xs',
                     !newItemTrackStock
-                      ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 ring-1 ring-blue-500'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                      ? 'border-info bg-info-subtle dark:bg-info-subtle text-info dark:text-info ring-1 ring-info'
+                      : 'border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card text-muted dark:text-muted hover:border-border-default'
                   )}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-bold flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <FileText className="w-3.5 h-3.5 text-info dark:text-info" />
                       2. Record Purchases Only
                     </span>
                     <input
@@ -625,10 +625,10 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                       name="purchasingBehavior"
                       checked={!newItemTrackStock}
                       onChange={() => setNewItemTrackStock(false)}
-                      className="accent-blue-600"
+                      className="accent-info"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <p className="text-[11px] text-slate-500 dark:text-muted leading-relaxed">
                     For kitchen ingredients, spices, oil, equipment, hotel supplies & cleaning items. Saved to purchase history without stock balances.
                   </p>
                 </div>
@@ -637,7 +637,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
 
             {/* Show stock-related field (threshold) ONLY if resale tracked */}
             {newItemTrackStock && (
-              <div className="p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40">
+              <div className="p-2.5 rounded-lg bg-success-subtle dark:bg-success-subtle border-border-default dark:border-border-default">
                 <Input
                   label="Low Stock Alert Threshold"
                   type="number"
@@ -647,7 +647,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                   onChange={(e) => setNewItemMinThreshold(parseInt(e.target.value, 10) || 0)}
                   className="text-xs h-9"
                 />
-                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-1">
+                <p className="text-[10px] text-success dark:text-success mt-1">
                   Alerts will trigger on the dashboard when stock falls below this quantity.
                 </p>
               </div>
@@ -687,7 +687,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                   placeholder="e.g. bottles, kg, cans, pieces"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
-                  className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
+                  className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:ring-1 focus-ring-[var(--brand-primary)]"
                 />
                 <datalist id="unit-suggestions">
                   {COMMON_UNITS.map((u) => (
@@ -712,7 +712,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                 onChange={(e) => setTotalCost(e.target.value)}
               />
               {parseFloat(quantity) > 0 && parseFloat(totalCost) >= 0 && (
-                <div className="text-[11px] text-slate-500 font-mono mt-1">
+                <div className="text-[11px] text-muted">
                   Cost per {unit}: Rs. {(parseFloat(totalCost) / parseFloat(quantity)).toFixed(2)}
                 </div>
               )}
@@ -752,14 +752,14 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+        <div className="pt-3 border-t border-border-default dark:border-border-default flex items-center justify-between gap-3">
           <div className="text-xs text-slate-500">
             {isResaleTracked ? (
-              <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+              <span className="text-success dark:text-success font-medium">
                 Stock balance will increase by {parseFloat(quantity) || 0} {unit}
               </span>
             ) : (
-              <span className="text-slate-400">
+              <span className="text-muted">
                 Purchase record only · No stock deduction or balance
               </span>
             )}

@@ -49,6 +49,9 @@ builder.Services.AddPersistence(builder.Configuration);
 // Infrastructure (JWT Auth & Services)
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Background Schedulers
+builder.Services.AddHostedService<Hospitality.Api.Services.TableReservationAlertService>();
+
 // Supabase Client (Auth, Postgrest, Storage, Realtime)
 builder.Services.AddSupabase(
     builder.Configuration["Supabase:Url"]!,
@@ -196,8 +199,32 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS ""ix_bill_type"" ON ""Bill"" (""billingType"");
             CREATE INDEX IF NOT EXISTS ""ix_bill_status"" ON ""Bill"" (""paymentStatus"");
             CREATE INDEX IF NOT EXISTS ""ix_bill_created"" ON ""Bill"" (""createdAt"");
+
+            CREATE TABLE IF NOT EXISTS ""ReservationAlert"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reservationId"" text NOT NULL,
+                ""tableId"" text,
+                ""alertType"" text NOT NULL DEFAULT 'PREPARATION_15MIN',
+                ""scheduledFor"" timestamp with time zone NOT NULL,
+                ""triggeredAt"" timestamp with time zone,
+                ""status"" text NOT NULL DEFAULT 'ACTIVE',
+                ""severity"" text NOT NULL DEFAULT 'WARNING',
+                ""title"" text NOT NULL,
+                ""message"" text NOT NULL,
+                ""targetRoles"" text NOT NULL DEFAULT 'MANAGER,WAITER,STAFF',
+                ""isRead"" boolean NOT NULL DEFAULT false,
+                ""acknowledgedBy"" text,
+                ""acknowledgedAt"" timestamp with time zone,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE INDEX IF NOT EXISTS ""ix_reservationalert_status"" ON ""ReservationAlert"" (""status"");
+            CREATE INDEX IF NOT EXISTS ""ix_reservationalert_res_type"" ON ""ReservationAlert"" (""reservationId"", ""alertType"");
+            CREATE INDEX IF NOT EXISTS ""ix_reservationalert_hotel_status"" ON ""ReservationAlert"" (""hotelId"", ""status"");
         ");
-        logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Inventory, and unified Bills table ready.");
+        logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Bills, and ReservationAlert tables ready.");
     }
     catch (Exception ex)
     {

@@ -254,7 +254,7 @@ function RoomBookingsContent() {
       {/* -----------------------------------------------------------------------
           TOP HEADER: Clean, Professional Page Title & Actions
           ----------------------------------------------------------------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-default dark:border-border-default">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600">
             <CalendarCheck className="w-4 h-4 text-white" />
@@ -313,7 +313,7 @@ function RoomBookingsContent() {
       {/* -----------------------------------------------------------------------
           STATUS TABS, SEARCH & DATE FILTER (Combined Single Minimal Row)
           ----------------------------------------------------------------------- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pt-1">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border-default dark:border-border-default pt-1">
         {/* Left Side: Minimal Text Tabs with Underline */}
         <div className="flex items-center gap-1 sm:gap-4 overflow-x-auto no-scrollbar -mb-px">
           {statusTabs.map((tab) => {
@@ -835,7 +835,7 @@ function RoomBookingsContent() {
                     </div>
 
                     {/* Compressed Stay Dates */}
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5 text-xs text-muted dark:text-muted">
                       <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
                         {new Date(booking.checkIn).toLocaleDateString('en-GB', {

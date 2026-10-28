@@ -63,12 +63,13 @@ function KitchenKDSContent() {
 
   const fetchKitchenOrders = async () => {
     try {
-      const res = await (api as any).getRestaurantOrders({ status: 'RECEIVED,PREPARING,READY' });
-      if (res && res.success && Array.isArray(res.data)) {
-        setOrders(res.data);
-      } else if (Array.isArray(res)) {
-        setOrders(res);
-      }
+      const res = await api.getRestaurantOrders({ status: 'RECEIVED,PREPARING,READY,IN_KITCHEN' });
+      const rawList = Array.isArray(res) ? res : ((res as any)?.success && Array.isArray((res as any)?.data)) ? (res as any).data : [];
+      const normalized = rawList.map((o: any) => ({
+        ...o,
+        status: o.status === 'IN_KITCHEN' ? 'PREPARING' : o.status,
+      }));
+      setOrders(normalized);
     } catch (err: any) {
       console.error('Failed to fetch kitchen orders', err);
     } finally {

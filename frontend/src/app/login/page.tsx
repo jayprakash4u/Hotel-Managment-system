@@ -58,13 +58,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-[#F3F4F8] dark:bg-[#0B0F19] text-[#1E2B4F] select-none transition-colors duration-200">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-[#F3F4F8] dark:bg-[#0B0F19] text-body dark:text-body select-none transition-colors duration-200">
       {/* Centered Main 2-Column Authentication Card */}
-      <div className="w-full max-w-[880px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.06)] overflow-hidden grid grid-cols-1 md:grid-cols-2">
+      <div className="w-full max-w-[880px] bg-white dark:bg-surface-card rounded-2xl border border-border-default dark:border-border-default shadow-[0_8px_30px_rgb(0,0,0,0.06)] overflow-hidden grid grid-cols-1 md:grid-cols-2">
         {/* =====================================================================
             LEFT COLUMN: EMBLEM, IDENTITY & VECTOR GRAPHIC ILLUSTRATION
             ===================================================================== */}
-        <div className="bg-[#F9FAFC] dark:bg-slate-900/60 p-8 sm:p-10 flex flex-col items-center justify-between text-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800/80">
+        <div className="bg-surface-muted dark:bg-surface-card/60 p-8 sm:p-10 flex flex-col items-center justify-between text-center border-b md:border-b-0 md:border-r border-border-default dark:border-border-default/80">
           {/* Top Brand Identity */}
           <div className="flex flex-col items-center">
             {/* Ornate Seal Emblem matching screenshot */}

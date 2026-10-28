@@ -530,3 +530,33 @@ export interface GetBillsResponse {
   summary: BillingSummaryData;
 }
 
+export interface ReservationAlertData {
+  id: string;
+  hotelId: string;
+  reservationId: string;
+  reservationCode: string;
+  customerName: string;
+  phoneNumber: string;
+  partySize: number;
+  reservationTime: string;
+  reservationDate?: string | null;
+  tableId?: string | null;
+  tableNumber: string;
+  section: string;
+  tableCleaningStatus: string;
+  tableStatus: string;
+  alertType: 'PREPARATION_15MIN' | 'TABLE_DIRTY' | 'OVERDUE_OCCUPIED' | string;
+  scheduledFor: string;
+  triggeredAt?: string | null;
+  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'DISMISSED' | 'CANCELLED';
+  severity: 'INFO' | 'WARNING' | 'DANGER';
+  title: string;
+  message: string;
+  targetRoles: string;
+  isRead: boolean;
+  acknowledgedBy?: string | null;
+  acknowledgedAt?: string | null;
+  createdAt: string;
+}
+
+
