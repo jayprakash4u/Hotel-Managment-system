@@ -883,7 +883,7 @@ export default function RestaurantSetupPage() {
               activeTab === 'tables' ? 'table numbers...' :
               activeTab === 'table-categories' ? 'sections...' : 'units...'
             }`}
-            className="w-full h-8.5 rounded-[4px] border border-border-default bg-white dark:bg-surface-card py-1 pl-8 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:text-body transition-colors"
+            className="w-full h-9 rounded-[4px] border border-border-default bg-white dark:bg-surface-card pl-8 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:text-body transition-colors"
           />
           {searchQuery && (
             <button

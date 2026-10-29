@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Hospitality.Application.Common.Models;
 using Hospitality.Domain.Entities;
 using Hospitality.Persistence.Data;
+using Hospitality.Api.Services;
 
 namespace Hospitality.Api.Controllers;
 
@@ -430,13 +431,22 @@ public class RestaurantController : ControllerBase
                 });
             }
 
-            // If table is specified, mark table as OCCUPIED
+            // If table is specified, validate walk-in availability and mark table as OCCUPIED
             if (!string.IsNullOrWhiteSpace(req.TableId))
             {
                 var table = await _db.RestaurantTables.FindAsync(req.TableId);
                 if (table != null)
                 {
-                    table.Status = "OCCUPIED";
+                    if (table.Status != "OCCUPIED")
+                    {
+                        var walkInCheck = await ValidateWalkInSeatingAsync(table);
+                        if (!walkInCheck.CanSeat)
+                        {
+                            await transaction.RollbackAsync();
+                            return BadRequest(ApiResponse.Fail(walkInCheck.Warning ?? "Table is not available for seating."));
+                        }
+                        table.Status = "OCCUPIED";
+                    }
                 }
             }
 
@@ -595,6 +605,98 @@ public class RestaurantController : ControllerBase
             await transaction.RollbackAsync();
             return StatusCode(500, ApiResponse.Fail($"Failed to add items: {ex.Message}"));
         }
+    }
+
+    [HttpPut("api/restaurant/orders/{id}/items")]
+    public async Task<IActionResult> UpdateOrderItems(string id, [FromBody] AddOrderItemsRequest req)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+        }
+
+        if (order.Status == "COMPLETED" || order.Status == "CANCELLED")
+        {
+            return BadRequest(ApiResponse.Fail($"Cannot modify an order with status '{order.Status}'."));
+        }
+
+        _db.RestaurantOrderItems.RemoveRange(order.Items);
+        order.Items.Clear();
+
+        if (req.Items != null)
+        {
+            foreach (var item in req.Items)
+            {
+                if (item.Quantity > 0)
+                {
+                    order.Items.Add(new RestaurantOrderItem
+                    {
+                        OrderId = order.Id,
+                        ProductId = item.ProductId ?? Guid.NewGuid().ToString("N"),
+                        ProductName = item.ProductName ?? "Item",
+                        UnitPrice = item.UnitPrice,
+                        Quantity = item.Quantity,
+                        Total = item.UnitPrice * item.Quantity,
+                        Notes = item.Notes
+                    });
+                }
+            }
+        }
+
+        var newSubtotal = order.Items.Sum(i => i.UnitPrice * i.Quantity);
+        var newTax = Math.Round(newSubtotal * 0.10, 2);
+        var newService = Math.Round(newSubtotal * 0.05, 2);
+
+        order.Subtotal = newSubtotal;
+        order.Tax = newTax;
+        order.ServiceCharge = newService;
+        order.Total = newSubtotal + newTax + newService;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        if (order.Items.Count > 0 && !string.IsNullOrEmpty(order.TableId))
+        {
+            var table = await _db.RestaurantTables.FindAsync(order.TableId);
+            if (table != null) table.Status = "OCCUPIED";
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(order, "Order items updated successfully."));
+    }
+
+    [HttpDelete("api/restaurant/orders/{orderId}/items/{itemId}")]
+    public async Task<IActionResult> RemoveOrderItem(string orderId, string itemId)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == orderId || o.OrderNumber == orderId);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{orderId}' not found."));
+        }
+
+        var item = order.Items.FirstOrDefault(i => i.Id == itemId || i.ProductName.ToLower() == itemId.ToLower());
+        if (item != null)
+        {
+            _db.RestaurantOrderItems.Remove(item);
+            order.Items.Remove(item);
+
+            var newSubtotal = order.Items.Sum(i => i.UnitPrice * i.Quantity);
+            order.Subtotal = newSubtotal;
+            order.Tax = Math.Round(newSubtotal * 0.10, 2);
+            order.ServiceCharge = Math.Round(newSubtotal * 0.05, 2);
+            order.Total = newSubtotal + order.Tax + order.ServiceCharge;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+        }
+
+        return Ok(ApiResponse.Ok(order, "Item removed successfully."));
     }
 
     public record GenerateBillRequest(
@@ -940,6 +1042,7 @@ public class RestaurantController : ControllerBase
                 if (table != null)
                 {
                     table.Status = "FREE";
+                    table.CleaningStatus = "DIRTY";
                 }
             }
 
@@ -1169,7 +1272,11 @@ public class RestaurantController : ControllerBase
         if (newStatus == "COMPLETED" && !string.IsNullOrEmpty(order.TableId))
         {
             var table = await _db.RestaurantTables.FindAsync(order.TableId);
-            if (table != null) table.Status = "FREE";
+            if (table != null)
+            {
+                table.Status = "FREE";
+                table.CleaningStatus = "DIRTY";
+            }
         }
 
         await _db.SaveChangesAsync();
@@ -1184,23 +1291,77 @@ public class RestaurantController : ControllerBase
 
     [HttpGet("api/restaurant/tables")]
     [HttpGet("api/tables")]
-    public async Task<IActionResult> GetTables()
+    public async Task<IActionResult> GetTables([FromQuery] string? date)
     {
-        var tables = await _db.RestaurantTables
-            .Include(t => t.Orders.Where(o => o.Status != "COMPLETED" && o.Status != "CANCELLED"))
-                .ThenInclude(o => o.Items)
-            .Include(t => t.Reservations.Where(r => r.Status == "CONFIRMED" || r.Status == "SEATED" || r.Status == "PENDING"))
+        DateTime targetDate;
+        var hotel = await _db.Hotels.AsNoTracking().FirstOrDefaultAsync();
+        var hotelTz = TableReservationAlertService.ResolveTimeZone(hotel?.Timezone);
+        var nowHotelLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, hotelTz);
+
+        if (!string.IsNullOrWhiteSpace(date) && DateTime.TryParse(date, out var parsedDate))
+        {
+            targetDate = parsedDate.Date;
+        }
+        else
+        {
+            targetDate = nowHotelLocal.Date;
+        }
+
+        var targetUtcDate = DateTime.SpecifyKind(targetDate, DateTimeKind.Utc);
+        bool isTargetToday = (targetDate.Date == nowHotelLocal.Date);
+
+        IQueryable<RestaurantTable> query = _db.RestaurantTables;
+        if (!isTargetToday)
+        {
+            query = query.AsNoTracking();
+        }
+
+        if (isTargetToday)
+        {
+            query = query
+                .Include(t => t.Orders.Where(o => o.Status != "COMPLETED" && o.Status != "CANCELLED"))
+                    .ThenInclude(o => o.Items);
+        }
+
+        var tables = await query
+            .Include(t => t.Reservations.Where(r =>
+                (r.Status == "CONFIRMED" || r.Status == "SEATED" || r.Status == "PENDING") &&
+                r.ReservationDate.Date == targetUtcDate.Date))
             .OrderBy(t => t.TableNumber)
             .ToListAsync();
 
+        bool hasStatusFix = false;
         foreach (var t in tables)
         {
-            var hasActiveOrder = t.Orders.Any(o => o.Status != "COMPLETED" && o.Status != "CANCELLED");
-            var hasActiveRes = t.Reservations.Any(r => r.Status == "CONFIRMED" || r.Status == "PENDING");
-            if (!hasActiveOrder && hasActiveRes && (t.Status == "FREE" || t.Status == "AVAILABLE"))
+            if (isTargetToday)
             {
-                t.Status = "RESERVED";
+                // Operational status must be kept separate from reservations.
+                // If table has no active dining order but was previously marked RESERVED, restore operational status to FREE.
+                if (t.Status == "RESERVED" && !t.Orders.Any(o => o.Status != "COMPLETED" && o.Status != "CANCELLED"))
+                {
+                    t.Status = "FREE";
+                    hasStatusFix = true;
+                }
             }
+            else
+            {
+                // Active dining orders and seated guest occupancy are strictly for Today.
+                // Tomorrow and future dates have no live orders; operational status is FREE unless OUT_OF_SERVICE.
+                t.Orders = new List<RestaurantOrder>();
+                if (t.Status != "OUT_OF_SERVICE" && t.Status != "MAINTENANCE")
+                {
+                    t.Status = "FREE";
+                }
+            }
+
+            t.Reservations = t.Reservations
+                .OrderBy(r => r.ReservationTime)
+                .ToList();
+        }
+
+        if (hasStatusFix)
+        {
+            await _db.SaveChangesAsync();
         }
 
         return Ok(ApiResponse.Ok(tables));
@@ -1217,6 +1378,7 @@ public class RestaurantController : ControllerBase
         }
 
         table.Status = "FREE";
+        table.CleaningStatus = "DIRTY";
 
         // Mark any remaining active orders as COMPLETED
         var activeOrders = await _db.RestaurantOrders
@@ -1360,6 +1522,281 @@ public class RestaurantController : ControllerBase
     }
 
     // =========================================================================
+    // RESTAURANT SETTINGS & WALK-IN SEATING LOGIC
+    // =========================================================================
+
+    public record SeatWalkInRequest(
+        string? CustomerName,
+        string? PhoneNumber,
+        int? PartySize,
+        string? ServerName,
+        string? Notes,
+        int? EstimatedDiningMinutes,
+        int? CleaningBufferMinutes,
+        string? SimulatedTime,
+        string? Date
+    );
+
+    public record RestaurantSettingsDto(
+        int EstimatedDiningMinutes = 90,
+        int CleaningBufferMinutes = 15,
+        int AdvanceAlertMinutes = 15
+    );
+
+    private static RestaurantSettingsDto _restaurantSettings = new(
+        EstimatedDiningMinutes: 90,
+        CleaningBufferMinutes: 15,
+        AdvanceAlertMinutes: 15
+    );
+
+    [HttpGet("api/restaurant/settings")]
+    public IActionResult GetRestaurantSettings()
+    {
+        return Ok(ApiResponse.Ok(_restaurantSettings));
+    }
+
+    [HttpPost("api/restaurant/settings")]
+    [HttpPut("api/restaurant/settings")]
+    public IActionResult UpdateRestaurantSettings([FromBody] RestaurantSettingsDto req)
+    {
+        var dining = req.EstimatedDiningMinutes > 0 ? req.EstimatedDiningMinutes : 90;
+        var buffer = req.CleaningBufferMinutes >= 0 ? req.CleaningBufferMinutes : 15;
+        var alert = req.AdvanceAlertMinutes > 0 ? req.AdvanceAlertMinutes : 15;
+
+        _restaurantSettings = new RestaurantSettingsDto(dining, buffer, alert);
+        return Ok(ApiResponse.Ok(_restaurantSettings, "Restaurant settings updated successfully."));
+    }
+
+    private async Task<(bool CanSeat, string? Warning, TableReservation? NextRes, int MinutesUntilRes, int RequiredMinutes)> ValidateWalkInSeatingAsync(
+        RestaurantTable table,
+        int? customDiningMinutes = null,
+        int? customBufferMinutes = null,
+        string? simulatedTimeStr = null,
+        string? dateStr = null)
+    {
+        if (table.Status == "OUT_OF_SERVICE" || table.Status == "MAINTENANCE")
+        {
+            return (false, $"Table {table.TableNumber} is out of service and cannot seat customers.", null, 0, 0);
+        }
+
+        if (table.Status == "OCCUPIED")
+        {
+            return (false, $"Table {table.TableNumber} is currently occupied by active diners.", null, 0, 0);
+        }
+
+        var isDirty = (table.CleaningStatus ?? "").Trim().ToUpper() == "DIRTY";
+        if (isDirty)
+        {
+            return (false, $"Table {table.TableNumber} is dirty. Please clean and prepare the table before seating new customers.", null, 0, 0);
+        }
+
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelTz = TableReservationAlertService.ResolveTimeZone(hotel?.Timezone);
+        var nowHotelLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, hotelTz);
+        var targetDate = nowHotelLocal.Date;
+
+        if (!string.IsNullOrWhiteSpace(dateStr) && DateTime.TryParse(dateStr, out var parsedDate))
+        {
+            targetDate = parsedDate.Date;
+        }
+
+        if (!string.IsNullOrWhiteSpace(simulatedTimeStr) && TimeSpan.TryParse(simulatedTimeStr, out var simTs))
+        {
+            nowHotelLocal = targetDate.Add(simTs);
+        }
+        else if (targetDate != nowHotelLocal.Date)
+        {
+            nowHotelLocal = targetDate.Add(nowHotelLocal.TimeOfDay);
+        }
+
+        var nowUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(nowHotelLocal, DateTimeKind.Unspecified), hotelTz);
+
+        var targetDateUtc = DateTime.SpecifyKind(targetDate, DateTimeKind.Utc);
+        var endDateUtc = targetDateUtc.AddDays(2);
+
+        var activeReservations = await _db.TableReservations
+            .Where(r => r.TableId == table.Id &&
+                        r.ReservationDate >= targetDateUtc &&
+                        r.ReservationDate < endDateUtc &&
+                        r.Status != "CANCELLED" &&
+                        r.Status != "NO_SHOW" &&
+                        r.Status != "COMPLETED")
+            .OrderBy(r => r.ReservationDate)
+            .ThenBy(r => r.ReservationTime)
+            .ToListAsync();
+
+        var diningMins = customDiningMinutes ?? _restaurantSettings.EstimatedDiningMinutes;
+        var bufferMins = customBufferMinutes ?? _restaurantSettings.CleaningBufferMinutes;
+        var requiredMins = diningMins + bufferMins;
+
+        TableReservation? nextRes = null;
+        int minutesUntilNext = int.MaxValue;
+
+        foreach (var res in activeReservations)
+        {
+            var resStartUtc = TableReservationAlertService.GetReservationUtc(res.ReservationDate, res.ReservationTime, hotelTz);
+            if (resStartUtc > nowUtc)
+            {
+                var diffMins = (int)(resStartUtc - nowUtc).TotalMinutes;
+                if (diffMins < minutesUntilNext)
+                {
+                    minutesUntilNext = diffMins;
+                    nextRes = res;
+                }
+            }
+            else
+            {
+                var resEndUtc = resStartUtc.AddMinutes(res.DurationMinutes > 0 ? res.DurationMinutes : 120);
+                if (nowUtc < resEndUtc)
+                {
+                    var cStart = FormatTime12h(res.ReservationTime);
+                    return (false, $"This table is currently reserved for {res.CustomerName} ({cStart}). Walk-in customers cannot be seated during an active reservation slot.", res, 0, requiredMins);
+                }
+            }
+        }
+
+        if (nextRes != null)
+        {
+            if (minutesUntilNext < requiredMins)
+            {
+                var cStart = FormatTime12h(nextRes.ReservationTime);
+                return (false, $"This table is reserved at {cStart}. Choose another table because there may not be enough time to finish service and prepare it.", nextRes, minutesUntilNext, requiredMins);
+            }
+        }
+
+        return (true, null, nextRes, nextRes != null ? minutesUntilNext : 0, requiredMins);
+    }
+
+    [HttpGet("api/restaurant/tables/{id}/walkin-check")]
+    public async Task<IActionResult> CheckWalkInAvailability(
+        string id,
+        [FromQuery] int? estimatedDiningMinutes,
+        [FromQuery] int? diningMinutes,
+        [FromQuery] int? cleaningBufferMinutes,
+        [FromQuery] int? bufferMinutes,
+        [FromQuery] string? simulatedTime,
+        [FromQuery] string? date)
+    {
+        var table = await _db.RestaurantTables.FindAsync(id);
+        if (table == null)
+        {
+            return NotFound(ApiResponse.Fail($"Table '{id}' not found."));
+        }
+
+        var dMins = estimatedDiningMinutes ?? diningMinutes;
+        var bMins = cleaningBufferMinutes ?? bufferMinutes;
+        var validation = await ValidateWalkInSeatingAsync(table, dMins, bMins, simulatedTime, date);
+
+        return Ok(ApiResponse.Ok(new
+        {
+            TableId = table.Id,
+            table.TableNumber,
+            table.Capacity,
+            PhysicalStatus = table.Status,
+            table.CleaningStatus,
+            IsAllowed = validation.CanSeat,
+            CanSeat = validation.CanSeat,
+            Warning = validation.Warning,
+            NextReservation = validation.NextRes != null ? new
+            {
+                validation.NextRes.Id,
+                validation.NextRes.ReservationCode,
+                validation.NextRes.CustomerName,
+                StartTime = FormatTime12h(validation.NextRes.ReservationTime),
+                validation.NextRes.ReservationTime,
+                validation.NextRes.PartySize,
+                MinutesUntil = validation.MinutesUntilRes
+            } : null,
+            EstimatedMinutes = dMins ?? _restaurantSettings.EstimatedDiningMinutes,
+            BufferMinutes = bMins ?? _restaurantSettings.CleaningBufferMinutes,
+            RequiredMinutes = validation.RequiredMinutes,
+            RemainingMinutes = validation.NextRes != null ? validation.MinutesUntilRes : (int?)null,
+            MinutesUntilReservation = validation.NextRes != null ? validation.MinutesUntilRes : (int?)null
+        }));
+    }
+
+    [HttpPost("api/restaurant/tables/{id}/seat-walkin")]
+    public async Task<IActionResult> SeatWalkIn(string id, [FromBody] SeatWalkInRequest? req)
+    {
+        var table = await _db.RestaurantTables.FindAsync(id);
+        if (table == null)
+        {
+            return NotFound(ApiResponse.Fail($"Table '{id}' not found."));
+        }
+
+        var validation = await ValidateWalkInSeatingAsync(
+            table,
+            req?.EstimatedDiningMinutes,
+            req?.CleaningBufferMinutes,
+            req?.SimulatedTime,
+            req?.Date
+        );
+
+        if (!validation.CanSeat)
+        {
+            return BadRequest(ApiResponse.Fail(validation.Warning ?? "Table is not available for walk-in seating."));
+        }
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            table.Status = "OCCUPIED";
+
+            var hotel = await _db.Hotels.FirstOrDefaultAsync();
+            var hotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
+
+            var countOrders = await _db.RestaurantOrders.CountAsync();
+            var orderNum = await GenerateUniqueOrderNumberAsync();
+            var kotNum = await GenerateUniqueKitchenTicketAsync();
+
+            var customerName = !string.IsNullOrWhiteSpace(req?.CustomerName)
+                ? req.CustomerName.Trim()
+                : "Walk-in Customer";
+
+            var order = new RestaurantOrder
+            {
+                HotelId = hotelId,
+                TableId = table.Id,
+                OrderNumber = orderNum,
+                KotNumber = kotNum,
+                Outlet = "RESTAURANT",
+                OrderType = "DINE_IN",
+                ServerName = req?.ServerName ?? "Waiter",
+                Status = "RECEIVED",
+                Notes = string.IsNullOrWhiteSpace(req?.Notes)
+                    ? customerName
+                    : $"{customerName} | {req.Notes}".Trim(),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _db.RestaurantOrders.Add(order);
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(ApiResponse.Ok(new
+            {
+                Table = table,
+                Order = order,
+                NextReservation = validation.NextRes != null ? new
+                {
+                    StartTime = FormatTime12h(validation.NextRes.ReservationTime),
+                    validation.NextRes.CustomerName,
+                    validation.NextRes.PartySize,
+                    MinutesRemaining = validation.MinutesUntilRes
+                } : null,
+                Message = $"Walk-in customer seated at Table {table.TableNumber}." +
+                          (validation.NextRes != null ? $" Table reserved at {FormatTime12h(validation.NextRes.ReservationTime)} ({validation.MinutesUntilRes} mins remaining)." : "")
+            }));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to seat walk-in: {ex.Message}"));
+        }
+    }
+
+    // =========================================================================
     // TABLE RESERVATIONS (AVAILABILITY, BOOKING, SEATING & CONCURRENCY)
     // =========================================================================
 
@@ -1368,8 +1805,10 @@ public class RestaurantController : ControllerBase
         string PhoneNumber,
         DateTime ReservationDate,
         string? ReservationTime,
+        string? EndTime,
         int? PartySize,
         int? DurationMinutes,
+        int? BufferMinutes,
         string? TableId,
         string? SpecialRequests,
         string? InternalNotes,
@@ -1381,8 +1820,10 @@ public class RestaurantController : ControllerBase
         string? PhoneNumber,
         DateTime? ReservationDate,
         string? ReservationTime,
+        string? EndTime,
         int? PartySize,
         int? DurationMinutes,
+        int? BufferMinutes,
         string? TableId,
         string? SpecialRequests,
         string? InternalNotes,
@@ -1399,8 +1840,39 @@ public class RestaurantController : ControllerBase
         string? ServerName
     );
 
-    private static DateTime ParseReservationDateTime(DateTime date, string timeStr)
+    private static string CalculateEndTime(string timeStr, int durationMinutes)
     {
+        if (TimeSpan.TryParse(timeStr, out var ts))
+        {
+            var endTs = ts.Add(TimeSpan.FromMinutes(durationMinutes > 0 ? durationMinutes : 120));
+            var hours = (int)endTs.TotalHours % 24;
+            var mins = endTs.Minutes;
+            return $"{hours:D2}:{mins:D2}";
+        }
+        return timeStr;
+    }
+
+    private static string FormatTime12h(string timeStr)
+    {
+        if (string.IsNullOrWhiteSpace(timeStr)) return "";
+        var parts = timeStr.Split(':');
+        if (int.TryParse(parts[0], out var hours))
+        {
+            var mins = parts.Length > 1 ? parts[1] : "00";
+            var ampm = hours >= 12 ? "PM" : "AM";
+            var h12 = hours % 12;
+            if (h12 == 0) h12 = 12;
+            return $"{h12}:{mins} {ampm}";
+        }
+        return timeStr;
+    }
+
+    private static DateTime ParseReservationDateTime(DateTime date, string timeStr, TimeZoneInfo? hotelTz = null)
+    {
+        if (hotelTz != null)
+        {
+            return TableReservationAlertService.GetReservationUtc(date, timeStr, hotelTz);
+        }
         var baseDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
         if (TimeSpan.TryParse(timeStr, out var ts))
         {
@@ -1413,10 +1885,12 @@ public class RestaurantController : ControllerBase
         return baseDate.AddHours(19);
     }
 
-    private static bool ReservationsOverlap(DateTime startA, int durationA, DateTime startB, int durationB)
+    private static bool ReservationsOverlap(DateTime startA, int durationA, DateTime startB, int durationB, int bufferMinutes = 15)
     {
-        var endA = startA.AddMinutes(durationA > 0 ? durationA : 120);
-        var endB = startB.AddMinutes(durationB > 0 ? durationB : 120);
+        var durA = durationA > 0 ? durationA : 120;
+        var durB = durationB > 0 ? durationB : 120;
+        var endA = startA.AddMinutes(durA + bufferMinutes);
+        var endB = startB.AddMinutes(durB + bufferMinutes);
         return startA < endB && endA > startB;
     }
 
@@ -1492,16 +1966,35 @@ public class RestaurantController : ControllerBase
     public async Task<IActionResult> GetAvailableTables(
         [FromQuery] DateTime? date,
         [FromQuery] string? time,
+        [FromQuery] string? endTime,
         [FromQuery] int? partySize,
         [FromQuery] int? durationMinutes,
+        [FromQuery] int? bufferMinutes,
         [FromQuery] string? excludeReservationId)
     {
-        var targetDate = date.HasValue ? DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc) : DateTime.UtcNow.Date;
+        var hotel = await _db.Hotels.AsNoTracking().FirstOrDefaultAsync();
+        var hotelTz = TableReservationAlertService.ResolveTimeZone(hotel?.Timezone);
+        var nowHotelLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, hotelTz);
+
+        var targetDate = date.HasValue ? DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc) : DateTime.SpecifyKind(nowHotelLocal.Date, DateTimeKind.Utc);
         var timeStr = string.IsNullOrWhiteSpace(time) ? "19:00" : time.Trim();
         var guests = partySize ?? 2;
+        var buffer = bufferMinutes ?? 15;
         var duration = durationMinutes ?? 120;
 
-        var targetStart = ParseReservationDateTime(targetDate, timeStr);
+        if (!string.IsNullOrWhiteSpace(endTime))
+        {
+            if (TimeSpan.TryParse(timeStr, out var startTs) && TimeSpan.TryParse(endTime, out var endTs))
+            {
+                if (endTs <= startTs)
+                {
+                    return BadRequest(ApiResponse.Fail("End time must be later than start time."));
+                }
+                duration = (int)(endTs - startTs).TotalMinutes;
+            }
+        }
+
+        var targetStart = ParseReservationDateTime(targetDate, timeStr, hotelTz);
         var targetEnd = targetStart.AddMinutes(duration);
 
         var allTables = await _db.RestaurantTables
@@ -1534,8 +2027,8 @@ public class RestaurantController : ControllerBase
             TableReservation? conflictingRes = null;
             foreach (var r in tableReservations)
             {
-                var rStart = ParseReservationDateTime(r.ReservationDate, r.ReservationTime);
-                if (ReservationsOverlap(targetStart, duration, rStart, r.DurationMinutes))
+                var rStart = ParseReservationDateTime(r.ReservationDate, r.ReservationTime, hotelTz);
+                if (ReservationsOverlap(targetStart, duration, rStart, r.DurationMinutes, buffer))
                 {
                     conflictingRes = r;
                     break;
@@ -1553,7 +2046,9 @@ public class RestaurantController : ControllerBase
             }
             else if (conflictingRes != null)
             {
-                conflictReason = $"Reserved by {conflictingRes.CustomerName} ({conflictingRes.ReservationTime}, {conflictingRes.DurationMinutes} min)";
+                var cStart = FormatTime12h(conflictingRes.ReservationTime);
+                var cEnd = FormatTime12h(CalculateEndTime(conflictingRes.ReservationTime, conflictingRes.DurationMinutes));
+                conflictReason = $"Time slot unavailable. This table is already booked from {cStart} to {cEnd}. Choose another time or table.";
             }
             else if (isCurrentlyOccupied)
             {
@@ -1574,9 +2069,11 @@ public class RestaurantController : ControllerBase
                 {
                     conflictingRes.Id,
                     conflictingRes.ReservationCode,
-                    conflictingRes.CustomerName,
+                    StartTime = FormatTime12h(conflictingRes.ReservationTime),
+                    EndTime = FormatTime12h(CalculateEndTime(conflictingRes.ReservationTime, conflictingRes.DurationMinutes)),
                     conflictingRes.ReservationTime,
-                    conflictingRes.DurationMinutes
+                    conflictingRes.DurationMinutes,
+                    BufferMinutes = buffer
                 } : null
             };
         }).ToList();
@@ -1587,8 +2084,10 @@ public class RestaurantController : ControllerBase
         {
             RequestedDate = targetDate.ToString("yyyy-MM-dd"),
             RequestedTime = timeStr,
+            RequestedEndTime = CalculateEndTime(timeStr, duration),
             PartySize = guests,
             DurationMinutes = duration,
+            BufferMinutes = buffer,
             AvailableCount = availableTables.Count,
             TotalTables = results.Count,
             AvailableTables = availableTables,
@@ -1610,11 +2109,27 @@ public class RestaurantController : ControllerBase
         }
 
         var timeStr = string.IsNullOrWhiteSpace(req.ReservationTime) ? "19:00" : req.ReservationTime.Trim();
+        var buffer = req.BufferMinutes ?? 15;
+        var duration = req.DurationMinutes.HasValue && req.DurationMinutes.Value > 0 ? req.DurationMinutes.Value : 120;
+
+        if (!string.IsNullOrWhiteSpace(req.EndTime))
+        {
+            if (TimeSpan.TryParse(timeStr, out var startTs) && TimeSpan.TryParse(req.EndTime, out var endTs))
+            {
+                if (endTs <= startTs)
+                {
+                    return BadRequest(ApiResponse.Fail("End time must be later than start time."));
+                }
+                duration = (int)(endTs - startTs).TotalMinutes;
+            }
+        }
 
         var guests = req.PartySize.HasValue && req.PartySize.Value > 0 ? req.PartySize.Value : 2;
-        var duration = req.DurationMinutes.HasValue && req.DurationMinutes.Value > 0 ? req.DurationMinutes.Value : 120;
         var resDate = DateTime.SpecifyKind(req.ReservationDate.Date, DateTimeKind.Utc);
-        var targetStart = ParseReservationDateTime(resDate, timeStr);
+        
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelTz = TableReservationAlertService.ResolveTimeZone(hotel?.Timezone);
+        var targetStart = ParseReservationDateTime(resDate, timeStr, hotelTz);
 
         using var transaction = await _db.Database.BeginTransactionAsync();
         try
@@ -1629,6 +2144,16 @@ public class RestaurantController : ControllerBase
                     return NotFound(ApiResponse.Fail($"Table '{req.TableId}' not found."));
                 }
 
+                // Prevent simultaneous booking requests on the same table from creating conflicting reservations
+                try
+                {
+                    await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(hashtext('table_res_' || {0}));", table.Id);
+                }
+                catch
+                {
+                    // If advisory locks not supported, transaction isolation applies
+                }
+
                 // Check for concurrent/overlapping active reservations on this table
                 var activeResOnTable = await _db.TableReservations
                     .Where(r => r.TableId == table.Id &&
@@ -1640,17 +2165,19 @@ public class RestaurantController : ControllerBase
 
                 foreach (var existing in activeResOnTable)
                 {
-                    var exStart = ParseReservationDateTime(existing.ReservationDate, existing.ReservationTime);
-                    if (ReservationsOverlap(targetStart, duration, exStart, existing.DurationMinutes))
+                    var exStart = ParseReservationDateTime(existing.ReservationDate, existing.ReservationTime, hotelTz);
+                    if (ReservationsOverlap(targetStart, duration, exStart, existing.DurationMinutes, buffer))
                     {
                         await transaction.RollbackAsync();
+                        var cStart = FormatTime12h(existing.ReservationTime);
+                        var cEnd = FormatTime12h(CalculateEndTime(existing.ReservationTime, existing.DurationMinutes));
                         return Conflict(ApiResponse.Fail(
-                            $"Table {table.TableNumber} already has a reservation ({existing.ReservationCode}) for {existing.CustomerName} from {existing.ReservationTime} ({existing.DurationMinutes} mins). Please choose another table or time."));
+                            $"Time slot unavailable. This table is already booked from {cStart} to {cEnd}. Choose another time or table."));
                     }
                 }
             }
 
-            // Customer Linking (Requirement 4): Reuse existing guest record if phone matches, otherwise allow reservation without account
+            // Customer Linking: Reuse existing guest record if phone matches
             string? guestId = null;
             var cleanPhone = req.PhoneNumber.Trim();
             var existingGuest = await _db.Guests.FirstOrDefaultAsync(g => g.Phone == cleanPhone);
@@ -1659,7 +2186,6 @@ public class RestaurantController : ControllerBase
                 guestId = existingGuest.Id;
             }
 
-            var hotel = await _db.Hotels.FirstOrDefaultAsync();
             var hotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
 
             var count = await _db.TableReservations.CountAsync();
@@ -1688,15 +2214,7 @@ public class RestaurantController : ControllerBase
 
             _db.TableReservations.Add(reservation);
 
-            // Mark table as RESERVED if not already occupied
-            if (table != null && (status == "CONFIRMED" || status == "PENDING"))
-            {
-                if (table.Status == "FREE" || table.Status == "AVAILABLE")
-                {
-                    table.Status = "RESERVED";
-                }
-            }
-
+            // Operational status remains separate: do NOT mutate physical table status to RESERVED.
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -1728,9 +2246,26 @@ public class RestaurantController : ControllerBase
             var targetDate = req.ReservationDate.HasValue 
                 ? DateTime.SpecifyKind(req.ReservationDate.Value.Date, DateTimeKind.Utc) 
                 : res.ReservationDate;
-            var targetTime = req.ReservationTime ?? res.ReservationTime;
+            var targetTime = !string.IsNullOrWhiteSpace(req.ReservationTime) ? req.ReservationTime.Trim() : res.ReservationTime;
             var targetDuration = req.DurationMinutes ?? res.DurationMinutes;
-            var targetStart = ParseReservationDateTime(targetDate, targetTime);
+            var buffer = req.BufferMinutes ?? 15;
+
+            if (!string.IsNullOrWhiteSpace(req.EndTime))
+            {
+                if (TimeSpan.TryParse(targetTime, out var startTs) && TimeSpan.TryParse(req.EndTime, out var endTs))
+                {
+                    if (endTs <= startTs)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest(ApiResponse.Fail("End time must be later than start time."));
+                    }
+                    targetDuration = (int)(endTs - startTs).TotalMinutes;
+                }
+            }
+
+            var hotel = await _db.Hotels.FirstOrDefaultAsync();
+            var hotelTz = TableReservationAlertService.ResolveTimeZone(hotel?.Timezone);
+            var targetStart = ParseReservationDateTime(targetDate, targetTime, hotelTz);
 
             if (!string.IsNullOrWhiteSpace(targetTableId))
             {
@@ -1739,6 +2274,16 @@ public class RestaurantController : ControllerBase
                 {
                     await transaction.RollbackAsync();
                     return NotFound(ApiResponse.Fail($"Table '{targetTableId}' not found."));
+                }
+
+                // Prevent simultaneous booking requests on the same table from creating conflicting reservations
+                try
+                {
+                    await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(hashtext('table_res_' || {0}));", table.Id);
+                }
+                catch
+                {
+                    // Fallback
                 }
 
                 // Check conflict against other active reservations on this table
@@ -1753,12 +2298,14 @@ public class RestaurantController : ControllerBase
 
                 foreach (var existing in activeResOnTable)
                 {
-                    var exStart = ParseReservationDateTime(existing.ReservationDate, existing.ReservationTime);
-                    if (ReservationsOverlap(targetStart, targetDuration, exStart, existing.DurationMinutes))
+                    var exStart = ParseReservationDateTime(existing.ReservationDate, existing.ReservationTime, hotelTz);
+                    if (ReservationsOverlap(targetStart, targetDuration, exStart, existing.DurationMinutes, buffer))
                     {
                         await transaction.RollbackAsync();
+                        var cStart = FormatTime12h(existing.ReservationTime);
+                        var cEnd = FormatTime12h(CalculateEndTime(existing.ReservationTime, existing.DurationMinutes));
                         return Conflict(ApiResponse.Fail(
-                            $"Table {table.TableNumber} already has a reservation ({existing.ReservationCode}) for {existing.CustomerName} from {existing.ReservationTime} ({existing.DurationMinutes} mins)."));
+                            $"Time slot unavailable. This table is already booked from {cStart} to {cEnd}. Choose another time or table."));
                     }
                 }
 
@@ -1843,19 +2390,13 @@ public class RestaurantController : ControllerBase
             {
                 if (newStatus == "CANCELLED" || newStatus == "NO_SHOW" || newStatus == "COMPLETED")
                 {
-                    var otherActiveRes = await _db.TableReservations
-                        .AnyAsync(r => r.TableId == table.Id && r.Id != res.Id && (r.Status == "CONFIRMED" || r.Status == "PENDING"));
                     var hasActiveOrder = await _db.RestaurantOrders
                         .AnyAsync(o => o.TableId == table.Id && o.Status != "COMPLETED" && o.Status != "CANCELLED");
 
-                    if (!otherActiveRes && !hasActiveOrder && table.Status == "RESERVED")
+                    if (!hasActiveOrder && table.Status == "RESERVED")
                     {
                         table.Status = "FREE";
                     }
-                }
-                else if ((newStatus == "CONFIRMED" || newStatus == "PENDING") && table.Status == "FREE")
-                {
-                    table.Status = "RESERVED";
                 }
             }
         }

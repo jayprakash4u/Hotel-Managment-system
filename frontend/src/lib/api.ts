@@ -246,12 +246,14 @@ export const api = {
   },
 
   // Restaurant & Dine-In Tables
-  getTables: () => {
-    return fetcher<any[]>('/api/restaurant/tables');
+  getTables: (params?: { date?: string }) => {
+    const query = params?.date ? `?date=${encodeURIComponent(params.date)}` : '';
+    return fetcher<any[]>(`/api/restaurant/tables${query}`);
   },
 
-  getRestaurantTables: () => {
-    return fetcher<any[]>('/api/restaurant/tables');
+  getRestaurantTables: (params?: { date?: string }) => {
+    const query = params?.date ? `?date=${encodeURIComponent(params.date)}` : '';
+    return fetcher<any[]>(`/api/restaurant/tables${query}`);
   },
 
   createTable: (data: any) => {
@@ -323,6 +325,19 @@ export const api = {
     });
   },
 
+  updateRestaurantOrderItems: (orderId: string, data: { items: any[]; notes?: string }) => {
+    return fetcher<any>(`/api/restaurant/orders/${orderId}/items`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteRestaurantOrderItem: (orderId: string, itemId: string) => {
+    return fetcher<any>(`/api/restaurant/orders/${orderId}/items/${itemId}`, {
+      method: 'DELETE',
+    });
+  },
+
   updateRestaurantOrderStatus: (id: string, data: { status: string; notes?: string }) => {
     return fetcher<any>(`/api/restaurant/orders/${id}/status`, {
       method: 'PATCH',
@@ -382,17 +397,48 @@ export const api = {
     return fetcher<TableReservationData>(`/api/restaurant/reservations/${id}`);
   },
 
-  checkTableAvailability: (params: { date?: string; time?: string; partySize?: number; durationMinutes?: number; excludeReservationId?: string }) => {
-    const query = new URLSearchParams(params as any).toString();
+  checkTableAvailability: (params: {
+    date?: string;
+    time?: string;
+    endTime?: string;
+    partySize?: number;
+    durationMinutes?: number;
+    bufferMinutes?: number;
+    excludeReservationId?: string;
+  }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
     return fetcher<{
       requestedDate: string;
       requestedTime: string;
+      requestedEndTime?: string;
       partySize: number;
       durationMinutes: number;
+      bufferMinutes?: number;
       availableCount: number;
       totalTables: number;
       availableTables: Array<{ id: string; tableNumber: string; section: string; capacity: number; isAvailable: boolean }>;
-      allTables: Array<{ id: string; tableNumber: string; section: string; capacity: number; isAvailable: boolean; conflictReason?: string; conflictingReservation?: any }>;
+      allTables: Array<{
+        id: string;
+        tableNumber: string;
+        section: string;
+        capacity: number;
+        isAvailable: boolean;
+        conflictReason?: string;
+        conflictingReservation?: {
+          id?: string;
+          reservationCode?: string;
+          startTime?: string;
+          endTime?: string;
+          reservationTime?: string;
+          durationMinutes?: number;
+          bufferMinutes?: number;
+        };
+      }>;
     }>(`/api/restaurant/reservations/available-tables?${query}`);
   },
 
@@ -401,8 +447,10 @@ export const api = {
     phoneNumber: string;
     reservationDate: string;
     reservationTime: string;
+    endTime?: string;
     partySize?: number;
     durationMinutes?: number;
+    bufferMinutes?: number;
     tableId?: string;
     specialRequests?: string;
     internalNotes?: string;
@@ -435,6 +483,72 @@ export const api = {
       order: any;
       message: string;
     }>(`/api/restaurant/reservations/${id}/seat`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  },
+
+  // Restaurant Settings & Walk-In Assignment
+  getRestaurantSettings: () => {
+    return fetcher<{
+      estimatedDiningMinutes: number;
+      cleaningBufferMinutes: number;
+      advanceAlertMinutes: number;
+    }>('/api/restaurant/settings');
+  },
+
+  updateRestaurantSettings: (data: {
+    estimatedDiningMinutes: number;
+    cleaningBufferMinutes: number;
+    advanceAlertMinutes?: number;
+  }) => {
+    return fetcher<{
+      estimatedDiningMinutes: number;
+      cleaningBufferMinutes: number;
+      advanceAlertMinutes: number;
+    }>('/api/restaurant/settings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  checkWalkInAvailability: (tableId: string, params?: {
+    estimatedDiningMinutes?: number;
+    cleaningBufferMinutes?: number;
+    simulatedTime?: string;
+  }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<{
+      isAllowed: boolean;
+      warning?: string;
+      nextReservation?: any;
+      estimatedMinutes: number;
+      bufferMinutes: number;
+      tableStatus: string;
+      cleaningStatus: string;
+    }>(`/api/restaurant/tables/${tableId}/walkin-check?${query}`);
+  },
+
+  seatWalkInCustomer: (tableId: string, data?: {
+    customerName?: string;
+    guestCount?: number;
+    serverName?: string;
+    notes?: string;
+    estimatedDiningMinutes?: number;
+    cleaningBufferMinutes?: number;
+    simulatedTime?: string;
+  }) => {
+    return fetcher<{
+      success: boolean;
+      message: string;
+      table: any;
+      order: any;
+    }>(`/api/restaurant/tables/${tableId}/seat-walkin`, {
       method: 'POST',
       body: JSON.stringify(data || {}),
     });

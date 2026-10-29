@@ -3300,7 +3300,7 @@ export default function HotelSetupContent({
                           className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B3D32] hover:text-[#082b23] dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors cursor-pointer shrink-0"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>Add Custom Unit</span>
+                          <span>Add Unit</span>
                         </button>
                       </div>
 

@@ -47,6 +47,8 @@ import {
   Eye,
   MoreVertical,
   ClipboardList,
+  UserPlus,
+  Sliders,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -56,10 +58,12 @@ import { ActiveOrdersView } from '@/components/common/ActiveOrdersView';
 import { RestaurantReceiptModal, ReceiptModalProps } from '@/components/common/RestaurantReceiptModal';
 import { TableActionsDropdown } from '@/components/restaurant/TableActionsModal';
 import { TableHistoryModal, TableHistoryOrder } from '@/components/restaurant/TableHistoryModal';
+import { TableBookingDetailsModal } from '@/components/restaurant/TableBookingDetailsModal';
+import { ViewBookingModal } from '@/components/restaurant/ViewBookingModal';
+import { TableReservationsView } from '@/components/restaurant/TableReservationsView';
 import {
   OrderItem,
   TableItem,
-  DEFAULT_TABLES,
   calculateOrderItemTotal,
 } from '@/lib/tablesData';
 import {
@@ -134,7 +138,8 @@ const STATUS_CONFIG: Record<
 
 function TablesContent() {
   const toast = useToast();
-  const [tables, setTables] = useState<TableItem[]>(DEFAULT_TABLES);
+  const [tables, setTables] = useState<TableItem[]>([]);
+  const [isTablesLoading, setIsTablesLoading] = useState(true);
 
   // Active view: null = Grid View; string = Add Order Page for that table ID
   const [activeOrderTableId, setActiveOrderTableId] = useState<string | null>(null);
@@ -178,6 +183,12 @@ function TablesContent() {
   const [tableHistoryList, setTableHistoryList] = useState<TableHistoryOrder[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
+  // Table Booking Details Modal State
+  const [bookingDetailsModalTable, setBookingDetailsModalTable] = useState<TableItem | null>(
+    null
+  );
+  const [isBookingDetailsModalOpen, setIsBookingDetailsModalOpen] = useState(false);
+
   // Search & Status filters (for Grid view)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -206,10 +217,16 @@ function TablesContent() {
   // New / Edit Reservation Modal State
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
   const [editingReservation, setEditingReservation] = useState<TableReservationData | null>(null);
+
+  // Read-Only View Reservation Modal State
+  const [viewingReservation, setViewingReservation] = useState<TableReservationData | null>(null);
+  const [isViewReservationModalOpen, setIsViewReservationModalOpen] = useState(false);
   const [resCustomerName, setResCustomerName] = useState('');
   const [resPhoneNumber, setResPhoneNumber] = useState('');
   const [resDate, setResDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [resTime, setResTime] = useState('19:00');
+  const [resEndTime, setResEndTime] = useState('21:00');
+  const [endTimeError, setEndTimeError] = useState<string | null>(null);
   const [resPartySize, setResPartySize] = useState<number>(2);
   const [resDurationMinutes, setResDurationMinutes] = useState<number>(120);
   const [resPreferredTableId, setResPreferredTableId] = useState<string>('');
@@ -233,6 +250,33 @@ function TablesContent() {
   const [seatingServerName, setSeatingServerName] = useState<string>('Waiter');
   const [isSeatingModalOpen, setIsSeatingModalOpen] = useState(false);
   const [isSeatingGuests, setIsSeatingGuests] = useState(false);
+
+  // Turnaround & Dining Duration Configuration (Requirement 8)
+  const [restaurantSettings, setRestaurantSettings] = useState<{
+    estimatedDiningMinutes: number;
+    cleaningBufferMinutes: number;
+    advanceAlertMinutes: number;
+  }>({
+    estimatedDiningMinutes: 90,
+    cleaningBufferMinutes: 15,
+    advanceAlertMinutes: 15,
+  });
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [tempDiningMinutes, setTempDiningMinutes] = useState(90);
+  const [tempBufferMinutes, setTempBufferMinutes] = useState(15);
+  const [tempAlertMinutes, setTempAlertMinutes] = useState(15);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Walk-in Conflict Warning State (Requirement 5)
+  const [walkInConflictData, setWalkInConflictData] = useState<{
+    table: TableItem;
+    reservation: any;
+    warningMessage: string;
+    minutesRemaining: number;
+    requiredMinutes: number;
+  } | null>(null);
+
+
 
   // Booking Form Validation Errors
   const [bookingFormErrors, setBookingFormErrors] = useState<{
@@ -405,72 +449,165 @@ function TablesContent() {
     }
   }, [tables, searchParams]);
 
-  // Load Tables & Reservations from API
-  const fetchTables = async () => {
+  // Helper to normalize dates to YYYY-MM-DD
+  const normalizeDateStr = (dateVal: string | Date | null | undefined): string => {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') return dateVal.split('T')[0];
     try {
-      const res = await api.getRestaurantTables();
-      if (res && res.length > 0) {
-        setTables(
-          res.map((t: any) => {
-            const activeOrder = t.orders && t.orders.length > 0 ? t.orders[0] : null;
-            const mappedOrders: OrderItem[] = activeOrder && activeOrder.items
-              ? activeOrder.items.map((i: any) => ({
-                  id: i.id || `item-${Date.now()}-${Math.random()}`,
-                  productId: i.productId,
-                  name: i.productName || i.name,
-                  price: i.unitPrice || i.price,
-                  quantity: i.quantity || 1,
-                  remarks: i.notes,
-                  status: 'KITCHEN' as const,
-                  kotNumber: activeOrder.kotNumber,
-                }))
-              : [];
+      const y = dateVal.getFullYear();
+      const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+      const d = String(dateVal.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    } catch {
+      return '';
+    }
+  };
 
-            const activeRes = (t.reservations || []).find(
-              (r: any) => r.status === 'CONFIRMED' || r.status === 'PENDING'
+  // Helper to convert HH:mm to minutes from midnight
+  const parseTimeToMinutes = (t: string): number => {
+    if (!t) return 0;
+    const parts = t.split(':');
+    const hours = parseInt(parts[0], 10) || 0;
+    const minutes = parseInt(parts[1], 10) || 0;
+    return hours * 60 + minutes;
+  };
+
+  // Helper to format minutes from midnight to HH:mm
+  const formatMinutesToTime = (mins: number): string => {
+    const norm = Math.max(0, Math.min(23 * 60 + 59, mins));
+    const h = Math.floor(norm / 60);
+    const m = norm % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  // Helper to format HH:mm into 12-hour AM/PM string (e.g. "12:00 PM")
+  const formatTime12h = (t: string): string => {
+    if (!t) return '';
+    const parts = t.split(':');
+    let h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  const calculateEndTime = (timeStr: string, durationMinutes: number): string => {
+    const startMins = parseTimeToMinutes(timeStr);
+    const endMins = (startMins + (durationMinutes > 0 ? durationMinutes : 120)) % (24 * 60);
+    return formatMinutesToTime(endMins);
+  };
+
+  // Load Tables & Reservations from API filtered by date
+  const fetchTables = async (targetDate?: string) => {
+    setIsTablesLoading(true);
+    try {
+      const dateToFetch = targetDate !== undefined ? targetDate : selectedDate;
+      const isTargetToday = !dateToFetch || dateToFetch === normalizeDateStr(new Date());
+      const res = await api.getRestaurantTables({ date: dateToFetch });
+      if (Array.isArray(res)) {
+        setTables((prevTables) =>
+          res.map((t: any) => {
+            const prevTable = prevTables.find((pt) => pt.id === t.id);
+
+            // Live active dining orders strictly apply to Today
+            const activeOrdersList = isTargetToday && Array.isArray(t.orders)
+              ? t.orders.filter((o: any) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED')
+              : [];
+            const activeOrder = activeOrdersList.find((o: any) => o.items && o.items.length > 0) || activeOrdersList[0] || null;
+
+            const mappedOrders: OrderItem[] = activeOrdersList.flatMap((ord: any) =>
+              (ord.items || []).map((i: any) => ({
+                id: i.id || `item-${Date.now()}-${Math.random()}`,
+                productId: i.productId,
+                name: i.productName || i.name,
+                price: i.unitPrice ?? i.price ?? 0,
+                quantity: i.quantity || 1,
+                remarks: i.notes || '',
+                status: ord.status === 'COMPLETED' ? 'SERVED' : ord.kotNumber ? 'KITCHEN' : 'DRAFT',
+                kotNumber: ord.kotNumber,
+              }))
             );
 
-            const rawStatus = (t.status === 'FREE' ? 'AVAILABLE' : t.status) as TableItem['status'];
-            const isBilled = t.status === 'BILLED' || activeOrder?.status === 'BILLED';
-            const isOutOfService = t.status === 'OUT_OF_SERVICE';
-            const isCleaning = t.status === 'CLEANING';
+            // Filter reservations belonging to the active date, excluding cancelled/no-show
+            const dateReservations = (t.reservations || []).filter((r: any) => {
+              if (r.status === 'CANCELLED' || r.status === 'NO_SHOW') return false;
+              const rDate = normalizeDateStr(r.reservationDate);
+              return !dateToFetch || rDate === dateToFetch;
+            });
+            dateReservations.sort((a: any, b: any) => (a.reservationTime || '').localeCompare(b.reservationTime || ''));
 
-            let effectiveStatus: TableItem['status'] = 'AVAILABLE';
+            // Table's actual current operational status (kept strictly separate from reservations)
+            const isOutOfService = t.status === 'OUT_OF_SERVICE';
+            const isBilled = isTargetToday && (t.status === 'BILLED' || activeOrder?.status === 'BILLED');
+            const isCleaning = isTargetToday && (t.status === 'CLEANING' || t.cleaningStatus === 'DIRTY');
+            const isOccupied = isTargetToday && (activeOrder || t.status === 'OCCUPIED' || (prevTable && prevTable.status === 'OCCUPIED'));
+
+            let operationalStatus: TableItem['status'] = 'AVAILABLE';
             if (isOutOfService) {
-              effectiveStatus = 'OUT_OF_SERVICE';
-            } else if (isCleaning) {
-              effectiveStatus = 'CLEANING';
+              operationalStatus = 'OUT_OF_SERVICE';
+            } else if (isOccupied) {
+              operationalStatus = 'OCCUPIED';
             } else if (isBilled) {
-              effectiveStatus = 'BILLED';
-            } else if (activeOrder) {
-              effectiveStatus = 'OCCUPIED';
-            } else if (activeRes || t.status === 'RESERVED') {
-              effectiveStatus = 'RESERVED';
+              operationalStatus = 'BILLED';
+            } else if (isCleaning) {
+              operationalStatus = 'CLEANING';
             } else {
-              effectiveStatus = 'AVAILABLE';
+              operationalStatus = 'AVAILABLE';
             }
+
+            // Preserve local optimistic order items if backend hasn't caught up yet or returned empty
+            let effectiveOrders = mappedOrders;
+            if (prevTable && prevTable.orders && prevTable.orders.length > 0) {
+              if (mappedOrders.length === 0 && operationalStatus === 'OCCUPIED') {
+                effectiveOrders = prevTable.orders;
+              }
+            }
+
+            const activeOrderId = isTargetToday ? (activeOrder?.id || prevTable?.activeOrderId) : undefined;
+            const orderNumber = isTargetToday ? (activeOrder?.orderNumber || prevTable?.orderNumber) : undefined;
+            const kotNumber = isTargetToday ? (activeOrder?.kotNumber || prevTable?.kotNumber) : undefined;
+
+            const seatedRes = dateReservations.find((r: any) => r.status === 'SEATED');
+
+            let currentGuest = '';
+            if (isTargetToday && activeOrder?.guest) {
+              currentGuest = `${activeOrder.guest.firstName} ${activeOrder.guest.lastName}`.trim();
+            } else if (isTargetToday && seatedRes) {
+              currentGuest = seatedRes.customerName || (seatedRes.guest ? `${seatedRes.guest.firstName} ${seatedRes.guest.lastName}`.trim() : '');
+            } else if (isTargetToday && activeOrder?.notes?.includes('Reservation') && activeOrder.notes.includes(' - ')) {
+              currentGuest = activeOrder.notes.split(' - ')[1]?.split('(')[0]?.trim() || '';
+            } else if (isTargetToday && (activeOrder || operationalStatus === 'OCCUPIED')) {
+              currentGuest = prevTable?.currentGuest || 'Dine-In Guest';
+            }
+
+            const guestPhone = isTargetToday
+              ? (activeOrder?.guest?.phone || seatedRes?.phoneNumber || prevTable?.guestPhone || '')
+              : '';
 
             return {
               id: t.id,
               tableNumber: t.tableNumber || `T-${t.id}`,
               section: t.section || 'Indoor Fine Dining',
               capacity: t.capacity || 4,
-              status: effectiveStatus,
+              status: operationalStatus,
               cleaningStatus: (t.cleaningStatus || 'CLEAN') as 'CLEAN' | 'DIRTY' | 'CLEANING',
               maintenanceNotes: t.maintenanceNotes || '',
-              currentGuest: activeOrder?.guest ? `${activeOrder.guest.firstName} ${activeOrder.guest.lastName}`.trim() : activeOrder ? 'Dine-In Guest' : activeRes ? activeRes.customerName : t.currentGuest,
-              guestPhone: activeOrder?.guest?.phone || activeRes?.phoneNumber || t.guestPhone,
-              activeOrderId: activeOrder?.id,
-              orderNumber: activeOrder?.orderNumber,
-              kotNumber: activeOrder?.kotNumber,
-              orders: mappedOrders,
-              upcomingReservations: t.reservations || [],
+              currentGuest,
+              guestPhone,
+              activeOrderId,
+              orderNumber,
+              kotNumber,
+              orders: effectiveOrders,
+              upcomingReservations: dateReservations,
             };
           })
         );
       }
     } catch (err) {
-      // Fallback
+      console.error('Failed to fetch real tables from database', err);
+    } finally {
+      setIsTablesLoading(false);
     }
   };
 
@@ -573,18 +710,54 @@ function TablesContent() {
     }
   };
 
+  const fetchSettings = async () => {
+    try {
+      const s = await api.getRestaurantSettings();
+      if (s) {
+        setRestaurantSettings(s);
+        setTempDiningMinutes(s.estimatedDiningMinutes || 90);
+        setTempBufferMinutes(s.cleaningBufferMinutes || 15);
+        setTempAlertMinutes(s.advanceAlertMinutes || 15);
+      }
+    } catch (err) {
+      console.error('Failed to load restaurant settings', err);
+    }
+  };
+
+  const handleSaveRestaurantSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const updated = await api.updateRestaurantSettings({
+        estimatedDiningMinutes: Number(tempDiningMinutes) || 90,
+        cleaningBufferMinutes: Number(tempBufferMinutes) || 15,
+        advanceAlertMinutes: Number(tempAlertMinutes) || 15,
+      });
+      if (updated) {
+        setRestaurantSettings(updated);
+        toast.success('Settings Saved', 'Estimated dining time and preparation buffer updated.');
+        setIsSettingsModalOpen(false);
+      }
+    } catch (err: any) {
+      toast.error('Save Failed', err.message || 'Failed to update restaurant settings.');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
   useEffect(() => {
-    fetchTables();
+    fetchTables(selectedDate);
     fetchReservations();
     fetchActiveOrders();
     fetchReservationAlerts();
+    fetchSettings();
     const interval = setInterval(() => {
-      fetchTables();
+      fetchTables(selectedDate);
       fetchActiveOrders();
       fetchReservationAlerts();
+      fetchReservations();
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedDate]);
 
   // Live Table Availability Checking Effect for Modal
   useEffect(() => {
@@ -597,8 +770,10 @@ function TablesContent() {
         const res = await api.checkTableAvailability({
           date: resDate,
           time: resTime,
+          endTime: resEndTime,
           partySize: resPartySize,
           durationMinutes: resDurationMinutes,
+          bufferMinutes: 15,
           excludeReservationId: editingReservation?.id,
         });
         if (isCurrent && res) {
@@ -615,7 +790,91 @@ function TablesContent() {
       isCurrent = false;
       clearTimeout(timeout);
     };
-  }, [isReservationModalOpen, resDate, resTime, resPartySize, resDurationMinutes, editingReservation]);
+  }, [isReservationModalOpen, resDate, resTime, resEndTime, resPartySize, resDurationMinutes, editingReservation]);
+
+  // Handle start time change: auto-recalculate end time or duration
+  const handleStartTimeChange = (newStartTime: string) => {
+    setResTime(newStartTime);
+    if (!newStartTime) return;
+    const startMins = parseTimeToMinutes(newStartTime);
+    const endMins = parseTimeToMinutes(resEndTime);
+    if (endMins <= startMins) {
+      const duration = resDurationMinutes > 0 ? resDurationMinutes : 120;
+      const newEndMins = (startMins + duration) % (24 * 60);
+      setResEndTime(formatMinutesToTime(newEndMins));
+      setEndTimeError(null);
+    } else {
+      setResDurationMinutes(endMins - startMins);
+      setEndTimeError(null);
+    }
+  };
+
+  // Handle end time change: validate end > start and set duration
+  const handleEndTimeChange = (newEndTime: string) => {
+    setResEndTime(newEndTime);
+    if (!newEndTime || !resTime) return;
+    const startMins = parseTimeToMinutes(resTime);
+    const endMins = parseTimeToMinutes(newEndTime);
+    if (endMins <= startMins) {
+      setEndTimeError('End time must be later than start time.');
+    } else {
+      setEndTimeError(null);
+      setResDurationMinutes(endMins - startMins);
+    }
+  };
+
+  // Overlapping Reservation Conflict Validation (Instant reactive memo)
+  const conflictWarning = useMemo(() => {
+    if (!resPreferredTableId || !resDate || !resTime || !resEndTime) return null;
+    const startMins = parseTimeToMinutes(resTime);
+    const endMins = parseTimeToMinutes(resEndTime);
+    if (endMins <= startMins) return null; // End time error handles this
+
+    const bufferMinutes = 15;
+    const targetDateStr = resDate.split('T')[0];
+
+    // Check against all loaded reservations for this table on this date
+    const conflicting = reservations.find((r) => {
+      if (editingReservation && r.id === editingReservation.id) return false;
+      if (r.tableId !== resPreferredTableId) return false;
+
+      const rDateStr = r.reservationDate ? r.reservationDate.split('T')[0] : '';
+      if (rDateStr !== targetDateStr) return false;
+
+      // Ignore cancelled, no-show, and completed reservations
+      const st = (r.status || '').toUpperCase();
+      if (st === 'CANCELLED' || st === 'NO_SHOW' || st === 'COMPLETED') return false;
+
+      const rStartMins = parseTimeToMinutes(r.reservationTime);
+      const rDuration = r.durationMinutes > 0 ? r.durationMinutes : 120;
+      const rEndMins = rStartMins + rDuration;
+
+      // Overlap with cleaning buffer:
+      // startA < endB + buffer && startB < endA + buffer
+      return startMins < (rEndMins + bufferMinutes) && rStartMins < (endMins + bufferMinutes);
+    });
+
+    if (conflicting) {
+      const cStart = formatTime12h(conflicting.reservationTime);
+      const conflictingDuration = conflicting.durationMinutes > 0 ? conflicting.durationMinutes : 120;
+      const cEndMins = parseTimeToMinutes(conflicting.reservationTime) + conflictingDuration;
+      const cEnd = formatTime12h(formatMinutesToTime(cEndMins));
+      return `Time slot unavailable. This table is already booked from ${cStart} to ${cEnd}. Choose another time or table.`;
+    }
+
+    // Also check backend availability response for table conflict
+    if (availabilityData?.allTables) {
+      const selectedTable = availabilityData.allTables.find((t) => t.id === resPreferredTableId);
+      if (selectedTable && !selectedTable.isAvailable && selectedTable.conflictingReservation) {
+        const cr = selectedTable.conflictingReservation;
+        const cStart = cr.startTime || formatTime12h(cr.reservationTime || '');
+        const cEnd = cr.endTime || formatTime12h(calculateEndTime(cr.reservationTime || '', cr.durationMinutes || 120));
+        return `Time slot unavailable. This table is already booked from ${cStart} to ${cEnd}. Choose another time or table.`;
+      }
+    }
+
+    return null;
+  }, [resPreferredTableId, resDate, resTime, resEndTime, reservations, availabilityData, editingReservation]);
 
   // Refresh table availability when date/time changes (floor plan filter)
   useEffect(() => {
@@ -661,16 +920,24 @@ function TablesContent() {
     setEditingReservation(null);
     setResCustomerName('');
     setResPhoneNumber('');
-    setResDate(new Date().toISOString().split('T')[0]);
+    setResDate(selectedDate || normalizeDateStr(new Date()));
     setResTime('19:00');
+    setResEndTime('21:00');
     setResPartySize(preselectedTable?.capacity || 2);
     setResDurationMinutes(120);
     setResPreferredTableId(preselectedTable?.id || '');
     setResSpecialRequests('');
     setResInternalNotes('');
     setResStatus('CONFIRMED');
+    setEndTimeError(null);
     setBookingFormErrors({});
     setIsReservationModalOpen(true);
+  };
+
+  // Open View Reservation Modal (Read-Only)
+  const handleOpenViewReservation = (res: TableReservationData) => {
+    setViewingReservation(res);
+    setIsViewReservationModalOpen(true);
   };
 
   // Open Edit Reservation Modal
@@ -679,13 +946,19 @@ function TablesContent() {
     setResCustomerName(res.customerName);
     setResPhoneNumber(res.phoneNumber);
     setResDate(res.reservationDate ? res.reservationDate.split('T')[0] : new Date().toISOString().split('T')[0]);
-    setResTime(res.reservationTime || '19:00');
+    const st = res.reservationTime || '19:00';
+    const dur = res.durationMinutes || 120;
+    const startM = parseTimeToMinutes(st);
+    const endM = (startM + dur) % (24 * 60);
+    setResTime(st);
+    setResEndTime(formatMinutesToTime(endM));
     setResPartySize(res.partySize || 2);
-    setResDurationMinutes(res.durationMinutes || 120);
+    setResDurationMinutes(dur);
     setResPreferredTableId(res.tableId || '');
     setResSpecialRequests(res.specialRequests || '');
     setResInternalNotes(res.internalNotes || '');
     setResStatus(res.status || 'CONFIRMED');
+    setEndTimeError(null);
     setBookingFormErrors({});
     setIsReservationModalOpen(true);
   };
@@ -714,9 +987,24 @@ function TablesContent() {
     setBookingFormErrors({});
 
     const effectiveTime = resTime.trim() || '19:00';
+    const effectiveEndTime = resEndTime.trim() || '21:00';
     const effectivePartySize = resPartySize > 0 ? resPartySize : 2;
 
-    // Check conflict on preferred table
+    const startM = parseTimeToMinutes(effectiveTime);
+    const endM = parseTimeToMinutes(effectiveEndTime);
+    if (endM <= startM) {
+      setEndTimeError('End time must be later than start time.');
+      toast.error('Invalid Time Range', 'End time must be later than start time.');
+      return;
+    }
+
+    // Block save if conflict warning is active
+    if (conflictWarning) {
+      toast.error('Time Slot Unavailable', conflictWarning);
+      return;
+    }
+
+    // Check conflict on preferred table against backend availabilityData
     if (resPreferredTableId && availabilityData) {
       const selectedTable = availabilityData.allTables.find((t) => t.id === resPreferredTableId);
       if (selectedTable && !selectedTable.isAvailable) {
@@ -733,8 +1021,10 @@ function TablesContent() {
           phoneNumber: resPhoneNumber.trim(),
           reservationDate: resDate,
           reservationTime: effectiveTime,
+          endTime: effectiveEndTime,
           partySize: effectivePartySize,
           durationMinutes: resDurationMinutes,
+          bufferMinutes: 15,
           tableId: resPreferredTableId || null,
           specialRequests: resSpecialRequests.trim() || null,
           internalNotes: resInternalNotes.trim() || null,
@@ -747,8 +1037,10 @@ function TablesContent() {
           phoneNumber: resPhoneNumber.trim(),
           reservationDate: resDate,
           reservationTime: effectiveTime,
+          endTime: effectiveEndTime,
           partySize: effectivePartySize,
           durationMinutes: resDurationMinutes,
+          bufferMinutes: 15,
           tableId: resPreferredTableId || undefined,
           specialRequests: resSpecialRequests.trim() || undefined,
           internalNotes: resInternalNotes.trim() || undefined,
@@ -767,6 +1059,7 @@ function TablesContent() {
     }
   };
 
+
   // Update Reservation Status
   const handleUpdateReservationStatus = async (id: string, newStatus: string, notes?: string) => {
     try {
@@ -779,9 +1072,9 @@ function TablesContent() {
     }
   };
 
-  // Seat Reservation Guests
+  // Seat Reservation Guests / Customer Arrived
   const handleSeatReservation = async (res: TableReservationData, chosenTableId?: string) => {
-    const targetTableId = chosenTableId || res.tableId;
+    const targetTableId = chosenTableId || res.tableId || bookingDetailsModalTable?.id;
 
     if (!targetTableId) {
       // Prompt staff to choose an available table
@@ -791,15 +1084,54 @@ function TablesContent() {
       return;
     }
 
-    // Check if target table is currently available
+    const customerName =
+      res.guest?.firstName || res.guest?.lastName
+        ? `${res.guest.firstName} ${res.guest.lastName}`.trim()
+        : res.customerName || 'Booked Customer';
+
     const tableObj = tables.find((t) => t.id === targetTableId);
-    if (tableObj && tableObj.status === 'OCCUPIED' && !chosenTableId) {
-      // Table is currently occupied by active diners; ask staff to pick another table
+
+    // If reservation is already marked as seated, directly open Add Item / Order page for this table
+    if (res.status === 'SEATED') {
+      setIsBookingDetailsModalOpen(false);
+      setBookingDetailsModalTable(null);
+      setIsViewReservationModalOpen(false);
+      setViewingReservation(null);
+      setIsSeatingModalOpen(false);
+      setSeatingReservation(null);
+      setActiveOrderTableId(targetTableId);
+      return;
+    }
+
+    // Check if target table is currently occupied by another unbilled guest
+    if (tableObj && tableObj.status === 'OCCUPIED' && !chosenTableId && tableObj.activeOrderId && tableObj.currentGuest && tableObj.currentGuest !== customerName) {
       setSeatingReservation(res);
       setSeatingTableId('');
       setIsSeatingModalOpen(true);
       return;
     }
+
+    // Close all booking modals immediately for smooth transition
+    setIsBookingDetailsModalOpen(false);
+    setBookingDetailsModalTable(null);
+    setIsViewReservationModalOpen(false);
+    setViewingReservation(null);
+    setIsSeatingModalOpen(false);
+    setSeatingReservation(null);
+
+    // Optimistically update table card status to OCCUPIED with the customer's name
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === targetTableId
+          ? {
+              ...t,
+              status: 'OCCUPIED' as const,
+              currentGuest: customerName,
+              guestPhone: res.phoneNumber || t.guestPhone || '',
+            }
+          : t
+      )
+    );
 
     setIsSeatingGuests(true);
     try {
@@ -808,37 +1140,97 @@ function TablesContent() {
         serverName: seatingServerName || 'Waiter',
       });
 
-      toast.celebrate('Guests Seated!', result.message || `Seated at Table ${result.table?.tableNumber}.`);
-      setIsSeatingModalOpen(false);
-      setSeatingReservation(null);
+      const assignedOrderId = result?.order?.id;
+      const assignedOrderNumber = result?.order?.orderNumber;
+      const assignedKotNumber = result?.order?.kotNumber;
 
-      // Refresh tables & reservations
-      await fetchTables();
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === targetTableId
+            ? {
+                ...t,
+                status: 'OCCUPIED' as const,
+                currentGuest: customerName,
+                guestPhone: res.phoneNumber || t.guestPhone || '',
+                activeOrderId: assignedOrderId || t.activeOrderId,
+                orderNumber: assignedOrderNumber || t.orderNumber,
+                kotNumber: assignedKotNumber || t.kotNumber,
+              }
+            : t
+        )
+      );
+
+      toast.celebrate('Customer Arrived!', `${customerName} arrived. Ready to add items for Table ${tableObj?.tableNumber || ''}.`);
+
+      // Immediately navigate to the active order page for that table so staff can add items!
+      setActiveOrderTableId(targetTableId);
+
+      // Refresh tables & reservations in background
+      await fetchTables(selectedDate);
       await fetchReservations();
-
-      // Immediately navigate to the active order page for that table
-      if (result.table?.id) {
-        setActiveOrderTableId(result.table.id);
-      }
     } catch (err: any) {
-      toast.error('Could Not Seat Guests', err.message || 'Error occurred while seating guests.');
+      console.warn('Backend seating message:', err);
+      // Fallback: keep optimistic status and open order page
+      setActiveOrderTableId(targetTableId);
+      toast.info('Customer Arrived', `Table ${tableObj?.tableNumber || ''} marked as Occupied for ${customerName}. Ready to add items.`);
+      await fetchTables(selectedDate);
     } finally {
       setIsSeatingGuests(false);
     }
   };
 
+  const isSelectedToday = selectedDate === normalizeDateStr(new Date());
+
+  // Auto-reset status filter if switching away from today while on today-only status
+  useEffect(() => {
+    if (!isSelectedToday && (selectedStatus === 'OCCUPIED' || selectedStatus === 'CLEANING')) {
+      setSelectedStatus('ALL');
+    }
+  }, [selectedDate, isSelectedToday, selectedStatus]);
+
   // Filtered tables for the grid
   const filteredTables = useMemo(() => {
     return tables.filter((table) => {
-      const matchesStatus = selectedStatus === 'ALL' || table.status === selectedStatus;
+      const selectedDateReservations = (table.upcomingReservations || []).filter((r: any) => {
+        const matchesDate = normalizeDateStr(r.reservationDate) === selectedDate;
+        const matchesStatus = r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED';
+        return matchesDate && matchesStatus;
+      });
+      const hasBookingOnDate = selectedDateReservations.length > 0;
+
+      let matchesStatus = true;
+      if (selectedStatus === 'ALL') {
+        matchesStatus = true;
+      } else if (selectedStatus === 'RESERVED') {
+        matchesStatus = hasBookingOnDate;
+      } else if (selectedStatus === 'AVAILABLE') {
+        if (isSelectedToday) {
+          matchesStatus = table.status === 'AVAILABLE';
+        } else {
+          matchesStatus = table.status !== 'OUT_OF_SERVICE' && !hasBookingOnDate;
+        }
+      } else if (selectedStatus === 'OCCUPIED') {
+        matchesStatus = isSelectedToday && table.status === 'OCCUPIED';
+      } else if (selectedStatus === 'CLEANING') {
+        matchesStatus = isSelectedToday && table.status === 'CLEANING';
+      } else {
+        matchesStatus = table.status === selectedStatus;
+      }
+
       const matchesSearch =
         !searchQuery.trim() ||
         table.tableNumber.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
         table.section.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        (table.currentGuest && table.currentGuest.toLowerCase().includes(searchQuery.toLowerCase().trim()));
+        (isSelectedToday && table.currentGuest && table.currentGuest.toLowerCase().includes(searchQuery.toLowerCase().trim())) ||
+        selectedDateReservations.some((r: any) =>
+          r.customerName?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+          r.phoneNumber?.includes(searchQuery.trim()) ||
+          r.reservationCode?.toLowerCase().includes(searchQuery.toLowerCase().trim())
+        );
+
       return matchesStatus && matchesSearch;
     });
-  }, [tables, selectedStatus, searchQuery]);
+  }, [tables, selectedStatus, searchQuery, selectedDate, isSelectedToday]);
 
   // Filtered reservations for the reservations tab
   const filteredReservations = useMemo(() => {
@@ -858,57 +1250,167 @@ function TablesContent() {
     });
   }, [reservations, reservationStatusFilter, reservationSearchQuery, reservationDateFilter]);
 
-  // Status counts
-  const availableCount = tables.filter((t) => t.status === 'AVAILABLE').length;
-  const occupiedCount = tables.filter((t) => t.status === 'OCCUPIED').length;
-  const reservedCount = tables.filter((t) => t.status === 'RESERVED' || (t.upcomingReservations && t.upcomingReservations.some(r => r.status === 'CONFIRMED' || r.status === 'PENDING'))).length;
-  const activeReservationsCount = reservations.filter((r) => r.status === 'CONFIRMED' || r.status === 'PENDING').length;
+  // Status counts (Reserved count reflects tables reserved on the selected date)
+  const reservedTablesForDate = useMemo(() => {
+    return tables.filter((t) =>
+      (t.upcomingReservations || []).some(
+        (r: any) =>
+          (r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED') &&
+          normalizeDateStr(r.reservationDate) === selectedDate
+      )
+    );
+  }, [tables, selectedDate]);
+
+  const reservedCount = reservedTablesForDate.length;
+  const occupiedCount = isSelectedToday ? tables.filter((t) => t.status === 'OCCUPIED').length : 0;
+  const cleaningCount = isSelectedToday ? tables.filter((t) => t.status === 'CLEANING').length : 0;
+  const outOfServiceCount = tables.filter((t) => t.status === 'OUT_OF_SERVICE').length;
+  const availableCount = isSelectedToday
+    ? tables.filter((t) => t.status === 'AVAILABLE').length
+    : tables.filter((t) => t.status !== 'OUT_OF_SERVICE' && !reservedTablesForDate.some((rt) => rt.id === t.id)).length;
+  const activeReservationsCount = reservations.filter((r) => {
+    if (r.status !== 'CONFIRMED' && r.status !== 'PENDING') return false;
+    const rDate = normalizeDateStr(r.reservationDate);
+    return !selectedDate || rDate === selectedDate;
+  }).length;
 
   // ---------------------------------------------------------------------------
-  // 1. Start Dine-In Order (1-Click, No Customer Registration Required) - Req 1, 2, 8
+  // 1. Walk-In Customer Seating & Turnaround Conflict Validation (Req 3, 4, 5, 6)
   // ---------------------------------------------------------------------------
-  const handleStartDineInOrder = (table: TableItem, e?: React.MouseEvent) => {
+  const handleSelectSeatCustomer = async (table: TableItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
 
-    // Business Rules:
-    // 1. Out of service tables cannot accept orders
+    // 1. Out of service tables cannot accept walk-in customers
     if (table.status === 'OUT_OF_SERVICE') {
-      toast.error('Table Out of Service', 'Cannot start an order on an out-of-service table.');
+      toast.error('Table Out of Service', 'Cannot seat customers on an out-of-service table.');
       return;
     }
-    // 2. Dirty tables cannot accept orders or new guests until cleaned
-    if (table.cleaningStatus === 'DIRTY') {
-      toast.error('Table is Dirty', 'Please mark table as clean before starting an order or seating new guests.');
+    // 2. Dirty tables cannot accept walk-in customers until cleaned
+    if (table.cleaningStatus === 'DIRTY' || table.status === 'CLEANING') {
+      toast.error('Table is Dirty', 'Please mark table as clean before seating new walk-in guests.');
       return;
     }
-    // 3. Occupied tables must not receive a second unrelated active order
+    // 3. Occupied tables must not be reseated
     if (table.status === 'OCCUPIED' && (table.orders?.length || 0) > 0) {
       handleOpenOrderPage(table.id);
       return;
     }
 
-    const targetId = table.id;
+    // 4. Pre-flight backend check for upcoming reservations (Requirement 3 & 6)
+    try {
+      const check = await api.checkWalkInAvailability(table.id, {
+        estimatedDiningMinutes: restaurantSettings.estimatedDiningMinutes,
+        cleaningBufferMinutes: restaurantSettings.cleaningBufferMinutes,
+      });
 
+      if (!check.isAllowed) {
+        // Requirement 5: Clear warning if insufficient time remains
+        const warning = check.warning || `This table is reserved at ${formatTime12h(check.nextReservation?.reservationTime || '12:00 PM')}. Choose another table because there may not be enough time to finish service and prepare it.`;
+        setWalkInConflictData({
+          table,
+          reservation: check.nextReservation,
+          warningMessage: warning,
+          minutesRemaining: Math.max(0, (check as any).minutesUntilReservation || (check as any).remainingMinutes || 0),
+          requiredMinutes: (check.estimatedMinutes || restaurantSettings.estimatedDiningMinutes) + (check.bufferMinutes || restaurantSettings.cleaningBufferMinutes),
+        });
+        return;
+      }
+
+      // Requirement 4: Sufficient time remains, seat walk-in directly (no details modal needed)
+      await seatWalkInDirect(table);
+    } catch (err: any) {
+      console.error('Walk-in check failed', err);
+      // Fallback: check frontend reservations
+      const nextRes = (table.upcomingReservations || []).find(
+        (r: any) => (r.status === 'CONFIRMED' || r.status === 'PENDING') && normalizeDateStr(r.reservationDate) === selectedDate
+      );
+      if (nextRes) {
+        const now = new Date();
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        const resMins = parseTimeToMinutes(nextRes.reservationTime);
+        const required = restaurantSettings.estimatedDiningMinutes + restaurantSettings.cleaningBufferMinutes;
+        if (resMins - currentMins < required) {
+          setWalkInConflictData({
+            table,
+            reservation: nextRes,
+            warningMessage: `This table is reserved at ${formatTime12h(nextRes.reservationTime)}. Choose another table because there may not be enough time to finish service and prepare it.`,
+            minutesRemaining: Math.max(0, resMins - currentMins),
+            requiredMinutes: required,
+          });
+          return;
+        }
+      }
+
+      await seatWalkInDirect(table);
+    }
+  };
+
+  const seatWalkInDirect = async (table: TableItem) => {
+    // Optimistically update table card status to OCCUPIED immediately
     setTables((prev) =>
       prev.map((t) =>
-        t.id === targetId
+        t.id === table.id
           ? {
               ...t,
-              status: 'OCCUPIED',
-              currentGuest: t.currentGuest || 'Dine-In Guest',
-              guestPhone: t.guestPhone || '',
-              orders: t.orders || [],
+              status: 'OCCUPIED' as const,
+              currentGuest: 'Walk-in Guest',
             }
           : t
       )
     );
 
-    setActiveOrderTableId(targetId);
-    setOrderProductName('');
-    setOrderQuantity(1);
-    setOrderPrice('');
-    setIsBillPanelOpen(false);
-    toast.success(`Table ${table.tableNumber} Order Started`, 'No registration needed. Add items & click Send Order.');
+    try {
+      const seatRes = await api.seatWalkInCustomer(table.id, {
+        customerName: 'Walk-in Guest',
+        guestCount: Math.min(table.capacity, 2),
+        serverName: 'Staff',
+        estimatedDiningMinutes: restaurantSettings.estimatedDiningMinutes,
+        cleaningBufferMinutes: restaurantSettings.cleaningBufferMinutes,
+      });
+
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === table.id
+            ? {
+                ...t,
+                status: 'OCCUPIED' as const,
+                currentGuest: 'Walk-in Guest',
+                activeOrderId: seatRes?.order?.id || t.activeOrderId,
+                orderNumber: seatRes?.order?.orderNumber || t.orderNumber,
+                kotNumber: seatRes?.order?.kotNumber || t.kotNumber,
+              }
+            : t
+        )
+      );
+
+      toast.success(`Table ${table.tableNumber} Occupied`, 'Walk-in customer seated.');
+      await fetchTables(selectedDate);
+      await fetchActiveOrders();
+    } catch (err: any) {
+      console.error('Failed to seat walk-in customer', err);
+      const msg = err.message || '';
+      await fetchTables(selectedDate);
+      if (msg.includes('reserved at') || msg.includes('not enough time')) {
+        setWalkInConflictData({
+          table,
+          reservation: null,
+          warningMessage: msg,
+          minutesRemaining: 0,
+          requiredMinutes: restaurantSettings.estimatedDiningMinutes + restaurantSettings.cleaningBufferMinutes,
+        });
+      } else {
+        toast.error('Seating Failed', msg || 'Could not seat walk-in customer.');
+      }
+    }
+  };
+
+  const handleStartDineInOrder = (table: TableItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (table.status === 'OCCUPIED') {
+      handleOpenOrderPage(table.id);
+      return;
+    }
+    handleSelectSeatCustomer(table, e);
   };
 
   // ---------------------------------------------------------------------------
@@ -1232,6 +1734,7 @@ function TablesContent() {
         );
       }
 
+      await fetchTables(selectedDate);
       fetchActiveOrders();
       toast.celebrate('Order Sent to Kitchen!', `Order ticket ${assignedKot} (${assignedOrderNumber}) generated.`);
     } catch (err: any) {
@@ -1781,6 +2284,110 @@ function TablesContent() {
     }
   };
 
+  // Debounce timer ref for order database sync
+  const syncOrderDebounceRef = React.useRef<Record<string, NodeJS.Timeout>>({});
+
+  // Helper to persist order items to backend database
+  const syncTableOrderToBackend = (
+    targetTableId: string,
+    updatedOrders: OrderItem[],
+    options?: { immediate?: boolean }
+  ) => {
+    if (syncOrderDebounceRef.current[targetTableId]) {
+      clearTimeout(syncOrderDebounceRef.current[targetTableId]);
+      delete syncOrderDebounceRef.current[targetTableId];
+    }
+
+    const runSync = async () => {
+      try {
+        const isCustom = activeCustomOrder && activeCustomOrder.id === targetTableId;
+        const currentTarget = isCustom ? activeCustomOrder : tables.find((t) => t.id === targetTableId);
+        if (!currentTarget) return;
+
+        const formattedItems = updatedOrders.map((item) => ({
+          productId: item.productId,
+          productName: item.name,
+          unitPrice: item.price,
+          quantity: item.quantity,
+          notes: item.remarks || '',
+        }));
+
+        let orderId = currentTarget.activeOrderId;
+
+        if (orderId) {
+          // Order already exists in DB; sync items via PUT /api/restaurant/orders/{id}/items
+          await api.updateRestaurantOrderItems(orderId, {
+            items: formattedItems,
+            notes: currentTarget.billRemarks || currentTarget.notes,
+          });
+        } else if (!isCustom) {
+          // Table doesn't have an order in DB yet; create it!
+          const newOrder = await api.createRestaurantOrder({
+            outlet: 'RESTAURANT',
+            tableId: currentTarget.id,
+            orderType: currentTarget.orderType || 'DINE_IN',
+            serverName: 'Waiter',
+            notes:
+              currentTarget.notes ||
+              currentTarget.seatingNote ||
+              (currentTarget.currentGuest &&
+              currentTarget.currentGuest !== 'Dine-In Guest' &&
+              currentTarget.currentGuest !== 'Walk-in Customer'
+                ? `Guest: ${currentTarget.currentGuest}`
+                : undefined),
+            items: formattedItems,
+          });
+
+          if (newOrder) {
+            setTables((prev) =>
+              prev.map((t) =>
+                t.id === targetTableId
+                  ? {
+                      ...t,
+                      status: 'OCCUPIED',
+                      activeOrderId: newOrder.id,
+                      orderNumber: newOrder.orderNumber,
+                      kotNumber: newOrder.kotNumber,
+                    }
+                  : t
+              )
+            );
+          }
+        } else {
+          // Custom order (Takeaway / No Table)
+          const newOrder = await api.createRestaurantOrder({
+            outlet: 'RESTAURANT',
+            orderType: currentTarget.orderType || 'TAKEAWAY',
+            serverName: 'Waiter',
+            notes: currentTarget.currentGuest || currentTarget.notes || 'Takeaway Order',
+            items: formattedItems,
+          });
+
+          if (newOrder) {
+            setActiveCustomOrder((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    activeOrderId: newOrder.id,
+                    orderNumber: newOrder.orderNumber,
+                    kotNumber: newOrder.kotNumber,
+                  }
+                : null
+            );
+          }
+        }
+      } catch (err: any) {
+        console.warn('Failed to sync order items to database:', err);
+      }
+    };
+
+    if (options?.immediate) {
+      runSync();
+    } else {
+      syncOrderDebounceRef.current[targetTableId] = setTimeout(runSync, 300);
+    }
+  };
+
   // Add item directly from the Setted Menu Catalog (1-click quick add from suggestions)
   const handleAddDirectMenuItem = (menuItem: MenuItemCatalogEntry, qtyOverride?: number) => {
     if (!activeTable) return;
@@ -1796,46 +2403,50 @@ function TablesContent() {
       return;
     }
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const currentOrders = t.orders || [];
-        const existing = currentOrders.find((i) => i.name.toLowerCase() === name.toLowerCase());
+    const currentOrders = activeTable.orders || [];
+    const existing = currentOrders.find((i) => i.name.toLowerCase() === name.toLowerCase());
 
-        // Stock limit validation for tracked products
-        if (menuItem.trackStock && menuItem.stock !== undefined) {
-          const currentQty = existing ? existing.quantity : 0;
-          if (currentQty + qty > menuItem.stock) {
-            toast.error('Stock Limit Reached', `Only ${menuItem.stock} units of "${name}" available in stock.`);
-            return t;
-          }
-        }
+    // Stock limit validation for tracked products
+    if (menuItem.trackStock && menuItem.stock !== undefined) {
+      const currentQty = existing ? existing.quantity : 0;
+      if (currentQty + qty > menuItem.stock) {
+        toast.error('Stock Limit Reached', `Only ${menuItem.stock} units of "${name}" available in stock.`);
+        return;
+      }
+    }
 
-        let updatedOrders: OrderItem[];
+    let updatedOrders: OrderItem[];
 
-        if (existing) {
-          updatedOrders = currentOrders.map((i) =>
-            i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
-          );
-        } else {
-          updatedOrders = [
-            ...currentOrders,
-            {
-              id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-              name,
-              baseName: unitInfo.baseName,
-              category: menuItem.category,
-              unit: unitInfo.unit,
-              availableUnits: unitInfo.availableUnits,
-              price,
-              quantity: qty,
-            },
-          ];
-        }
+    if (existing) {
+      updatedOrders = currentOrders.map((i) =>
+        i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
+      );
+    } else {
+      updatedOrders = [
+        ...currentOrders,
+        {
+          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          productId: menuItem.id,
+          name,
+          baseName: unitInfo.baseName,
+          category: menuItem.category,
+          unit: unitInfo.unit,
+          availableUnits: unitInfo.availableUnits,
+          price,
+          quantity: qty,
+        },
+      ];
+    }
 
-        return { ...t, orders: updatedOrders };
-      })
-    );
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, status: 'OCCUPIED', orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
 
     toast.success(`Item Added`, `${qty}x ${name} (Rs. ${price * qty}) added to Table ${activeTable.tableNumber}.`);
     setOrderProductName('');
@@ -1855,36 +2466,41 @@ function TablesContent() {
     const qty = Math.max(1, orderQuantity);
     const unitInfo = resolveItemUnitInfo({ name, price }, menuCatalog);
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const currentOrders = t.orders || [];
-        const existing = currentOrders.find((i) => i.name.toLowerCase() === name.toLowerCase());
-        let updatedOrders: OrderItem[];
+    const currentOrders = activeTable.orders || [];
+    const existing = currentOrders.find((i) => i.name.toLowerCase() === name.toLowerCase());
+    let updatedOrders: OrderItem[];
 
-        if (existing) {
-          updatedOrders = currentOrders.map((i) =>
-            i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
-          );
-        } else {
-          const effectivePrice = price > 0 ? price : (unitInfo.availableUnits[0]?.price || 0);
-          updatedOrders = [
-            ...currentOrders,
-            {
-              id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-              name,
-              baseName: unitInfo.baseName,
-              unit: unitInfo.unit,
-              availableUnits: unitInfo.availableUnits,
-              price: effectivePrice,
-              quantity: qty,
-            },
-          ];
-        }
+    if (existing) {
+      updatedOrders = currentOrders.map((i) =>
+        i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
+      );
+    } else {
+      const effectivePrice = price > 0 ? price : (unitInfo.availableUnits[0]?.price || 0);
+      const catalogMatch = menuCatalog.find((m) => m.name.toLowerCase() === name.toLowerCase());
+      updatedOrders = [
+        ...currentOrders,
+        {
+          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          productId: catalogMatch?.id,
+          name,
+          baseName: unitInfo.baseName,
+          unit: unitInfo.unit,
+          availableUnits: unitInfo.availableUnits,
+          price: effectivePrice,
+          quantity: qty,
+        },
+      ];
+    }
 
-        return { ...t, orders: updatedOrders };
-      })
-    );
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, status: 'OCCUPIED', orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
 
     toast.success(`Item Added`, `${qty}x ${name} added to Table ${activeTable.tableNumber}.`);
     setOrderProductName('');
@@ -1921,36 +2537,40 @@ function TablesContent() {
     const price = menuItem.price;
     const qty = 1;
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const currentOrders = t.orders || [];
-        const existing = currentOrders.find((i) => i.name.toLowerCase() === name.toLowerCase());
-        let updatedOrders: OrderItem[];
+    const currentOrders = activeTable.orders || [];
+    const existing = currentOrders.find((i) => i.name.toLowerCase() === name.toLowerCase());
+    let updatedOrders: OrderItem[];
 
-        if (existing) {
-          updatedOrders = currentOrders.map((i) =>
-            i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
-          );
-        } else {
-          updatedOrders = [
-            ...currentOrders,
-            {
-              id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-              name,
-              baseName: unitInfo.baseName,
-              category: menuItem.category,
-              unit: unitInfo.unit,
-              availableUnits: unitInfo.availableUnits,
-              price,
-              quantity: qty,
-            },
-          ];
-        }
+    if (existing) {
+      updatedOrders = currentOrders.map((i) =>
+        i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
+      );
+    } else {
+      updatedOrders = [
+        ...currentOrders,
+        {
+          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          productId: menuItem.id,
+          name,
+          baseName: unitInfo.baseName,
+          category: menuItem.category,
+          unit: unitInfo.unit,
+          availableUnits: unitInfo.availableUnits,
+          price,
+          quantity: qty,
+        },
+      ];
+    }
 
-        return { ...t, orders: updatedOrders };
-      })
-    );
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, status: 'OCCUPIED', orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
 
     toast.success('Item Added', `${name} (Rs. ${price}) added to Table ${activeTable.tableNumber}.`);
     setDraftRows((prev) => prev.filter((d) => d.id !== draftId));
@@ -1961,37 +2581,40 @@ function TablesContent() {
     if (!activeTable) return;
     const tableId = activeTable.id;
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const currentOrders = t.orders || [];
-        const updatedOrders = currentOrders.map((i) => {
-          if (i.id !== itemId) return i;
+    const currentOrders = activeTable.orders || [];
+    const updatedOrders = currentOrders.map((i) => {
+      if (i.id !== itemId) return i;
 
-          const unitMeta = resolveItemUnitInfo(i, menuCatalog);
-          const targetTier =
-            unitMeta.availableUnits.find((u) => u.unit.toLowerCase() === newUnit.toLowerCase()) ||
-            unitMeta.availableUnits.find((u) => u.unit === newUnit);
+      const unitMeta = resolveItemUnitInfo(i, menuCatalog);
+      const targetTier =
+        unitMeta.availableUnits.find((u) => u.unit.toLowerCase() === newUnit.toLowerCase()) ||
+        unitMeta.availableUnits.find((u) => u.unit === newUnit);
 
-          const newPrice = targetTier ? targetTier.price : i.price;
-          const cleanBase = unitMeta.baseName || i.baseName || i.name.replace(/\s*\([^)]*\)$/, '').trim();
-          const newName = cleanBase;
+      const newPrice = targetTier ? targetTier.price : i.price;
+      const cleanBase = unitMeta.baseName || i.baseName || i.name.replace(/\s*\([^)]*\)$/, '').trim();
+      const newName = cleanBase;
 
-          toast.info('Unit Updated', `${cleanBase} set to ${newUnit} · Rs. ${newPrice}`);
+      toast.info('Unit Updated', `${cleanBase} set to ${newUnit} · Rs. ${newPrice}`);
 
-          return {
-            ...i,
-            name: newName,
-            baseName: cleanBase,
-            unit: newUnit,
-            price: newPrice,
-            availableUnits: unitMeta.availableUnits,
-          };
-        });
+      return {
+        ...i,
+        name: newName,
+        baseName: cleanBase,
+        unit: newUnit,
+        price: newPrice,
+        availableUnits: unitMeta.availableUnits,
+      };
+    });
 
-        return { ...t, orders: updatedOrders };
-      })
-    );
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
   };
 
   // Adjust order item discount
@@ -2000,21 +2623,25 @@ function TablesContent() {
     const tableId = activeTable.id;
     const safeDiscount = Math.max(0, discount);
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const currentOrders = t.orders || [];
-        const updatedOrders = currentOrders.map((i) => {
-          if (i.id !== itemId) return i;
-          return {
-            ...i,
-            discount: safeDiscount,
-            discountType: i.discountType || 'PERCENT',
-          };
-        });
-        return { ...t, orders: updatedOrders };
-      })
-    );
+    const currentOrders = activeTable.orders || [];
+    const updatedOrders = currentOrders.map((i) => {
+      if (i.id !== itemId) return i;
+      return {
+        ...i,
+        discount: safeDiscount,
+        discountType: i.discountType || 'PERCENT',
+      };
+    });
+
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
   };
 
   // Toggle discount between % and flat Rs
@@ -2022,42 +2649,51 @@ function TablesContent() {
     if (!activeTable) return;
     const tableId = activeTable.id;
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const currentOrders = t.orders || [];
-        const updatedOrders = currentOrders.map((i) => {
-          if (i.id !== itemId) return i;
-          const nextType: 'PERCENT' | 'AMOUNT' =
-            i.discountType === 'AMOUNT' ? 'PERCENT' : 'AMOUNT';
-          toast.info(
-            'Discount Type Changed',
-            `Switched to ${nextType === 'AMOUNT' ? 'Flat Rs' : 'Percentage (%)'}`
-          );
-          return {
-            ...i,
-            discountType: nextType,
-          };
-        });
-        return { ...t, orders: updatedOrders };
-      })
-    );
+    const currentOrders = activeTable.orders || [];
+    const updatedOrders = currentOrders.map((i) => {
+      if (i.id !== itemId) return i;
+      const nextType: 'PERCENT' | 'AMOUNT' =
+        i.discountType === 'AMOUNT' ? 'PERCENT' : 'AMOUNT';
+      toast.info(
+        'Discount Type Changed',
+        `Switched to ${nextType === 'AMOUNT' ? 'Flat Rs' : 'Percentage (%)'}`
+      );
+      return {
+        ...i,
+        discountType: nextType,
+      };
+    });
+
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
   };
 
   // Update line item remarks / notes
   const handleUpdateItemRemarks = (itemId: string, remarks: string) => {
     if (!activeTable) return;
     const tableId = activeTable.id;
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const currentOrders = t.orders || [];
-        const updatedOrders = currentOrders.map((i) =>
-          i.id === itemId ? { ...i, remarks } : i
-        );
-        return { ...t, orders: updatedOrders };
-      })
+
+    const currentOrders = activeTable.orders || [];
+    const updatedOrders = currentOrders.map((i) =>
+      i.id === itemId ? { ...i, remarks } : i
     );
+
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
   };
 
   // Adjust order item quantity directly in the table
@@ -2065,23 +2701,26 @@ function TablesContent() {
     if (!activeTable) return;
     const tableId = activeTable.id;
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        const currentOrders = t.orders || [];
-        const updatedOrders = currentOrders
-          .map((i) => {
-            if (i.id === itemId) {
-              const nextQty = i.quantity + delta;
-              return nextQty > 0 ? { ...i, quantity: nextQty } : null;
-            }
-            return i;
-          })
-          .filter(Boolean) as OrderItem[];
-
-        return { ...t, orders: updatedOrders };
+    const currentOrders = activeTable.orders || [];
+    const updatedOrders = currentOrders
+      .map((i) => {
+        if (i.id === itemId) {
+          const nextQty = i.quantity + delta;
+          return nextQty > 0 ? { ...i, quantity: nextQty } : null;
+        }
+        return i;
       })
-    );
+      .filter(Boolean) as OrderItem[];
+
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
   };
 
   // Remove order item from table
@@ -2089,15 +2728,18 @@ function TablesContent() {
     if (!activeTable) return;
     const tableId = activeTable.id;
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id !== tableId) return t;
-        return {
-          ...t,
-          orders: (t.orders || []).filter((i) => i.id !== itemId),
-        };
-      })
-    );
+    const currentOrders = activeTable.orders || [];
+    const updatedOrders = currentOrders.filter((i) => i.id !== itemId);
+
+    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
+      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
+    } else {
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, orders: updatedOrders } : t))
+      );
+    }
+
+    syncTableOrderToBackend(tableId, updatedOrders);
   };
 
   // Clear / Vacate Table (Release Table)
@@ -3399,6 +4041,17 @@ function TablesContent() {
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Add Table</span>
           </button>
+
+          {/* Action 5: Turnaround Settings */}
+          <button
+            type="button"
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-body dark:text-body hover:bg-surface-muted dark:hover:bg-[#093027] px-2.5 py-1.5 text-xs font-bold shadow-2xs transition-all cursor-pointer"
+            title="Configure Dining Duration & Cleaning Buffer Settings"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Settings</span>
+          </button>
         </div>
       </div>
 
@@ -3413,8 +4066,8 @@ function TablesContent() {
                 { id: 'AVAILABLE', label: 'Available', count: availableCount },
                 { id: 'OCCUPIED', label: 'Occupied', count: occupiedCount },
                 { id: 'RESERVED', label: 'Reserved', count: reservedCount },
-                { id: 'CLEANING', label: 'Cleaning', count: tables.filter((t) => t.status === 'CLEANING').length },
-                { id: 'OUT_OF_SERVICE', label: 'Out of Service', count: tables.filter((t) => t.status === 'OUT_OF_SERVICE').length },
+                { id: 'CLEANING', label: 'Cleaning', count: cleaningCount },
+                { id: 'OUT_OF_SERVICE', label: 'Out of Service', count: outOfServiceCount },
               ].map((pill) => {
                 const isSelected = selectedStatus === pill.id;
                 return (
@@ -3423,9 +4076,9 @@ function TablesContent() {
                     type="button"
                     onClick={() => setSelectedStatus(pill.id)}
                     className={cn(
-                      'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] px-3 py-1.5 text-xs font-bold transition-all shrink-0 cursor-pointer',
+                      'h-8 inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] px-3 text-xs font-bold transition-all shrink-0 cursor-pointer',
                       isSelected
-                        ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-brand'
+                        ? 'bg-[#0B3D32] text-white shadow-2xs border border-[#0B3D32] dark:bg-brand dark:border-brand'
                         : 'bg-white border border-border-default text-[#4A6B5D] hover:bg-surface-muted dark:bg-surface-card dark:border-border-default dark:text-[#A4B8AE]'
                     )}
                   >
@@ -3453,7 +4106,7 @@ function TablesContent() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search table number..."
-                  className="w-full h-8.5 rounded-[4px] border border-border-default bg-white dark:bg-surface-card py-1 pl-8 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:text-body transition-colors"
+                  className="w-full h-8 rounded-[4px] border border-border-default bg-white dark:bg-surface-card pl-8 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:text-body transition-colors"
                 />
                 {searchQuery && (
                   <button
@@ -3468,7 +4121,7 @@ function TablesContent() {
               </div>
 
               {/* Stepper with Previous Day, Date Input, Next Day */}
-              <div className="inline-flex items-center h-8.5 rounded-[4px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card shadow-2xs overflow-hidden shrink-0">
+              <div className="inline-flex items-center h-8 rounded-[4px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card shadow-2xs overflow-hidden shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -3489,7 +4142,7 @@ function TablesContent() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="h-full bg-transparent px-2 text-xs font-semibold text-body focus:outline-none cursor-pointer"
+                  className="h-full bg-transparent px-2 text-xs font-semibold text-body focus:outline-none cursor-pointer flex items-center"
                   title="Select Date"
                 />
 
@@ -3511,7 +4164,7 @@ function TablesContent() {
               </div>
 
               {/* Weekday & Date Label Pill */}
-              <span className="h-8.5 inline-flex items-center px-2.5 rounded-[4px] bg-brand/10 dark:bg-brand/20 border border-brand/20 dark:border-brand/30 text-brand dark:text-success text-xs font-bold tracking-tight whitespace-nowrap shrink-0">
+              <span className="h-8 inline-flex items-center px-2.5 rounded-[4px] bg-brand/10 dark:bg-brand/20 border border-brand/20 dark:border-brand/30 text-brand dark:text-success text-xs font-bold tracking-tight whitespace-nowrap shrink-0">
                 {(() => {
                   try {
                     const [y, m, day] = selectedDate.split('-').map(Number);
@@ -3524,13 +4177,13 @@ function TablesContent() {
               </span>
 
               {/* Reset to Today button if date differs */}
-              {selectedDate !== new Date().toISOString().split('T')[0] && (
+              {selectedDate !== normalizeDateStr(new Date()) && (
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedDate(new Date().toISOString().split('T')[0]);
+                    setSelectedDate(normalizeDateStr(new Date()));
                   }}
-                  className="h-8.5 inline-flex items-center gap-1 px-2.5 rounded-[4px] bg-surface-muted dark:bg-[#0E362C] hover:bg-brand/10 text-brand dark:text-success border border-brand/20 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs shrink-0"
+                  className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-[4px] bg-surface-muted dark:bg-[#0E362C] hover:bg-brand/10 text-brand dark:text-success border border-brand/20 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs shrink-0"
                   title="Reset to today"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -3540,7 +4193,7 @@ function TablesContent() {
 
               {/* Checking Future Availability Pulse */}
               {isCheckingFutureAvailability && (
-                <div className="inline-flex items-center gap-1.5 h-8.5 px-2 text-xs font-medium text-brand dark:text-success animate-pulse shrink-0">
+                <div className="inline-flex items-center gap-1.5 h-8 px-2 text-xs font-medium text-brand dark:text-success animate-pulse shrink-0">
                   <RefreshCw className="w-3 h-3 animate-spin" />
                   <span className="text-[11px] font-semibold">Checking...</span>
                 </div>
@@ -3548,35 +4201,51 @@ function TablesContent() {
             </div>
           </div>
 
+
+
       {/* =========================================================================
-          CLEAN TABLE CARDS GRID (NOT CROWDED)
-          OCCUPIED CARD IS CLICKABLE -> OPENS ADD ORDER PAGE!
+          CLEAN TABLE CARDS GRID
+          - Today: Shows live operational floor plan (Occupied, Alert, Billed, Available)
+          - Tomorrow & Future Dates: Shows Booking Cards for reserved tables, Available Cards for ready tables
          ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4">
+      {isTablesLoading && tables.length === 0 ? (
+        <div className="rounded-[4px] border border-border-default bg-white p-12 text-center shadow-2xs dark:border-border-default dark:bg-surface-card">
+          <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto mb-2" />
+          <h3 className="text-sm font-bold text-body dark:text-body">Connecting to database...</h3>
+          <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
+            Loading real tables and live orders from the database.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4">
         {filteredTables.map((table) => {
           const statusMeta = STATUS_CONFIG[table.status] || STATUS_CONFIG.AVAILABLE;
           const orderTotal = (table.orders || []).reduce(
             (sum, item) => sum + calculateOrderItemTotal(item).total,
             0
           );
-          const activeRes = (table.upcomingReservations || []).find(
-            (r: any) => r.status === 'CONFIRMED' || r.status === 'PENDING'
-          );
-          const guestCount = (table.orders?.[0] as any)?.guest ? 1 : activeRes?.partySize;
 
-          const isOccupied = table.status === 'OCCUPIED';
-          const isAvailable = table.status === 'AVAILABLE';
-          const isReserved = table.status === 'RESERVED';
-          const isCleaning = table.status === 'CLEANING';
+          // Get all confirmed/pending reservations for this table strictly matching selectedDate
+          const selectedDateReservations = (table.upcomingReservations || []).filter((r: any) => {
+            const matchesDate = normalizeDateStr(r.reservationDate) === selectedDate;
+            const matchesStatus = r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED';
+            return matchesDate && matchesStatus;
+          });
+
+          // Next upcoming reservation on selectedDate ordered by start time
+          const activeRes = selectedDateReservations[0] || null;
+
+          // Operational states (Occupied, Billed, Cleaning strictly apply to Today only)
+          const isOccupied = isSelectedToday && table.status === 'OCCUPIED';
+          const isBilled = isSelectedToday && table.status === 'BILLED';
+          const isCleaning = isSelectedToday && (table.status === 'CLEANING' || table.cleaningStatus === 'DIRTY');
           const isOutOfService = table.status === 'OUT_OF_SERVICE';
+          const isAvailable = !isOccupied && !isBilled && !isCleaning && !isOutOfService;
 
-          // Active 15-Minute Advance or Overdue Alert for this table
-          const tableAlert = alerts.find((a) => a.tableId === table.id && a.status === 'ACTIVE');
-
-          // Future availability for selected date/time (kept separate from current status)
-          const futureTableInfo = futureAvailabilityData?.allTables.find((t) => t.id === table.id);
-          const futureRes = futureTableInfo?.conflictingReservation;
-          const isFutureBooked = !!futureRes && !isOccupied && !activeRes;
+          // Active 15-Minute Advance or Overdue Alert for this table (relevant for today only)
+          const tableAlert = isSelectedToday
+            ? alerts.find((a) => a.tableId === table.id && a.status === 'ACTIVE')
+            : null;
 
           return (
             <div
@@ -3585,7 +4254,7 @@ function TablesContent() {
                 setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
               }}
               className={cn(
-                'group relative flex flex-col justify-between p-4 rounded-[4px] border transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer select-none min-h-[200px]',
+                'group relative flex flex-col justify-between p-4 rounded-[6px] border transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer select-none min-h-[210px]',
                 openTableMenuId === table.id ? 'z-30 ring-2 ring-emerald-500 shadow-lg' : 'z-10',
                 tableAlert
                   ? tableAlert.severity === 'DANGER'
@@ -3595,260 +4264,291 @@ function TablesContent() {
                     : 'bg-gradient-to-br from-[#78350F] via-[#92400E] to-[#451A03] border-amber-400 text-white shadow-xl shadow-amber-950/40 ring-2 ring-amber-400 ring-offset-1 ring-offset-amber-900 animate-pulse'
                   : isOccupied
                   ? 'bg-[#0B3D32] border-[#082C24] text-white shadow-sm'
-                  : table.status === 'BILLED'
-                  ? 'bg-amber-50 dark:bg-amber-900/40 border-amber-100 dark:border-amber-800/40 text-amber-900 dark:text-amber-100'
-                  : isReserved || activeRes
-                  ? 'bg-[#F8FBFF] dark:bg-[#081B26] border-sky-100 dark:border-sky-800/40 text-sky-900 dark:text-sky-100'
+                  : isBilled
+                  ? 'bg-amber-50 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-100'
                   : isCleaning
-                  ? 'bg-amber-50 dark:bg-amber-900/40 border-amber-100 dark:border-amber-800/40 text-amber-900 dark:text-amber-100'
+                  ? 'bg-amber-50 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-100'
                   : isOutOfService
                   ? 'bg-surface-muted dark:bg-surface-card border-border-default dark:border-border-default text-muted dark:text-muted opacity-70'
-                  : 'bg-white dark:bg-surface-card text-body dark:text-body'
+                  : 'bg-white dark:bg-surface-card border-border-default dark:border-border-default text-body dark:text-body hover:border-emerald-400 dark:hover:border-emerald-600/70'
               )}
               title={table.tableNumber}
             >
-              {/* Top: Table Number + Cleaning status badge + Status/Alarm badge + 3-Dot More Actions button */}
-                <div className="flex items-center justify-between gap-1.5 mb-2">
-                  <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-lg sm:text-xl font-black font-mono tracking-tight leading-tight">
-                      {table.tableNumber}
+              {/* Top Header: Table Number + Capacity + Status Badge + 3-Dot More Actions Menu */}
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-lg sm:text-xl font-black font-mono tracking-tight leading-tight">
+                    {table.tableNumber}
+                  </span>
+                  <span
+                    className={cn(
+                      'px-1.5 py-0.5 rounded-[3px] text-[9px] font-mono font-bold border',
+                      isOccupied || tableAlert
+                        ? 'bg-white/15 text-white/90 border-white/20'
+                        : 'bg-surface-muted dark:bg-[#0E362C] text-muted dark:text-[#A4B8AE] border-border-default dark:border-border-default'
+                    )}
+                  >
+                    {table.capacity} Seats
+                  </span>
+                  {isSelectedToday && table.cleaningStatus === 'DIRTY' && !isOccupied && !tableAlert && (
+                    <span className="px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                      Dirty
                     </span>
-                    {table.cleaningStatus === 'DIRTY' && !isOccupied && !tableAlert && (
-                      <span className="px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                        Dirty
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {tableAlert ? (
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm',
-                          tableAlert.severity === 'DANGER'
-                            ? 'bg-rose-500 text-white animate-pulse'
-                            : 'bg-amber-400 text-amber-950 animate-pulse'
-                        )}
-                      >
-                        <Bell className="w-3 h-3 animate-bounce shrink-0" />
-                        <span>
-                          {tableAlert.severity === 'DANGER'
-                            ? `Overdue · ${formatTime12h(tableAlert.reservationTime)}`
-                            : tableAlert.alertType === 'TABLE_DIRTY'
-                            ? `Clean & Prep · ${formatTime12h(tableAlert.reservationTime)}`
-                            : `Turnover · ${formatTime12h(tableAlert.reservationTime)}`}
-                        </span>
-                      </span>
-                    ) : (
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider shadow-xs',
-                          isOccupied
-                            ? 'bg-white/15 text-emerald-300 border border-white/20 backdrop-blur-xs'
-                            : table.status === 'BILLED'
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border border-amber-200/40'
-                            : isReserved || activeRes
-                            ? 'bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300 border border-sky-200/40'
-                            : isCleaning
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border border-amber-200/40'
-                            : isOutOfService
-                            ? 'bg-slate-200 text-muted dark:bg-slate-700 dark:text-muted border border-border-default/40'
-                            : 'bg-success-subtle text-success dark:bg-emerald-900 dark:text-success border border-success/40'
-                        )}
-                      >
-                        {isOutOfService
-                          ? 'Out of Service'
-                          : isOccupied
-                          ? 'Occupied'
-                          : table.status === 'BILLED'
-                          ? 'Billed'
-                          : isCleaning
-                          ? 'Cleaning'
-                          : activeRes
-                          ? `Reserved · ${formatTime12h(activeRes.reservationTime)}`
-                          : statusMeta.label}
-                      </span>
-                    )}
-                    
-                    {/* 3-Dots Button Container with attached Dropdown */}
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
-                        }}
-                        className={cn(
-                          'p-1 rounded-[4px] transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer',
-                          isOccupied || tableAlert
-                            ? 'text-white/80 hover:text-white hover:bg-white/20'
-                            : 'text-muted hover:text-body dark:text-muted dark:hover:text-white hover:bg-surface-muted dark:hover:bg-slate-800'
-                        )}
-                        title={`Table ${table.tableNumber} Contextual Actions`}
-                        aria-label={`Table ${table.tableNumber} Contextual Actions`}
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {openTableMenuId === table.id && (
-                        <TableActionsDropdown
-                          table={table}
-                          onClose={() => setOpenTableMenuId(null)}
-                          onStartOrder={(t) => {
-                            setOpenTableMenuId(null);
-                            handleStartDineInOrder(t);
-                          }}
-                          onAddItems={(t) => {
-                            setOpenTableMenuId(null);
-                            handleOpenOrderPage(t.id);
-                          }}
-                          onViewOrder={(t) => {
-                            setOpenTableMenuId(null);
-                            handleOpenOrderPage(t.id);
-                          }}
-                          onMarkServed={(t) => {
-                            handleMarkTableServed(t);
-                          }}
-                          onViewOrderHistory={(t) => {
-                            setOpenTableMenuId(null);
-                            handleViewTableHistory(t);
-                          }}
-                          onBookTable={(t) => {
-                            setOpenTableMenuId(null);
-                            handleOpenNewReservation(t);
-                          }}
-                          onViewReservation={(t, res) => {
-                            setOpenTableMenuId(null);
-                            if (res) handleOpenEditReservation(res);
-                            else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
-                          }}
-                          onEditReservation={(t, res) => {
-                            setOpenTableMenuId(null);
-                            if (res) handleOpenEditReservation(res);
-                            else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
-                          }}
-                          onCancelReservation={(t, res) => {
-                            setOpenTableMenuId(null);
-                            handleCancelReservationFromTable(t, res);
-                          }}
-                          onSeatGuests={(t, res) => {
-                            setOpenTableMenuId(null);
-                            if (res) handleSeatReservation(res, t.id);
-                            else if (t.upcomingReservations?.[0]) handleSeatReservation(t.upcomingReservations[0], t.id);
-                          }}
-                          onViewBill={(t) => {
-                            setOpenTableMenuId(null);
-                            handleOpenOrderPage(t.id);
-                            setIsBillPanelOpen(true);
-                          }}
-                          onSettleBill={(t) => {
-                            setOpenTableMenuId(null);
-                            handleOpenOrderPage(t.id);
-                            setIsBillPanelOpen(true);
-                          }}
-                          onPrintBill={(t) => {
-                            handlePrintBillForTable(t);
-                          }}
-                          onViewPaymentHistory={(t) => {
-                            setOpenTableMenuId(null);
-                            handleViewTableHistory(t);
-                          }}
-                          onUpdateCleaningStatus={handleUpdateCleaningStatus}
-                          onUpdateServiceStatus={handleUpdateServiceStatus}
-                        />
-                      )}
-                    </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* Card Body */}
-                <div className="flex-1 flex flex-col gap-1.5 py-1.5">
-                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {tableAlert ? (
                     <span
                       className={cn(
-                        isOccupied || tableAlert ? 'text-white/80' : 'text-muted dark:text-muted'
+                        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm',
+                        tableAlert.severity === 'DANGER'
+                          ? 'bg-rose-500 text-white animate-pulse'
+                          : 'bg-amber-400 text-amber-950 animate-pulse'
                       )}
                     >
-                      {table.section}
-                    </span>
-                    {orderTotal > 0 && (
-                      <span className={cn(
-                        "font-mono font-bold",
-                        tableAlert ? "text-amber-300" : isOccupied ? "text-emerald-300" : "text-success dark:text-brand"
-                      )}>
-                        Rs. {orderTotal.toFixed(2)}
+                      <Bell className="w-3 h-3 animate-bounce shrink-0" />
+                      <span>
+                        {tableAlert.severity === 'DANGER'
+                          ? `Overdue · ${formatTime12h(tableAlert.reservationTime)}`
+                          : tableAlert.alertType === 'TABLE_DIRTY'
+                          ? `Clean & Prep · ${formatTime12h(tableAlert.reservationTime)}`
+                          : `Turnover · ${formatTime12h(tableAlert.reservationTime)}`}
                       </span>
+                    </span>
+                  ) : (
+                    /* Physical Status Badge (Requirement 1) */
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider shadow-xs',
+                        isOccupied
+                          ? 'bg-white/15 text-emerald-300 border border-white/20 backdrop-blur-xs'
+                          : isBilled
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border border-amber-200/40'
+                          : isCleaning
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border border-amber-200/40'
+                          : isOutOfService
+                          ? 'bg-slate-200 text-muted dark:bg-slate-700 dark:text-muted border border-border-default/40'
+                          : 'bg-success-subtle text-success dark:bg-emerald-900 dark:text-success border border-success/40'
+                      )}
+                    >
+                      {isOutOfService
+                        ? 'Out of Service'
+                        : isOccupied
+                        ? 'Occupied'
+                        : isBilled
+                        ? 'Billed'
+                        : isCleaning
+                        ? 'Needs Cleaning'
+                        : 'Available'}
+                    </span>
+                  )}
+                  
+                  {/* 3-Dots Button Container with attached Dropdown */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
+                      }}
+                      className={cn(
+                        'p-1 rounded-[4px] transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer',
+                        isOccupied || tableAlert
+                          ? 'text-white/80 hover:text-white hover:bg-white/20'
+                          : 'text-muted hover:text-body dark:text-muted dark:hover:text-white hover:bg-surface-muted dark:hover:bg-slate-800'
+                      )}
+                      title={`Table ${table.tableNumber} Contextual Actions`}
+                      aria-label={`Table ${table.tableNumber} Contextual Actions`}
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {openTableMenuId === table.id && (
+                      <TableActionsDropdown
+                        table={table}
+                        isFutureDate={!isSelectedToday}
+                        selectedReservation={activeRes}
+                        onClose={() => setOpenTableMenuId(null)}
+                        onStartOrder={(t) => {
+                          setOpenTableMenuId(null);
+                          handleSelectSeatCustomer(t);
+                        }}
+                        onSeatWalkIn={(t) => {
+                          setOpenTableMenuId(null);
+                          handleSelectSeatCustomer(t);
+                        }}
+                        onAddItems={(t) => {
+                          setOpenTableMenuId(null);
+                          handleOpenOrderPage(t.id);
+                        }}
+                        onViewOrder={(t) => {
+                          setOpenTableMenuId(null);
+                          handleOpenOrderPage(t.id);
+                        }}
+                        onMarkServed={(t) => {
+                          handleMarkTableServed(t);
+                        }}
+                        onViewOrderHistory={(t) => {
+                          setOpenTableMenuId(null);
+                          handleViewTableHistory(t);
+                        }}
+                        onBookTable={(t) => {
+                          setOpenTableMenuId(null);
+                          handleOpenNewReservation(t);
+                        }}
+                        onViewReservation={(t) => {
+                          setOpenTableMenuId(null);
+                          setBookingDetailsModalTable(t);
+                          setIsBookingDetailsModalOpen(true);
+                        }}
+                        onViewBooking={(t) => {
+                          setOpenTableMenuId(null);
+                          setBookingDetailsModalTable(t);
+                          setIsBookingDetailsModalOpen(true);
+                        }}
+                        onEditReservation={(t, res) => {
+                          setOpenTableMenuId(null);
+                          if (res) handleOpenEditReservation(res);
+                          else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
+                        }}
+                        onCancelReservation={(t, res) => {
+                          setOpenTableMenuId(null);
+                          handleCancelReservationFromTable(t, res);
+                        }}
+                        onSeatGuests={(t, res) => {
+                          setOpenTableMenuId(null);
+                          if (res) handleSeatReservation(res, t.id);
+                          else if (t.upcomingReservations?.[0]) handleSeatReservation(t.upcomingReservations[0], t.id);
+                        }}
+                        onViewBill={(t) => {
+                          setOpenTableMenuId(null);
+                          handleOpenOrderPage(t.id);
+                          setIsBillPanelOpen(true);
+                        }}
+                        onSettleBill={(t) => {
+                          setOpenTableMenuId(null);
+                          handleOpenOrderPage(t.id);
+                          setIsBillPanelOpen(true);
+                        }}
+                        onPrintBill={(t) => {
+                          handlePrintBillForTable(t);
+                        }}
+                        onViewPaymentHistory={(t) => {
+                          setOpenTableMenuId(null);
+                          handleViewTableHistory(t);
+                        }}
+                        onUpdateCleaningStatus={handleUpdateCleaningStatus}
+                        onUpdateServiceStatus={handleUpdateServiceStatus}
+                        onViewBookingDetails={(t) => {
+                          setOpenTableMenuId(null);
+                          setBookingDetailsModalTable(t);
+                          setIsBookingDetailsModalOpen(true);
+                        }}
+                      />
                     )}
                   </div>
+                </div>
+              </div>
 
-                  {tableAlert ? (
-                    <div className="rounded-[4px] bg-black/40 border border-white/20 p-2 text-white shadow-xs">
-                      <div className="flex items-center justify-between text-[11px] font-bold">
-                        <span className="flex items-center gap-1.5 text-amber-300">
-                          <Clock className="w-3.5 h-3.5 text-amber-300 shrink-0 animate-pulse" />
-                          <span>Reserved for {formatTime12h(tableAlert.reservationTime)}</span>
-                        </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-400 text-amber-950 uppercase font-mono">
-                          {tableAlert.partySize} Guests
-                        </span>
-                      </div>
-                      <div className="text-[11px] font-bold text-white truncate mt-1">
-                        Guest: {tableAlert.customerName || 'Reserved Guest'}
-                      </div>
-                      <div className="text-[10px] text-amber-200/90 mt-0.5 leading-snug">
-                        {tableAlert.severity === 'DANGER'
-                          ? 'Guests waiting! Immediate turnover needed.'
-                          : '15m Turnover: wrap up table service.'}
-                      </div>
-                    </div>
-                  ) : isOccupied && table.currentGuest ? (
-                    <div className="text-xs flex items-center gap-1 text-success dark:text-success">
-                      <span className="font-normal opacity-75">Guest:</span>
-                      <strong className="font-medium">{table.currentGuest}</strong>
-                    </div>
-                  ) : activeRes ? (
-                    <div className="space-y-2">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-shrink-0 w-6 h-6 rounded-md bg-sky-50 dark:bg-sky-950/40 flex items-center justify-center text-sky-600 dark:text-sky-400">
-                          <CalendarCheck className="w-3 h-3" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <div className="text-xs font-medium text-sky-800 dark:text-sky-300 truncate">
-                            {activeRes.customerName}
-                          </div>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Clock className="w-3 h-3 shrink-0 text-sky-500 dark:text-sky-400" />
-                            <span className="text-[11px] font-medium text-sky-700 dark:text-sky-300">
-                              Booked for {formatTime12h(activeRes.reservationTime)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-xs flex items-center gap-1 text-success dark:text-brand">
-                      <Sparkles className="w-3 h-3 shrink-0" />
-                      <span>Table Ready</span>
-                    </div>
-                  )}
-
-                  {/* Future booking indicator for selected date/time (separate from current status) */}
-                  {isFutureBooked && futureRes && !tableAlert && (
-                    <div className="space-y-0.5">
-                      <div className="text-xs font-semibold flex items-center gap-1.5 text-info dark:text-info">
-                        <Calendar className="w-3.5 h-3.5 shrink-0 text-info dark:text-info" />
-                        <span className="truncate">Future: {futureRes.customerName}</span>
-                        <span className="opacity-75 font-normal">({futureRes.durationMinutes} min)</span>
-                      </div>
-                      <div className="text-[11px] font-mono flex items-center gap-1 text-info dark:text-info">
-                        <Clock className="w-3 h-3 shrink-0" />
-                        <span>{formatTime12h(futureRes.reservationTime)}</span>
-                      </div>
-                    </div>
+              {/* Card Body */}
+              <div className="flex-1 flex flex-col gap-1.5 py-1.5">
+                <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+                  <span
+                    className={cn(
+                      isOccupied || tableAlert
+                        ? 'text-white/80'
+                        : 'text-muted dark:text-muted'
+                    )}
+                  >
+                    {table.section}
+                  </span>
+                  {isSelectedToday && orderTotal > 0 && (
+                    <span className={cn(
+                      "font-mono font-bold",
+                      tableAlert ? "text-amber-300" : isOccupied ? "text-emerald-300" : "text-success dark:text-brand"
+                    )}>
+                      Rs. {orderTotal.toFixed(2)}
+                    </span>
                   )}
                 </div>
 
+                {/* Requirement 2: Next Booking Indicator (Compact chip without marking table occupied) */}
+                {activeRes && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBookingDetailsModalTable(table);
+                      setIsBookingDetailsModalOpen(true);
+                    }}
+                    className="inline-flex items-center justify-between gap-1.5 px-2 py-1 rounded-[4px] bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/80 text-[11px] font-semibold text-sky-800 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors cursor-pointer"
+                    title={`Next booking: ${formatTime12h(activeRes.reservationTime)} (${activeRes.partySize} guests). Click to view all bookings.`}
+                  >
+                    <span className="flex items-center gap-1 truncate">
+                      <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                      <span className="truncate">Next booking: {formatTime12h(activeRes.reservationTime)}</span>
+                    </span>
+                    {activeRes.partySize && (
+                      <span className="text-[10px] font-mono font-bold text-sky-700 dark:text-sky-400 shrink-0">
+                        {activeRes.partySize}p
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Status description in body */}
+                {isOutOfService ? (
+                  <div className="rounded-[4px] bg-slate-100 dark:bg-slate-800/40 p-2 text-center text-xs text-muted my-auto border border-border-default/60">
+                    <p className="font-semibold">Table Out of Service</p>
+                    <p className="text-[11px] mt-0.5">{table.maintenanceNotes || 'Maintenance scheduled'}</p>
+                  </div>
+                ) : isOccupied ? (
+                  <div className="space-y-1 my-auto">
+                    <div className="text-xs flex items-center gap-1.5 text-white/90">
+                      <span className="font-normal opacity-75">Guest:</span>
+                      <strong className="font-semibold">{table.currentGuest || 'Dine-In Guest'}</strong>
+                    </div>
+                    {orderTotal > 0 && (
+                      <div className="text-[11px] text-white/70">
+                        Order active · {table.orders?.length || 0} items
+                      </div>
+                    )}
+                  </div>
+                ) : isCleaning ? (
+                  <div className="text-xs flex items-center gap-1 text-amber-700 dark:text-amber-400 my-auto">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Needs sanitizing & table prep</span>
+                  </div>
+                ) : (
+                  /* Available Table */
+                  <div className="my-auto space-y-1">
+                    <div className="text-xs flex items-center gap-1 text-success dark:text-brand">
+                      <Sparkles className="w-3 h-3 shrink-0" />
+                      <span>Table Ready for Walk-in</span>
+                    </div>
+                    {isSelectedToday && activeRes && (() => {
+                      const now = new Date();
+                      const currentMins = now.getHours() * 60 + now.getMinutes();
+                      const resMins = parseTimeToMinutes(activeRes.reservationTime);
+                      const diff = resMins - currentMins;
+                      if (diff > 0) {
+                        const hours = Math.floor(diff / 60);
+                        const mins = diff % 60;
+                        const timeStr = hours > 0 ? `${hours}h ${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
+                        return (
+                          <div className="text-[11px] text-muted dark:text-muted">
+                            ~{timeStr.trim()} window before booking
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+              </div>
+
               {/* Card Footer: Actions */}
-              <div className="mt-auto pt-2 border-t border-t-white/20 dark:border-border-default/60 flex items-center justify-between text-xs">
+              <div className="mt-auto pt-2 border-t border-t-border-default dark:border-t-border-default/60 flex items-center justify-between text-xs">
                 {tableAlert ? (
                   <div className="flex items-center justify-between gap-1.5 w-full">
                     <button
@@ -3878,99 +4578,94 @@ function TablesContent() {
                       <span>Ack Alarm</span>
                     </button>
                   </div>
-                ) : isAvailable && !activeRes ? (
-                  <div className="flex items-center gap-1.5">
+                ) : isOutOfService ? (
+                  <span className="text-[11px] font-semibold text-muted py-1">Out of Service</span>
+                ) : isOccupied ? (
+                  <div className="flex items-center gap-1.5 w-full">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenOrderPage(table.id);
+                      }}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-white/20 hover:bg-white/30 text-white font-bold text-[11px] transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Items</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenOrderPage(table.id);
+                        setIsBillPanelOpen(true);
+                      }}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Receipt className="w-3.5 h-3.5" />
+                      <span>Bill</span>
+                    </button>
+                  </div>
+                ) : isCleaning || table.cleaningStatus === 'DIRTY' ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUpdateCleaningStatus(table, 'CLEAN');
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer"
+                    title="Sanitize table and return to service"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Mark Cleaned</span>
+                  </button>
+                ) : isBilled ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenOrderPage(table.id);
+                      setIsBillPanelOpen(true);
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer"
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>Settle Payment</span>
+                  </button>
+                ) : (
+                  /* Available Table - Walk-In Seating + Bookings */
+                  <div className="flex items-center gap-1.5 w-full">
+                    <button
+                      type="button"
+                      onClick={(e) => handleSelectSeatCustomer(table, e)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                      title="Walk-in customer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Walk in</span>
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenNewReservation(table);
                       }}
-                      className="inline-flex items-center gap-1 justify-center px-2 py-1 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
-                      title={`Book Now for Table ${table.tableNumber}`}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                      title={`Book Table ${table.tableNumber}`}
                     >
-                      <CalendarCheck className="w-3 h-3" />
+                      <CalendarCheck className="w-3.5 h-3.5" />
                       <span>Book Now</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartDineInOrder(table);
-                      }}
-                      className="inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-[3px] bg-brand hover:bg-brand-hover text-white border border-[#0B3D32] dark:bg-brand dark:hover:bg-success-subtle0 dark:border-emerald-500 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
-                      title={`Start Dine-In Order on Table ${table.tableNumber}`}
-                    >
-                      <UtensilsCrossed className="w-3 h-3" />
-                      <span>Order</span>
-                    </button>
                   </div>
-                ) : activeRes && !isOccupied && table.status !== 'BILLED' ? (
-                  <div className="flex items-center justify-between gap-2 w-full">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSeatReservation(activeRes, table.id);
-                      }}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-sky-700 hover:bg-sky-800 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer"
-                      title={`Seat ${activeRes.customerName} on Table ${table.tableNumber}`}
-                    >
-                      <UserCheck className="w-3.5 h-3.5" />
-                      <span>Seat Guests</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEditReservation(activeRes);
-                      }}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-[3px] bg-white border border-sky-200 text-sky-700 dark:bg-surface-card dark:border-sky-700 dark:text-sky-300 dark:hover:bg-sky-950/40 font-medium text-[11px] shadow-xs hover:bg-sky-50 dark:hover:bg-sky-950/20 transition-all active:scale-95 cursor-pointer"
-                      title={`View Booking for ${activeRes.customerName}`}
-                    >
-                      <CalendarCheck className="w-3 h-3" />
-                      <span>View Booking</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isOccupied || table.status === 'BILLED') {
-                        handleOpenOrderPage(table.id);
-                      } else if (isCleaning) {
-                        setTables((prev) =>
-                          prev.map((t) => (t.id === table.id ? { ...t, status: 'AVAILABLE' } : t))
-                        );
-                        toast.info(`Table ${table.tableNumber} Ready`, 'Marked as available.');
-                      } else {
-                        handleOpenOrderPage(table.id);
-                      }
-                    }}
-                    className={cn(
-                      'inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-[3px] font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer',
-                      isOccupied
-                        ? 'bg-white text-emerald-900 hover:bg-emerald-50'
-                        : table.status === 'BILLED'
-                        ? 'bg-amber-600 text-white hover:bg-amber-700'
-                        : 'bg-brand text-white hover:bg-brand-hover'
-                    )}
-                  >
-                    {isOccupied ? 'View Order' : table.status === 'BILLED' ? 'Settle Bill' : 'Open'}
-                  </button>
                 )}
               </div>
-
-              {/* Floating Dropdown Menu removed in favor of inline primary action button */}
-
-
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
-      {filteredTables.length === 0 && (
+      {!isTablesLoading && filteredTables.length === 0 && (
         <div className="rounded-[3px] border border-border-default bg-white p-12 text-center shadow-2xs dark:border-border-default dark:bg-surface-card">
           <Table2 className="w-10 h-10 text-slate-300 dark:text-muted mx-auto mb-2" />
           <h3 className="text-sm font-bold text-body dark:text-body">No tables found</h3>
@@ -4003,344 +4698,25 @@ function TablesContent() {
         />
       ) : (
         /* =========================================================================
-           TABLE RESERVATIONS MANAGEMENT VIEW
+           TABLE RESERVATIONS MANAGEMENT VIEW (PAGED FROM DATABASE)
            ========================================================================= */
-        <div className="space-y-4">
-          {/* Summary Stat Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-[4px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card p-3 shadow-2xs">
-              <div className="flex items-center justify-between text-muted dark:text-[#A4B8AE] mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Total Bookings</span>
-                <CalendarCheck className="w-4 h-4 text-success dark:text-brand" />
-              </div>
-              <div className="text-xl sm:text-2xl font-black font-mono text-body dark:text-body">
-                {reservations.length}
-              </div>
-            </div>
-
-            <div className="rounded-[4px] border border-success dark:border-success bg-success-subtle/50 dark:bg-emerald-950/20 p-3 shadow-2xs">
-              <div className="flex items-center justify-between text-success dark:text-success mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Confirmed & Pending</span>
-                <Clock className="w-4 h-4 text-success dark:text-brand" />
-              </div>
-              <div className="text-xl sm:text-2xl font-black font-mono text-brand dark:text-success">
-                {reservations.filter((r) => r.status === 'CONFIRMED' || r.status === 'PENDING').length}
-              </div>
-            </div>
-
-            <div className="rounded-[4px] border border-sky-200 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 p-3 shadow-2xs">
-              <div className="flex items-center justify-between text-sky-800 dark:text-sky-300 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Currently Seated</span>
-                <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-              </div>
-              <div className="text-xl sm:text-2xl font-black font-mono text-sky-800 dark:text-sky-300">
-                {reservations.filter((r) => r.status === 'SEATED').length}
-              </div>
-            </div>
-
-            <div className="rounded-[4px] border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20 p-3 shadow-2xs">
-              <div className="flex items-center justify-between text-purple-800 dark:text-purple-300 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Completed</span>
-                <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div className="text-xl sm:text-2xl font-black font-mono text-purple-800 dark:text-purple-300">
-                {reservations.filter((r) => r.status === 'COMPLETED').length}
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Bar: Status Pills, Date Filter & Search */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 pt-1">
-            {/* Status Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 custom-scrollbar">
-              {[
-                { id: 'ALL', label: 'All', count: reservations.length },
-                { id: 'CONFIRMED', label: 'Confirmed', count: reservations.filter((r) => r.status === 'CONFIRMED').length },
-                { id: 'PENDING', label: 'Pending', count: reservations.filter((r) => r.status === 'PENDING').length },
-                { id: 'SEATED', label: 'Seated', count: reservations.filter((r) => r.status === 'SEATED').length },
-                { id: 'COMPLETED', label: 'Completed', count: reservations.filter((r) => r.status === 'COMPLETED').length },
-                { id: 'CANCELLED', label: 'Cancelled', count: reservations.filter((r) => r.status === 'CANCELLED').length },
-                { id: 'NO_SHOW', label: 'No-Show', count: reservations.filter((r) => r.status === 'NO_SHOW').length },
-              ].map((pill) => {
-                const isSelected = reservationStatusFilter === pill.id;
-                return (
-                  <button
-                    key={pill.id}
-                    type="button"
-                    onClick={() => setReservationStatusFilter(pill.id)}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[3px] px-3 py-1 text-xs font-bold transition-all shrink-0 cursor-pointer',
-                      isSelected
-                        ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-brand'
-                        : 'bg-white border border-border-default text-[#4A6B5D] hover:bg-surface-muted dark:bg-surface-card dark:border-border-default dark:text-[#A4B8AE]'
-                    )}
-                  >
-                    <span>{pill.label}</span>
-                    <span
-                      className={cn(
-                        'rounded-[2px] px-1.5 py-0.2 text-[10px] font-mono',
-                        isSelected ? 'bg-white/20 text-white' : 'bg-surface-muted dark:bg-[#0E362C] text-muted dark:text-success'
-                      )}
-                    >
-                      {pill.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Date Filter & Search Input */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <div className="relative">
-                <input
-                  type="date"
-                  value={reservationDateFilter}
-                  onChange={(e) => setReservationDateFilter(e.target.value)}
-                  className="rounded-[3px] border border-border-default bg-white py-1.5 px-2.5 text-xs font-medium text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:bg-surface-card dark:text-body"
-                  title="Filter reservations by date"
-                />
-                {reservationDateFilter && (
-                  <button
-                    type="button"
-                    onClick={() => setReservationDateFilter('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-muted dark:hover:text-white"
-                    title="Clear date filter"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-
-              <div className="relative w-full sm:w-60 shrink-0">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
-                <input
-                  type="text"
-                  value={reservationSearchQuery}
-                  onChange={(e) => setReservationSearchQuery(e.target.value)}
-                  placeholder="Search guest, phone, code..."
-                  className="w-full rounded-[3px] border border-border-default bg-white py-1.5 pl-8 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:bg-surface-card dark:text-body"
-                />
-                {reservationSearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setReservationSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-muted dark:hover:text-white"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => fetchReservations()}
-                className="p-1.5 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-muted dark:text-slate-300 hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
-                title="Refresh reservations"
-              >
-                <RotateCcw className={cn('w-3.5 h-3.5', isReservationsLoading && 'animate-spin')} />
-              </button>
-            </div>
-          </div>
-
-          {/* Reservations List */}
-          {filteredReservations.length === 0 ? (
-            <div className="rounded-[4px] border border-border-default bg-white p-12 text-center shadow-2xs dark:border-border-default dark:bg-surface-card">
-              <CalendarCheck className="w-10 h-10 text-slate-300 dark:text-muted mx-auto mb-2" />
-              <h3 className="text-sm font-bold text-body dark:text-body">No reservations found</h3>
-              <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1 max-w-sm mx-auto">
-                {reservationSearchQuery || reservationDateFilter || reservationStatusFilter !== 'ALL'
-                  ? 'No reservations match your current filters. Try clearing the search or filter.'
-                  : 'There are no table reservations booked yet. Click "Book Now" above to book a table.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => handleOpenNewReservation()}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white px-3.5 py-1.5 text-xs font-bold shadow-2xs dark:bg-brand dark:hover:bg-success-subtle0 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Book Now</span>
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-[4px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card shadow-2xs">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-[#E5EEE9] dark:border-border-default bg-surface-muted dark:bg-surface-card text-muted dark:text-[#A4B8AE] font-bold uppercase tracking-wider text-[10px]">
-                    <th className="py-2.5 px-3">Code / Ref</th>
-                    <th className="py-2.5 px-3">Customer</th>
-                    <th className="py-2.5 px-3">Date & Time</th>
-                    <th className="py-2.5 px-3">Party & Table</th>
-                    <th className="py-2.5 px-3">Status</th>
-                    <th className="py-2.5 px-3">Notes / Requests</th>
-                    <th className="py-2.5 px-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447]">
-                  {filteredReservations.map((res) => {
-                    const statusConfig = {
-                      CONFIRMED: { bg: 'bg-success-subtle text-success border-success dark:bg-success-subtle dark:text-success dark:border-success', dot: 'bg-success-subtle0' },
-                      PENDING: { bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800', dot: 'bg-amber-500' },
-                      SEATED: { bg: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800', dot: 'bg-sky-500' },
-                      COMPLETED: { bg: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800', dot: 'bg-purple-500' },
-                      CANCELLED: { bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800', dot: 'bg-rose-500' },
-                      NO_SHOW: { bg: 'bg-surface-muted text-body border-border-default dark:bg-surface-card dark:text-slate-300 dark:border-border-default', dot: 'bg-slate-400' },
-                    }[res.status] || { bg: 'bg-surface-muted text-body border-border-default', dot: 'bg-slate-400' };
-
-                    return (
-                      <tr key={res.id} className="hover:bg-surface-muted/60 dark:hover:bg-[#0E362C]/30 transition-colors">
-                        <td className="py-3 px-3">
-                          <span className="font-mono font-bold text-brand dark:text-success bg-success-subtle dark:bg-success-subtle border border-success dark:border-success px-1.5 py-0.5 rounded-[2px] text-[11px]">
-                            {res.reservationCode}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-body dark:text-body flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5 text-muted" />
-                            <span>{res.customerName}</span>
-                          </div>
-                          <div className="text-[11px] font-mono text-muted dark:text-muted flex items-center gap-1.5 mt-0.5">
-                            <Phone className="w-3 h-3 text-muted" />
-                            <span>{res.phoneNumber}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="font-semibold text-body dark:text-body flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-muted" />
-                            <span>{res.reservationDate ? res.reservationDate.split('T')[0] : 'Today'}</span>
-                          </div>
-                          <div className="text-[11px] text-muted dark:text-muted flex items-center gap-1.5 mt-0.5">
-                            <Clock className="w-3 h-3 text-muted" />
-                            <span>{res.reservationTime} ({res.durationMinutes || 120}m)</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-1 font-semibold text-body dark:text-body">
-                            <Users className="w-3.5 h-3.5 text-muted" />
-                            <span>{res.partySize} Guests</span>
-                          </div>
-                          <div className="text-[11px] mt-0.5">
-                            {res.table ? (
-                              <span className="inline-flex items-center gap-1 text-brand dark:text-success font-bold">
-                                <Table2 className="w-3 h-3" />
-                                <span>Table {res.table.tableNumber}</span>
-                                <span className="text-[10px] font-normal text-muted">({res.table.section})</span>
-                              </span>
-                            ) : (
-                              <span className="text-muted italic">No table assigned</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] text-[10px] font-bold uppercase tracking-wider border', statusConfig.bg)}>
-                            <span className={cn('w-1.5 h-1.5 rounded-full', statusConfig.dot)} />
-                            <span>{res.status}</span>
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 max-w-[200px]">
-                          {res.specialRequests && (
-                            <div className="text-[11px] text-body dark:text-slate-200 truncate" title={res.specialRequests}>
-                              <span className="font-bold text-brand dark:text-brand">Req: </span>
-                              {res.specialRequests}
-                            </div>
-                          )}
-                          {res.internalNotes && (
-                            <div className="text-[10px] text-muted dark:text-muted truncate mt-0.5" title={res.internalNotes}>
-                              <span className="font-semibold">Note: </span>
-                              {res.internalNotes}
-                            </div>
-                          )}
-                          {!res.specialRequests && !res.internalNotes && (
-                            <span className="text-muted italic text-[11px]">-</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {(res.status === 'CONFIRMED' || res.status === 'PENDING') && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSeatReservation(res)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-brand hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
-                                  title="Seat guests at assigned or available table and start restaurant order"
-                                >
-                                  <Users className="w-3 h-3" />
-                                  <span>Seat Guests</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditReservation(res)}
-                                  className="p-1 rounded-[3px] border border-border-default dark:border-border-default hover:bg-surface-muted dark:hover:bg-slate-800 text-muted dark:text-slate-300 transition-colors cursor-pointer"
-                                  title="Edit Reservation"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateReservationStatus(res.id, 'NO_SHOW')}
-                                  className="p-1 rounded-[3px] border border-border-default dark:border-border-default hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-600 dark:text-amber-400 transition-colors cursor-pointer"
-                                  title="Mark as No-Show"
-                                >
-                                  <AlertCircle className="w-3.5 h-3.5" />
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateReservationStatus(res.id, 'CANCELLED')}
-                                  className="p-1 rounded-[3px] border border-border-default dark:border-border-default hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
-                                  title="Cancel Reservation"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-
-                            {res.status === 'SEATED' && (
-                              <>
-                                {res.tableId && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenOrderPage(res.tableId!)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-brand hover:bg-brand-hover text-white font-bold text-xs shadow-2xs dark:bg-brand transition-all cursor-pointer"
-                                  >
-                                    <UtensilsCrossed className="w-3 h-3" />
-                                    <span>View Order</span>
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateReservationStatus(res.id, 'COMPLETED')}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-[3px] border border-border-default dark:border-border-default hover:bg-surface-muted dark:hover:bg-slate-800 text-body dark:text-slate-300 font-semibold text-xs cursor-pointer"
-                                  title="Mark Completed"
-                                >
-                                  <Check className="w-3 h-3 text-success" />
-                                  <span>Complete</span>
-                                </button>
-                              </>
-                            )}
-
-                            {(res.status === 'CANCELLED' || res.status === 'NO_SHOW' || res.status === 'COMPLETED') && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateReservationStatus(res.id, 'CONFIRMED')}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-[3px] border border-border-default dark:border-border-default hover:bg-surface-muted dark:hover:bg-slate-800 text-muted dark:text-slate-300 font-semibold text-xs cursor-pointer"
-                                title="Reactivate Reservation"
-                              >
-                                <RotateCcw className="w-3 h-3" />
-                                <span>Reopen</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <TableReservationsView
+          reservations={reservations}
+          tables={tables}
+          isLoading={isReservationsLoading}
+          onRefresh={fetchReservations}
+          onNewBooking={() => handleOpenNewReservation()}
+          onViewBooking={handleOpenViewReservation}
+          onEditBooking={handleOpenEditReservation}
+          onCustomerArrived={(res) => handleSeatReservation(res)}
+          onUpdateStatus={handleUpdateReservationStatus}
+          onOpenOrder={handleOpenOrderPage}
+          onAssignTable={(res) => {
+            setSeatingReservation(res);
+            setSeatingTableId('');
+            setIsSeatingModalOpen(true);
+          }}
+        />
       )}
 
 
@@ -4539,8 +4915,8 @@ function TablesContent() {
                 </div>
               </div>
 
-              {/* Row 2: Date, Time & Guests */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Row 2: Date, Start Time, End Time & Guests */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-body dark:text-slate-300 mb-1.5">
                     Date <span className="text-rose-500">*</span>
@@ -4569,14 +4945,34 @@ function TablesContent() {
 
                 <div>
                   <label className="block text-xs font-medium text-body dark:text-slate-300 mb-1.5">
-                    Time
+                    Start Time
                   </label>
                   <input
                     type="time"
                     value={resTime}
-                    onChange={(e) => setResTime(e.target.value)}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
                     className="w-full h-9 rounded-md border border-border-default dark:border-border-default bg-white dark:bg-[#0B2E24] px-2.5 text-sm font-mono text-body dark:text-body focus:outline-none focus:ring-2 focus:ring-[#0B3D32]/20 focus:border-[#0B3D32] dark:focus:border-emerald-500 transition-colors"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-body dark:text-slate-300 mb-1.5">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={resEndTime}
+                    onChange={(e) => handleEndTimeChange(e.target.value)}
+                    className={cn(
+                      "w-full h-9 rounded-md border bg-white dark:bg-[#0B2E24] px-2.5 text-sm font-mono text-body dark:text-body focus:outline-none focus:ring-2 transition-colors",
+                      endTimeError
+                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
+                        : "border-border-default dark:border-border-default focus:border-[#0B3D32] dark:focus:border-emerald-500 focus:ring-[#0B3D32]/20"
+                    )}
+                  />
+                  {endTimeError && (
+                    <p className="mt-1 text-[11px] text-rose-500 leading-tight">{endTimeError}</p>
+                  )}
                 </div>
 
                 <div>
@@ -4606,8 +5002,22 @@ function TablesContent() {
                 >
                   <option value="">Any available table (auto-assign)</option>
                   {tables.map((t) => {
+                    const startMins = parseTimeToMinutes(resTime);
+                    const endMins = parseTimeToMinutes(resEndTime);
+                    const targetDateStr = resDate.split('T')[0];
+                    const hasConflict = reservations.some((r) => {
+                      if (editingReservation && r.id === editingReservation.id) return false;
+                      if (r.tableId !== t.id) return false;
+                      if ((r.reservationDate ? r.reservationDate.split('T')[0] : '') !== targetDateStr) return false;
+                      const st = (r.status || '').toUpperCase();
+                      if (st === 'CANCELLED' || st === 'NO_SHOW' || st === 'COMPLETED') return false;
+                      const rStart = parseTimeToMinutes(r.reservationTime);
+                      const rEnd = rStart + (r.durationMinutes > 0 ? r.durationMinutes : 120);
+                      return startMins < (rEnd + 15) && rStart < (endMins + 15);
+                    });
                     const availObj = availabilityData?.allTables?.find((at) => at.id === t.id);
-                    const isAvail = availObj ? availObj.isAvailable : true;
+                    const isAvail = !hasConflict && (availObj ? availObj.isAvailable : true);
+
                     return (
                       <option key={t.id} value={t.id}>
                         Table {t.tableNumber} ({t.capacity} seats, {t.section}){isAvail ? '' : ' — Unavailable'}
@@ -4615,20 +5025,6 @@ function TablesContent() {
                     );
                   })}
                 </select>
-
-                {/* Subtle Inline Conflict Alert */}
-                {resPreferredTableId && availabilityData?.allTables && (() => {
-                  const sel = availabilityData.allTables.find((t) => t.id === resPreferredTableId);
-                  if (sel && !sel.isAvailable) {
-                    return (
-                      <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>Table {sel.tableNumber} conflict: {sel.conflictReason || 'Already reserved during this time'}.</span>
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
               </div>
 
               {/* Row 4: Special Requests / Notes */}
@@ -4666,6 +5062,26 @@ function TablesContent() {
                 </div>
               )}
 
+              {/* Clear Conflict Warning Alert Box */}
+              {conflictWarning && (
+                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-200 text-xs animate-in fade-in duration-200">
+                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 font-medium leading-relaxed">
+                    {conflictWarning}
+                  </div>
+                </div>
+              )}
+
+              {/* End Time Error Alert Box */}
+              {endTimeError && !conflictWarning && (
+                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-200 text-xs animate-in fade-in duration-200">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 font-medium leading-relaxed">
+                    {endTimeError}
+                  </div>
+                </div>
+              )}
+
               {/* Modal Actions */}
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border-default dark:border-border-default">
                 <button
@@ -4679,8 +5095,13 @@ function TablesContent() {
 
                 <button
                   type="submit"
-                  disabled={isSavingReservation}
-                  className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-md bg-[#0B3D32] hover:bg-[#082E25] dark:bg-brand dark:hover:bg-success-subtle0 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+                  disabled={isSavingReservation || !!conflictWarning || !!endTimeError}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-md bg-[#0B3D32] hover:bg-[#082E25] dark:bg-brand dark:hover:bg-success-subtle0 text-white text-xs font-semibold shadow-xs transition-colors",
+                    (isSavingReservation || !!conflictWarning || !!endTimeError)
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  )}
                 >
                   {isSavingReservation ? (
                     <>
@@ -4688,7 +5109,7 @@ function TablesContent() {
                       <span>Saving...</span>
                     </>
                   ) : (
-                    <span>Confirm Booking</span>
+                    <span>{editingReservation ? 'Save Changes' : 'Confirm Booking'}</span>
                   )}
                 </button>
               </div>
@@ -5068,10 +5489,274 @@ function TablesContent() {
       )}
 
       {/* =========================================================================
+          TABLE BOOKING DETAILS MODAL
+          All reservations for a table on the selected date.
+         ========================================================================= */}
+      {bookingDetailsModalTable && (
+        <TableBookingDetailsModal
+          table={bookingDetailsModalTable}
+          isOpen={isBookingDetailsModalOpen}
+          selectedDate={selectedDate}
+          onClose={() => {
+            setBookingDetailsModalTable(null);
+            setIsBookingDetailsModalOpen(false);
+          }}
+          onViewBooking={handleOpenViewReservation}
+          onEditBooking={(res) => {
+            setBookingDetailsModalTable(null);
+            setIsBookingDetailsModalOpen(false);
+            handleOpenEditReservation(res);
+          }}
+          onCustomerArrived={(res) => handleSeatReservation(res, bookingDetailsModalTable.id)}
+          onSeatGuests={(res) => handleSeatReservation(res, bookingDetailsModalTable.id)}
+          onConfirmBooking={(id) => handleUpdateReservationStatus(id, 'CONFIRMED')}
+          onCancelBooking={(id) => handleUpdateReservationStatus(id, 'CANCELLED')}
+          onMarkNoShow={(id) => handleUpdateReservationStatus(id, 'NO_SHOW')}
+          onUpdateBookingStatus={(id, newStatus) => handleUpdateReservationStatus(id, newStatus)}
+          onNewBooking={(t) => {
+            setBookingDetailsModalTable(null);
+            setIsBookingDetailsModalOpen(false);
+            handleOpenNewReservation(t);
+          }}
+        />
+      )}
+
+      {/* =========================================================================
+          READ-ONLY VIEW BOOKING MODAL
+          Clean, non-editable overview of reservation information.
+         ========================================================================= */}
+      {viewingReservation && (
+        <ViewBookingModal
+          isOpen={isViewReservationModalOpen}
+          reservation={viewingReservation}
+          table={
+            tables.find((t) => t.id === viewingReservation.tableId) ||
+            bookingDetailsModalTable ||
+            null
+          }
+          onCustomerArrived={(res) =>
+            handleSeatReservation(res, viewingReservation.tableId || bookingDetailsModalTable?.id)
+          }
+          onClose={() => {
+            setIsViewReservationModalOpen(false);
+            setViewingReservation(null);
+          }}
+        />
+      )}
+
+      {/* =========================================================================
           PRINTED BILL / RECEIPT MODAL (Requirement 7)
           Thermal receipt format with print trigger for all order types.
          ========================================================================= */}
       {receiptModalData && <RestaurantReceiptModal {...receiptModalData} />}
+
+      {/* =========================================================================
+          WALK-IN TURNOVER CONFLICT WARNING MODAL (Requirement 5)
+          Clear warning when insufficient time remains before upcoming reservation.
+         ========================================================================= */}
+      {walkInConflictData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-[6px] bg-white dark:bg-[#071926] border border-amber-300 dark:border-amber-800 shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border-default dark:border-border-default bg-amber-50/70 dark:bg-amber-950/30">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Reservation Conflict Notice
+                  </h3>
+                  <p className="text-[11px] text-muted">
+                    Table {walkInConflictData.table.tableNumber} · {walkInConflictData.table.section}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWalkInConflictData(null)}
+                className="text-muted hover:text-body p-1 rounded-sm cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {/* Requirement 5 exact warning prompt */}
+              <div className="p-3 rounded-[4px] bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 text-amber-950 dark:text-amber-200">
+                <p className="text-xs font-bold leading-relaxed">
+                  {walkInConflictData.warningMessage}
+                </p>
+              </div>
+
+              {/* Conflict Breakdown */}
+              <div className="rounded-[4px] border border-border-default dark:border-border-default p-3 bg-surface-muted/30 dark:bg-slate-900/40 space-y-2 text-xs">
+                {walkInConflictData.reservation && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted">Reserved For:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {walkInConflictData.reservation.customerName || 'Reserved Guest'} ({walkInConflictData.reservation.partySize || 2} Guests)
+                    </span>
+                  </div>
+                )}
+                {walkInConflictData.reservation?.reservationTime && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted">Reservation Slot:</span>
+                    <span className="font-mono font-bold text-brand dark:text-success">
+                      {formatTime12h(walkInConflictData.reservation.reservationTime)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Estimated Dining:</span>
+                  <span className="font-medium">{restaurantSettings.estimatedDiningMinutes} mins</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Cleaning Buffer:</span>
+                  <span className="font-medium">{restaurantSettings.cleaningBufferMinutes} mins</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-border-default/60 dark:border-border-default/60">
+                  <span className="text-muted">Total Time Required:</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">
+                    {walkInConflictData.requiredMinutes} mins
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-3 border-t border-border-default dark:border-border-default bg-surface-muted/20">
+              <button
+                type="button"
+                onClick={() => {
+                  const targetTable = walkInConflictData.table;
+                  setWalkInConflictData(null);
+                  setBookingDetailsModalTable(targetTable);
+                  setIsBookingDetailsModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-semibold text-body hover:bg-surface-muted transition-colors cursor-pointer"
+              >
+                View Bookings
+              </button>
+              <button
+                type="button"
+                onClick={() => setWalkInConflictData(null)}
+                className="px-4 py-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                Choose Another Table
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* =========================================================================
+          RESTAURANT SETTINGS MODAL (Requirement 8)
+          Configurable dining duration, cleaning buffer, and advance alerts.
+         ========================================================================= */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-[6px] bg-white dark:bg-surface-card border border-border-default dark:border-border-default shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border-default dark:border-border-default bg-surface-muted/40 dark:bg-slate-900/60">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-brand dark:text-success">
+                  <Sliders className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Turnaround & Buffer Settings
+                  </h3>
+                  <p className="text-[11px] text-muted">
+                    Configure walk-in turnaround and table preparation thresholds
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="text-muted hover:text-body p-1 rounded-sm cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
+                  Estimated Dining Duration (Minutes)
+                </label>
+                <input
+                  type="number"
+                  min="15"
+                  max="240"
+                  step="5"
+                  value={tempDiningMinutes}
+                  onChange={(e) => setTempDiningMinutes(Math.max(15, parseInt(e.target.value, 10) || 90))}
+                  className="w-full rounded-[4px] border border-border-default dark:border-border-default bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-body font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-muted mt-0.5">
+                  Standard expected dining duration for walk-in tables (default 90 mins).
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
+                  Cleaning & Preparation Buffer (Minutes)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="60"
+                  step="5"
+                  value={tempBufferMinutes}
+                  onChange={(e) => setTempBufferMinutes(Math.max(0, parseInt(e.target.value, 10) || 15))}
+                  className="w-full rounded-[4px] border border-border-default dark:border-border-default bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-body font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-muted mt-0.5">
+                  Buffer time required to bus, sanitize, and set up the table for the next reservation (default 15 mins).
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
+                  Advance Reservation Notice Alert (Minutes)
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  max="60"
+                  step="5"
+                  value={tempAlertMinutes}
+                  onChange={(e) => setTempAlertMinutes(Math.max(5, parseInt(e.target.value, 10) || 15))}
+                  className="w-full rounded-[4px] border border-border-default dark:border-border-default bg-white dark:bg-slate-900 px-3 py-1.5 text-xs text-body font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-muted mt-0.5">
+                  Time before arrival to prompt staff for table preparation and turnover (default 15 mins).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-3 border-t border-border-default dark:border-border-default bg-surface-muted/20">
+              <button
+                type="button"
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="px-3 py-1.5 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-semibold text-body hover:bg-surface-muted transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSavingSettings}
+                onClick={handleSaveRestaurantSettings}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white text-xs font-bold shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isSavingSettings ? 'Saving...' : 'Save Settings'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

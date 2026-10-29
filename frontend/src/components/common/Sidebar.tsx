@@ -29,6 +29,12 @@ import {
   CalendarCheck,
   CreditCard,
   ShieldCheck,
+  LayoutGrid,
+  UserCheck,
+  LogOut,
+  Contact,
+  Sparkles,
+  BedDouble,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBusinessModules } from '@/lib/businessSetup';
@@ -44,71 +50,102 @@ export interface NavBoxItem {
   description?: string;
 }
 
-const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
+export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
   {
-    id: 'hotel-management',
-    name: 'Hotel Management',
+    id: 'dashboard',
+    name: 'Dashboard',
     href: '/hotel-management',
-    icon: Hotel,
-    tag: 'HOTEL',
-    description: 'Reservations, check-in, room status & guests',
+    icon: LayoutDashboard,
+    tag: 'OVERVIEW',
+    description: 'Hotel occupancy, room status, today check-ins & metrics',
   },
   {
-    id: 'restaurant-management',
-    name: 'Restaurant Management',
-    href: '/restaurant-management',
-    icon: UtensilsCrossed,
-    tag: 'RESTAURANT',
-    description: 'Tables, orders, kitchen, menu & inventory',
+    id: 'room-board',
+    name: 'Room Board',
+    href: '/front-desk',
+    icon: LayoutGrid,
+    tag: 'ROOMS',
+    description: 'Live room status matrix, tape chart & front desk floor grid',
   },
   {
-    id: 'quick-sale',
-    name: 'Quick Sale (POS)',
-    href: '/quick-sale',
-    icon: Zap,
-    tag: 'POS',
-    description: 'Walk-in takeaway & fast counter checkout',
+    id: 'reservations',
+    name: 'Reservations',
+    href: '/reservations',
+    icon: CalendarCheck,
+    tag: 'BOOKING',
+    description: 'Advance room bookings & guest reservations',
   },
   {
-    id: 'inventory',
-    name: 'Inventory',
-    href: '/inventory',
+    id: 'check-in',
+    name: 'Check-In',
+    href: '/check-in',
+    icon: UserCheck,
+    tag: 'ARRIVAL',
+    description: 'Guest arrival check-in, key assignment & registration',
+  },
+  {
+    id: 'check-out',
+    name: 'Check-Out',
+    href: '/checkout',
+    icon: LogOut,
+    tag: 'DEPART',
+    description: 'Guest departure, folio bill settlement & checkout',
+  },
+  {
+    id: 'in-house',
+    name: 'In-House Guests',
+    href: '/active-stays',
+    icon: Users,
+    tag: 'STAYS',
+    description: 'Currently resident guests, room folios & extensions',
+  },
+  {
+    id: 'guest-directory',
+    name: 'Guest Directory',
+    href: '/guests',
+    icon: Contact,
+    tag: 'CRM',
+    description: 'Guest history, VIP tiers, preferences & profiles',
+  },
+  {
+    id: 'housekeeping',
+    name: 'Housekeeping',
+    href: '/housekeeping',
+    icon: Sparkles,
+    tag: 'CLEAN',
+    description: 'Room cleaning tasks, maid assignments & inspections',
+  },
+  {
+    id: 'room-setup',
+    name: 'Room Setup',
+    href: '/hotel',
+    icon: BedDouble,
+    tag: 'SETUP',
+    description: 'Room types, inventory numbers, floors & master rates',
+  },
+  {
+    id: 'hotel-inventory',
+    name: 'Hotel Stock',
+    href: '/inventory?dept=HOTEL',
     icon: Boxes,
     tag: 'STOCK',
-    description: 'Hotel & restaurant stock, purchases, suppliers & transfers',
+    description: 'Linens, toiletries, amenities & housekeeping supplies',
   },
   {
-    id: 'billing',
+    id: 'bills-invoices',
     name: 'Bills & Invoices',
     href: '/billing',
     icon: FileText,
     tag: 'BILLS',
-    description: 'Central hotel & restaurant bills, tax invoices & settlements',
-  },
-  {
-    id: 'hotel-setup',
-    name: 'Master Setup',
-    href: '/hotel',
-    icon: Building2,
-    tag: 'SETUP',
-    description: 'Resort profile, masters & setup',
-  },
-
-  {
-    id: 'finance',
-    name: 'Finance',
-    href: '/finance',
-    icon: Receipt,
-    tag: 'FINANCE',
-    description: 'Billing, expenses & ledgers',
+    description: 'Central hotel folios, guest invoices & tax receipts',
   },
   {
     id: 'reports',
     name: 'Reports',
-    href: '/reports',
+    href: '/reports?section=hotel',
     icon: BarChart3,
     tag: 'REPORTS',
-    description: 'Business overview, hotel, restaurant & finance audits',
+    description: 'Hotel occupancy reports, RevPAR & audit reports',
   },
   {
     id: 'administration',
@@ -116,7 +153,7 @@ const HOTEL_MODULE_OPTIONS: NavBoxItem[] = [
     href: '/administration',
     icon: Settings,
     tag: 'ADMIN',
-    description: 'Business setup, staff, permissions & settings',
+    description: 'Property settings, staff permissions & business profile',
   },
 ];
 
@@ -124,7 +161,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
   {
     id: 'dashboard',
     name: 'Dashboard',
-    href: '/',
+    href: '/restaurant-management',
     icon: LayoutDashboard,
     tag: 'OVERVIEW',
     description: 'Daily restaurant sales, active tables & summary',
@@ -247,10 +284,10 @@ export const Sidebar: React.FC<{
 
   const isRestaurantPath = useMemo(() => {
     return [
+      '/restaurant-management',
       '/tables',
       '/quick-sale',
       '/menu',
-      '/restaurant-management',
       '/kitchen',
       '/cafe',
       '/restaurant-setup',
@@ -275,31 +312,77 @@ export const Sidebar: React.FC<{
   }, [pathname]);
 
   const [viewMode, setViewMode] = useState<'RESTAURANT' | 'HOTEL'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('hospitality_view_mode');
+      if (stored === 'RESTAURANT' || stored === 'HOTEL') return stored;
+    }
     if (moduleType === 'RESTAURANT_ONLY') return 'RESTAURANT';
     if (moduleType === 'HOTEL_ONLY') return 'HOTEL';
     if (isRestaurantPath) return 'RESTAURANT';
     return 'HOTEL';
   });
 
+  const handleSetViewMode = (mode: 'RESTAURANT' | 'HOTEL') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hospitality_view_mode', mode);
+      window.dispatchEvent(new CustomEvent('hospitality_view_mode_changed', { detail: mode }));
+    }
+  };
+
+  useEffect(() => {
+    const handleModeEvent = (e: any) => {
+      if (e.detail === 'RESTAURANT' || e.detail === 'HOTEL') {
+        setViewMode(e.detail);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hospitality_view_mode_changed', handleModeEvent);
+      return () => window.removeEventListener('hospitality_view_mode_changed', handleModeEvent);
+    }
+  }, []);
+
   useEffect(() => {
     if (moduleType === 'RESTAURANT_ONLY') {
-      setViewMode('RESTAURANT');
+      handleSetViewMode('RESTAURANT');
     } else if (moduleType === 'HOTEL_ONLY') {
-      setViewMode('HOTEL');
+      handleSetViewMode('HOTEL');
     } else if (isRestaurantPath) {
-      setViewMode('RESTAURANT');
+      handleSetViewMode('RESTAURANT');
     } else if (isHotelPath) {
-      setViewMode('HOTEL');
+      handleSetViewMode('HOTEL');
     }
   }, [pathname, moduleType, isRestaurantPath, isHotelPath]);
 
-  const availableModuleOptions = useMemo(() => {
-    return HOTEL_MODULE_OPTIONS.filter((item) => {
-      if (item.id === 'hotel-management' || item.id === 'hotel-setup') return isHotelEnabled;
-      if (item.id === 'restaurant-management' || item.id === 'quick-sale') return isRestaurantEnabled;
+  const roleFilteredHotelOptions = useMemo(() => {
+    if (!isHotelEnabled) return [];
+    return HOTEL_SIDEBAR_OPTIONS.filter((item) => {
+      if (role === 'CHEF') {
+        return ['dashboard', 'hotel-inventory', 'reports'].includes(item.id);
+      }
+      if (role === 'HOUSEKEEPING') {
+        return ['dashboard', 'room-board', 'housekeeping', 'hotel-inventory'].includes(item.id);
+      }
+      if (role === 'FRONT_DESK') {
+        return [
+          'dashboard',
+          'room-board',
+          'reservations',
+          'check-in',
+          'check-out',
+          'in-house',
+          'guest-directory',
+          'housekeeping',
+          'bills-invoices',
+          'reports',
+        ].includes(item.id);
+      }
+      if (role === 'POS_CASHIER') {
+        return ['dashboard', 'bills-invoices', 'reports'].includes(item.id);
+      }
       return true;
     });
-  }, [isHotelEnabled, isRestaurantEnabled]);
+  }, [role, isHotelEnabled]);
 
   const roleFilteredRestaurantOptions = useMemo(() => {
     if (!isRestaurantEnabled) return [];
@@ -324,8 +407,8 @@ export const Sidebar: React.FC<{
     if (viewMode === 'RESTAURANT') {
       return roleFilteredRestaurantOptions;
     }
-    return availableModuleOptions;
-  }, [viewMode, roleFilteredRestaurantOptions, availableModuleOptions]);
+    return roleFilteredHotelOptions;
+  }, [viewMode, roleFilteredRestaurantOptions, roleFilteredHotelOptions]);
 
   // Real-time search filter for navigation box widgets
   const filteredOptions = useMemo(() => {
@@ -344,7 +427,38 @@ export const Sidebar: React.FC<{
     const [baseHref, queryStr] = item.href.split('?');
 
     if (item.id === 'dashboard') {
-      return pathname === '/' || (pathname === '/restaurant-management' && (!currentSearch || currentSearch === ''));
+      if (viewMode === 'HOTEL') {
+        return pathname === '/hotel-management' || pathname === '/';
+      } else {
+        return pathname === '/restaurant-management' && (!currentSearch || currentSearch === '');
+      }
+    }
+    if (item.id === 'room-board') {
+      return pathname === '/front-desk' || pathname === '/room-board';
+    }
+    if (item.id === 'reservations') {
+      return pathname === '/reservations' || pathname === '/booking';
+    }
+    if (item.id === 'check-in') {
+      return pathname === '/check-in';
+    }
+    if (item.id === 'check-out') {
+      return pathname === '/checkout';
+    }
+    if (item.id === 'in-house') {
+      return pathname === '/active-stays';
+    }
+    if (item.id === 'guest-directory') {
+      return pathname === '/guests';
+    }
+    if (item.id === 'housekeeping') {
+      return pathname === '/housekeeping';
+    }
+    if (item.id === 'room-setup') {
+      return pathname === '/hotel' || pathname.startsWith('/hotel') || pathname === '/rooms';
+    }
+    if (item.id === 'hotel-inventory') {
+      return pathname.startsWith('/inventory') && (currentSearch.includes('dept=HOTEL') || currentSearch.includes('filter=hotel'));
     }
     if (item.id === 'table-board') {
       return pathname === '/tables' && (!currentSearch || currentSearch === '' || currentSearch.includes('tab=TABLE_BOARD') || currentSearch.includes('tab=FLOOR_PLAN'));
@@ -365,7 +479,7 @@ export const Sidebar: React.FC<{
       return pathname.startsWith('/menu');
     }
     if (item.id === 'restaurant-inventory') {
-      return pathname.startsWith('/inventory') && (currentSearch.includes('dept=RESTAURANT') || currentSearch.includes('tab=restaurant'));
+      return pathname.startsWith('/inventory') && (currentSearch.includes('dept=RESTAURANT') || currentSearch.includes('filter=restaurant'));
     }
     if (item.id === 'purchases') {
       return pathname.startsWith('/inventory') && currentSearch.includes('tab=purchases');
@@ -378,36 +492,6 @@ export const Sidebar: React.FC<{
     }
     if (item.id === 'reports') {
       return pathname.startsWith('/reports');
-    }
-    if (item.id === 'hotel-management') {
-      return [
-        '/hotel-management',
-        '/front-desk',
-        '/room-board',
-        '/rooms',
-        '/booking',
-        '/check-in',
-        '/checkout',
-        '/reservations',
-        '/active-stays',
-        '/housekeeping',
-        '/guests',
-      ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-    }
-    if (item.id === 'restaurant-management') {
-      return ['/restaurant-management', '/restaurant'].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-    }
-    if (item.id === 'quick-sale') {
-      return pathname.startsWith('/quick-sale');
-    }
-    if (item.id === 'inventory') {
-      return pathname === '/inventory' || pathname.startsWith('/inventory/');
-    }
-    if (item.id === 'billing') {
-      return pathname === '/billing' || pathname.startsWith('/billing/');
-    }
-    if (item.id === 'finance') {
-      return pathname === '/finance' || pathname.startsWith('/finance/');
     }
     if (item.id === 'administration') {
       return ['/administration', '/staff', '/settings'].some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -492,7 +576,7 @@ export const Sidebar: React.FC<{
               <div className="grid grid-cols-2 p-0.5 rounded-[4px] bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)] border border-[var(--border-default)] dark:border-[var(--border-default)]">
                 <button
                   type="button"
-                  onClick={() => setViewMode('RESTAURANT')}
+                  onClick={() => handleSetViewMode('RESTAURANT')}
                   className={cn(
                     'flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold rounded-[3px] transition-all cursor-pointer',
                     viewMode === 'RESTAURANT'
@@ -505,7 +589,7 @@ export const Sidebar: React.FC<{
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewMode('HOTEL')}
+                  onClick={() => handleSetViewMode('HOTEL')}
                   className={cn(
                     'flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold rounded-[3px] transition-all cursor-pointer',
                     viewMode === 'HOTEL'
@@ -522,7 +606,7 @@ export const Sidebar: React.FC<{
             <div className="py-2 flex justify-center border-b border-[#E2E8F0] dark:border-[#334155] shrink-0">
               <button
                 type="button"
-                onClick={() => setViewMode(viewMode === 'RESTAURANT' ? 'HOTEL' : 'RESTAURANT')}
+                onClick={() => handleSetViewMode(viewMode === 'RESTAURANT' ? 'HOTEL' : 'RESTAURANT')}
                 title={viewMode === 'RESTAURANT' ? 'Switch to Hotel Navigation' : 'Switch to Restaurant Navigation'}
                 className="h-8 w-8 rounded-lg flex items-center justify-center bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)] border border-[var(--border-default)] dark:border-[var(--border-default)] text-[var(--brand-primary)] hover:scale-105 transition-all cursor-pointer shadow-2xs"
               >

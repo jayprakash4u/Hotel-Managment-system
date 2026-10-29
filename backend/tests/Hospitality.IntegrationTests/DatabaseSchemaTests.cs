@@ -30,10 +30,15 @@ public class DatabaseSchemaTests
     public async Task PrintUsers()
     {
         await using var db = CreateDbContext();
+        var canConnect = await db.Database.CanConnectAsync();
+        _output.WriteLine($"CanConnect: {canConnect}");
         var users = await db.Users.ToListAsync();
-        foreach (var u in users)
-        {
-            _output.WriteLine($"User: id={u.Id}, username='{u.Username}', role='{u.Role}', hash='{u.PasswordHash}'");
-        }
+        _output.WriteLine($"Users count: {users.Count}");
+        var tables = await db.RestaurantTables.ToListAsync();
+        _output.WriteLine($"RestaurantTables count: {tables.Count}");
+        var reservations = await db.TableReservations.ToListAsync();
+        _output.WriteLine($"TableReservations count: {reservations.Count}");
+        var products = await db.POSProducts.ToListAsync();
+        _output.WriteLine($"POSProducts count: {products.Count}");
     }
 }

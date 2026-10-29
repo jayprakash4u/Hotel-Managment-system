@@ -322,6 +322,7 @@ export interface TableReservationData {
   reservationDate: string;
   reservationTime: string;
   durationMinutes: number;
+  endTime?: string;
   partySize: number;
   status: 'PENDING' | 'CONFIRMED' | 'SEATED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
   specialRequests?: string | null;

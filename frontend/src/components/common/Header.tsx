@@ -118,7 +118,7 @@ export const Header: React.FC<{
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="flex lg:hidden items-center justify-center h-8.5 w-8.5 rounded-[3px] bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border-input)] text-[var(--brand-primary)] dark:bg-[var(--surface-muted)] dark:border-[var(--border-input)] dark:text-[var(--brand-primary)] transition-all shadow-2xs cursor-pointer"
+          className="flex lg:hidden items-center justify-center h-9 w-9 rounded-[3px] bg-[var(--surface-muted)] hover:bg-[var(--surface-hover)] border border-[var(--border-input)] text-[var(--brand-primary)] dark:bg-[var(--surface-muted)] dark:border-[var(--border-input)] dark:text-[var(--brand-primary)] transition-all shadow-2xs cursor-pointer"
           aria-label="Open mobile navigation"
         >
           <Menu className="w-4.5 h-4.5" />
@@ -370,7 +370,7 @@ export const Header: React.FC<{
           </div>
 
           <div
-            className="relative flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-[var(--brand-primary)] text-white shadow-xs font-bold text-xs select-none group-hover:scale-105 transition-transform"
+            className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-primary)] text-white shadow-xs font-bold text-xs select-none group-hover:scale-105 transition-transform"
           >
             {userInitials}
             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-success)] ring-2 ring-white dark:ring-[var(--surface-card)]" />

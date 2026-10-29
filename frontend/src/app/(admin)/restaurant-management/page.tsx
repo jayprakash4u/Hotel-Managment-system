@@ -22,6 +22,7 @@ import {
   Armchair,
 } from 'lucide-react';
 import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
+import { RestaurantDashboardView } from '@/components/restaurant/RestaurantDashboardView';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -389,10 +390,21 @@ function KitchenKDSContent() {
   );
 }
 
+function RestaurantModuleContent() {
+  const searchParams = useSearchParams();
+  const section = searchParams.get('section');
+
+  if (section === 'kitchen') {
+    return <KitchenKDSContent />;
+  }
+
+  return <RestaurantDashboardView />;
+}
+
 export default function RestaurantManagementPage() {
   return (
     <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500">Loading Restaurant Module...</div>}>
-      <KitchenKDSContent />
+      <RestaurantModuleContent />
     </Suspense>
   );
 }

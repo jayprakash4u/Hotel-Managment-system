@@ -14,13 +14,13 @@ import {
   Wrench,
   Check,
   FileText,
-  Users,
   Eye,
   History,
   Info,
   DollarSign,
   ChevronRight,
   ArrowLeft,
+  UserPlus,
 } from 'lucide-react';
 import { TableItem, calculateOrderItemTotal } from '@/lib/tablesData';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,7 @@ export interface TableActionsModalProps {
   onClose: () => void;
   // Order actions
   onStartOrder?: (table: TableItem) => void;
+  onSeatWalkIn?: (table: TableItem) => void;
   onAddItems?: (table: TableItem) => void;
   onViewOrder?: (table: TableItem) => void;
   onMarkServed?: (table: TableItem) => void;
@@ -40,9 +41,11 @@ export interface TableActionsModalProps {
   // Reservation actions
   onBookTable?: (table: TableItem) => void;
   onViewReservation?: (table: TableItem, reservation: any) => void;
+  onViewBooking?: (table: TableItem, reservation?: any) => void;
   onEditReservation?: (table: TableItem, reservation: any) => void;
   onCancelReservation?: (table: TableItem, reservation: any) => void;
   onSeatGuests?: (table: TableItem, reservation: any) => void;
+  onViewBookingDetails?: (table: TableItem) => void;
   // Billing actions
   onViewBill?: (table: TableItem) => void;
   onSettleBill?: (table: TableItem) => void;
@@ -51,21 +54,28 @@ export interface TableActionsModalProps {
   // Table management actions
   onUpdateCleaningStatus?: (table: TableItem, cleaningStatus: 'CLEAN' | 'DIRTY' | 'CLEANING') => void;
   onUpdateServiceStatus?: (table: TableItem, status: 'AVAILABLE' | 'OUT_OF_SERVICE', notes?: string) => void;
+  isFutureDate?: boolean;
+  selectedReservation?: any;
 }
 
 export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
   table,
+  isFutureDate = false,
+  selectedReservation,
   onClose,
   onStartOrder,
+  onSeatWalkIn,
   onAddItems,
   onViewOrder,
   onMarkServed,
   onViewOrderHistory,
   onBookTable,
   onViewReservation,
+  onViewBooking,
   onEditReservation,
   onCancelReservation,
   onSeatGuests,
+  onViewBookingDetails,
   onViewBill,
   onSettleBill,
   onPrintBill,
@@ -81,26 +91,27 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
 
   if (!table) return null;
 
-  const isOccupied = table.status === 'OCCUPIED';
-  const isAvailable = table.status === 'AVAILABLE';
-  const isReserved = table.status === 'RESERVED';
-  const isBilled = table.status === 'BILLED';
+  // Next reservation (if any)
+  const activeRes = selectedReservation || (table.upcomingReservations || []).find(
+    (r: any) => r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED'
+  );
+
+  const isOccupied = !isFutureDate && table.status === 'OCCUPIED';
+  const isBilled = !isFutureDate && table.status === 'BILLED';
   const isOutOfService = table.status === 'OUT_OF_SERVICE';
+  const isReserved = table.status === 'RESERVED';
+  // Physical availability: a table is physically available if not occupied, billed, or out of service
+  const isAvailable = !isOccupied && !isBilled && !isOutOfService && (table.status === 'AVAILABLE' || !table.status);
 
   const cleaningStatus = table.cleaningStatus || 'CLEAN';
   const isClean = cleaningStatus === 'CLEAN';
   const isDirty = cleaningStatus === 'DIRTY' || cleaningStatus === 'CLEANING';
 
-  const orderItems = table.orders || [];
-  const hasActiveOrder = orderItems.length > 0 || isOccupied || isBilled;
-  const orderTotal = orderItems.reduce(
-    (sum, item) => sum + calculateOrderItemTotal(item).total,
-    0
-  );
-
-  const activeRes = (table.upcomingReservations || []).find(
-    (r: any) => r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED'
-  );
+  const orderItems = !isFutureDate ? (table.orders || []) : [];
+  const hasActiveOrder = !isFutureDate && (orderItems.length > 0 || isOccupied || isBilled);
+  const orderTotal = !isFutureDate
+    ? orderItems.reduce((sum, item) => sum + calculateOrderItemTotal(item).total, 0)
+    : 0;
 
   const { role } = useRole();
 
@@ -111,10 +122,9 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
   const showTableManagement = role === 'ADMIN' || role === 'HOUSEKEEPING' || role === 'POS_CASHIER' || role === 'FRONT_DESK';
 
   // Business Rules Checks
-  const canStartOrder = isAvailable && isClean && !isReserved && !isOutOfService;
-  const canSeatGuests = (isReserved || !!activeRes) && isClean && !isOutOfService;
-  const canBookTable = !isOutOfService && !isReserved && !activeRes;
-  const canMarkClean = !isOccupied;
+  const canStartOrder = !isFutureDate && isAvailable && isClean && !isOutOfService;
+  const canBookTable = !isOutOfService;
+  const canMarkClean = !isFutureDate && !isOccupied;
 
   const handleMarkDirty = () => {
     onClose();
@@ -222,23 +232,31 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                     renderOptionRow({
                       icon: Sparkles,
                       label: 'Mark Cleaned',
+                      disabled: isFutureDate,
+                      disabledReason: 'Housekeeping status applies to Today only',
                       onClick: handleMarkCleaned,
                     })}
                   {isClean &&
                     renderOptionRow({
                       icon: AlertCircle,
                       label: 'Mark Dirty',
+                      disabled: isFutureDate,
+                      disabledReason: 'Housekeeping status applies to Today only',
                       onClick: handleMarkDirty,
                     })}
                   {isOutOfService &&
                     renderOptionRow({
                       icon: Check,
                       label: 'Return to Service',
+                      disabled: isFutureDate,
+                      disabledReason: 'Status updates apply to Today only',
                       onClick: handleReturnToService,
                     })}
                   {renderOptionRow({
                     icon: Info,
                     label: 'Table Details',
+                    disabled: isFutureDate,
+                    disabledReason: 'Details apply to Today only',
                     onClick: () => setActiveSubView('DETAILS'),
                   })}
                 </>
@@ -251,6 +269,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: Plus,
                           label: 'Add Items',
+                          disabled: isFutureDate,
+                          disabledReason: 'Dine-in orders are only available for Today',
                           onClick: () => {
                             onClose();
                             onAddItems?.(table);
@@ -262,6 +282,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                           icon: Eye,
                           label: 'View Order',
                           rightText: `${orderItems.length} items`,
+                          disabled: isFutureDate,
+                          disabledReason: 'Dine-in orders are only available for Today',
                           onClick: () => {
                             onClose();
                             onViewOrder?.(table);
@@ -273,6 +295,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                           icon: DollarSign,
                           label: 'Record Payment',
                           rightText: orderTotal > 0 ? `Rs. ${orderTotal.toFixed(0)}` : undefined,
+                          disabled: isFutureDate,
+                          disabledReason: 'Orders are only available for Today',
                           onClick: () => {
                             onClose();
                             onSettleBill?.(table);
@@ -283,6 +307,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: Printer,
                           label: 'Print Bill',
+                          disabled: isFutureDate,
+                          disabledReason: 'Orders are only available for Today',
                           onClick: () => {
                             onClose();
                             onPrintBill?.(table);
@@ -293,9 +319,35 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: CheckCircle2,
                           label: 'Mark Served',
+                          disabled: isFutureDate,
+                          disabledReason: 'Orders are only available for Today',
                           onClick: () => {
                             onClose();
                             onMarkServed?.(table);
+                          },
+                        })}
+
+
+                      {/* Book Now */}
+                      {showReservationActions &&
+                        renderOptionRow({
+                          icon: Calendar,
+                          label: 'Book Now',
+                          onClick: () => {
+                            onClose();
+                            onBookTable?.(table);
+                          },
+                        })}
+
+                      {/* View Booking if reservation active on this table */}
+                      {activeRes && showReservationActions &&
+                        renderOptionRow({
+                          icon: Eye,
+                          label: 'View Booking',
+                          rightText: `${activeRes.partySize}p`,
+                          onClick: () => {
+                            onClose();
+                            (onViewBooking || onViewReservation)?.(table, activeRes);
                           },
                         })}
 
@@ -303,12 +355,16 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: AlertCircle,
                           label: 'Mark Dirty',
+                          disabled: isFutureDate,
+                          disabledReason: 'Table cleaning applies to Today only',
                           onClick: handleMarkDirty,
                         })}
 
                       {renderOptionRow({
                         icon: History,
                         label: 'Order History',
+                        disabled: isFutureDate,
+                        disabledReason: 'Order history is only available for Today',
                         onClick: () => {
                           onClose();
                           onViewOrderHistory?.(table);
@@ -322,13 +378,13 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                     <>
                       {showOrderActions &&
                         renderOptionRow({
-                          icon: UtensilsCrossed,
-                          label: 'Start Order',
-                          disabled: !canStartOrder,
-                          disabledReason: 'Clean table before starting order',
+                          icon: UserPlus,
+                          label: 'Walk in',
+                          disabled: isFutureDate || !canStartOrder,
+                          disabledReason: isFutureDate ? 'Dine-in orders are only available for Today' : isDirty ? 'Clean table before starting order' : undefined,
                           onClick: () => {
                             onClose();
-                            onStartOrder?.(table);
+                            (onSeatWalkIn || onStartOrder)?.(table);
                           },
                         })}
 
@@ -337,9 +393,22 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                           icon: Calendar,
                           label: 'Book Now',
                           disabled: !canBookTable,
+                          disabledReason: !canBookTable ? 'Table unavailable for booking' : undefined,
                           onClick: () => {
                             onClose();
                             onBookTable?.(table);
+                          },
+                        })}
+
+                      {/* View Booking if reservation scheduled */}
+                      {showReservationActions && activeRes &&
+                        renderOptionRow({
+                          icon: Eye,
+                          label: 'View Booking',
+                          rightText: activeRes ? `${activeRes.partySize}p` : undefined,
+                          onClick: () => {
+                            onClose();
+                            (onViewBooking || onViewReservation)?.(table, activeRes);
                           },
                         })}
 
@@ -347,6 +416,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: Sparkles,
                           label: 'Mark Cleaned',
+                          disabled: isFutureDate,
+                          disabledReason: 'Table cleaning applies to Today only',
                           onClick: handleMarkCleaned,
                         })
                       )}
@@ -355,6 +426,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: AlertCircle,
                           label: 'Mark Dirty',
+                          disabled: isFutureDate,
+                          disabledReason: 'Table cleaning applies to Today only',
                           onClick: handleMarkDirty,
                         })
                       )}
@@ -363,6 +436,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: Wrench,
                           label: 'Out of Service',
+                          disabled: isFutureDate,
+                          disabledReason: 'Maintenance status applies to Today only',
                           onClick: () => setActiveSubView('CONFIRM_OUT_OF_SERVICE'),
                         })
                       )}
@@ -374,31 +449,31 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                     <>
                       {showReservationActions &&
                         renderOptionRow({
-                          icon: Users,
-                          label: 'Seat Guests',
-                          disabled: !canSeatGuests,
-                          disabledReason: 'Clean table before seating guests',
+                          icon: Calendar,
+                          label: 'Book Now',
                           onClick: () => {
                             onClose();
-                            onSeatGuests?.(table, activeRes);
+                            onBookTable?.(table);
                           },
                         })}
 
                       {activeRes && showReservationActions && (
                         <>
                           {renderOptionRow({
-                            icon: CalendarCheck,
-                            label: 'View Reservation',
+                            icon: Eye,
+                            label: 'View Booking',
                             rightText: `${activeRes.partySize}p`,
                             onClick: () => {
                               onClose();
-                              onViewReservation?.(table, activeRes);
+                              (onViewBooking || onViewReservation)?.(table, activeRes);
                             },
                           })}
 
                           {renderOptionRow({
                             icon: FileText,
                             label: 'Edit Reservation',
+                            disabled: isFutureDate,
+                            disabledReason: 'Only View Booking is permitted for future dates',
                             onClick: () => {
                               onClose();
                               onEditReservation?.(table, activeRes);
@@ -409,10 +484,20 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                             icon: AlertCircle,
                             label: 'Cancel Reservation',
                             danger: true,
+                            disabled: isFutureDate,
+                            disabledReason: 'Only View Booking is permitted for future dates',
                             onClick: () => setActiveSubView('CONFIRM_CANCEL_RES'),
                           })}
                         </>
                       )}
+
+                      {showOrderActions && isFutureDate &&
+                        renderOptionRow({
+                          icon: UtensilsCrossed,
+                          label: 'Start Order',
+                          disabled: true,
+                          disabledReason: 'Dine-in orders are only available for Today',
+                        })}
                     </>
                   )}
 
@@ -424,6 +509,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                           icon: DollarSign,
                           label: 'Record Payment',
                           rightText: `Rs. ${orderTotal.toFixed(0)}`,
+                          disabled: isFutureDate,
+                          disabledReason: 'Orders apply to Today only',
                           onClick: () => {
                             onClose();
                             onSettleBill?.(table);
@@ -434,6 +521,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: Receipt,
                           label: 'View Bill',
+                          disabled: isFutureDate,
+                          disabledReason: 'Orders apply to Today only',
                           onClick: () => {
                             onClose();
                             onViewBill?.(table);
@@ -444,6 +533,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: Printer,
                           label: 'Print Bill',
+                          disabled: isFutureDate,
+                          disabledReason: 'Orders apply to Today only',
                           onClick: () => {
                             onClose();
                             onPrintBill?.(table);
@@ -454,9 +545,23 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: Plus,
                           label: 'Add Items',
+                          disabled: isFutureDate,
+                          disabledReason: 'Orders apply to Today only',
                           onClick: () => {
                             onClose();
                             onAddItems?.(table);
+                          },
+                        })}
+
+
+                      {activeRes && showReservationActions &&
+                        renderOptionRow({
+                          icon: Eye,
+                          label: 'View Booking',
+                          rightText: `${activeRes.partySize}p`,
+                          onClick: () => {
+                            onClose();
+                            (onViewBooking || onViewReservation)?.(table, activeRes);
                           },
                         })}
                     </>
@@ -469,13 +574,18 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                         renderOptionRow({
                           icon: Check,
                           label: 'Return to Service',
+                          disabled: isFutureDate,
+                          disabledReason: 'Status updates apply to Today only',
                           onClick: handleReturnToService,
                         })}
+
 
                       {(table.maintenanceNotes || isOutOfService) &&
                         renderOptionRow({
                           icon: FileText,
                           label: 'Maintenance Notes',
+                          disabled: isFutureDate,
+                          disabledReason: 'Status updates apply to Today only',
                           onClick: () => setActiveSubView('MAINTENANCE_NOTES'),
                         })}
                     </>
@@ -485,6 +595,8 @@ export const TableActionsDropdown: React.FC<TableActionsModalProps> = ({
                   {renderOptionRow({
                     icon: Info,
                     label: 'Table Details',
+                    disabled: isFutureDate,
+                    disabledReason: 'Table details apply to Today only',
                     onClick: () => setActiveSubView('DETAILS'),
                   })}
                 </>
