@@ -35,6 +35,7 @@ import {
   Contact,
   Sparkles,
   BedDouble,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBusinessModules } from '@/lib/businessSetup';
@@ -146,6 +147,14 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     icon: BarChart3,
     tag: 'REPORTS',
     description: 'Hotel occupancy reports, RevPAR & audit reports',
+  },
+  {
+    id: 'accounts',
+    name: 'Accounts',
+    href: '/accounts',
+    icon: BookOpen,
+    tag: 'ACCOUNTS',
+    description: 'General accounting, ledgers & financial reports',
   },
   {
     id: 'administration',

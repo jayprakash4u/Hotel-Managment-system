@@ -4,23 +4,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Table2,
-  UtensilsCrossed,
   ChefHat,
   Receipt,
   CalendarCheck,
-  Zap,
-  RefreshCw,
-  Clock,
-  ArrowRight,
   TrendingUp,
   Flame,
-  CheckCircle2,
-  Users,
   DollarSign,
   ChevronRight,
-  Layers,
-  ShoppingBag,
-  Armchair,
 } from 'lucide-react';
 import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
 import { api } from '@/lib/api';
@@ -105,58 +95,7 @@ export const RestaurantDashboardView: React.FC = () => {
         <RestaurantManagementNavBoxes activeId="dashboard" />
       </div>
 
-      {/* ===================== HERO OPERATIONS BANNER ===================== */}
-      <div className="p-4 sm:p-5 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[var(--brand-primary)] text-white">
-              RESTAURANT MODULE
-            </span>
-            <span className="text-xs font-semibold text-[var(--text-muted)]">
-              Dining Floor, Kitchen KDS & POS Sales
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-[var(--text-heading)] font-heading tracking-tight">
-            Restaurant Operations Dashboard
-          </h1>
-          <p className="text-xs text-[var(--text-body)] max-w-xl leading-relaxed">
-            Live floor layout seating, active dine-in orders, kitchen cooking queue, shift revenue & table reservations.
-          </p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => loadData(true)}
-            disabled={refreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-muted)] text-[var(--text-body)] transition-all cursor-pointer shadow-2xs"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin text-[var(--brand-primary)]')} />
-            <span>{refreshing ? 'Refreshing...' : 'Refresh Floor'}</span>
-          </button>
-          <Link
-            href="/quick-sale"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] text-xs font-bold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white transition-all shadow-xs cursor-pointer"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>Quick Bill (POS)</span>
-          </Link>
-          <Link
-            href="/tables"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] text-xs font-bold border border-[var(--border-default)] bg-[var(--surface-muted)] hover:border-[var(--brand-primary)] text-[var(--text-heading)] transition-all shadow-2xs cursor-pointer"
-          >
-            <Table2 className="w-3.5 h-3.5 text-[#DC2626] dark:text-[#EF4444]" />
-            <span>Table Board</span>
-          </Link>
-          <Link
-            href="/restaurant-management?section=kitchen"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] text-xs font-bold border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 transition-all shadow-2xs cursor-pointer"
-          >
-            <ChefHat className="w-3.5 h-3.5" />
-            <span>Kitchen KDS</span>
-          </Link>
-        </div>
-      </div>
 
       {/* ===================== KEY RESTAURANT KPI METRICS ===================== */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-3.5">
@@ -282,66 +221,7 @@ export const RestaurantDashboardView: React.FC = () => {
         </Link>
       </div>
 
-      {/* ===================== LIVE TABLE BOARD OVERVIEW ===================== */}
-      <div className="p-4 sm:p-5 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--border-default)]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-[var(--surface-muted)] flex items-center justify-center text-[var(--brand-primary)]">
-              <Table2 className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-[var(--text-heading)]">
-                Live Dining Floor Tables
-              </h2>
-              <p className="text-xs text-[var(--text-muted)]">
-                Seating status and table availability across dining areas
-              </p>
-            </div>
-          </div>
 
-          <Link
-            href="/tables"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white transition-all shadow-2xs"
-          >
-            <span>Open Table Board</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        {/* Tables Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
-          {tables.slice(0, 16).map((table) => {
-            const isOccupied = table.status === 'OCCUPIED' || table.status === 'SEATED';
-            const isReserved = table.status === 'RESERVED';
-
-            return (
-              <Link
-                key={table.id}
-                href={`/tables?table=${table.id}`}
-                className={cn(
-                  'p-3 rounded-md border text-center transition-all hover:scale-105 shadow-2xs flex flex-col justify-between min-h-[82px]',
-                  isOccupied
-                    ? 'border-red-300 bg-red-50/70 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200'
-                    : isReserved
-                    ? 'border-amber-300 bg-amber-50/70 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
-                    : 'border-emerald-300 bg-emerald-50/70 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
-                )}
-              >
-                <div className="flex items-center justify-between text-[10px] font-bold">
-                  <span>{table.section || 'Hall'}</span>
-                  <span>{table.capacity || 4}p</span>
-                </div>
-                <div className="font-mono font-black text-base my-0.5">
-                  T-{table.tableNumber}
-                </div>
-                <div className="text-[10px] font-bold uppercase tracking-wider">
-                  {table.status || 'AVAILABLE'}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
 
       {/* ===================== ACTIVE ORDERS & PREP QUEUE ===================== */}
       <div className="p-4 sm:p-5 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] shadow-xs space-y-4">
