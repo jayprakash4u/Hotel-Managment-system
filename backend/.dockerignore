@@ -1,0 +1,31 @@
+# Dockerignore for Hospitality Management System backend
+# Keep the build context small and exclude secrets/build artifacts.
+
+# Build output
+bin/
+obj/
+
+# IDE / user settings
+.vs/
+.vscode/
+*.user
+*.suo
+*.userprefs
+
+# Solution/project user files
+Hospitality.sln.DotSettings
+Hospitality.sln.DotSettings.user
+launchSettings.json
+
+# Test projects are not needed for the production image
+tests/
+
+# Frontend (unrelated - keep out of the backend image)
+../frontend/
+
+# Misc
+*.DS_Store
+Thumbs.db
+.env
+*.log
+npm-debug.log*
