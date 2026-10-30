@@ -58,7 +58,16 @@ public class TableReservationAlertService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HospitalityDbContext>();
 
-        var hotels = await db.Hotels.AsNoTracking().ToListAsync(cancellationToken);
+        List<Hotel> hotels = null!;
+        try
+        {
+            hotels = await db.Hotels.AsNoTracking().ToListAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Failed to load hotels for table reservation alert processing.");
+            throw;
+        }
         if (hotels.Count == 0) return;
 
         var nowUtc = DateTime.UtcNow;
@@ -74,29 +83,56 @@ public class TableReservationAlertService : BackgroundService
             var minDate = nowHotelLocal.Date.AddDays(-1);
             var maxDate = nowHotelLocal.Date.AddDays(1);
 
-            var activeReservations = await db.TableReservations
-                .Include(r => r.Table)
-                .Where(r => r.HotelId == hotel.Id &&
-                            r.TableId != null &&
-                            (r.Status == "CONFIRMED" || r.Status == "PENDING" || r.Status == "SEATED") &&
-                            r.ReservationDate >= minDate &&
-                            r.ReservationDate <= maxDate)
-                .ToListAsync(cancellationToken);
+            List<TableReservation> activeReservations;
+            try
+            {
+                activeReservations = await db.TableReservations
+                    .Include(r => r.Table)
+                    .Where(r => r.HotelId == hotel.Id &&
+                                r.TableId != null &&
+                                (r.Status == "CONFIRMED" || r.Status == "PENDING" || r.Status == "SEATED") &&
+                                r.ReservationDate >= minDate &&
+                                r.ReservationDate <= maxDate)
+                    .ToListAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Failed to load table reservations for hotel {HotelId}.", hotel.Id);
+                throw;
+            }
 
             if (activeReservations.Count == 0) continue;
 
             // Load existing alerts for these reservations
             var reservationIds = activeReservations.Select(r => r.Id).ToList();
-            var existingAlerts = await db.ReservationAlerts
-                .Where(a => reservationIds.Contains(a.ReservationId))
-                .ToListAsync(cancellationToken);
+            List<ReservationAlert> existingAlerts;
+            try
+            {
+                existingAlerts = await db.ReservationAlerts
+                    .Where(a => reservationIds.Contains(a.ReservationId))
+                    .ToListAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Failed to load existing reservation alerts for hotel {HotelId}.", hotel.Id);
+                throw;
+            }
 
             // Fetch table active orders to accurately verify table occupancy
             var tableIds = activeReservations.Where(r => !string.IsNullOrEmpty(r.TableId)).Select(r => r.TableId!).Distinct().ToList();
-            var activeOrders = await db.RestaurantOrders
-                .Where(o => tableIds.Contains(o.TableId!) && o.Status != "COMPLETED" && o.Status != "CANCELLED")
-                .Select(o => o.TableId)
-                .ToListAsync(cancellationToken);
+            List<string?> activeOrders;
+            try
+            {
+                activeOrders = await db.RestaurantOrders
+                    .Where(o => tableIds.Contains(o.TableId!) && o.Status != "COMPLETED" && o.Status != "CANCELLED")
+                    .Select(o => o.TableId)
+                    .ToListAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Failed to load active restaurant orders for hotel {HotelId}.", hotel.Id);
+                throw;
+            }
 
             var occupiedTableIds = new HashSet<string>(activeOrders.Where(id => id != null)!);
 
@@ -278,7 +314,15 @@ public class TableReservationAlertService : BackgroundService
 
             if (dbChanged)
             {
-                await db.SaveChangesAsync(cancellationToken);
+                try
+                {
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogError(ex, "Failed to save changes for hotel {HotelId} during table reservation alert processing.", hotel.Id);
+                    throw;
+                }
             }
         }
     }

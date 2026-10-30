@@ -223,6 +223,19 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS ""ix_reservationalert_status"" ON ""ReservationAlert"" (""status"");
             CREATE INDEX IF NOT EXISTS ""ix_reservationalert_res_type"" ON ""ReservationAlert"" (""reservationId"", ""alertType"");
             CREATE INDEX IF NOT EXISTS ""ix_reservationalert_hotel_status"" ON ""ReservationAlert"" (""hotelId"", ""status"");
+
+            CREATE TABLE IF NOT EXISTS ""Hotels"" (
+                ""id"" text PRIMARY KEY,
+                ""name"" text NOT NULL DEFAULT '',
+                ""slug"" text NOT NULL DEFAULT '',
+                ""address"" text NOT NULL DEFAULT '',
+                ""totalFloors"" integer NOT NULL DEFAULT 1,
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""timezone"" text NOT NULL DEFAULT 'Asia/Kathmandu',
+                ""status"" text NOT NULL DEFAULT 'ACTIVE',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
         ");
         logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Bills, and ReservationAlert tables ready.");
     }
