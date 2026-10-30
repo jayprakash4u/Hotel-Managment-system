@@ -20,16 +20,18 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy solution and project files first to maximize Docker layer caching.
-COPY Hospitality.sln .
+# Copy API project and its project-reference dependencies first to maximize
+# Docker layer caching. Test projects are intentionally excluded: they are not
+# required for production deployment and are filtered out by .dockerignore.
 COPY src/Hospitality.Api/Hospitality.Api.csproj src/Hospitality.Api/
 COPY src/Hospitality.Application/Hospitality.Application.csproj src/Hospitality.Application/
 COPY src/Hospitality.Domain/Hospitality.Domain.csproj src/Hospitality.Domain/
 COPY src/Hospitality.Infrastructure/Hospitality.Infrastructure.csproj src/Hospitality.Infrastructure/
 COPY src/Hospitality.Persistence/Hospitality.Persistence.csproj src/Hospitality.Persistence/
 
-# Restore all dependencies for the whole solution graph.
-RUN dotnet restore Hospitality.sln
+# Restore only the API project and its dependency graph. Test projects are not
+# part of this restore, so their absence from the build context is not an error.
+RUN dotnet restore src/Hospitality.Api/Hospitality.Api.csproj
 
 # Copy the remaining source code (Clean Architecture structure unchanged).
 COPY src/ ./src/
