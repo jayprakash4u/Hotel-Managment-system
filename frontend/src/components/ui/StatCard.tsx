@@ -26,9 +26,9 @@ export const StatCard: React.FC<StatCardProps> = ({
   ...props
 }) => {
   const iconBgClasses = {
-    forest: 'bg-[#E8F0FE] text-[#1A73E8] border-[#D2E3FC] dark:bg-[#1A73E8]/30 dark:text-[#8AB4F8] dark:border-[#1A73E8]/40',
+    forest: 'bg-[#E8F2EE] text-[#0B3D32] border-[#CBD5D0] dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
     burgundy: 'bg-[#FEE2E2] text-[#DC2626] border-[#FECACA] dark:bg-[#DC2626]/20 dark:text-[#F87171] dark:border-[#DC2626]/40',
-    blue: 'bg-[#E8F0FE] text-[#1A73E8] border-[#D2E3FC] dark:bg-[#1A73E8]/20 dark:text-[#8AB4F8] dark:border-[#1A73E8]/40',
+    blue: 'bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE] dark:bg-[#1D4ED8]/20 dark:text-[#60A5FA] dark:border-[#1D4ED8]/40',
     amber: 'bg-[#FEF3C7] text-[#D97706] border-[#FDE68A] dark:bg-[#D97706]/20 dark:text-[#FCD34D] dark:border-[#D97706]/40',
     purple: 'bg-[#EDE9FE] text-[#6D28D9] border-[#DDD6FE] dark:bg-[#6D28D9]/20 dark:text-[#C084FC] dark:border-[#6D28D9]/40',
     teal: 'bg-[#CCFBF1] text-[#0F766E] border-[#99F6E4] dark:bg-[#0F766E]/20 dark:text-[#2DD4BF] dark:border-[#0F766E]/40',

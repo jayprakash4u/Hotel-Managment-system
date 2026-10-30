@@ -29,7 +29,7 @@ export const DASHBOARD_NAV_OPTIONS: QuickNavOptionItem[] = [
     name: 'Room Dashboard',
     href: '/rooms',
     icon: BedDouble,
-    iconColor: 'text-[#1A73E8] dark:text-[#8AB4F8]',
+    iconColor: 'text-[#0B3D32] dark:text-emerald-400',
   },
   {
     id: 'table-dashboard',
@@ -40,8 +40,8 @@ export const DASHBOARD_NAV_OPTIONS: QuickNavOptionItem[] = [
   },
   {
     id: 'room-booking',
-    name: 'Room Booking',
-    href: '/booking',
+    name: 'Reservations',
+    href: '/reservations',
     icon: CalendarCheck,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
@@ -100,8 +100,8 @@ export const DashboardQuickNavBoxes: React.FC<{ className?: string }> = ({ class
                 'group flex flex-col items-center justify-center p-3 sm:p-4 text-center transition-all duration-150',
                 'rounded-lg border bg-white dark:bg-[#071F1A] shadow-xs min-h-[76px] sm:min-h-[84px]',
                 isActive
-                  ? 'border-[#1A73E8] bg-[#E8F0FE] text-[#1A73E8] ring-1 ring-[#1A73E8] dark:border-blue-500 dark:bg-[#1A73E8]/10 dark:text-blue-200'
-                  : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-[#1A73E8] hover:bg-slate-50/70 dark:hover:bg-slate-800/40 hover:shadow-xs'
+                  ? 'border-[#0B3D32] bg-[#E8F2EE] text-[#0B3D32] ring-1 ring-[#0B3D32] dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-[#0B3D32] hover:bg-slate-50/70 dark:hover:bg-slate-800/40 hover:shadow-xs'
               )}
             >
               <div className="mb-2 transition-transform duration-150 group-hover:scale-110">

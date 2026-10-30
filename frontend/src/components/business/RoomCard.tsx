@@ -21,13 +21,13 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className={`p-4 rounded-[3px] border transition-all duration-200 cursor-pointer flex flex-col justify-between group shadow-2xs ${
+      className={`p-3.5 sm:p-4 rounded-[4px] border transition-all duration-200 cursor-pointer flex flex-col justify-between group shadow-2xs min-h-[185px] ${
         isOccupied
-          ? 'bg-[#A51F36] text-white border-[#8E1B2F] hover:bg-[#961B30]'
+          ? 'bg-[#0B3D32] text-white border-[#082C24] hover:bg-[#093027] dark:bg-[#06241D] dark:border-[#0E3B31] shadow-sm'
           : isDirty
           ? 'bg-white dark:bg-[#0d1e19] border-[#FDE68A] hover:border-[#D97706]'
           : isMaint
-          ? 'bg-white dark:bg-[#0d1e19] border-[#E2E8F0] hover:border-[#64748B]'
+          ? 'bg-slate-50 dark:bg-[#0d1e19] border-slate-200 hover:border-slate-300'
           : 'bg-white dark:bg-[#0d1e19] border-[#DCE3DF] hover:border-[#0B3D32] hover:ring-1 hover:ring-[#0B3D32]/20'
       }`}
     >
@@ -43,7 +43,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onClick }) => {
             >
               {room.number}
             </span>
-            <span className={`text-[10px] font-semibold ${isOccupied ? 'text-rose-100/80' : 'text-[#64736C] dark:text-[#94A3B8]'}`}>
+            <span className={`text-[10px] font-semibold ${isOccupied ? 'text-white/80' : 'text-[#64736C] dark:text-[#94A3B8]'}`}>
               Fl {room.floor}
             </span>
           </div>
@@ -53,7 +53,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onClick }) => {
         <h4 className={`text-xs font-bold line-clamp-1 ${isOccupied ? 'text-white' : 'text-[#24352F] dark:text-slate-200'}`}>
           {room.type}
         </h4>
-        <p className={`text-[11px] mt-0.5 ${isOccupied ? 'text-rose-100/90' : 'text-[#64736C] dark:text-[#94A3B8]'}`}>
+        <p className={`text-[11px] mt-0.5 ${isOccupied ? 'text-emerald-100/90' : 'text-[#64736C] dark:text-[#94A3B8]'}`}>
           {room.bedType}
         </p>
 
@@ -63,7 +63,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onClick }) => {
               <span className="font-bold truncate">{room.activeReservation.guestName}</span>
               <span className="text-[10px] font-bold">{room.activeReservation.vipTier}</span>
             </div>
-            <p className="text-[10px] text-rose-100/80 mt-0.5">Out: {formatDate(room.activeReservation.checkOut)}</p>
+            <p className="text-[10px] text-emerald-200/80 mt-0.5">Out: {formatDate(room.activeReservation.checkOut)}</p>
           </div>
         ) : room.activeHousekeepingTask ? (
           <div className="mt-3 p-2.5 rounded-[3px] bg-[#FEF3C7] border border-[#FDE68A] text-xs">
@@ -77,9 +77,19 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onClick }) => {
         <span className={`font-bold ${isOccupied ? 'text-white' : 'text-[#0B3D32] dark:text-[#4ADE80]'}`}>
           {formatCurrency(room.pricePerNight)}/nt
         </span>
-        <span className={`text-[11px] flex items-center gap-1 ${isOccupied ? 'text-rose-100' : 'text-[#64736C] group-hover:text-[#24352F] dark:text-[#94A3B8] dark:group-hover:text-white'}`}>
-          <Eye className="w-3.5 h-3.5" /> Details
-        </span>
+        {isOccupied ? (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-white text-[#0B3D32] font-bold text-[11px] shadow-2xs">
+            <Eye className="w-3.5 h-3.5" /> In House
+          </span>
+        ) : isAvailable ? (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#0B3D32] text-white font-bold text-[11px] shadow-2xs">
+            Book Now
+          </span>
+        ) : (
+          <span className="text-[11px] flex items-center gap-1 text-[#64736C] group-hover:text-[#24352F] dark:text-[#94A3B8] dark:group-hover:text-white">
+            <Eye className="w-3.5 h-3.5" /> Details
+          </span>
+        )}
       </div>
     </div>
   );

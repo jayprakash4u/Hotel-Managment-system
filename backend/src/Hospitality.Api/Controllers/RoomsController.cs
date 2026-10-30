@@ -121,13 +121,7 @@ public class RoomsController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        return Ok(new
-        {
-            success = true,
-            message = $"{request.Rooms.Count} rooms created successfully.",
-            count = request.Rooms.Count,
-            data = request.Rooms
-        });
+        return Ok(ApiResponse.Ok(new { message = $"{request.Rooms.Count} rooms created successfully.", count = request.Rooms.Count, data = request.Rooms }, $"{request.Rooms.Count} rooms created successfully."));
     }
 
     public record UpdateRoomStatusRequest(string Status, string? SetupStatus, string? Notes, string? AssignedTo, string? TaskType, string? Priority);

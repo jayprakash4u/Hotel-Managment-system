@@ -20,6 +20,7 @@ public class HospitalityDbContext : DbContext
     public DbSet<HousekeepingTask> HousekeepingTasks => Set<HousekeepingTask>();
     public DbSet<MaintenanceTicket> MaintenanceTickets => Set<MaintenanceTicket>();
     public DbSet<RestaurantTable> RestaurantTables => Set<RestaurantTable>();
+    public DbSet<TableReservation> TableReservations => Set<TableReservation>();
     public DbSet<RestaurantOrder> RestaurantOrders => Set<RestaurantOrder>();
     public DbSet<RestaurantOrderItem> RestaurantOrderItems => Set<RestaurantOrderItem>();
     public DbSet<POSProduct> POSProducts => Set<POSProduct>();
@@ -30,6 +31,8 @@ public class HospitalityDbContext : DbContext
     public DbSet<Expense> Expenses => Set<Expense>();
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
     public DbSet<Staff> Staff => Set<Staff>();
+    public DbSet<Bill> Bills => Set<Bill>();
+    public DbSet<ReservationAlert> ReservationAlerts => Set<ReservationAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -133,5 +136,67 @@ public class HospitalityDbContext : DbContext
             .WithMany(i => i.Movements)
             .HasForeignKey(s => s.ItemId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TableReservation>()
+            .HasOne(tr => tr.Table)
+            .WithMany(t => t.Reservations)
+            .HasForeignKey(tr => tr.TableId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<TableReservation>()
+            .HasOne(tr => tr.Hotel)
+            .WithMany()
+            .HasForeignKey(tr => tr.HotelId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TableReservation>()
+            .HasOne(tr => tr.Guest)
+            .WithMany()
+            .HasForeignKey(tr => tr.GuestId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<POSProduct>()
+            .HasOne(p => p.InventoryItem)
+            .WithMany()
+            .HasForeignKey(p => p.InventoryItemId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PurchaseOrder>()
+            .HasOne(p => p.Supplier)
+            .WithMany(s => s.Purchases)
+            .HasForeignKey(p => p.SupplierId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Bill>()
+            .HasIndex(b => new { b.HotelId, b.BillNumber })
+            .IsUnique();
+
+        modelBuilder.Entity<Bill>()
+            .HasIndex(b => b.BillingType);
+
+        modelBuilder.Entity<Bill>()
+            .HasIndex(b => b.PaymentStatus);
+
+        modelBuilder.Entity<Bill>()
+            .HasIndex(b => b.CreatedAt);
+
+        modelBuilder.Entity<ReservationAlert>()
+            .HasOne(a => a.Reservation)
+            .WithMany()
+            .HasForeignKey(a => a.ReservationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ReservationAlert>()
+            .HasOne(a => a.Table)
+            .WithMany()
+            .HasForeignKey(a => a.TableId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ReservationAlert>()
+            .HasIndex(a => a.Status);
+
+        modelBuilder.Entity<ReservationAlert>()
+            .HasIndex(a => new { a.ReservationId, a.AlertType });
     }
 }

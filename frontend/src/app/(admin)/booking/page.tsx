@@ -4,9 +4,11 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   Bed,
   Calendar,
+  CalendarCheck,
   Clock,
   ChevronDown,
   ArrowLeft,
@@ -33,7 +35,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { FrontDeskNavBoxes } from '@/components/common/FrontDeskNavBoxes';
+import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import {
   RoomBooking,
   PaymentEntry,
@@ -857,17 +859,17 @@ function NewRoomBookingContent() {
   };
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
-      {/* Front Desk Category Option Boxes */}
-      <FrontDeskNavBoxes activeId={activeNavBoxId} />
+    <div className="space-y-4 max-w-7xl mx-auto pb-16 select-none font-sans text-body dark:text-slate-100">
+      {/* Hotel Management Top Navigation Boxes */}
+      <HotelManagementNavBoxes activeId={formMode === 'CHECK_IN' ? 'check-in' : 'reservations'} />
 
       {/* Main Booking Container Card */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-surface-card rounded-[4px] border border-border-default dark:border-border-default shadow-sm overflow-hidden">
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-border-default bg-surface-muted dark:bg-surface-card gap-3">
           <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
+              <h1 className="text-lg font-bold tracking-tight text-body dark:text-white font-heading">
                 {formMode === 'CHECK_IN' ? 'Guest Check-In' : 'New Room Booking'}
               </h1>
             </div>
@@ -875,15 +877,15 @@ function NewRoomBookingContent() {
 
           {/* Mode Switcher Buttons */}
           <div className="flex items-center gap-2">
-            <div className="inline-flex rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] p-0.5">
+            <div className="inline-flex rounded border border-border-default dark:border-border-default bg-white dark:bg-surface-card p-0.5">
               <button
                 type="button"
                 onClick={() => setFormMode('BOOKING')}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   formMode === 'BOOKING'
-                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-blue-600'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                    ? 'bg-brand text-white shadow-2xs dark:bg-emerald-700'
+                    : 'text-muted dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -895,8 +897,8 @@ function NewRoomBookingContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   formMode === 'CHECK_IN'
-                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-blue-600'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                    ? 'bg-brand text-white shadow-2xs dark:bg-emerald-700'
+                    : 'text-muted dark:text-slate-300 hover:bg-slate-50'
                 )}
               >
                 <UserCheck className="w-3.5 h-3.5" />
@@ -904,13 +906,22 @@ function NewRoomBookingContent() {
               </button>
             </div>
 
+            <Link
+              href="/reservations"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-surface-card text-brand dark:text-emerald-300 border-border-default dark:border-border-default hover:bg-[#F2F6F4]"
+              title="View all existing bookings and reservations"
+            >
+              <CalendarCheck className="w-3.5 h-3.5 text-success dark:text-brand" />
+              <span>Booked List</span>
+            </Link>
+
             <button
               type="button"
               onClick={handleBackNavigation}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 border-[#DCE3DF] dark:border-[#145447] hover:bg-[#F2F6F4]"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-surface-card text-body dark:text-slate-300 border-border-default dark:border-border-default hover:bg-[#F2F6F4]"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Front Desk</span>
+              <span>{fromParam === 'reservations' ? 'Back to Reservations' : fromParam === 'check-in' ? 'Back to Check-In' : 'Back to Front Desk'}</span>
             </button>
           </div>
         </div>
@@ -919,11 +930,11 @@ function NewRoomBookingContent() {
         <div className="p-6 lg:p-8 space-y-8">
           {/* SEARCH GUEST / RESERVATION TO AUTO-FILL */}
           <div className="space-y-2 max-w-sm">
-            <label className="block mb-1 text-xs font-bold text-slate-600 dark:text-neutral-400">
+            <label className="block mb-1 text-xs font-bold text-muted dark:text-neutral-400">
               Search Guest
             </label>
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -933,7 +944,7 @@ function NewRoomBookingContent() {
                 }}
                 onFocus={() => setShowSearchSuggestions(true)}
                 placeholder="Search by name or Mobilenumber"
-                className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#334155] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#1A73E8] transition-all"
+                className="w-full pl-9 pr-8 py-2 rounded-lg border border-border-default dark:border-border-default text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32] transition-all"
               />
               {searchQuery && (
                 <button
@@ -942,7 +953,7 @@ function NewRoomBookingContent() {
                     setSearchQuery('');
                     setShowSearchSuggestions(false);
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-muted cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -950,7 +961,7 @@ function NewRoomBookingContent() {
 
               {/* Suggestions Dropdown */}
               {showSearchSuggestions && searchResults.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] shadow-xl overflow-hidden divide-y divide-[#E2E8F0] dark:divide-[#334155] max-h-60 overflow-y-auto">
+                <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-border-default dark:border-border-default bg-white dark:bg-surface-card shadow-xl overflow-hidden divide-y divide-[#E2E8F0] dark:divide-[#334155] max-h-60 overflow-y-auto">
                   {searchResults.map((b) => {
                     const fin = getBookingFinancials(b);
                     return (
@@ -960,22 +971,22 @@ function NewRoomBookingContent() {
                         className="p-3 hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer flex items-center justify-between text-xs"
                       >
                         <div>
-                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <div className="font-bold text-body dark:text-white flex items-center gap-2">
                             <span>{b.guest.firstName} {b.guest.lastName}</span>
-                            <span className="font-mono text-slate-400">({b.bookingCode})</span>
-                            <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            <span className="font-mono text-muted">({b.bookingCode})</span>
+                            <span className="px-1.5 py-0.2 rounded text-[10px] bg-surface-muted dark:bg-slate-800 text-body dark:text-slate-300">
                               Room {b.room.number}
                             </span>
                           </div>
-                          <span className="text-[11px] text-slate-500 font-mono">
+                          <span className="text-[11px] text-muted font-mono">
                             {b.guest.phone} · {b.checkIn} to {b.checkOut} ({b.nights}n)
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="font-bold text-slate-800 dark:text-white block">
+                          <span className="font-bold text-body dark:text-white block">
                             Rs. {fin.totalCharges.toLocaleString()}
                           </span>
-                          <span className="text-[10px] font-bold text-emerald-600 block">
+                          <span className="text-[10px] font-bold text-success block">
                             {fin.totalPaid > 0 ? `Adv: Rs. ${fin.totalPaid.toLocaleString()}` : 'No Advance'}
                           </span>
                         </div>
@@ -990,11 +1001,11 @@ function NewRoomBookingContent() {
           {/* ===============================================================
               SECTION 1: STAY SCHEDULE & GUEST INFORMATION (5 + 7 Cols)
               =============================================================== */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-b border-slate-100 dark:border-[#334155] pb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-b border-slate-100 dark:border-border-default pb-8">
             {/* Stay Schedule (5 cols) */}
             <div className="lg:col-span-5 space-y-4">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
+                <span className="text-xs font-bold uppercase tracking-wider text-body dark:text-neutral-300">
                   Stay Schedule
                 </span>
               </div>
@@ -1002,7 +1013,7 @@ function NewRoomBookingContent() {
               {/* Stay Schedule: Check-in Date, Time & Check-out Date */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                     Check-in date <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -1010,12 +1021,12 @@ function NewRoomBookingContent() {
                     required
                     value={checkInDate}
                     onChange={(e) => handleCheckInDateChange(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-2.5 py-2 rounded-lg border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                     Actual Time <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -1023,12 +1034,12 @@ function NewRoomBookingContent() {
                     required
                     value={checkInTime}
                     onChange={(e) => setCheckInTime(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-2.5 py-2 rounded-lg border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-semibold text-body dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                     Check-out date <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -1036,7 +1047,7 @@ function NewRoomBookingContent() {
                     required
                     value={checkOutDate}
                     onChange={(e) => setCheckOutDate(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-2.5 py-2 rounded-lg border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
               </div>
@@ -1044,7 +1055,7 @@ function NewRoomBookingContent() {
               {/* Adults & Children Count */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                     Adults
                   </label>
                   <input
@@ -1053,11 +1064,11 @@ function NewRoomBookingContent() {
                     max={10}
                     value={adultsCount}
                     onChange={(e) => setAdultsCount(Math.max(1, Number(e.target.value) || 1))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-3 py-2 rounded-lg border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                     Children
                   </label>
                   <input
@@ -1066,7 +1077,7 @@ function NewRoomBookingContent() {
                     max={10}
                     value={childrenCount}
                     onChange={(e) => setChildrenCount(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-[#334155] bg-white dark:bg-[#0B1120] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                    className="w-full px-3 py-2 rounded-lg border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32]"
                   />
                 </div>
               </div>
@@ -1076,7 +1087,7 @@ function NewRoomBookingContent() {
             {/* Guest Details (7 cols) */}
             <div className="lg:col-span-7 space-y-4">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300">
+                <span className="text-xs font-bold uppercase tracking-wider text-body dark:text-neutral-300">
                   Guest Information
                 </span>
               </div>
@@ -1084,51 +1095,51 @@ function NewRoomBookingContent() {
               {/* Guest Fields: Name, Phone & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                     Guest name <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <User className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       required
                       value={guestName}
                       onChange={(e) => setGuestName(e.target.value)}
                       placeholder="Full name"
-                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                     Phone number <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Phone className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       required
                       value={guestPhone}
                       onChange={(e) => setGuestPhone(e.target.value)}
                       placeholder="Mobile number"
-                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Mail className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="email"
                       value={guestEmail}
                       onChange={(e) => setGuestEmail(e.target.value)}
                       placeholder="email@example.com"
-                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full h-9 pl-9 pr-3 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs text-body dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
                 </div>
@@ -1155,7 +1166,7 @@ function NewRoomBookingContent() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                   Address
                 </label>
                 <input
@@ -1163,7 +1174,7 @@ function NewRoomBookingContent() {
                   value={guestAddress}
                   onChange={(e) => setGuestAddress(e.target.value)}
                   placeholder="Street address, city"
-                  className="w-full h-9 px-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                  className="w-full h-9 px-3 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32]"
                 />
               </div>
             </div>
@@ -1175,49 +1186,49 @@ function NewRoomBookingContent() {
           <div className="space-y-4">
             {/* Header */}
             <div className="flex items-center gap-2">
-              <Bed className="w-4 h-4 text-[#1A73E8] dark:text-blue-400" />
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+              <Bed className="w-4 h-4 text-brand dark:text-blue-400" />
+              <h2 className="text-sm font-bold text-body dark:text-white tracking-tight">
                 Room Information
               </h2>
             </div>
 
             {/* Structured Table */}
-            <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#071F1A]">
+            <div className="overflow-x-auto border border-border-default dark:border-border-default bg-white dark:bg-surface-card">
               <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-[#F4F6F8] dark:bg-[#0a231c] text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
+                <thead className="bg-[#F4F6F8] dark:bg-[#0a231c] text-xs font-semibold text-body dark:text-slate-200 border-b border-border-default dark:border-border-default">
                   <tr>
-                    <th className="py-2 px-2.5 text-center w-12 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-2.5 text-center w-12 border-r border-border-default dark:border-border-default font-semibold text-body dark:text-slate-200">
                       SL.
                     </th>
-                    <th className="py-2 px-3 min-w-[160px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-3 min-w-[160px] border-r border-border-default dark:border-border-default font-semibold text-body dark:text-slate-200">
                       ROOM CATEGORY
                     </th>
-                    <th className="py-2 px-3 min-w-[220px] border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-3 min-w-[220px] border-r border-border-default dark:border-border-default font-semibold text-body dark:text-slate-200">
                       ASSIGNED ROOM
                     </th>
-                    <th className="py-2 px-2 text-center w-20 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-2 text-center w-20 border-r border-border-default dark:border-border-default font-semibold text-body dark:text-slate-200">
                       GUEST
                     </th>
-                    <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-3 text-right w-28 border-r border-border-default dark:border-border-default font-semibold text-body dark:text-slate-200">
                       AMOUNT (RS.)
                     </th>
-                    <th className="py-2 px-2.5 text-center w-16 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-2.5 text-center w-16 border-r border-border-default dark:border-border-default font-semibold text-body dark:text-slate-200">
                       NIGHT
                     </th>
-                    <th className="py-2 px-3 text-right w-28 border-r border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-3 text-right w-28 border-r border-border-default dark:border-border-default font-semibold text-body dark:text-slate-200">
                       DISCOUNT (RS.)
                     </th>
-                    <th className="py-2 px-3 text-right w-32 font-semibold text-slate-700 dark:text-slate-200">
+                    <th className="py-2 px-3 text-right w-32 font-semibold text-body dark:text-slate-200">
                       T. AMOUNT (RS.)
                     </th>
                     {roomItems.length > 1 && (
-                      <th className="py-2 px-2 text-center w-12 border-l border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                      <th className="py-2 px-2 text-center w-12 border-l border-border-default dark:border-border-default font-semibold text-body dark:text-slate-200">
                         ACTION
                       </th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-300 dark:divide-slate-700 bg-white dark:bg-[#071F1A]">
+                <tbody className="divide-y divide-slate-300 dark:divide-slate-700 bg-white dark:bg-surface-card">
                   {roomRowsCalculated.map((row, idx) => {
                     // Only show genuinely available & clean rooms for the selected stay dates
                     const availableRoomsForDropdown = AVAILABLE_ROOMS_CATALOG.filter((r) => {
@@ -1226,22 +1237,22 @@ function NewRoomBookingContent() {
 
                     return (
                       <tr key={row.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
-                        <td className="py-2 px-2.5 text-center text-slate-600 dark:text-slate-400 font-medium border-r border-slate-300 dark:border-slate-700">
+                        <td className="py-2 px-2.5 text-center text-muted dark:text-muted font-medium border-r border-border-default dark:border-border-default">
                           {idx + 1}
                         </td>
-                        <td className="py-2 px-3 border-r border-slate-300 dark:border-slate-700">
-                          <div className="text-xs text-slate-800 dark:text-slate-200 font-medium">
+                        <td className="py-2 px-3 border-r border-border-default dark:border-border-default">
+                          <div className="text-xs text-body dark:text-slate-200 font-medium">
                             {row.roomObj.type}
                           </div>
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                          <div className="text-[10px] text-muted dark:text-muted">
                             {row.roomObj.acType} · {row.roomObj.bedType}
                           </div>
                         </td>
-                        <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                        <td className="py-2 px-2 border-r border-border-default dark:border-border-default">
                           <select
                             value={row.roomId}
                             onChange={(e) => handleSelectRoomInRow(row.id, e.target.value)}
-                            className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#071F1A] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer font-medium"
+                            className="w-full h-7 px-2 text-xs border border-border-default dark:border-slate-600 rounded-xs bg-white dark:bg-surface-card text-body dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer font-medium"
                           >
                             {availableRoomsForDropdown.map((rm) => (
                               <option key={rm.id} value={rm.id}>
@@ -1255,7 +1266,7 @@ function NewRoomBookingContent() {
                             )}
                           </select>
                         </td>
-                        <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                        <td className="py-2 px-2 border-r border-border-default dark:border-border-default">
                           <input
                             type="number"
                             min={1}
@@ -1265,10 +1276,10 @@ function NewRoomBookingContent() {
                               const val = Math.max(1, Math.min(10, Number(e.target.value) || 1));
                               handleUpdateRoomRow(row.id, { guestsCount: val });
                             }}
-                            className="w-full h-7 text-center font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                            className="w-full h-7 text-center font-mono text-xs bg-white dark:bg-surface-card border border-border-default dark:border-slate-600 rounded-xs text-body dark:text-white outline-none focus:border-slate-400"
                           />
                         </td>
-                        <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                        <td className="py-2 px-2 border-r border-border-default dark:border-border-default">
                           <input
                             type="number"
                             min={0}
@@ -1277,13 +1288,13 @@ function NewRoomBookingContent() {
                               const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value) || 0);
                               handleUpdateRoomRow(row.id, { rate: val });
                             }}
-                            className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-[#071F1A] focus:border-slate-400"
+                            className="w-full h-7 px-2 text-right font-mono text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-border-default dark:border-border-default text-body dark:text-white rounded-xs outline-none focus:bg-white dark:focus:bg-surface-card focus:border-slate-400"
                           />
                         </td>
-                        <td className="py-2 px-2.5 text-center text-xs text-slate-800 dark:text-slate-200 font-mono border-r border-slate-300 dark:border-slate-700">
+                        <td className="py-2 px-2.5 text-center text-xs text-body dark:text-slate-200 font-mono border-r border-border-default dark:border-border-default">
                           {nights}
                         </td>
-                        <td className="py-2 px-2 border-r border-slate-300 dark:border-slate-700">
+                        <td className="py-2 px-2 border-r border-border-default dark:border-border-default">
                           <input
                             type="number"
                             min={0}
@@ -1293,21 +1304,21 @@ function NewRoomBookingContent() {
                               handleUpdateRoomRow(row.id, { discount: val });
                             }}
                             placeholder="0"
-                            className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xs outline-none focus:border-slate-400"
+                            className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-surface-card border border-border-default dark:border-slate-600 text-body dark:text-white rounded-xs outline-none focus:border-slate-400"
                           />
                         </td>
                         <td className="py-2 px-2 text-right">
-                          <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xs tabular-nums">
+                          <div className="w-full h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800/80 border border-border-default dark:border-border-default text-body dark:text-white rounded-xs tabular-nums">
                             {row.total.toLocaleString()}
                           </div>
                         </td>
                         {roomItems.length > 1 && (
-                          <td className="py-2 px-2 text-center border-l border-slate-300 dark:border-slate-700">
+                          <td className="py-2 px-2 text-center border-l border-border-default dark:border-border-default">
                             <button
                               type="button"
                               onClick={() => handleRemoveRoomRow(row.id)}
                               title="Remove this room"
-                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              className="p-1 rounded text-muted hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1319,28 +1330,28 @@ function NewRoomBookingContent() {
                 </tbody>
 
                 {roomItems.length > 1 && (
-                  <tfoot className="bg-[#FAFBF9] dark:bg-[#061B16] font-semibold text-xs border-t-2 border-slate-300 dark:border-slate-600">
+                  <tfoot className="bg-surface-muted dark:bg-surface-card font-semibold text-xs border-t-2 border-border-default dark:border-slate-600">
                     <tr>
                       <td
                         colSpan={3}
-                        className="py-2.5 px-3 text-right text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700"
+                        className="py-2.5 px-3 text-right text-xs font-bold uppercase tracking-wider text-body dark:text-slate-300 border-r border-border-default dark:border-border-default"
                       >
                         Total
                       </td>
-                      <td className="py-2.5 px-2 text-center text-xs font-semibold text-slate-800 dark:text-slate-200 border-r border-slate-300 dark:border-slate-700 font-mono">
+                      <td className="py-2.5 px-2 text-center text-xs font-semibold text-body dark:text-slate-200 border-r border-border-default dark:border-border-default font-mono">
                         {totalGuests}
                       </td>
-                      <td className="py-2.5 px-3 border-r border-slate-300 dark:border-slate-700"></td>
-                      <td className="py-2.5 px-2 text-center text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono border-r border-slate-300 dark:border-slate-700">
+                      <td className="py-2.5 px-3 border-r border-border-default dark:border-border-default"></td>
+                      <td className="py-2.5 px-2 text-center text-xs font-semibold text-body dark:text-slate-200 font-mono border-r border-border-default dark:border-border-default">
                         {nights}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 border-r border-slate-300 dark:border-slate-700">
+                      <td className="py-2.5 px-3 text-right font-mono text-xs font-semibold text-emerald-700 dark:text-brand border-r border-border-default dark:border-border-default">
                         {totalDiscount > 0 ? `Rs. ${totalDiscount.toLocaleString()}` : '0'}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#1A73E8] dark:text-blue-400 tabular-nums">
+                      <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-brand dark:text-blue-400 tabular-nums">
                         Rs. {totalPayable.toLocaleString()}
                       </td>
-                      <td className="border-l border-slate-300 dark:border-slate-700"></td>
+                      <td className="border-l border-border-default dark:border-border-default"></td>
                     </tr>
                   </tfoot>
                 )}
@@ -1352,7 +1363,7 @@ function NewRoomBookingContent() {
               <button
                 type="button"
                 onClick={handleAddRoomRow}
-                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#1A73E8] text-[#1A73E8] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#0B3D32] text-brand dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-surface-card shadow-2xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Room</span>
@@ -1363,29 +1374,29 @@ function NewRoomBookingContent() {
           {/* ===============================================================
               SECTION 3: BILLING & SETTLEMENT (Boxed Container Matching Check-In)
               =============================================================== */}
-          <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <div className="space-y-3 pt-6 border-t border-border-default dark:border-border-default">
             <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-[#1A73E8] dark:text-blue-400" />
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+              <Receipt className="w-4 h-4 text-brand dark:text-blue-400" />
+              <h2 className="text-sm font-bold text-body dark:text-white tracking-tight">
                 Billing & Settlement
               </h2>
             </div>
 
             {/* The Reference Pattern Card (Boxed Container Matching Check-In Desk) */}
-            <div className="border border-slate-300 dark:border-slate-700 rounded-md p-4 bg-white dark:bg-[#071F1A] space-y-3.5 shadow-2xs">
+            <div className="border border-border-default dark:border-border-default rounded-md p-4 bg-white dark:bg-surface-card space-y-3.5 shadow-2xs">
               {/* Row 1: Basic Total, Dis %, Dis Amt, Tax Amt(3%), Round off, Net Amount */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Basic Total
                   </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
                     {subtotal.toLocaleString()}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Dis %
                   </label>
                   <input
@@ -1398,12 +1409,12 @@ function NewRoomBookingContent() {
                       handleBillingDisPercentChange(p);
                     }}
                     placeholder="0"
-                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-surface-card border border-border-default dark:border-slate-600 rounded-xs text-body dark:text-white outline-none focus:border-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Dis Amt
                   </label>
                   <input
@@ -1415,33 +1426,33 @@ function NewRoomBookingContent() {
                       handleBillingDisAmtChange(d);
                     }}
                     placeholder="0"
-                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-surface-card border border-border-default dark:border-slate-600 rounded-xs text-body dark:text-white outline-none focus:border-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Tax Amt(3%)
                   </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
                     0.00
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Round off
                   </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
                     0.00
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Net Amount
                   </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                  <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
                     {totalPayable.toLocaleString()}
                   </div>
                 </div>
@@ -1451,11 +1462,11 @@ function NewRoomBookingContent() {
               {advancePaidAtBooking > 0 && (
                 <div className="p-2.5 rounded bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-semibold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success" />
                     <span>Advance Previously Paid: <strong className="font-mono">Rs. {advancePaidAtBooking.toLocaleString()}</strong></span>
-                    {advanceReceiptInfo && <span className="text-[11px] font-normal text-emerald-600">({advanceReceiptInfo})</span>}
+                    {advanceReceiptInfo && <span className="text-[11px] font-normal text-success">({advanceReceiptInfo})</span>}
                   </div>
-                  <div className="text-slate-800 dark:text-slate-200 font-bold">
+                  <div className="text-body dark:text-slate-200 font-bold">
                     Remaining Balance Due: <span className="font-mono text-amber-700 dark:text-amber-400">Rs. {remainingBalanceDue.toLocaleString()}</span>
                   </div>
                 </div>
@@ -1464,13 +1475,13 @@ function NewRoomBookingContent() {
               {/* Row 2: Payment Option, Paid Amt., Ref. Due, Mode, Remarks */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Payment Option
                   </label>
                   <select
                     value={paymentChoice}
                     onChange={(e) => setPaymentChoice(e.target.value as 'FULL' | 'ADVANCE' | 'LATER')}
-                    className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#061B16] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer font-semibold"
+                    className="w-full h-7 px-2 text-xs border border-border-default dark:border-slate-600 rounded-xs bg-white dark:bg-surface-card text-body dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer font-semibold"
                   >
                     <option value="FULL">Pay Full</option>
                     <option value="ADVANCE">Advance</option>
@@ -1479,7 +1490,7 @@ function NewRoomBookingContent() {
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Paid Amt.
                   </label>
                   <input
@@ -1488,28 +1499,28 @@ function NewRoomBookingContent() {
                     disabled={paymentChoice === 'LATER'}
                     value={paymentChoice === 'LATER' ? 0 : advancedAmount}
                     onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-[#061B16] border border-slate-300 dark:border-slate-600 rounded-xs text-slate-900 dark:text-white outline-none focus:border-slate-400 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-surface-card border border-border-default dark:border-slate-600 rounded-xs text-body dark:text-white outline-none focus:border-slate-400 disabled:opacity-50 disabled:bg-surface-muted dark:disabled:bg-slate-800"
                   />
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Ref. Due
                   </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
+                  <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
                     {dueAmountAtCheckout.toLocaleString()}
                   </div>
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Mode
                   </label>
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     disabled={paymentChoice === 'LATER'}
-                    className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#061B16] text-slate-800 dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer disabled:opacity-50"
+                    className="w-full h-7 px-2 text-xs border border-border-default dark:border-slate-600 rounded-xs bg-white dark:bg-surface-card text-body dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer disabled:opacity-50"
                   >
                     <option value="CASH">Cash</option>
                     <option value="CARD">Card</option>
@@ -1520,7 +1531,7 @@ function NewRoomBookingContent() {
                 </div>
 
                 <div className="lg:col-span-4">
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
                     Remarks / Special Requests
                   </label>
                   <input
@@ -1528,20 +1539,20 @@ function NewRoomBookingContent() {
                     value={bookingNotes}
                     onChange={(e) => setBookingNotes(e.target.value)}
                     placeholder="Airport pickup, high floor, preferences..."
-                    className="w-full h-7 px-2 text-xs border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-[#061B16] text-slate-900 dark:text-white outline-none focus:border-slate-400"
+                    className="w-full h-7 px-2 text-xs border border-border-default dark:border-slate-600 rounded-xs bg-white dark:bg-surface-card text-body dark:text-white outline-none focus:border-slate-400"
                   />
                 </div>
               </div>
 
               {/* Row 3: Options & Check-In Style Action Buttons */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-5 text-xs text-slate-600 dark:text-slate-400">
+                <div className="flex items-center gap-5 text-xs text-muted dark:text-muted">
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={sendSms}
                       onChange={(e) => setSendSms(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-[#1A73E8] accent-[#1A73E8] border-slate-300 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-brand accent-[#0B3D32] border-border-default cursor-pointer"
                     />
                     <span className="text-[11px] font-medium">Send SMS</span>
                   </label>
@@ -1551,7 +1562,7 @@ function NewRoomBookingContent() {
                       type="checkbox"
                       checked={sendEmail}
                       onChange={(e) => setSendEmail(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-[#1A73E8] accent-[#1A73E8] border-slate-300 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-brand accent-[#0B3D32] border-border-default cursor-pointer"
                     />
                     <span className="text-[11px] font-medium">Send Email</span>
                   </label>
@@ -1561,7 +1572,7 @@ function NewRoomBookingContent() {
                   <button
                     type="button"
                     onClick={() => handleSaveBooking(false, false)}
-                    className="h-7 px-4 rounded-xs border border-[#1A73E8] bg-[#1A73E8] text-white hover:bg-[#1557B0] text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#1A73E8] dark:hover:bg-[#1557B0]"
+                    className="h-7 px-4 rounded-xs border border-[#0B3D32] bg-brand text-white hover:bg-[#093027] text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-brand dark:hover:bg-[#093027]"
                   >
                     Save Booking
                   </button>
@@ -1569,7 +1580,7 @@ function NewRoomBookingContent() {
                   <button
                     type="button"
                     onClick={() => handleSaveBooking(false, true)}
-                    className="h-7 px-3.5 rounded-xs border border-[#1557B0] bg-[#1557B0] hover:bg-[#0D47A1] text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#1557B0] dark:hover:bg-[#0D47A1] inline-flex items-center gap-1.5"
+                    className="h-7 px-3.5 rounded-xs border border-[#093027] bg-[#093027] hover:bg-[#06241D] text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#093027] dark:hover:bg-[#06241D] inline-flex items-center gap-1.5"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     <span>Save & Print</span>
@@ -1578,7 +1589,7 @@ function NewRoomBookingContent() {
                   <button
                     type="button"
                     onClick={() => handleSaveBooking(true, false)}
-                    className="h-7 px-4 rounded-xs border border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A]"
+                    className="h-7 px-4 rounded-xs border border-emerald-600 text-emerald-700 dark:text-brand hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-surface-card"
                   >
                     Check In Now →
                   </button>
@@ -1586,7 +1597,7 @@ function NewRoomBookingContent() {
                   <button
                     type="button"
                     onClick={handleResetForm}
-                    className="h-7 px-3.5 rounded-xs border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-[#DC2626] hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-normal cursor-pointer bg-white dark:bg-[#0F172A] transition-colors"
+                    className="h-7 px-3.5 rounded-xs border border-border-default dark:border-slate-600 text-muted dark:text-muted hover:border-[#DC2626] hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-normal cursor-pointer bg-white dark:bg-surface-card transition-colors"
                   >
                     Reset
                   </button>
@@ -1609,7 +1620,7 @@ function NewRoomBookingContent() {
             onClick={handleCloseRegCardModal}
           >
             <div
-              className="w-full max-w-2xl rounded bg-white border border-[#DCE3DF] shadow-2xl p-6 text-black select-text printable-invoice"
+              className="w-full max-w-2xl rounded bg-white border border-border-default shadow-2xl p-6 text-black select-text printable-invoice"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Hotel Letterhead */}
@@ -1617,7 +1628,7 @@ function NewRoomBookingContent() {
                 <h2 className="text-xl font-bold tracking-widest uppercase font-serif">
                   AURA GRAND HOTEL & RESORT
                 </h2>
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-muted">
                   Kathmandu, Nepal · Tel: +977-1-4455667 · info@auragrandhotel.com
                 </p>
                 <div className="mt-2 inline-block px-3 py-0.5 border border-black text-xs font-bold uppercase tracking-wider">
@@ -1627,65 +1638,65 @@ function NewRoomBookingContent() {
 
               {/* Reg Card Fields */}
               <div className="py-4 space-y-3 text-xs">
-                <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-3">
+                <div className="grid grid-cols-2 gap-3 border-b border-border-default pb-3">
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Reservation Code:</span>
+                    <span className="text-muted text-[10px] block uppercase">Reservation Code:</span>
                     <strong className="font-mono text-sm">{b.bookingCode}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Assigned Room & Key:</span>
+                    <span className="text-muted text-[10px] block uppercase">Assigned Room & Key:</span>
                     <strong className="text-sm">
                       Room {b.room.number} ({b.room.type}) · Key: {b.keyCardNumber || `KC-${b.room.number}`}
                     </strong>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-3">
+                <div className="grid grid-cols-2 gap-3 border-b border-border-default pb-3">
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Guest Full Name:</span>
+                    <span className="text-muted text-[10px] block uppercase">Guest Full Name:</span>
                     <strong className="text-sm">{b.guest.firstName} {b.guest.lastName}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Phone & ID:</span>
+                    <span className="text-muted text-[10px] block uppercase">Phone & ID:</span>
                     <strong className="font-mono">
                       {b.guest.phone} · {b.guest.idType || 'ID'}: {b.guest.idNumber || 'Verified'}
                     </strong>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 border-b border-slate-200 pb-3">
+                <div className="grid grid-cols-3 gap-3 border-b border-border-default pb-3">
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Arrival Date & Time:</span>
+                    <span className="text-muted text-[10px] block uppercase">Arrival Date & Time:</span>
                     <strong>{b.checkIn} {b.checkInTime ? `(${b.checkInTime})` : ''}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Departure Date:</span>
+                    <span className="text-muted text-[10px] block uppercase">Departure Date:</span>
                     <strong>{b.checkOut}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Stay Duration:</span>
+                    <span className="text-muted text-[10px] block uppercase">Stay Duration:</span>
                     <strong>{b.nights} {b.nights === 1 ? 'Night' : 'Nights'}</strong>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 border-b border-slate-200 pb-3">
+                <div className="grid grid-cols-3 gap-3 border-b border-border-default pb-3">
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Total Charges:</span>
+                    <span className="text-muted text-[10px] block uppercase">Total Charges:</span>
                     <strong>Rs. {fin.totalCharges.toLocaleString()}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Total Paid / Advance:</span>
+                    <span className="text-muted text-[10px] block uppercase">Total Paid / Advance:</span>
                     <strong className="text-emerald-700">Rs. {fin.totalPaid.toLocaleString()}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block uppercase">Balance Due:</span>
+                    <span className="text-muted text-[10px] block uppercase">Balance Due:</span>
                     <strong className={fin.balanceDue > 0 ? 'text-amber-700' : 'text-emerald-700'}>
                       Rs. {fin.balanceDue.toLocaleString()}
                     </strong>
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-600 space-y-1">
+                <div className="p-2.5 bg-slate-50 border border-border-default rounded text-[10px] text-muted space-y-1">
                   <p>
                     <strong>Hotel Terms:</strong> Check-out time is 11:00 AM. Key cards must be returned upon departure. Smoking is strictly prohibited inside the room. The management is not responsible for valuables left unattended in rooms.
                   </p>
@@ -1702,18 +1713,18 @@ function NewRoomBookingContent() {
               </div>
 
               {/* Footer Actions */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-between no-print print:hidden">
+              <div className="pt-3 border-t border-border-default flex items-center justify-between no-print print:hidden">
                 <button
                   type="button"
                   onClick={handleCloseRegCardModal}
-                  className="px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  className="px-3 py-1.5 rounded border border-border-default text-xs font-semibold text-body hover:bg-slate-50 cursor-pointer"
                 >
                   Close & Proceed
                 </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#1A73E8] text-white text-xs font-bold cursor-pointer hover:bg-[#1557B0]"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-brand text-white text-xs font-bold cursor-pointer hover:bg-[#093027]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Registration Card</span>

@@ -46,7 +46,7 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', vipTier,
   return (
     <div
       className={cn(
-        'rounded-xl bg-[#E8F0FE] dark:bg-[#1A73E8]/20 flex items-center justify-center font-bold font-heading text-[#1A73E8] dark:text-[#8AB4F8] shrink-0 select-none',
+        'rounded-xl bg-[#E8F2EE] dark:bg-emerald-950/40 flex items-center justify-center font-bold font-heading text-[#0B3D32] dark:text-emerald-300 shrink-0 select-none',
         sizes[size],
         ring,
         className

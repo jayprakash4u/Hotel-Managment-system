@@ -36,7 +36,6 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { FrontDeskNavBoxes } from '@/components/common/FrontDeskNavBoxes';
 import {
   RoomBooking,
   PaymentEntry,
@@ -53,6 +52,7 @@ import {
 } from '../reservations/reservationsData';
 import { useMasterOptions } from '@/lib/mastersData';
 import MasterSearchableSelect from '@/components/ui/MasterSearchableSelect';
+import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 
 // Form Room Row for multi-room check-in
 export interface FormRoomRow {
@@ -996,17 +996,17 @@ function CheckInDeskContent() {
   }, [bookings, todayStr]);
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
-      {/* Front Desk Category Option Boxes */}
-      <FrontDeskNavBoxes activeId="check-in" />
+    <div className="space-y-4 max-w-7xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
+      {/* Hotel Management Top Navigation Boxes */}
+      <HotelManagementNavBoxes activeId="check-in" />
 
       {/* Main Check-In Container Card (Matches Book Now Design Pattern 100%) */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-[4px] border border-[#DCE3DF] dark:border-[#145447] shadow-sm overflow-hidden">
+      <div className="bg-surface-card dark:bg-surface-card rounded-[4px] border border-border-default dark:border-border-default shadow-sm overflow-hidden">
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card gap-3">
           <div className="flex items-center gap-3">
             <div>
-<h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
+<h1 className="text-lg font-bold tracking-tight text-body dark:text-body font-heading">
   Guest Check-In
 </h1>
             </div>
@@ -1015,15 +1015,15 @@ function CheckInDeskContent() {
           {/* Header Action Controls */}
           <div className="flex items-center gap-2">
             {/* View Mode Toggle: Check-In Form vs Arrivals Manifest */}
-            <div className="inline-flex rounded border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] p-0.5">
+            <div className="inline-flex rounded border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card p-0.5">
               <button
                 type="button"
                 onClick={() => setActiveTab('FORM')}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   activeTab === 'FORM'
-                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-[#1A73E8]'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                    ? 'bg-brand text-white shadow-2xs dark:bg-brand'
+                    : 'text-muted dark:text-muted hover:bg-surface-muted'
                 )}
               >
                 <UserCheck className="w-3.5 h-3.5" />
@@ -1035,23 +1035,14 @@ function CheckInDeskContent() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-[2px] text-xs font-semibold cursor-pointer transition-all',
                   activeTab === 'MANIFEST'
-                    ? 'bg-[#1A73E8] text-white shadow-2xs dark:bg-[#1A73E8]'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                    ? 'bg-brand text-white shadow-2xs dark:bg-brand'
+                    : 'text-muted dark:text-muted hover:bg-surface-muted'
                 )}
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>Arrivals Manifest ({stats.pendingToday})</span>
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={handleBackNavigation}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-[#0F172A] text-slate-700 dark:text-slate-300 border-[#CBD5E1] dark:border-[#334155] hover:bg-slate-50"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Front Desk</span>
-            </button>
           </div>
         </div>
 
@@ -1062,11 +1053,11 @@ function CheckInDeskContent() {
           <div className="p-6 lg:p-8 space-y-8">
             {/* SEARCH RESERVATION TO AUTO-FILL */}
             <div className="space-y-2 max-w-sm">
-              <label className="block mb-1 text-xs font-bold text-slate-600 dark:text-neutral-400">
+              <label className="block mb-1 text-xs font-bold text-muted dark:text-muted">
                 Search Guest
               </label>
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -1076,7 +1067,7 @@ function CheckInDeskContent() {
                   }}
                   onFocus={() => setShowSearchSuggestions(true)}
                   placeholder="Search by name or Mobilenumber"
-                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-[#334155] text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-[#1A73E8] transition-all"
+                  className="w-full pl-9 pr-8 py-2 rounded-lg border border-border-default dark:border-border-default text-xs font-medium text-body dark:text-body outline-none focus:border-brand transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -1085,7 +1076,7 @@ function CheckInDeskContent() {
                       setSearchQuery('');
                       setShowSearchSuggestions(false);
                     }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1093,7 +1084,7 @@ function CheckInDeskContent() {
 
                 {/* Suggestions Dropdown */}
                 {showSearchSuggestions && searchResults.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-slate-200 dark:border-[#145447] bg-white dark:bg-[#071F1A] shadow-xl overflow-hidden divide-y divide-[#E5EEE9] dark:divide-[#145447] max-h-60 overflow-y-auto">
+                  <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card shadow-xl overflow-hidden divide-y divide-border-default dark:divide-border-default max-h-60 overflow-y-auto">
                     {searchResults.map((b) => {
                       const fin = getBookingFinancials(b);
                       return (
@@ -1103,10 +1094,10 @@ function CheckInDeskContent() {
                           className="p-3 hover:bg-[#F2F6F4] dark:hover:bg-[#093027] cursor-pointer flex items-center justify-between text-xs"
                         >
                           <div>
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <div className="font-bold text-body dark:text-body flex items-center gap-2">
                               <span>{b.guest.firstName} {b.guest.lastName}</span>
-                              <span className="font-mono text-slate-400">({b.bookingCode})</span>
-                              <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                              <span className="font-mono text-muted">({b.bookingCode})</span>
+                              <span className="px-1.5 py-0.2 rounded text-[10px] bg-surface-muted dark:bg-surface-card text-body dark:text-body">
                                 Room {b.room.number}
                               </span>
                             </div>
@@ -1115,7 +1106,7 @@ function CheckInDeskContent() {
                             </span>
                           </div>
                           <div className="text-right">
-                            <span className="font-bold text-slate-800 dark:text-white block">
+                            <span className="font-bold text-body dark:text-body block">
                               Rs. {fin.totalCharges.toLocaleString()}
                             </span>
                             <span className="text-[10px] font-bold text-emerald-600 block">
@@ -1131,23 +1122,23 @@ function CheckInDeskContent() {
 
               {/* Linked Reservation Status Banner */}
               {linkedBooking && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-neutral-900 border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs transition-all">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-success-subtle/90 via-success-subtle/50 to-white dark:from-success-subtle/40 dark:via-success-subtle/20 dark:to-surface-card border-success/80 dark:border-success/60 shadow-xs transition-all">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-600/10 dark:bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-success/10 dark:bg-success/20 flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div className="flex items-center gap-2 flex-wrap text-xs">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-emerald-700 text-white font-mono font-bold text-[11px] tracking-wide shadow-xs">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-success text-white font-mono font-bold text-[11px] tracking-wide shadow-xs">
                         {linkedBooking.bookingCode}
                       </span>
                       <span className="font-semibold text-slate-800 dark:text-slate-100">
                         {linkedBooking.guest.firstName} {linkedBooking.guest.lastName}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 font-medium">
+                      <span className="inline-flex items-center gap-1 text-slate-500 dark:text-muted font-medium">
                         · Room <strong className="text-slate-700 dark:text-slate-200">{linkedBooking.room.number}</strong>
                       </span>
                       {advancePaidAtBooking > 0 && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-emerald-100/90 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-bold text-[11px] border border-emerald-200/60 dark:border-emerald-700/40">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-success-subtle/90 dark:bg-success-subtle/60 text-success dark:text-success font-bold text-[11px] border border-success/60 dark:border-success/40">
                           Advance Paid: Rs. {advancePaidAtBooking.toLocaleString()}
                         </span>
                       )}
@@ -1156,7 +1147,7 @@ function CheckInDeskContent() {
                   <button
                     type="button"
                     onClick={handleResetForm}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-800 text-xs font-semibold text-slate-600 dark:text-neutral-300 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-200 dark:hover:border-rose-900/50 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 transition-all shadow-xs cursor-pointer shrink-0 self-start sm:self-auto whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 bg-surface-card/90 dark:bg-surface-card text-xs font-semibold text-muted dark:text-muted hover:text-danger dark:hover:text-danger hover:border-danger dark:hover:border-danger hover:bg-danger-subtle/50 dark:hover:bg-danger-subtle/20 transition-all shadow-xs cursor-pointer shrink-0 self-start sm:self-auto whitespace-nowrap"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Switch to Direct Walk-In</span>
@@ -1180,41 +1171,41 @@ function CheckInDeskContent() {
                 {/* Stay Schedule: Check-in Date, Time & Check-out Date */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Check-in date <span className="text-rose-500">*</span>
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
+                      Check-in date <span className="text-danger">*</span>
                     </label>
                     <input
                       type="date"
                       required
                       value={checkInDate}
                       onChange={(e) => handleCheckInDateChange(e.target.value)}
-                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full px-2.5 py-2 rounded-lg border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card text-xs font-medium text-body dark:text-body outline-none focus:border-brand"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Actual Time <span className="text-rose-500">*</span>
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
+                      Actual Time <span className="text-danger">*</span>
                     </label>
                     <input
                       type="time"
                       required
                       value={checkInTime}
                       onChange={(e) => setCheckInTime(e.target.value)}
-                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Check-out date <span className="text-rose-500">*</span>
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
+                      Check-out date <span className="text-danger">*</span>
                     </label>
                     <input
                       type="date"
                       required
                       value={checkOutDate}
                       onChange={(e) => setCheckOutDate(e.target.value)}
-                      className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#1A73E8]"
+                      className="w-full px-2.5 py-2 rounded-lg border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card text-xs font-medium text-body dark:text-body outline-none focus:border-brand"
                     />
                   </div>
                 </div>
@@ -1222,7 +1213,7 @@ function CheckInDeskContent() {
                 {/* Adults & Children Count */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
                       Adults
                     </label>
                     <input
@@ -1235,7 +1226,7 @@ function CheckInDeskContent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
                       Children
                     </label>
                     <input
@@ -1252,7 +1243,7 @@ function CheckInDeskContent() {
                 {/* Key Card & Luggage Assignment */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1 flex items-center gap-1">
                       <KeyRound className="w-3.5 h-3.5 text-amber-600" />
                       <span>Key Card No.</span>
                     </label>
@@ -1261,11 +1252,11 @@ function CheckInDeskContent() {
                       value={keyCardNumber}
                       onChange={(e) => setKeyCardNumber(e.target.value)}
                       placeholder="KC-101"
-                      className="w-full px-3 py-2 font-mono font-bold rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                      className="w-full px-3 py-2 font-mono font-bold rounded-lg border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card text-xs text-body dark:text-body outline-none focus:border-brand"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1 flex items-center gap-1">
                       <Luggage className="w-3.5 h-3.5 text-slate-500" />
                       <span>Luggage Pieces</span>
                     </label>
@@ -1275,7 +1266,7 @@ function CheckInDeskContent() {
                       value={luggageCount}
                       onChange={(e) => setLuggageCount(Math.max(0, Number(e.target.value)))}
                       placeholder="0"
-                      className="w-full px-3 py-2 font-mono font-bold rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                      className="w-full px-3 py-2 font-mono font-bold rounded-lg border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card text-xs text-body dark:text-body outline-none focus:border-brand"
                     />
                   </div>
                 </div>
@@ -1292,11 +1283,11 @@ function CheckInDeskContent() {
                 {/* Guest Fields: Name, Phone & Email */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Guest name <span className="text-rose-500">*</span>
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
+                      Guest name <span className="text-danger">*</span>
                     </label>
                     <div className="relative">
-                      <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <User className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="text"
                         required
@@ -1309,11 +1300,11 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
-                      Phone number <span className="text-rose-500">*</span>
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
+                      Phone number <span className="text-danger">*</span>
                     </label>
                     <div className="relative">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Phone className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="text"
                         required
@@ -1326,11 +1317,11 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
                       Email Address
                     </label>
                     <div className="relative">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Mail className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="email"
                         value={guestEmail}
@@ -1363,7 +1354,7 @@ function CheckInDeskContent() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
                     Address
                   </label>
                   <input
@@ -1413,7 +1404,7 @@ function CheckInDeskContent() {
 
                   <div>
                     <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      ID Document Number <span className="text-rose-500">*</span>
+                      ID Document Number <span className="text-danger">*</span>
                     </label>
                     <input
                       type="text"
@@ -1421,7 +1412,7 @@ function CheckInDeskContent() {
                       value={idNumber}
                       onChange={(e) => setIdNumber(e.target.value)}
                       placeholder="ID number"
-                      className="w-full px-3 py-2 font-mono font-bold rounded-lg border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs text-slate-900 dark:text-white outline-none focus:border-[#0B3D32]"
+                      className="w-full px-3 py-2 font-mono font-bold rounded-lg border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card text-xs text-body dark:text-body outline-none focus:border-brand"
                     />
                   </div>
                 </div>
@@ -1443,11 +1434,11 @@ function CheckInDeskContent() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
-                      <FileCheck className="w-4 h-4 text-[#1A73E8]" />
+                      <FileCheck className="w-4 h-4 text-[#0B3D32]" />
                       <span>ID Document Photos ({idDocumentPhotos.length})</span>
                     </label>
-                    <label className="px-2.5 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#093027] hover:border-[#1A73E8] cursor-pointer inline-flex items-center gap-1.5 transition-colors shadow-2xs">
-                      <UploadCloud className="w-3.5 h-3.5 text-[#1A73E8]" />
+                    <label className="px-2.5 py-1 rounded border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#061B16] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#093027] hover:border-[#0B3D32] cursor-pointer inline-flex items-center gap-1.5 transition-colors shadow-2xs">
+                      <UploadCloud className="w-3.5 h-3.5 text-[#0B3D32]" />
                       <span>Upload Photos</span>
                       <input
                         type="file"
@@ -1460,14 +1451,14 @@ function CheckInDeskContent() {
                   </div>
 
                   {idDocumentPhotos.length === 0 ? (
-                    <label className="border-2 border-dashed border-slate-200 dark:border-[#145447] rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#1A73E8] hover:bg-blue-50/20 dark:hover:bg-[#093027]/30 transition-all group">
-                      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-1.5 text-slate-400 group-hover:text-[#1A73E8] group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors">
+                    <label className="border-2 border-dashed border-slate-200 dark:border-[#145447] rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#0B3D32] hover:bg-blue-50/20 dark:hover:bg-[#093027]/30 transition-all group">
+                      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-1.5 text-muted group-hover:text-[#0B3D32] group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors">
                         <UploadCloud className="w-5 h-5" />
                       </div>
                       <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         Click or select to upload multiple document photos
                       </span>
-                      <span className="text-[10px] text-slate-400 mt-0.5">
+                      <span className="text-[10px] text-muted mt-0.5">
                         Upload ID front side, back side, passport, or visa photos (PNG, JPG, WEBP, PDF)
                       </span>
                       <input
@@ -1484,7 +1475,7 @@ function CheckInDeskContent() {
                         {idDocumentPhotos.map((doc, idx) => (
                           <div
                             key={doc.id}
-                            className="relative group rounded border border-slate-200 dark:border-[#145447] bg-slate-50 dark:bg-[#093027]/40 p-2 flex items-center gap-2 overflow-hidden hover:border-[#1A73E8] transition-colors"
+                            className="relative group rounded border border-slate-200 dark:border-[#145447] bg-slate-50 dark:bg-[#093027]/40 p-2 flex items-center gap-2 overflow-hidden hover:border-[#0B3D32] transition-colors"
                           >
                             {doc.dataUrl && doc.dataUrl.startsWith('data:image') ? (
                               <img
@@ -1493,7 +1484,7 @@ function CheckInDeskContent() {
                                 className="w-9 h-9 rounded object-cover shrink-0 border border-slate-200 dark:border-slate-700 bg-white"
                               />
                             ) : (
-                              <div className="w-9 h-9 rounded bg-blue-50 dark:bg-blue-950/40 text-[#1A73E8] flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-900">
+                              <div className="w-9 h-9 rounded bg-blue-50 dark:bg-blue-950/40 text-[#0B3D32] flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-900">
                                 <FileCheck className="w-4 h-4" />
                               </div>
                             )}
@@ -1502,7 +1493,7 @@ function CheckInDeskContent() {
                               <span className="block text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate" title={doc.name}>
                                 {doc.name}
                               </span>
-                              <span className="text-[10px] text-slate-400 block font-mono">
+                              <span className="text-[10px] text-muted block font-mono">
                                 Photo #{idx + 1}
                               </span>
                             </div>
@@ -1513,7 +1504,7 @@ function CheckInDeskContent() {
                                   type="button"
                                   onClick={() => setPreviewPhoto(doc)}
                                   title="View Photo"
-                                  className="text-slate-400 hover:text-[#1A73E8] p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+                                  className="text-muted hover:text-[#0B3D32] p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
                                 </button>
@@ -1522,7 +1513,7 @@ function CheckInDeskContent() {
                                 type="button"
                                 onClick={() => handleRemovePhoto(doc.id)}
                                 title="Delete Photo"
-                                className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                                className="text-muted hover:text-rose-600 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -1535,7 +1526,7 @@ function CheckInDeskContent() {
                         <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                           <Check className="w-3.5 h-3.5" /> {idDocumentPhotos.length} photo(s) attached
                         </span>
-                        <label className="text-[#1A73E8] hover:underline font-semibold cursor-pointer inline-flex items-center gap-1">
+                        <label className="text-[#0B3D32] hover:underline font-semibold cursor-pointer inline-flex items-center gap-1">
                           <Plus className="w-3 h-3" />
                           <span>Add more photos</span>
                           <input
@@ -1582,7 +1573,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
                       Vehicle Number
                     </label>
                     <input
@@ -1618,7 +1609,7 @@ function CheckInDeskContent() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
                       Origin
                     </label>
                     <input
@@ -1631,7 +1622,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-muted dark:text-muted mb-1">
                       Destination
                     </label>
                     <input
@@ -1665,7 +1656,7 @@ function CheckInDeskContent() {
                           <button
                             type="button"
                             onClick={() => handleRemoveAccompanyingGuest(acc.id)}
-                            className="text-slate-400 hover:text-rose-600 cursor-pointer ml-2 shrink-0"
+                            className="text-muted hover:text-rose-600 cursor-pointer ml-2 shrink-0"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1714,7 +1705,7 @@ function CheckInDeskContent() {
                     <button
                       type="button"
                       onClick={handleAddAccompanyingGuest}
-                      className="h-8 px-3 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-all dark:bg-[#1A73E8] cursor-pointer shrink-0"
+                      className="h-8 px-3 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all dark:bg-[#0B3D32] cursor-pointer shrink-0"
                     >
                       + Add
                     </button>
@@ -1729,7 +1720,7 @@ function CheckInDeskContent() {
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center gap-2">
-                <Bed className="w-4 h-4 text-[#1A73E8] dark:text-[#8AB4F8]" />
+                <Bed className="w-4 h-4 text-[#0B3D32] dark:text-[#8AB4F8]" />
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                   Room Information
                 </h2>
@@ -1780,14 +1771,14 @@ function CheckInDeskContent() {
 
                       return (
                         <tr key={row.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20">
-                          <td className="py-2 px-2.5 text-center text-slate-600 dark:text-slate-400 font-medium border-r border-slate-300 dark:border-slate-700">
+                          <td className="py-2 px-2.5 text-center text-slate-600 dark:text-muted font-medium border-r border-slate-300 dark:border-slate-700">
                             {idx + 1}
                           </td>
                           <td className="py-2 px-3 border-r border-slate-300 dark:border-slate-700">
                             <div className="text-xs text-slate-800 dark:text-slate-200 font-medium">
                               {row.roomObj.type}
                             </div>
-                            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            <div className="text-[10px] text-muted dark:text-slate-500">
                               {row.roomObj.acType} · {row.roomObj.bedType}
                             </div>
                           </td>
@@ -1861,7 +1852,7 @@ function CheckInDeskContent() {
                                 type="button"
                                 onClick={() => handleRemoveRoomRow(row.id)}
                                 title="Remove this room"
-                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                className="p-1 rounded text-muted hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1891,7 +1882,7 @@ function CheckInDeskContent() {
                         <td className="py-2.5 px-3 text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 border-r border-slate-300 dark:border-slate-700">
                           {totalDiscount > 0 ? `Rs. ${totalDiscount.toLocaleString()}` : '0'}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#1A73E8] dark:text-blue-400 tabular-nums">
+                        <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-[#0B3D32] dark:text-blue-400 tabular-nums">
                           Rs. {totalPayable.toLocaleString()}
                         </td>
                         <td className="border-l border-slate-300 dark:border-slate-700"></td>
@@ -1906,7 +1897,7 @@ function CheckInDeskContent() {
                 <button
                   type="button"
                   onClick={handleAddRoomRow}
-                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#1A73E8] text-[#1A73E8] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
+                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-xs border border-[#0B3D32] text-[#0B3D32] dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-[#0F172A] shadow-2xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Room</span>
@@ -1919,7 +1910,7 @@ function CheckInDeskContent() {
                 =============================================================== */}
             <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-[#1A73E8] dark:text-[#8AB4F8]" />
+                <Receipt className="w-4 h-4 text-[#0B3D32] dark:text-[#8AB4F8]" />
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                   Billing & Settlement
                 </h2>
@@ -1930,7 +1921,7 @@ function CheckInDeskContent() {
                 {/* Row 1: Basic Total, Dis %, Dis Amt, Tax Amt(3%), Round off, Net Amount */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Basic Total
                     </label>
                     <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
@@ -1939,7 +1930,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Dis %
                     </label>
                     <input
@@ -1957,7 +1948,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Dis Amt
                     </label>
                     <input
@@ -1974,7 +1965,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Tax Amt(3%)
                     </label>
                     <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
@@ -1983,7 +1974,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Round off
                     </label>
                     <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
@@ -1992,7 +1983,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Net Amount
                     </label>
                     <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
@@ -2004,7 +1995,7 @@ function CheckInDeskContent() {
                 {/* Row 2: Paid Amt., Ref. Due, Mode, Remarks, Print, Label */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
                   <div className="lg:col-span-2">
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Paid Amt.
                     </label>
                     <input
@@ -2017,7 +2008,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Ref. Due
                     </label>
                     <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-slate-900 dark:text-white rounded-xs border border-slate-200 dark:border-slate-700 tabular-nums">
@@ -2026,7 +2017,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Mode
                     </label>
                     <select
@@ -2043,7 +2034,7 @@ function CheckInDeskContent() {
                   </div>
 
                   <div className="lg:col-span-5">
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-muted mb-1">
                       Remarks
                     </label>
                     <input
@@ -2070,7 +2061,6 @@ function CheckInDeskContent() {
                 </div>
               </div>
             </div>
-          </div>
         )}
 
         {/* =================================================================== */}
@@ -2087,7 +2077,7 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'ARRIVALS'
-                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      ? 'bg-[#0B3D32] text-white dark:bg-[#0B3D32]'
                       : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
@@ -2099,7 +2089,7 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'IN_HOUSE'
-                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      ? 'bg-[#0B3D32] text-white dark:bg-[#0B3D32]'
                       : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
@@ -2111,7 +2101,7 @@ function CheckInDeskContent() {
                   className={cn(
                     'px-3 py-1.5 rounded-[3px] text-xs font-semibold cursor-pointer transition-colors',
                     manifestFilter === 'ALL'
-                      ? 'bg-[#1A73E8] text-white dark:bg-[#1A73E8]'
+                      ? 'bg-[#0B3D32] text-white dark:bg-[#0B3D32]'
                       : 'bg-[#F8FAFC] dark:bg-[#0B1120] border border-[#CBD5E1] dark:border-[#334155] text-slate-700 dark:text-slate-300'
                   )}
                 >
@@ -2121,7 +2111,7 @@ function CheckInDeskContent() {
 
               {/* Search Box */}
               <div className="relative w-full sm:w-60">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={manifestSearch}
@@ -2150,7 +2140,7 @@ function CheckInDeskContent() {
                 <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
                   {manifestList.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                      <td colSpan={8} className="py-12 text-center text-muted">
                         No bookings found for the selected filter.
                       </td>
                     </tr>
@@ -2161,10 +2151,10 @@ function CheckInDeskContent() {
 
                       return (
                         <tr key={booking.id} className="hover:bg-slate-50/50 dark:hover:bg-[#093027]/40 transition-colors">
-                          <td className="py-2.5 px-3 text-center font-mono text-slate-400 border-r border-slate-200 dark:border-[#145447]">
+                          <td className="py-2.5 px-3 text-center font-mono text-muted border-r border-slate-200 dark:border-[#145447]">
                             {idx + 1}
                           </td>
-                          <td className="py-2.5 px-3.5 font-mono font-bold text-[#1A73E8] dark:text-[#8AB4F8] border-r border-slate-200 dark:border-[#334155]">
+                          <td className="py-2.5 px-3.5 font-mono font-bold text-[#0B3D32] dark:text-[#8AB4F8] border-r border-slate-200 dark:border-[#334155]">
                             {booking.bookingCode}
                           </td>
                           <td className="py-2.5 px-4 border-r border-slate-200 dark:border-[#334155]">
@@ -2179,7 +2169,7 @@ function CheckInDeskContent() {
                             <div className="font-medium text-slate-800 dark:text-slate-200">
                               {booking.checkIn} → {booking.checkOut}
                             </div>
-                            <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                            <div className="text-[10px] text-muted flex items-center gap-1.5">
                               <span>{booking.nights} {booking.nights === 1 ? 'night' : 'nights'}</span>
                               {booking.checkInTime && (
                                 <>
@@ -2193,7 +2183,7 @@ function CheckInDeskContent() {
                             <span className="font-bold text-slate-800 dark:text-slate-200">
                               Room {booking.room.number}
                             </span>
-                            <span className="text-[11px] text-slate-400 block">{booking.room.type}</span>
+                            <span className="text-[11px] text-muted block">{booking.room.type}</span>
                           </td>
                           <td className="py-2.5 px-3.5 text-right border-r border-slate-200 dark:border-[#334155]">
                             <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
@@ -2219,7 +2209,7 @@ function CheckInDeskContent() {
                               <button
                                 type="button"
                                 onClick={() => handleSelectReservationToAutoFill(booking)}
-                                className="px-3 py-1 rounded-[3px] bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold transition-colors dark:bg-[#1A73E8] cursor-pointer shadow-2xs"
+                                className="px-3 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-[#0B3D32] cursor-pointer shadow-2xs"
                               >
                                 Check In
                               </button>
@@ -2360,7 +2350,7 @@ function CheckInDeskContent() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#1A73E8] text-white text-xs font-bold cursor-pointer hover:bg-[#1557B0]"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#0B3D32] text-white text-xs font-bold cursor-pointer hover:bg-[#093027]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Registration Card</span>
@@ -2386,7 +2376,7 @@ function CheckInDeskContent() {
               <button
                 type="button"
                 onClick={() => setPreviewPhoto(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                className="text-muted hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

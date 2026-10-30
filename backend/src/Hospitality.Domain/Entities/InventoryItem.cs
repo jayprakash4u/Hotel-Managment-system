@@ -8,6 +8,7 @@ public class InventoryItem : BaseEntity
     public Hotel? Hotel { get; set; }
 
     public string Name { get; set; } = string.Empty;
+    public string Department { get; set; } = "HOTEL"; // "HOTEL" or "RESTAURANT"
     public string Category { get; set; } = "LINEN"; // LINEN, TOILETRIES, BEVERAGES, FOOD_RAW, CLEANING_SUPPLIES, MINIBAR
     public string Sku { get; set; } = string.Empty;
 
@@ -18,6 +19,7 @@ public class InventoryItem : BaseEntity
         set => Sku = value;
     }
 
+    public bool TrackStock { get; set; } = true;
     public int CurrentStock { get; set; }
     public int MinThreshold { get; set; }
 

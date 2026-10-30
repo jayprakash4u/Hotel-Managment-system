@@ -169,8 +169,8 @@ export default function MasterSearchableSelect({
                   : 'h-9 px-3 rounded-[3px] border border-slate-300 dark:border-[#145447]'),
             'bg-white dark:bg-[#061B16] text-slate-900 dark:text-white',
             isOpen
-              ? 'border-[#1A73E8] dark:border-blue-500 z-10'
-              : 'hover:border-slate-400 dark:hover:border-blue-400',
+              ? 'border-[#0B3D32] dark:border-emerald-500 z-10'
+              : 'hover:border-slate-400 dark:hover:border-emerald-400',
             disabled && 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-[#04120F]',
             triggerClassName
           )}
@@ -206,7 +206,7 @@ export default function MasterSearchableSelect({
               </span>
             )}
             {isOpen ? (
-              <ChevronUp className="w-3.5 h-3.5 text-[#1A73E8] dark:text-blue-400 shrink-0 stroke-[2]" />
+              <ChevronUp className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400 shrink-0 stroke-[2]" />
             ) : (
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-neutral-400 shrink-0 stroke-[2]" />
             )}
@@ -224,8 +224,8 @@ export default function MasterSearchableSelect({
             title={`Add new ${addNewTitle || label || 'option'}`}
             className={cn(
               'flex items-center justify-center transition-colors cursor-pointer shrink-0 text-white select-none',
-              'bg-[#1A73E8] hover:bg-[#1557B0] active:bg-[#0D47A1] dark:bg-blue-600 dark:hover:bg-blue-500',
-              'border border-[#1A73E8] hover:border-[#1557B0] dark:border-blue-600',
+              'bg-[#0B3D32] hover:bg-[#093027] active:bg-[#06241D] dark:bg-emerald-600 dark:hover:bg-emerald-500',
+              'border border-[#0B3D32] hover:border-[#093027] dark:border-emerald-600',
               'rounded-r-[3px] rounded-l-none',
               compact ? 'w-8 h-8' : 'w-9 h-9'
             )}
@@ -246,7 +246,7 @@ export default function MasterSearchableSelect({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white outline-none focus:border-[#1A73E8] dark:focus:border-blue-500"
+              className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white outline-none focus:border-[#0B3D32] dark:focus:border-emerald-500"
             />
           </div>
 
@@ -266,8 +266,8 @@ export default function MasterSearchableSelect({
                     className={cn(
                       'px-3 py-1.5 text-xs cursor-pointer flex items-center justify-between transition-colors',
                       isSelected
-                        ? 'bg-[#1A73E8] text-white dark:bg-blue-600 font-medium'
-                        : 'text-slate-700 dark:text-slate-200 hover:bg-[#E8F0FE] hover:text-[#1A73E8] dark:hover:bg-blue-950/40 dark:hover:text-blue-300'
+                        ? 'bg-[#0B3D32] text-white dark:bg-emerald-600 font-medium'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-[#E8F2EE] hover:text-[#0B3D32] dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300'
                     )}
                   >
                     <div className="truncate pr-2">
@@ -299,7 +299,7 @@ export default function MasterSearchableSelect({
                       setIsOpen(false);
                       setSearchQuery('');
                     }}
-                    className="mt-2 block w-full px-2 py-1.5 rounded bg-[#1A73E8] text-white text-xs font-semibold hover:bg-[#1557B0] dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors cursor-pointer"
+                    className="mt-2 block w-full px-2 py-1.5 rounded bg-[#0B3D32] text-white text-xs font-semibold hover:bg-[#093027] dark:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors cursor-pointer"
                   >
                     + Add &quot;{searchQuery.trim()}&quot;
                   </button>
@@ -322,7 +322,7 @@ export default function MasterSearchableSelect({
                     setIsOpen(false);
                     setSearchQuery('');
                   }}
-                  className="w-full text-left px-2.5 py-1.5 rounded text-xs font-medium text-[#1A73E8] hover:bg-[#E8F0FE] dark:text-blue-400 dark:hover:bg-blue-950/40 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="w-full text-left px-2.5 py-1.5 rounded text-xs font-medium text-[#0B3D32] hover:bg-[#E8F2EE] dark:text-emerald-400 dark:hover:bg-emerald-950/40 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add &quot;{searchQuery.trim()}&quot;</span>
@@ -345,7 +345,7 @@ export default function MasterSearchableSelect({
             {/* Modal Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-[#F8FAFC] dark:bg-[#0B0F19]">
               <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded bg-[#1A73E8]/10 text-[#1A73E8] dark:bg-blue-950/70 dark:text-blue-300 flex items-center justify-center">
+                <div className="w-5 h-5 rounded bg-[#0B3D32]/10 text-[#0B3D32] dark:bg-emerald-950/70 dark:text-emerald-300 flex items-center justify-center">
                   <Plus className="w-3 h-3 stroke-[2.5]" />
                 </div>
                 <h4 className="text-xs font-bold text-slate-800 dark:text-white">
@@ -374,7 +374,7 @@ export default function MasterSearchableSelect({
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
                   placeholder={`Enter ${addNewTitle || label || 'name'}`}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white outline-none focus:border-[#1A73E8] dark:focus:border-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white outline-none focus:border-[#0B3D32] dark:focus:border-emerald-500"
                 />
               </div>
 
@@ -387,7 +387,7 @@ export default function MasterSearchableSelect({
                   value={newItemDesc}
                   onChange={(e) => setNewItemDesc(e.target.value)}
                   placeholder="Optional notes or details"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white outline-none focus:border-[#1A73E8] dark:focus:border-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white outline-none focus:border-[#0B3D32] dark:focus:border-emerald-500"
                 />
               </div>
 
@@ -401,7 +401,7 @@ export default function MasterSearchableSelect({
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#1A73E8] hover:bg-[#1557B0] dark:bg-blue-600 dark:hover:bg-blue-500 rounded transition-colors shadow-2xs cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#0B3D32] hover:bg-[#093027] dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded transition-colors shadow-2xs cursor-pointer"
                 >
                   Save &amp; Select
                 </button>

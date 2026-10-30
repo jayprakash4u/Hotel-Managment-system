@@ -17,16 +17,16 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label htmlFor={inputId} className="block text-xs font-semibold text-[#24352F] dark:text-[#E2E8F0]">
+          <label htmlFor={inputId} className="block text-xs font-semibold text-[var(--text-body)] dark:text-[var(--text-body)]">
             {label}
             {(requiredIndicator || props.required) && (
-              <span className="text-[#A51F36] ml-1 font-bold">*</span>
+              <span className="text-[var(--accent-danger)] ml-1 font-bold">*</span>
             )}
           </label>
         )}
         <div className="relative flex items-center">
           {leftIcon && (
-            <div className="absolute left-3.5 flex items-center pointer-events-none text-[#64736C] dark:text-[#B7CDC3]">
+            <div className="absolute left-3.5 flex items-center pointer-events-none text-[var(--text-muted)]">
               {leftIcon}
             </div>
           )}
@@ -35,30 +35,29 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             disabled={disabled}
             className={cn(
-              // Standard styling: 8px border radius, 42-44px height, exact brand tokens
               'w-full h-[42px] rounded-lg px-3.5 text-sm transition-all duration-150',
-              'bg-white border border-[#CBD5D0] text-[#24352F] placeholder-[#7A8982]',
-              'hover:border-[#879B90]',
-              'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
-              'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
-              'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20 dark:disabled:bg-[#1E293B] dark:disabled:text-[#64748B]',
+              'bg-[var(--surface-card)] border border-[var(--border-input)] text-[var(--text-body)] placeholder-[var(--text-placeholder)]',
+              'hover:border-[var(--text-muted)]',
+              'focus:border-[var(--brand-primary)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--brand-primary),transparent_82%)]',
+              'disabled:bg-[var(--surface-muted)] disabled:border-[var(--border-default)] disabled:text-[var(--text-disabled)] disabled:cursor-not-allowed',
+              'dark:bg-[var(--surface-card)] dark:border-[var(--border-input)] dark:text-[var(--text-body)] dark:placeholder-[var(--text-placeholder)] dark:focus:border-[var(--brand-primary)] dark:focus:ring-[color-mix(in_srgb,var(--brand-primary),transparent_82%)]',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
-              error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
+              error && 'border-[var(--accent-danger)] hover:border-[var(--accent-danger)] focus:border-[var(--accent-danger)] focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent-danger),transparent_82%)] dark:border-[var(--accent-danger)]',
               className
             )}
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-3.5 flex items-center pointer-events-none text-[#64748B] dark:text-[#94A3B8]">
+            <div className="absolute right-3.5 flex items-center pointer-events-none text-[var(--text-muted)]">
               {rightIcon}
             </div>
           )}
         </div>
         {error ? (
-          <p className="text-xs text-[#DC2626] font-medium mt-1">{error}</p>
+          <p className="text-xs text-[var(--accent-danger)] font-medium mt-1">{error}</p>
         ) : helperText ? (
-          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">{helperText}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">{helperText}</p>
         ) : null}
       </div>
     );
@@ -81,10 +80,10 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label htmlFor={selectId} className="block text-xs font-semibold text-[#1E293B] dark:text-[#E2E8F0]">
+          <label htmlFor={selectId} className="block text-xs font-semibold text-[var(--text-body)]">
             {label}
             {(requiredIndicator || props.required) && (
-              <span className="text-[#DC2626] ml-1 font-bold">*</span>
+              <span className="text-[var(--accent-danger)] ml-1 font-bold">*</span>
             )}
           </label>
         )}
@@ -95,34 +94,34 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             disabled={disabled}
             className={cn(
               'w-full h-[42px] appearance-none rounded-lg px-3.5 pr-9 text-sm transition-all duration-150',
-              'bg-white border border-[#CBD5D0] text-[#1E293B]',
-              'hover:border-[#94A3B8]',
-              'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
-              'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
-              'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20 dark:disabled:bg-[#1E293B] dark:disabled:text-[#64748B]',
-              error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
+              'bg-[var(--surface-card)] border border-[var(--border-input)] text-[var(--text-body)]',
+              'hover:border-[var(--text-muted)]',
+              'focus:border-[var(--brand-primary)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--brand-primary),transparent_82%)]',
+              'disabled:bg-[var(--surface-muted)] disabled:border-[var(--border-default)] disabled:text-[var(--text-disabled)] disabled:cursor-not-allowed',
+              'dark:bg-[var(--surface-card)] dark:border-[var(--border-input)] dark:text-[var(--text-body)] dark:focus:border-[var(--brand-primary)] dark:focus:ring-[color-mix(in_srgb,var(--brand-primary),transparent_82%)]',
+              error && 'border-[var(--accent-danger)] hover:border-[var(--accent-danger)] focus:border-[var(--accent-danger)] focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent-danger),transparent_82%)] dark:border-[var(--accent-danger)]',
               className
             )}
             {...props}
           >
             {options
               ? options.map((opt) => (
-                  <option key={opt.value} value={opt.value} className="bg-white text-[#1E293B] dark:bg-[#0F172A] dark:text-white">
+                  <option key={opt.value} value={opt.value} className="bg-[var(--surface-card)] text-[var(--text-body)] dark:bg-[var(--surface-card)] dark:text-[var(--text-body)]">
                     {opt.label}
                   </option>
                 ))
               : children}
           </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#64748B] dark:text-[#94A3B8]">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[var(--text-muted)]">
             <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
               <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
             </svg>
           </div>
         </div>
         {error ? (
-          <p className="text-xs text-[#DC2626] font-medium mt-1">{error}</p>
+          <p className="text-xs text-[var(--accent-danger)] font-medium mt-1">{error}</p>
         ) : helperText ? (
-          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">{helperText}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">{helperText}</p>
         ) : null}
       </div>
     );
@@ -144,10 +143,10 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label htmlFor={textareaId} className="block text-xs font-semibold text-[#1E293B] dark:text-[#E2E8F0]">
+          <label htmlFor={textareaId} className="block text-xs font-semibold text-[var(--text-body)]">
             {label}
             {(requiredIndicator || props.required) && (
-              <span className="text-[#DC2626] ml-1 font-bold">*</span>
+              <span className="text-[var(--accent-danger)] ml-1 font-bold">*</span>
             )}
           </label>
         )}
@@ -157,20 +156,20 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           disabled={disabled}
           className={cn(
             'w-full min-h-[90px] rounded-lg p-3 text-sm transition-all duration-150',
-            'bg-white border border-[#CBD5D0] text-[#1E293B] placeholder-[#94A3B8]',
-            'hover:border-[#94A3B8]',
-            'focus:border-[#1A73E8] focus:outline-none focus:ring-3 focus:ring-[#1A73E8]/15',
-            'disabled:bg-[#F8FAFC] disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:cursor-not-allowed',
-            'dark:bg-[#0F172A] dark:border-[#334155] dark:text-white dark:placeholder-[#64748B] dark:focus:border-[#1A73E8] dark:focus:ring-[#1A73E8]/20',
-            error && 'border-[#DC2626] hover:border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/15 dark:border-[#DC2626]',
+            'bg-[var(--surface-card)] border border-[var(--border-input)] text-[var(--text-body)] placeholder-[var(--text-placeholder)]',
+            'hover:border-[var(--text-muted)]',
+            'focus:border-[var(--brand-primary)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--brand-primary),transparent_82%)]',
+            'disabled:bg-[var(--surface-muted)] disabled:border-[var(--border-default)] disabled:text-[var(--text-disabled)] disabled:cursor-not-allowed',
+            'dark:bg-[var(--surface-card)] dark:border-[var(--border-input)] dark:text-[var(--text-body)] dark:placeholder-[var(--text-placeholder)] dark:focus:border-[var(--brand-primary)] dark:focus:ring-[color-mix(in_srgb,var(--brand-primary),transparent_82%)]',
+            error && 'border-[var(--accent-danger)] hover:border-[var(--accent-danger)] focus:border-[var(--accent-danger)] focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent-danger),transparent_82%)] dark:border-[var(--accent-danger)]',
             className
           )}
           {...props}
         />
         {error ? (
-          <p className="text-xs text-[#DC2626] font-medium mt-1">{error}</p>
+          <p className="text-xs text-[var(--accent-danger)] font-medium mt-1">{error}</p>
         ) : helperText ? (
-          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">{helperText}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">{helperText}</p>
         ) : null}
       </div>
     );

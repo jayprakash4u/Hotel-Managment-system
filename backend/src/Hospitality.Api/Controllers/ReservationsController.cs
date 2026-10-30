@@ -247,9 +247,110 @@ public class ReservationsController : ControllerBase
             });
         }
 
+        // Shared Billing System: Create permanent HOTEL_CHECKOUT Bill
+        var existingBill = await _db.Bills.FirstOrDefaultAsync(b => b.ReservationId == reservation.Id && b.BillingType == "HOTEL_CHECKOUT");
+        if (existingBill == null)
+        {
+            var billNo = await BillingController.GenerateBillNumberAsync(_db, reservation.HotelId);
+
+            var folioSnapshot = new List<object>();
+            var nights = Math.Max(1, (int)(reservation.CheckOut.Date - reservation.CheckIn.Date).TotalDays);
+            var roomRate = reservation.Room != null ? reservation.Room.PricePerNight : Math.Round(reservation.TotalAmount / nights, 2);
+            folioSnapshot.Add(new
+            {
+                name = $"Room Stay ({reservation.Room?.Number ?? "Room"}) - {nights} Night(s)",
+                quantity = nights,
+                unitPrice = roomRate,
+                total = Math.Round(nights * roomRate, 2),
+                category = "ROOM_CHARGE"
+            });
+
+            foreach (var fi in reservation.FolioItems)
+            {
+                folioSnapshot.Add(new
+                {
+                    name = fi.Description,
+                    quantity = fi.Quantity,
+                    unitPrice = fi.UnitPrice,
+                    total = fi.Total,
+                    category = fi.Outlet
+                });
+            }
+
+            var paymentsList = new List<object>();
+            var advanceDeposit = Math.Max(0, reservation.PaidAmount - (req?.FinalPaymentAmount ?? 0));
+            if (advanceDeposit > 0)
+            {
+                paymentsList.Add(new
+                {
+                    Id = $"PAY-ADV-{Guid.NewGuid():N}"[..12].ToUpper(),
+                    Amount = advanceDeposit,
+                    PaymentMethod = "DEPOSIT",
+                    PaymentDate = reservation.CreatedAt,
+                    ReceivedBy = "Front Desk",
+                    Notes = "Advance booking deposit"
+                });
+            }
+            if (req?.FinalPaymentAmount > 0)
+            {
+                paymentsList.Add(new
+                {
+                    Id = $"PAY-FIN-{Guid.NewGuid():N}"[..12].ToUpper(),
+                    Amount = req.FinalPaymentAmount.Value,
+                    PaymentMethod = "SETTLEMENT",
+                    PaymentDate = DateTime.UtcNow,
+                    ReceivedBy = "Front Desk",
+                    Notes = "Checkout final balance settlement"
+                });
+            }
+
+            var balance = Math.Max(0, Math.Round(reservation.TotalAmount - reservation.PaidAmount, 2));
+
+            existingBill = new Bill
+            {
+                HotelId = reservation.HotelId,
+                BillNumber = billNo,
+                BillingType = "HOTEL_CHECKOUT",
+                ReservationId = reservation.Id,
+                BookingCode = reservation.BookingCode,
+                GuestId = reservation.GuestId,
+                CustomerName = reservation.Guest != null ? $"{reservation.Guest.FirstName} {reservation.Guest.LastName}".Trim() : "Hotel Guest",
+                CustomerPhone = reservation.Guest?.Phone,
+                RoomNumber = reservation.Room?.Number,
+                ServerOrStaff = "Front Desk Lead",
+                Subtotal = reservation.TotalAmount,
+                DiscountAmount = 0,
+                TaxAmount = Math.Round(reservation.TotalAmount * 0.10, 2),
+                ServiceCharge = 0,
+                RoundOff = 0,
+                GrandTotal = reservation.TotalAmount,
+                AmountPaid = reservation.PaidAmount,
+                BalanceDue = balance,
+                PaymentStatus = balance <= 0.01 ? "PAID" : "PARTIAL",
+                PaymentMethod = paymentsList.Count > 1 ? "SPLIT" : "CASH",
+                ItemsJson = System.Text.Json.JsonSerializer.Serialize(folioSnapshot),
+                PaymentsJson = System.Text.Json.JsonSerializer.Serialize(paymentsList),
+                Notes = $"Hotel Stay Checkout for Room {reservation.Room?.Number}. Booking Code: {reservation.BookingCode}",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Bills.Add(existingBill);
+        }
+        else
+        {
+            existingBill.AmountPaid = reservation.PaidAmount;
+            existingBill.BalanceDue = Math.Max(0, Math.Round(reservation.TotalAmount - reservation.PaidAmount, 2));
+            existingBill.PaymentStatus = existingBill.BalanceDue <= 0.01 ? "PAID" : "PARTIAL";
+            existingBill.UpdatedAt = DateTime.UtcNow;
+        }
+
         reservation.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return Ok(ApiResponse.Ok(reservation, $"Reservation {reservation.BookingCode} checked out successfully. Room marked DIRTY."));
+        return Ok(ApiResponse.Ok(new
+        {
+            reservation,
+            bill = existingBill
+        }, $"Reservation {reservation.BookingCode} checked out successfully. Bill {existingBill.BillNumber} created. Room marked DIRTY."));
     }
 }

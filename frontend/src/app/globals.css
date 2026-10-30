@@ -4,77 +4,129 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   HOSPITALITY DESIGN TOKENS — Reactive theme system
+   All brand colors derive from --brand-primary, which ThemeContext.applyTheme()
+   sets dynamically (light + dark presets + custom hex). Changing the theme
+   color in Profile/Settings updates --brand-primary and every derived token
+   below updates automatically — buttons, borders, inputs, cards, badges.
+   ========================================================================== */
+
 :root {
   --font-inter: 'Inter', sans-serif;
   --font-outfit: 'Outfit', sans-serif;
 
-  /* Brand Palette Variables (Pure Blue #1A73E8, Pure Red #DC2626, Pure Yellow #F59E0B) */
-  --brand-primary: #1A73E8;
-  --brand-primary-hover: #1557B0;
-  --brand-primary-active: #0D47A1;
-  --brand-primary-subtle: #E8F0FE;
+  /* ---- Brand (dynamically set by ThemeContext; defaults shown) ---- */
+  --brand-primary: #0B3D32;
+  --brand-primary-hover: #093027;
+  --brand-primary-active: #06241D;
+  --brand-primary-subtle: #E8F2EE;
+  --brand-primary-border: #C2D9CF;
+  --brand-ring: #0B3D32;
 
-  --brand-secondary: #DC2626;
-  --brand-secondary-hover: #B91C1C;
-  --brand-secondary-subtle: #FEF2F2;
+  /* Brand derived reactively (color-mix) so they track --brand-primary
+     even before/beside the JS-set inline values. */
+  --brand-primary-hover-calc: color-mix(in srgb, var(--brand-primary), black 12%);
+  --brand-primary-active-calc: color-mix(in srgb, var(--brand-primary), black 24%);
+  --brand-primary-subtle-calc: color-mix(in srgb, var(--brand-primary), white 88%);
+  --brand-primary-border-calc: color-mix(in srgb, var(--brand-primary), transparent 52%);
 
-  --brand-tertiary: #F59E0B;
-  --brand-tertiary-hover: #D97706;
-  --brand-tertiary-subtle: #FEF3C7;
+  /* ---- Semantic surfaces ---- */
+  --surface-page: #F8FAFC;
+  --surface-card: #FFFFFF;
+  --surface-muted: #F2F6F4;
+  --surface-hover: color-mix(in srgb, var(--brand-primary), white 97%);
+  --surface-inverse: #0F172A;
 
-  /* Layout Surfaces */
-  --page-bg: #F8FAFC;
-  --surface: #FFFFFF;
-  --surface-muted: #F1F5F9;
-  --surface-hover: #F8FAFC;
+  /* ---- Borders & dividers ---- */
+  --border-default: #DCE3DF;
+  --border-input: #CBD5D0;
+  --border-input-hover: var(--brand-primary);
+  --border-input-focus: var(--brand-primary);
+  --border-input-focus-ring: color-mix(in srgb, var(--brand-primary), transparent 82%);
+  --border-error: #A51F36;
+  --divider: #E5EEE9;
 
-  /* Borders & Dividers */
-  --border-default: #E2E8F0;
-  --border-input: #CBD5E1;
-  --border-input-hover: #94A3B8;
-  --border-input-focus: #1A73E8;
-  --border-input-error: #DC2626;
-  --divider: #EDF2F7;
-
-  /* Text & Labels */
+  /* ---- Text ---- */
   --text-heading: #0F172A;
   --text-body: #334155;
   --text-muted: #64748B;
   --text-placeholder: #94A3B8;
   --text-disabled: #CBD5E1;
+  --text-inverse: #FFFFFF;
+
+  /* ---- Semantic action colors (brand-aware) ---- */
+  --accent-success: #16A34A;
+  --accent-success-subtle: #DCFCE7;
+  --accent-warning: #D97706;
+  --accent-warning-subtle: #FEF3C7;
+  --accent-danger: #DC2626;
+  --accent-danger-subtle: #FEE2E2;
+  --accent-info: #2563EB;
+  --accent-info-subtle: #DBEAFE;
+
+  /* ---- Elevation ---- */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
 }
 
-/* Default / Light Mode: Clean Slate-50 Background + Slate-900 Headings */
+/* ---- Dark mode token overrides ---- */
+html.dark {
+  --surface-page: #0B0F19;
+  --surface-card: #0F172A;
+  --surface-muted: #111827;
+  --surface-hover: color-mix(in srgb, var(--brand-primary), black 20%);
+  --surface-inverse: #F8FAFC;
+
+  --border-default: #334155;
+  --border-input: #475569;
+  --border-error: #F87171;
+  --divider: #1E293B;
+
+  --text-heading: #F8FAFC;
+  --text-body: #E2E8F0;
+  --text-muted: #94A3B8;
+  --text-placeholder: #64748B;
+  --text-disabled: #475569;
+  --text-inverse: #FFFFFF;
+
+  --accent-success-subtle: #064E3B;
+  --accent-warning-subtle: #451A03;
+  --accent-danger-subtle: #450A0A;
+  --accent-info-subtle: #1E3A8A;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.24);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.24);
+}
+
+/* Base document */
 html.light,
 html:not(.dark) {
   color-scheme: light;
-  background-color: #F8FAFC;
-  color: #0F172A;
 }
-
 html.dark {
   color-scheme: dark;
-  background-color: #0B0F19;
-  color: #F8FAFC;
 }
 
 body {
   font-family: var(--font-inter);
   overflow-x: hidden;
   min-height: 100vh;
-  background-color: #F8FAFC;
-  color: #334155;
+  background-color: var(--surface-page);
+  color: var(--text-body);
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 html.dark body {
-  background-color: #0B0F19;
-  color: #E2E8F0;
+  background-color: var(--surface-page);
+  color: var(--text-body);
 }
 
 h1, h2, h3, h4, h5, h6, .font-heading {
   font-family: var(--font-outfit);
-  color: #0F172A;
+  color: var(--text-heading);
 }
 
 html.dark h1,
@@ -84,46 +136,54 @@ html.dark h4,
 html.dark h5,
 html.dark h6,
 html.dark .font-heading {
-  color: #FFFFFF;
+  color: var(--text-heading);
 }
 
-/* Standard Hospitality Card Surface */
+/* Selection reflects brand color */
+::selection {
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+}
+
+/* Standard Hospitality Card Surface (theme-aware) */
 .card-standard {
-  background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
+  background-color: var(--surface-card);
+  border: 1px solid var(--border-default);
   border-radius: 3px;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-xs);
 }
 
-.dark .card-standard {
-  background-color: #111827;
-  border-color: #1F2937;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
+html.dark .card-standard {
+  background-color: var(--surface-card);
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-xs);
 }
 
-/* Global Crisp Minimal Corner Radius Spec (Buttons, Boxes, Inputs, Badges) */
+/* Global crisp minimal corner radius (buttons, boxes, inputs, badges) */
 button, input, select, textarea, .card {
   border-radius: 3px;
 }
 
-/* Custom Scrollbars */
+/* Custom scrollbars (theme-aware) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #CBD5D0;
+  background: var(--text-muted);
   border-radius: 9999px;
 }
+html.dark ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--brand-primary), black 35%);
+}
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #1a332c;
-  border-radius: 9999px;
+/* Focus ring helper (theme-aware) */
+.focus-brand-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary), transparent 75%);
 }
 
 /* Print Styling */
@@ -147,3 +207,78 @@ button, input, select, textarea, .card {
     display: none !important;
   }
 }
+
+/* ==========================================================================
+   BRAND-AWARE UTILITY CLASSES — All derive from --brand-primary (set by ThemeContext).
+   Use these instead of hardcoded emerald/slate/blue/amber/rose tailwind colors
+   so theme changes apply everywhere instantly.
+   ========================================================================== */
+
+/* --- Brand foreground / background / border --- */
+.text-brand { color: var(--brand-primary) !important; }
+.bg-brand { background-color: var(--brand-primary) !important; }
+.border-brand { border-color: var(--brand-primary) !important; }
+
+.text-brand-hover { color: var(--brand-primary-hover-calc) !important; }
+.bg-brand-hover { background-color: var(--brand-primary-hover-calc) !important; }
+
+.text-brand-active { color: var(--brand-primary-active-calc) !important; }
+.bg-brand-active { background-color: var(--brand-primary-active-calc) !important; }
+
+.text-brand-subtle { color: var(--brand-primary) !important; opacity: 0.9 !important; }
+.bg-brand-subtle { background-color: var(--brand-primary-subtle-calc) !important; }
+.border-brand-subtle { border-color: var(--brand-primary-border-calc) !important; }
+
+/* --- Brand-aware surface variants (replaces hardcoded slate/emerald surfaces) --- */
+.surface-card { background-color: var(--surface-card) !important; }
+.surface-muted { background-color: var(--surface-muted) !important; }
+.surface-hover { background-color: var(--surface-hover) !important; }
+.surface-inverse { background-color: var(--surface-inverse) !important; }
+
+.border-default { border-color: var(--border-default) !important; }
+.border-input { border-color: var(--border-input) !important; }
+.border-divider { border-color: var(--divider) !important; }
+
+/* --- Text semantics (replaces hardcoded slate text colors) --- */
+.text-heading { color: var(--text-heading) !important; }
+.text-body { color: var(--text-body) !important; }
+.text-muted { color: var(--text-muted) !important; }
+.text-placeholder { color: var(--text-placeholder) !important; }
+.text-disabled { color: var(--text-disabled) !important; }
+.text-inverse { color: var(--text-inverse) !important; }
+
+/* --- Semantic action colors (brand-aware, not hardcoded emerald/rose/amber) --- */
+.text-success { color: var(--accent-success) !important; }
+.bg-success-subtle { background-color: var(--accent-success-subtle) !important; }
+.border-success { border-color: var(--accent-success) !important; }
+
+.text-warning { color: var(--accent-warning) !important; }
+.bg-warning-subtle { background-color: var(--accent-warning-subtle) !important; }
+.border-warning { border-color: var(--accent-warning) !important; }
+
+.text-danger { color: var(--accent-danger) !important; }
+.bg-danger-subtle { background-color: var(--accent-danger-subtle) !important; }
+.border-danger { border-color: var(--accent-danger) !important; }
+
+.text-info { color: var(--accent-info) !important; }
+.bg-info-subtle { background-color: var(--accent-info-subtle) !important; }
+.border-info { border-color: var(--accent-info) !important; }
+
+/* --- Focus ring (brand-aware) --- */
+.ring-brand { box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary), transparent 75%) !important; }
+.focus-brand:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary), transparent 75%) !important; border-color: var(--brand-primary) !important; }
+
+/* --- Dark-mode surface overrides via data attribute --- */
+html.dark .dark-only-surface {
+  background-color: var(--surface-card) !important;
+  border-color: var(--border-default) !important;
+}
+
+/* Ensure dark mode uses CSS variables for bg/text on any element with these classes */
+html.dark .dark-bg-surface { background-color: var(--surface-card) !important; color: var(--text-body) !important; }
+html.dark .dark-bg-muted { background-color: var(--surface-muted) !important; }
+html.dark .dark-border-default { border-color: var(--border-default) !important; }
+html.dark .dark-text-heading { color: var(--text-heading) !important; }
+html.dark .dark-text-body { color: var(--text-body) !important; }
+html.dark .dark-text-muted { color: var(--text-muted) !important; }
+
