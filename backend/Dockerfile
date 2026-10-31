@@ -3,7 +3,8 @@
 # Multi-stage Dockerfile for Hospitality Management System API
 # ASP.NET Core 8 | Clean Architecture | Render + Supabase PostgreSQL
 #
-# Build:  docker build -t hospitality-api -f backend/Dockerfile .
+# Build:  cd backend && docker build -t hospitality-api -f Dockerfile .
+#         Or on Render: Set Root Directory to "backend"
 # Run:    docker run -p 8080:8080 \
 #           -e ConnectionStrings__DefaultConnection="Host=...;Port=5432;Database=postgres;Username=...;Password=...;Ssl Mode=Require" \
 #           -e Jwt__Key="<your-jwt-key>" \
