@@ -3,39 +3,35 @@
 # Multi-stage Dockerfile for Hospitality Management System API
 # ASP.NET Core 8 | Clean Architecture | Render + Supabase PostgreSQL
 #
-# Build:  cd backend && docker build -t hospitality-api -f Dockerfile .
-#         Or on Render: Set Root Directory to "backend"
-# Run:    docker run -p 8080:8080 \
-#           -e ConnectionStrings__DefaultConnection="Host=...;Port=5432;Database=postgres;Username=...;Password=...;Ssl Mode=Require" \
-#           -e Jwt__Key="<your-jwt-key>" \
-#           -e Supabase__Url="https://<project>.supabase.co" \
-#           -e Supabase__Key="<supabase-key>" \
-#           hospitality-api
+# Build from repository root:
+#   docker build -t hospitality-api -f backend/Dockerfile .
 #
-# Render: PORT is injected automatically at runtime; the entrypoint reads it.
+# Render settings:
+#   Root Directory:  (leave EMPTY / BLANK)
+#   Dockerfile Path: backend/Dockerfile
+#   Docker Context:  . (or leave empty)
+#   Docker Command:  (leave EMPTY / BLANK)
 # ---------------------------------------------------------------------------
 
 # =========================================================================
 # Stage 1: Build (.NET 8 SDK)
 # =========================================================================
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
+WORKDIR /build
 
 # Copy API project and its project-reference dependencies first to maximize
-# Docker layer caching. Test projects are intentionally excluded: they are not
-# required for production deployment and are filtered out by .dockerignore.
-COPY src/Hospitality.Api/Hospitality.Api.csproj src/Hospitality.Api/
-COPY src/Hospitality.Application/Hospitality.Application.csproj src/Hospitality.Application/
-COPY src/Hospitality.Domain/Hospitality.Domain.csproj src/Hospitality.Domain/
-COPY src/Hospitality.Infrastructure/Hospitality.Infrastructure.csproj src/Hospitality.Infrastructure/
-COPY src/Hospitality.Persistence/Hospitality.Persistence.csproj src/Hospitality.Persistence/
+# Docker layer caching.
+COPY backend/src/Hospitality.Api/Hospitality.Api.csproj src/Hospitality.Api/
+COPY backend/src/Hospitality.Application/Hospitality.Application.csproj src/Hospitality.Application/
+COPY backend/src/Hospitality.Domain/Hospitality.Domain.csproj src/Hospitality.Domain/
+COPY backend/src/Hospitality.Infrastructure/Hospitality.Infrastructure.csproj src/Hospitality.Infrastructure/
+COPY backend/src/Hospitality.Persistence/Hospitality.Persistence.csproj src/Hospitality.Persistence/
 
-# Restore only the API project and its dependency graph. Test projects are not
-# part of this restore, so their absence from the build context is not an error.
+# Restore only the API project and its dependency graph.
 RUN dotnet restore src/Hospitality.Api/Hospitality.Api.csproj
 
-# Copy the remaining source code (Clean Architecture structure unchanged).
-COPY src/ ./src/
+# Copy the backend source code.
+COPY backend/src/ ./src/
 
 # Build and publish only the API project and its required dependencies.
 RUN dotnet publish src/Hospitality.Api/Hospitality.Api.csproj \
@@ -57,10 +53,12 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV PORT=8080
 
 # Supabase PostgreSQL connection string must be supplied at runtime via
-# environment variables. Never hardcode database passwords or JWT secrets.
-#   ConnectionStrings__DefaultConnection  -> "ConnectionStrings:DefaultConnection"
-#   Jwt__Key                              -> "Jwt:Key"
-#   Supabase__Url / Supabase__Key         -> "Supabase:Url" / "Supabase:Key"
+# environment variables in the Render dashboard:
+#   ConnectionStrings__DefaultConnection
+#   Jwt__Key
+#   Supabase__Url
+#   Supabase__Key
+#   CORS__AllowedOrigins
 ENV ConnectionStrings__DefaultConnection=""
 
 # Copy the published output from the build stage.
