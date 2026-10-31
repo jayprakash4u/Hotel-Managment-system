@@ -63,7 +63,13 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+        var allowedOrigins = new List<string> { "http://localhost:3000", "http://127.0.0.1:3000" };
+        var envOrigins = builder.Configuration["CORS__AllowedOrigins"];
+        if (!string.IsNullOrEmpty(envOrigins))
+        {
+            allowedOrigins.AddRange(envOrigins.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+        policy.WithOrigins(allowedOrigins.ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();

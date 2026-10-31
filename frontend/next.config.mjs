@@ -9,6 +9,20 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/platform/:path*',
+        destination: '/',
+        permanent: false,
+      },
+      {
+        source: '/portal/:path*',
+        destination: '/',
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
     return [
