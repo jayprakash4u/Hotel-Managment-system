@@ -2,6 +2,36 @@
 
 A monorepo containing a Next.js frontend and .NET 8 backend for a hospitality management system.
 
+## Current checkout and quick start
+
+The frontend can run independently. The .NET backend currently contains project
+definitions only (no C# implementation or startup entry point), so backend run and
+database migration commands below are intended for the planned backend.
+
+From the repository root:
+
+```powershell
+npm ci
+Copy-Item frontend/.env.example frontend/.env.local
+# Replace SESSION_SECRET in frontend/.env.local with the output of:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+npm run dev
+```
+
+Keep an existing `.env.local` rather than overwriting it. Open http://localhost:3000.
+If startup says `'next' is not recognized`, dependencies have not been installed;
+run `npm ci` from the repository root first.
+
+`SESSION_SECRET` is required by the session helpers. The current dashboard does
+not import those helpers. Legacy Prisma code also requires a SQL Server
+`DATABASE_URL` when used; the current dashboard does not require a database to
+render. Keep real secrets in the ignored `frontend/.env.local` file.
+
+The current API clients use relative `/api/...` paths and do not read the
+`NEXT_PUBLIC_API_*` settings below. Only the reservation-validation API route is
+implemented in this checkout. Missing API functionality cannot be repaired by
+changing environment variables alone.
+
 ## Project Structure
 
 ```
@@ -77,7 +107,7 @@ cd backend && dotnet restore   # Backend dependencies
 ### Development
 
 ```bash
-# Run both frontend and backend
+# Run the frontend
 npm run dev
 
 # Or separately:

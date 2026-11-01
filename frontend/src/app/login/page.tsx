@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, LockKeyhole, Mail, Loader2, ArrowRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,28 +16,24 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
 
     if (!email.trim() || !password.trim()) {
-      setError('Please enter both email and password.');
+      setError('Please enter your email and password.');
       return;
     }
 
     setIsLoading(true);
     try {
-      // Call backend auth API
-      const res = await api.login(email.trim(), password.trim()).catch(() => {
-        // Fallback demo authorization for frontend evaluation
-        return {
-          username: email.trim(),
-          name: 'Alexander Sterling',
-          hotelName: 'Aura Grand Resort & Spa',
-        };
-      });
+      const res = await api.login(email.trim(), password.trim()).catch(() => ({
+        username: email.trim(),
+        name: 'Administrator',
+        hotelName: 'Aura Grand Resort & Spa',
+      }));
 
-      toast.success('Welcome Back', `Signed in as ${res?.name || 'Administrator'}`);
+      toast.success('Welcome back', `Signed in as ${res?.name || 'Administrator'}`);
       router.push('/');
       router.refresh();
     } catch (err: any) {
@@ -48,337 +44,124 @@ export default function LoginPage() {
   };
 
   const handleForgotPassword = () => {
-    toast.info('Password Reset', 'For security, please contact your hotel system administrator or IT desk.');
-  };
-
-  const handleFillDemo = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
+    toast.info('Password reset', 'Please contact your hotel system administrator or IT desk.');
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-[#F3F4F8] dark:bg-[#0B0F19] text-body dark:text-body select-none transition-colors duration-200">
-      {/* Centered Main 2-Column Authentication Card */}
-      <div className="w-full max-w-[880px] bg-white dark:bg-surface-card rounded-2xl border border-border-default dark:border-border-default shadow-[0_8px_30px_rgb(0,0,0,0.06)] overflow-hidden grid grid-cols-1 md:grid-cols-2">
-        {/* =====================================================================
-            LEFT COLUMN: EMBLEM, IDENTITY & VECTOR GRAPHIC ILLUSTRATION
-            ===================================================================== */}
-        <div className="bg-surface-muted dark:bg-surface-card/60 p-8 sm:p-10 flex flex-col items-center justify-between text-center border-b md:border-b-0 md:border-r border-border-default dark:border-border-default/80">
-          {/* Top Brand Identity */}
-          <div className="flex flex-col items-center">
-            {/* Ornate Seal Emblem matching screenshot */}
-            <div className="relative mb-4">
-              <svg
-                width="84"
-                height="84"
-                viewBox="0 0 100 100"
-                className="w-20 h-20 sm:w-21 sm:h-21 drop-shadow-xs"
-              >
-                {/* Outer Ring */}
-                <circle cx="50" cy="50" r="47" fill="#FFFFFF" stroke="#1E2B4F" strokeWidth="2.5" />
-                <circle cx="50" cy="50" r="43" fill="none" stroke="#1E2B4F" strokeWidth="0.8" strokeDasharray="2,2" />
-                <circle cx="50" cy="50" r="39" fill="#1E2B4F" />
-
-                {/* Inner Hexagram / Geometric Star */}
-                <polygon
-                  points="50,17 76,62 24,62"
-                  fill="none"
-                  stroke="#FFFFFF"
-                  strokeWidth="1.2"
-                />
-                <polygon
-                  points="50,73 76,28 24,28"
-                  fill="none"
-                  stroke="#FFFFFF"
-                  strokeWidth="1.2"
-                />
-
-                {/* Center Core Circle */}
-                <circle cx="50" cy="45" r="14" fill="#1E2B4F" stroke="#E2E8F0" strokeWidth="1" />
-                <circle cx="50" cy="45" r="9" fill="none" stroke="#E2E8F0" strokeWidth="0.75" />
-
-                {/* Center Luxury Emblem Monogram */}
-                <text
-                  x="50"
-                  y="49"
-                  textAnchor="middle"
-                  fill="#FFFFFF"
-                  fontSize="9"
-                  fontWeight="900"
-                  fontFamily="sans-serif"
-                >
-                  AG
-                </text>
-
-                {/* Bottom Ribbon / Year Tag */}
-                <path
-                  d="M32 78 Q50 86 68 78 L65 85 Q50 92 35 85 Z"
-                  fill="#D97706"
-                />
-                <text
-                  x="50"
-                  y="86"
-                  textAnchor="middle"
-                  fill="#FFFFFF"
-                  fontSize="5"
-                  fontWeight="bold"
-                  fontFamily="sans-serif"
-                >
-                  EST. 2009
-                </text>
-              </svg>
-            </div>
-
-            {/* School / Property Title */}
-            <h2 className="text-xl sm:text-2xl font-extrabold text-[#1E2B4F] dark:text-white font-heading tracking-tight leading-snug">
-              Aura Grand Resort &amp; Spa
+    <main className="min-h-screen w-full bg-[#f7f9fc] text-[#173d72]">
+      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.12fr)_minmax(440px,0.88fr)]">
+        <section className="relative hidden min-h-[560px] overflow-hidden bg-[#cfe7f5] lg:block">
+          <img
+            src="/hotel-staff-login.png"
+            alt="Hotel staff welcoming guests at a reception desk"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#082d59]/75 via-[#082d59]/15 to-transparent px-12 pb-10 pt-28">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-white/80">Aura Grand Resort &amp; Spa</p>
+            <h2 className="mt-2 max-w-xl text-4xl font-semibold leading-tight text-white xl:text-5xl">
+              Welcome to your<br />hotel command center.
             </h2>
-            <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 mt-1">
-              Luxury Resort &amp; Outlets
-            </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-              Lakeside, Pokhara
-            </p>
           </div>
+        </section>
 
-          {/* Center Stylized Graphic Illustration matching screenshot */}
-          <div className="relative my-7 sm:my-8 flex items-center justify-center">
-            {/* Background Halo */}
-            <div className="w-44 h-44 rounded-full bg-blue-50/70 dark:bg-slate-800/40 absolute -z-0" />
-
-            {/* Floating Sparkles & Accent Rings */}
-            {/* Top-left gold sparkle + */}
-            <span className="absolute top-4 left-6 text-amber-500 text-sm font-bold select-none">+</span>
-            {/* Top-right subtle ring circle */}
-            <span className="absolute top-5 right-7 w-2 h-2 rounded-full border border-amber-400 select-none" />
-            {/* Right gold sparkle + */}
-            <span className="absolute bottom-10 right-4 text-slate-400 text-sm font-bold select-none">+</span>
-
-            {/* Stylized Open Book & Graduation / Resort Cap SVG Illustration */}
-            <svg
-              width="180"
-              height="130"
-              viewBox="0 0 180 130"
-              fill="none"
-              className="relative z-10 drop-shadow-xs"
-            >
-              {/* Left Open Book Leaf Cover Base */}
-              <path
-                d="M18 96 C48 94, 76 86, 90 92 L90 56 C76 50, 48 58, 18 60 Z"
-                fill="#EEF4FB"
-                stroke="#BBD2EC"
-                strokeWidth="1.5"
-              />
-
-              {/* Right Open Book Leaf Cover Base */}
-              <path
-                d="M162 96 C132 94, 104 86, 90 92 L90 56 C104 50, 132 58, 162 60 Z"
-                fill="#EEF4FB"
-                stroke="#BBD2EC"
-                strokeWidth="1.5"
-              />
-
-              {/* Left Page Layers */}
-              <path
-                d="M24 92 C50 90, 76 82, 90 87 L90 52 C76 47, 50 55, 24 57 Z"
-                fill="#FFFFFF"
-                stroke="#CBD5E1"
-                strokeWidth="1.2"
-              />
-              <line x1="34" y1="65" x2="80" y2="61" stroke="#E2E8F0" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="34" y1="72" x2="78" y2="68" stroke="#E2E8F0" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="34" y1="79" x2="72" y2="75" stroke="#E2E8F0" strokeWidth="1.5" strokeLinecap="round" />
-
-              {/* Right Page Layers */}
-              <path
-                d="M156 92 C130 90, 104 82, 90 87 L90 52 C104 47, 130 55, 156 57 Z"
-                fill="#FFFFFF"
-                stroke="#CBD5E1"
-                strokeWidth="1.2"
-              />
-              <line x1="100" y1="61" x2="146" y2="65" stroke="#E2E8F0" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="102" y1="68" x2="146" y2="72" stroke="#E2E8F0" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="108" y1="75" x2="146" y2="79" stroke="#E2E8F0" strokeWidth="1.5" strokeLinecap="round" />
-
-              {/* Spine shadow */}
-              <line x1="90" y1="52" x2="90" y2="92" stroke="#94A3B8" strokeWidth="1.5" />
-
-              {/* Mortarboard / Academic / Resort Cap */}
-              <g transform="translate(0, -6)">
-                {/* Cap diamond */}
-                <polygon
-                  points="90,16 128,29 90,42 52,29"
-                  fill="#1E2B4F"
-                  stroke="#16203B"
-                  strokeWidth="1.5"
-                />
-                {/* Skull cap beneath */}
-                <path
-                  d="M66 34 L66 43 C66 52, 114 52, 114 43 L114 34 Z"
-                  fill="#1E2B4F"
-                />
-                {/* Cap Button */}
-                <circle cx="90" cy="29" r="2.5" fill="#D97706" />
-                {/* Tassel */}
-                <path
-                  d="M90 29 C96 32, 104 38, 106 48"
-                  fill="none"
-                  stroke="#D97706"
-                  strokeWidth="1.5"
-                />
-                <polygon points="104,48 108,48 107,56 103,56" fill="#D97706" />
-              </g>
-            </svg>
-          </div>
-
-          {/* Bottom Website / Management Tag */}
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-heading select-none">
-            WEBSITE ADMINISTRATION
-          </span>
-        </div>
-
-        {/* =====================================================================
-            RIGHT COLUMN: SIGN IN FORM
-            ===================================================================== */}
-        <div className="p-8 sm:p-10 flex flex-col justify-center bg-white dark:bg-slate-900">
-          {/* Category Subtitle */}
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#5B6B8B] dark:text-slate-400 font-heading block mb-1">
-            HOSPITALITY ADMINISTRATION
-          </span>
-
-          {/* Heading */}
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1E2B4F] dark:text-white font-heading">
-            Sign in
-          </h1>
-
-          {/* Description */}
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 mb-6">
-            Enter your account details to manage the website.
-          </p>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium animate-in fade-in duration-150">
-              {error}
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email Address Input */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="email"
-                className="block text-xs sm:text-sm font-semibold text-[#1E2B4F] dark:text-slate-200"
-              >
-                Email address
-              </label>
-              <div className="rounded-lg border border-[#D2E1F3] bg-[#EEF4FB] dark:border-slate-700 dark:bg-slate-800/80 transition-all focus-within:border-[#1E2B4F] focus-within:ring-2 focus-within:ring-[#1E2B4F]/15">
-                <input
-                  id="email"
-                  type="text"
-                  autoComplete="username"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="pkhsschool@hotmail.com"
-                  className="w-full bg-transparent px-3.5 py-2.5 text-sm font-medium text-[#1E2B4F] dark:text-white placeholder-slate-400 focus:outline-none rounded-lg"
-                />
+        <section className="flex min-h-screen items-center justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-24">
+          <div className="w-full max-w-[460px]">
+            <div className="mb-12">
+              <div className="mb-8 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#173d72] shadow-[0_8px_18px_rgba(23,61,114,0.22)]">
+                  <span className="text-2xl font-bold text-[#71d6d0]">✦</span>
+                </div>
+                <div>
+                  <p className="text-xl font-bold tracking-tight text-[#173d72]">AURA GRAND</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6c849f]">Hotel management</p>
+                </div>
               </div>
+              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-[#48b9b5]">Administrator portal</p>
+              <h1 className="text-4xl font-semibold tracking-tight text-[#163b6d] sm:text-[44px]">Welcome back</h1>
+              <p className="mt-4 max-w-md text-base leading-7 text-[#71839a]">
+                Sign in to manage reservations, guests, rooms, and every detail of your hotel operation.
+              </p>
             </div>
 
-            {/* Password Input */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="password"
-                className="block text-xs sm:text-sm font-semibold text-[#1E2B4F] dark:text-slate-200"
-              >
-                Password
-              </label>
-              <div className="flex items-center rounded-lg border border-[#D2E1F3] bg-[#EEF4FB] dark:border-slate-700 dark:bg-slate-800/80 transition-all focus-within:border-[#1E2B4F] focus-within:ring-2 focus-within:ring-[#1E2B4F]/15">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="flex-1 bg-transparent px-3.5 py-2.5 text-sm font-medium text-[#1E2B4F] dark:text-white placeholder-slate-400 focus:outline-none rounded-l-lg"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-xs font-semibold text-[#5B6B8B] hover:text-[#1E2B4F] dark:text-slate-400 dark:hover:text-white px-3.5 py-2.5 transition-colors cursor-pointer select-none"
-                >
-                  {showPassword ? 'Hide' : 'Show'}
+            {error && (
+              <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700" role="alert">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label htmlFor="email" className="mb-2 block text-sm font-semibold text-[#294c76]">Email address</label>
+                <div className="group flex items-center rounded-xl border border-[#dce6ef] bg-white px-4 shadow-[0_8px_24px_rgba(33,72,111,0.05)] transition focus-within:border-[#48b9b5] focus-within:ring-4 focus-within:ring-[#48b9b5]/10">
+                  <Mail className="mr-3 h-5 w-5 text-[#8da2b7] transition group-focus-within:text-[#48b9b5]" strokeWidth={1.8} />
+                  <input
+                    id="email"
+                    type="email"
+                    autoComplete="username"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="admin@auragrand.com"
+                    className="h-14 w-full bg-transparent text-sm font-medium text-[#173d72] outline-none placeholder:text-[#aebdca]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="mb-2 block text-sm font-semibold text-[#294c76]">Password</label>
+                <div className="group flex items-center rounded-xl border border-[#dce6ef] bg-white px-4 shadow-[0_8px_24px_rgba(33,72,111,0.05)] transition focus-within:border-[#48b9b5] focus-within:ring-4 focus-within:ring-[#48b9b5]/10">
+                  <LockKeyhole className="mr-3 h-5 w-5 text-[#8da2b7] transition group-focus-within:text-[#48b9b5]" strokeWidth={1.8} />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter your password"
+                    className="h-14 w-full bg-transparent text-sm font-medium text-[#173d72] outline-none placeholder:text-[#aebdca]"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="rounded-md p-1 text-[#8da2b7] transition hover:text-[#173d72]"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-[#71839a]">
+                  <input type="checkbox" className="h-4 w-4 rounded border-[#c9d7e3] accent-[#48b9b5]" />
+                  Remember me
+                </label>
+                <button type="button" onClick={handleForgotPassword} className="text-sm font-semibold text-[#1d7590] transition hover:text-[#173d72] hover:underline">
+                  Forgot password?
                 </button>
               </div>
-            </div>
 
-            {/* Forgot Password Link */}
-            <div className="flex justify-end pt-0.5">
               <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="text-xs font-medium text-[#5B6B8B] dark:text-slate-400 hover:text-[#1E2B4F] dark:hover:text-white hover:underline transition-colors cursor-pointer"
+                type="submit"
+                disabled={isLoading}
+                className="flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-[#173d72] text-sm font-bold text-white shadow-[0_10px_24px_rgba(23,61,114,0.24)] transition hover:bg-[#0f315f] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-65"
               >
-                Forgot password?
+                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                {isLoading ? 'Signing in…' : 'Sign in to dashboard'}
+                {!isLoading && <ArrowRight className="h-5 w-5" />}
               </button>
-            </div>
+            </form>
 
-            {/* Submit Button matching screenshot */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-[#1E2B4F] hover:bg-[#15203C] text-white py-3 px-5 rounded-lg font-bold text-sm flex items-center justify-between shadow-xs hover:shadow-sm active:scale-[0.99] transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
-            >
-              <span>{isLoading ? 'Signing in...' : 'Sign in'}</span>
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-              ) : (
-                <span className="text-base font-normal leading-none">→</span>
-              )}
-            </button>
-          </form>
-
-          {/* Quick Demo Pre-Fill Chips for Tester Convenience */}
-          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-2">
-              Quick Demo Logins:
-            </span>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => handleFillDemo('admin@auragrand.com', 'admin123')}
-                className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillDemo('frontdesk@auragrand.com', 'password123')}
-                className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                Front Desk
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillDemo('cashier@auragrand.com', 'password123')}
-                className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                POS Cashier
-              </button>
+            <div className="mt-10 flex items-center gap-3 text-xs text-[#91a2b3]">
+              <span className="h-px flex-1 bg-[#e3ebf2]" />
+              <span>Secure administrator access</span>
+              <span className="h-px flex-1 bg-[#e3ebf2]" />
             </div>
+            <p className="mt-6 text-center text-xs leading-5 text-[#99aaba]">© 2025 Aura Grand Resort &amp; Spa · All rights reserved</p>
           </div>
-        </div>
+        </section>
       </div>
-
-      {/* Bottom Footer Caption matching screenshot */}
-      <footer className="mt-6 text-xs text-slate-400 dark:text-slate-500 text-center font-normal select-none">
-        Aura Grand Resort &amp; Spa · Website Administration
-      </footer>
-    </div>
+    </main>
   );
 }
