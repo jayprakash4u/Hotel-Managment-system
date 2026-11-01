@@ -224,7 +224,17 @@ public class RestaurantController : ControllerBase
         List<RestaurantOrderItemDto>? Items
     );
 
-    public record RestaurantOrderItemDto(string? ProductId, string? ProductName, double UnitPrice, int Quantity, string? Notes);
+    public record RestaurantOrderItemDto(
+        string? ProductId,
+        string? ProductName,
+        double UnitPrice,
+        int Quantity,
+        string? Notes,
+        string? Department = "KOT",
+        int? DispatchedQuantity = 0,
+        string? KotNumber = null,
+        string? BotNumber = null
+    );
 
     [HttpPost("api/restaurant/orders")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateRestaurantOrderRequest req)
@@ -341,7 +351,11 @@ public class RestaurantController : ControllerBase
                             UnitPrice = item.UnitPrice,
                             Quantity = item.Quantity,
                             Total = item.UnitPrice * item.Quantity,
-                            Notes = item.Notes
+                            Notes = item.Notes,
+                            Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                            DispatchedQuantity = item.DispatchedQuantity ?? 0,
+                            KotNumber = item.KotNumber,
+                            BotNumber = item.BotNumber
                         });
                     }
 
@@ -427,7 +441,11 @@ public class RestaurantController : ControllerBase
                     UnitPrice = item.UnitPrice,
                     Quantity = item.Quantity,
                     Total = item.UnitPrice * item.Quantity,
-                    Notes = item.Notes
+                    Notes = item.Notes,
+                    Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                    DispatchedQuantity = item.DispatchedQuantity ?? 0,
+                    KotNumber = item.KotNumber,
+                    BotNumber = item.BotNumber
                 });
             }
 
@@ -563,7 +581,11 @@ public class RestaurantController : ControllerBase
                     UnitPrice = item.UnitPrice,
                     Quantity = item.Quantity,
                     Total = item.UnitPrice * item.Quantity,
-                    Notes = item.Notes
+                    Notes = item.Notes,
+                    Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                    DispatchedQuantity = item.DispatchedQuantity ?? 0,
+                    KotNumber = item.KotNumber,
+                    BotNumber = item.BotNumber
                 });
             }
 
@@ -642,7 +664,11 @@ public class RestaurantController : ControllerBase
                         UnitPrice = item.UnitPrice,
                         Quantity = item.Quantity,
                         Total = item.UnitPrice * item.Quantity,
-                        Notes = item.Notes
+                        Notes = item.Notes,
+                        Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                        DispatchedQuantity = item.DispatchedQuantity ?? 0,
+                        KotNumber = item.KotNumber,
+                        BotNumber = item.BotNumber
                     });
                 }
             }
@@ -666,6 +692,130 @@ public class RestaurantController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(ApiResponse.Ok(order, "Order items updated successfully."));
+    }
+
+    [HttpPost("api/restaurant/orders/{id}/dispatch-kot")]
+    public async Task<IActionResult> DispatchKot(string id)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+        }
+
+        // Only select items whose department is KOT (or empty default) and has pending quantity to dispatch
+        var pendingItems = order.Items
+            .Where(i => (string.IsNullOrWhiteSpace(i.Department) || i.Department == "KOT") && i.Quantity > i.DispatchedQuantity)
+            .ToList();
+
+        if (pendingItems.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("No pending KOT items to dispatch. All kitchen items have already been printed."));
+        }
+
+        var countKot = await _db.RestaurantOrders.CountAsync();
+        var kotTicket = $"KOT-{201 + countKot}";
+
+        var dispatchedPayload = pendingItems.Select(i => new
+        {
+            ItemId = i.Id,
+            ProductName = i.ProductName,
+            DeltaQuantity = i.Quantity - i.DispatchedQuantity,
+            TotalQuantity = i.Quantity,
+            Notes = i.Notes,
+            Department = "KOT"
+        }).ToList();
+
+        foreach (var item in pendingItems)
+        {
+            item.DispatchedQuantity = item.Quantity;
+            item.KotNumber = kotTicket;
+        }
+
+        order.KotNumber = string.IsNullOrWhiteSpace(order.KotNumber)
+            ? kotTicket
+            : $"{order.KotNumber}, {kotTicket}";
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(new
+        {
+            TicketNumber = kotTicket,
+            Department = "KOT",
+            OrderId = order.Id,
+            OrderNumber = order.OrderNumber,
+            TableNumber = order.Table?.TableNumber ?? "No Table",
+            ServerName = order.ServerName,
+            DispatchedAt = DateTime.UtcNow,
+            Items = dispatchedPayload
+        }, $"Dispatched {dispatchedPayload.Count} items to Kitchen ({kotTicket})."));
+    }
+
+    [HttpPost("api/restaurant/orders/{id}/dispatch-bot")]
+    public async Task<IActionResult> DispatchBot(string id)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .FirstOrDefaultAsync(o => o.Id == id || o.OrderNumber == id);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+        }
+
+        // Only select items whose department is BOT and has pending quantity to dispatch
+        var pendingItems = order.Items
+            .Where(i => i.Department == "BOT" && i.Quantity > i.DispatchedQuantity)
+            .ToList();
+
+        if (pendingItems.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("No pending BOT items to dispatch. All beverage/bar items have already been printed."));
+        }
+
+        var countBot = await _db.RestaurantOrderItems.Where(i => !string.IsNullOrEmpty(i.BotNumber)).CountAsync();
+        var botTicket = $"BOT-{101 + countBot}";
+
+        var dispatchedPayload = pendingItems.Select(i => new
+        {
+            ItemId = i.Id,
+            ProductName = i.ProductName,
+            DeltaQuantity = i.Quantity - i.DispatchedQuantity,
+            TotalQuantity = i.Quantity,
+            Notes = i.Notes,
+            Department = "BOT"
+        }).ToList();
+
+        foreach (var item in pendingItems)
+        {
+            item.DispatchedQuantity = item.Quantity;
+            item.BotNumber = botTicket;
+        }
+
+        order.BotNumber = string.IsNullOrWhiteSpace(order.BotNumber)
+            ? botTicket
+            : $"{order.BotNumber}, {botTicket}";
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(new
+        {
+            TicketNumber = botTicket,
+            Department = "BOT",
+            OrderId = order.Id,
+            OrderNumber = order.OrderNumber,
+            TableNumber = order.Table?.TableNumber ?? "No Table",
+            ServerName = order.ServerName,
+            DispatchedAt = DateTime.UtcNow,
+            Items = dispatchedPayload
+        }, $"Dispatched {dispatchedPayload.Count} items to Bar ({botTicket})."));
     }
 
     [HttpDelete("api/restaurant/orders/{orderId}/items/{itemId}")]
@@ -2534,7 +2684,9 @@ public class RestaurantController : ControllerBase
         string? ProductName,
         double UnitPrice,
         int Quantity,
-        string? Notes
+        string? Notes,
+        string? Department = "KOT",
+        string? Unit = null
     );
 
     public record QuickSaleRequest(
@@ -2727,7 +2879,10 @@ public class RestaurantController : ControllerBase
                     UnitPrice = item.UnitPrice,
                     Quantity = item.Quantity,
                     Total = Math.Round(item.UnitPrice * item.Quantity, 2),
-                    Notes = item.Notes
+                    Notes = item.Notes,
+                    Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                    DispatchedQuantity = sendToKitchen ? item.Quantity : 0,
+                    KotNumber = sendToKitchen && item.Department != "BOT" ? kotNumber : null
                 });
             }
 

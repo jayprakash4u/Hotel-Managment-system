@@ -125,6 +125,13 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""trackStock"" boolean DEFAULT false;
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""isAvailable"" boolean DEFAULT true;
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""inventoryItemId"" text;
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""variantsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""dispatchedQuantity"" integer DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""kotNumber"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""reservationId"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountAmount"" double precision DEFAULT 0;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountPercent"" double precision DEFAULT 0;

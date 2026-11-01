@@ -14,6 +14,7 @@ export interface MenuItemCatalogEntry {
   trackStock?: boolean;
   stock?: number;
   isAvailable?: boolean;
+  department?: 'KOT' | 'BOT';
 }
 
 // Setted Available Units by group for instant multi-unit ordering
@@ -58,7 +59,7 @@ const FRIES_UNITS = [
 ];
 
 // Full Setted Menu Catalog (Synchronized with Our Menu and Hotel Master Setup)
-export const DEFAULT_MENU_CATALOG: MenuItemCatalogEntry[] = [
+const RAW_MENU_CATALOG: MenuItemCatalogEntry[] = [
   // 1. Fast Food & Momos
   {
     id: 'mi-momo-c-full',
@@ -235,6 +236,17 @@ export const DEFAULT_MENU_CATALOG: MenuItemCatalogEntry[] = [
     unit: 'Half',
     availableUnits: FRIES_UNITS,
     price: 90,
+  },
+  {
+    id: 'mi-bgr-01',
+    code: 'BGR-01',
+    name: 'Classic Chicken Burger',
+    baseName: 'Classic Chicken Burger',
+    category: 'Fast Food & Momos',
+    portion: 'Regular',
+    unit: 'Regular',
+    availableUnits: [{ unit: 'Regular', price: 250 }],
+    price: 250,
   },
 
   // 2. Main Course & Curries
@@ -585,6 +597,22 @@ export const DEFAULT_MENU_CATALOG: MenuItemCatalogEntry[] = [
 
   // 4. Cold Drinks & Mocktails
   {
+    id: 'mi-bev-spr-var',
+    code: 'BEV-SPR',
+    name: 'Sprite',
+    baseName: 'Sprite',
+    category: 'Cold Drinks & Mocktails',
+    portion: 'Multiple Sizes',
+    unit: 'Glass',
+    availableUnits: [
+      { unit: 'Glass', price: 150 },
+      { unit: 'Can', price: 100 },
+      { unit: '500ml Bottle', price: 180 },
+      { unit: '1.5L Bottle', price: 320 },
+    ],
+    price: 150,
+  },
+  {
     id: 'mi-mok-moj-gls',
     code: 'MOK-MOJ',
     name: 'Virgin Mint Mojito (Glass)',
@@ -864,6 +892,107 @@ export const DEFAULT_MENU_CATALOG: MenuItemCatalogEntry[] = [
   },
 ];
 
+/**
+ * Consolidates menu items so that variant-specific items (like "Chicken Steam Momo (Full)" and "Chicken Steam Momo (Half)",
+ * or "sprite (Bottle (750ml))" and "sprite") are merged into a single clean base item.
+ * The resulting item contains all variants in availableUnits for table-row size selection.
+ */
+export function consolidateMenuCatalog(catalog: MenuItemCatalogEntry[]): MenuItemCatalogEntry[] {
+  const map = new Map<string, MenuItemCatalogEntry>();
+
+  for (const item of catalog) {
+    if (!item || !item.name) continue;
+    const rawName = item.name.trim();
+
+    // Strip out all parenthetical portions to get clean canonical base name:
+    // e.g. "Chicken Steam Momo (Full)" -> "Chicken Steam Momo"
+    // e.g. "sprite (Bottle (750ml))" -> "Sprite"
+    // e.g. "Fresh Brewed Coffee (Large)" -> "Fresh Brewed Coffee"
+    let cleanBase = (
+      item.baseName ||
+      rawName
+        .replace(/\s*\([^)]*(?:\([^)]*\))*[^)]*\)$/g, '')
+        .replace(/\s*\([^)]*\)$/g, '')
+    ).trim();
+
+    // Standardize capitalization (e.g. "sprite" -> "Sprite")
+    if (cleanBase.length > 0) {
+      cleanBase = cleanBase.charAt(0).toUpperCase() + cleanBase.slice(1);
+    }
+
+    const key = cleanBase.toLowerCase();
+
+    // Extract unit & price from item
+    let extractedUnit = item.unit || '';
+    const parenMatch = rawName.match(/\((.+)\)$/);
+    if (!extractedUnit && parenMatch) {
+      extractedUnit = parenMatch[1].trim();
+    }
+    if (!extractedUnit) {
+      extractedUnit = item.portion || 'Regular';
+    }
+
+    const itemUnits: { unit: string; price: number }[] = [];
+    if (Array.isArray(item.availableUnits) && item.availableUnits.length > 0) {
+      itemUnits.push(...item.availableUnits);
+    } else if (item.price !== undefined) {
+      itemUnits.push({ unit: extractedUnit, price: item.price });
+    }
+
+    const itemDept: 'KOT' | 'BOT' =
+      item.department || (isBeverageCategory(item.category, cleanBase) ? 'BOT' : 'KOT');
+
+    if (!map.has(key)) {
+      const isMulti = itemUnits.length > 1;
+      map.set(key, {
+        ...item,
+        id: item.id,
+        code: item.code,
+        name: cleanBase,
+        baseName: cleanBase,
+        category: item.category,
+        department: itemDept,
+        availableUnits: itemUnits,
+        unit: isMulti ? '' : (itemUnits[0]?.unit || 'Regular'),
+        price: itemUnits[0]?.price || item.price,
+        portion: isMulti ? `${itemUnits.length} Sizes` : (item.portion || itemUnits[0]?.unit || '1'),
+      });
+    } else {
+      const existing = map.get(key)!;
+      // Merge unique units
+      const mergedUnits = [...(existing.availableUnits || [])];
+      for (const u of itemUnits) {
+        const found = mergedUnits.find((eu) => eu.unit.toLowerCase() === u.unit.toLowerCase());
+        if (!found) {
+          mergedUnits.push(u);
+        } else if (found.price === 0 && u.price > 0) {
+          found.price = u.price;
+        }
+      }
+      const isMulti = mergedUnits.length > 1;
+      map.set(key, {
+        ...existing,
+        name: cleanBase,
+        baseName: cleanBase,
+        department: existing.department || itemDept,
+        availableUnits: mergedUnits,
+        unit: isMulti ? '' : (mergedUnits[0]?.unit || 'Regular'),
+        price: (mergedUnits.length > 0 && Math.min(...mergedUnits.map((u) => u.price)) > 0)
+          ? Math.min(...mergedUnits.map((u) => u.price))
+          : existing.price,
+        portion: isMulti ? `${mergedUnits.length} Sizes` : existing.portion,
+        trackStock: existing.trackStock || item.trackStock,
+        stock: existing.stock !== undefined ? existing.stock : item.stock,
+      });
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+// Setted Menu Catalog (Clean, consolidated single-entry items with variant sizes)
+export const DEFAULT_MENU_CATALOG: MenuItemCatalogEntry[] = consolidateMenuCatalog(RAW_MENU_CATALOG);
+
 export const MENU_CATEGORIES = [
   'All',
   'Fast Food & Momos',
@@ -913,24 +1042,20 @@ export function getSettedMenuItems(): MenuItemCatalogEntry[] {
             price: Number(t.price) || 0,
           }));
 
-        item.quantityPrices.forEach((tier: any, idx: number) => {
-          if (tier.price !== undefined && tier.price !== null) {
-            customEntries.push({
-              id: `${item.id || itemCode}-${idx}`,
-              code: itemCode,
-              name: `${baseName} (${tier.quantityName || 'Standard'})`,
-              baseName,
-              category: categoryName,
-              portion: tier.quantityName,
-              unit: tier.quantityName || 'Standard',
-              availableUnits: itemTiers,
-              price: Number(tier.price) || 0,
-              description: item.description,
-              trackStock: Boolean(item.trackStock),
-              stock: item.stock !== undefined ? Number(item.stock) : undefined,
-              isAvailable: item.isAvailable ?? true,
-            });
-          }
+        customEntries.push({
+          id: item.id || `custom-${itemCode}`,
+          code: itemCode,
+          name: baseName,
+          baseName,
+          category: categoryName,
+          portion: itemTiers.length > 1 ? `${itemTiers.length} Sizes` : (itemTiers[0]?.unit || 'Standard'),
+          unit: itemTiers.length > 1 ? '' : (itemTiers[0]?.unit || 'Standard'),
+          availableUnits: itemTiers,
+          price: itemTiers[0]?.price || 0,
+          description: item.description,
+          trackStock: Boolean(item.trackStock),
+          stock: item.stock !== undefined ? Number(item.stock) : undefined,
+          isAvailable: item.isAvailable ?? true,
         });
       } else {
         customEntries.push({
@@ -950,8 +1075,41 @@ export function getSettedMenuItems(): MenuItemCatalogEntry[] {
       }
     });
 
+    // Also load any custom menu items from Menu page
+    try {
+      const storedCustom = localStorage.getItem('custom_menu_items');
+      if (storedCustom) {
+        const parsedCustom = JSON.parse(storedCustom);
+        if (Array.isArray(parsedCustom)) {
+          parsedCustom.forEach((cItem: any) => {
+            const baseName = cItem.name || 'Unnamed Dish';
+            const itemCode = cItem.code || 'ITEM';
+            const categoryName = cItem.category || 'General Menu';
+            const variants = Array.isArray(cItem.variants) && cItem.variants.length > 0
+              ? cItem.variants
+              : (cItem.prices ? Object.entries(cItem.prices).map(([unit, price]) => ({ unit, price: Number(price) || 0 })) : []);
+
+            if (variants.length > 0) {
+              customEntries.push({
+                id: cItem.id || `custom-${itemCode}`,
+                code: itemCode,
+                name: baseName,
+                baseName,
+                category: categoryName,
+                unit: variants.length === 1 ? variants[0].unit : '',
+                availableUnits: variants,
+                price: variants[0]?.price || 0,
+                trackStock: false,
+                isAvailable: true,
+              });
+            }
+          });
+        }
+      }
+    } catch {}
+
     if (customEntries.length === 0) {
-      return DEFAULT_MENU_CATALOG;
+      return consolidateMenuCatalog(DEFAULT_MENU_CATALOG);
     }
 
     // Merge: custom entries first, then any default entries whose code isn't overridden
@@ -960,9 +1118,9 @@ export function getSettedMenuItems(): MenuItemCatalogEntry[] {
       (d) => !customCodes.has(d.code.toLowerCase())
     );
 
-    return [...customEntries, ...remainingDefaults];
+    return consolidateMenuCatalog([...customEntries, ...remainingDefaults]);
   } catch {
-    return DEFAULT_MENU_CATALOG;
+    return consolidateMenuCatalog(DEFAULT_MENU_CATALOG);
   }
 }
 
@@ -976,24 +1134,38 @@ export function resolveItemUnitInfo(
     unit?: string;
     baseName?: string;
     availableUnits?: { unit: string; price: number }[];
+    department?: 'KOT' | 'BOT';
+    category?: string;
   },
   catalog?: MenuItemCatalogEntry[]
 ): {
   baseName: string;
   unit: string;
   availableUnits: { unit: string; price: number }[];
+  department?: 'KOT' | 'BOT';
 } {
   const menuList = catalog || getSettedMenuItems();
   const rawName = item.name.trim();
   const lowerName = rawName.toLowerCase();
-  const baseFromParenthesis = rawName.replace(/\s*\([^)]*\)$/, '').trim();
+  const baseFromParenthesis = rawName.replace(/\s*\([^)]*(?:\([^)]*\))*[^)]*\)$/g, '').replace(/\s*\([^)]*\)$/g, '').trim();
 
-  // If already has availableUnits with more than 1 option and unit, return them
-  if (item.availableUnits && item.availableUnits.length > 1 && item.unit) {
+  // If item already has availableUnits array populated, use it directly
+  if (item.availableUnits && item.availableUnits.length > 0) {
+    let currentUnit = item.unit || '';
+    if (!currentUnit && item.price > 0) {
+      const priceMatched = item.availableUnits.find((u) => Math.abs(u.price - item.price) < 0.01);
+      if (priceMatched) currentUnit = priceMatched.unit;
+    }
+    if (!currentUnit && item.availableUnits.length === 1) {
+      currentUnit = item.availableUnits[0].unit;
+    }
+    const cleanBase = item.baseName || baseFromParenthesis;
+    const dept: 'KOT' | 'BOT' = item.department || (isBeverageCategory(item.category, cleanBase) ? 'BOT' : 'KOT');
     return {
-      baseName: item.baseName || baseFromParenthesis,
-      unit: item.unit,
+      baseName: cleanBase,
+      unit: currentUnit,
       availableUnits: item.availableUnits,
+      department: dept,
     };
   }
 
@@ -1002,13 +1174,18 @@ export function resolveItemUnitInfo(
     (m) =>
       m.name.toLowerCase() === lowerName ||
       (m.baseName && m.baseName.toLowerCase() === baseFromParenthesis.toLowerCase()) ||
-      (m.baseName && m.baseName.toLowerCase() === lowerName)
+      (m.baseName && m.baseName.toLowerCase() === lowerName) ||
+      m.name.toLowerCase() === baseFromParenthesis.toLowerCase()
   );
 
   if (match && match.availableUnits && match.availableUnits.length > 0) {
     const cleanBase = match.baseName || baseFromParenthesis;
-    let currentUnit = item.unit || match.unit;
-    if (!currentUnit || !match.availableUnits.some((u) => u.unit === currentUnit)) {
+    let currentUnit = item.unit || '';
+    if (!currentUnit && item.price > 0) {
+      const priceMatched = match.availableUnits.find((u) => Math.abs(u.price - item.price) < 0.01);
+      if (priceMatched) currentUnit = priceMatched.unit;
+    }
+    if (!currentUnit) {
       if (lowerName.includes('half')) currentUnit = 'Half';
       else if (lowerName.includes('full')) currentUnit = 'Full';
       else if (lowerName.includes('small')) currentUnit = 'Small';
@@ -1016,13 +1193,25 @@ export function resolveItemUnitInfo(
       else if (lowerName.includes('large')) currentUnit = 'Large';
       else if (lowerName.includes('glass')) currentUnit = 'Glass';
       else if (lowerName.includes('pitcher')) currentUnit = 'Pitcher';
-      else currentUnit = match.availableUnits[0].unit;
+      else if (lowerName.includes('can')) currentUnit = 'Can';
+      else if (lowerName.includes('500ml')) currentUnit = '500ml Bottle';
+      else if (lowerName.includes('750ml')) currentUnit = 'Bottle (750ml)';
+      else if (match.availableUnits.length === 1) currentUnit = match.availableUnits[0].unit;
+      else if (item.price > 0) currentUnit = match.availableUnits[0].unit;
+    }
+    if (currentUnit && !match.availableUnits.some((u) => u.unit.toLowerCase() === currentUnit.toLowerCase())) {
+      const matchByName = match.availableUnits.find((u) => u.unit.toLowerCase() === currentUnit.toLowerCase());
+      if (matchByName) {
+        currentUnit = matchByName.unit;
+      }
     }
 
+    const dept: 'KOT' | 'BOT' = match.department || (isBeverageCategory(match.category || (item as any).category, cleanBase) ? 'BOT' : 'KOT');
     return {
       baseName: cleanBase,
       unit: currentUnit,
       availableUnits: match.availableUnits,
+      department: dept,
     };
   }
 
@@ -1034,27 +1223,66 @@ export function resolveItemUnitInfo(
 
   if (partial && partial.availableUnits && partial.availableUnits.length > 0) {
     const cleanBase = partial.baseName || baseFromParenthesis;
-    let currentUnit = item.unit;
+    let currentUnit = item.unit || '';
+    if (!currentUnit && item.price > 0) {
+      const priceMatched = partial.availableUnits.find((u) => Math.abs(u.price - item.price) < 0.01);
+      if (priceMatched) currentUnit = priceMatched.unit;
+    }
     if (!currentUnit) {
       if (lowerName.includes('half')) currentUnit = 'Half';
       else if (lowerName.includes('full')) currentUnit = 'Full';
-      else currentUnit = partial.unit || partial.availableUnits[0].unit;
+      else if (partial.availableUnits.length === 1) currentUnit = partial.availableUnits[0].unit;
+      else if (item.price > 0) currentUnit = partial.availableUnits[0].unit;
     }
 
+    const dept: 'KOT' | 'BOT' = partial.department || (isBeverageCategory(partial.category || (item as any).category, cleanBase) ? 'BOT' : 'KOT');
     return {
       baseName: cleanBase,
       unit: currentUnit,
       availableUnits: partial.availableUnits,
+      department: dept,
     };
   }
 
   // 3. Fallback for custom items without predefined tiers
   const fallbackUnit = item.unit || (lowerName.includes('half') ? 'Half' : 'Full');
+  const fallbackDept: 'KOT' | 'BOT' = (item as any).department || (isBeverageCategory((item as any).category, item.baseName || baseFromParenthesis) ? 'BOT' : 'KOT');
   return {
     baseName: item.baseName || baseFromParenthesis,
     unit: fallbackUnit,
     availableUnits: item.availableUnits && item.availableUnits.length > 0
       ? item.availableUnits
       : [{ unit: fallbackUnit, price: item.price }],
+    department: fallbackDept,
   };
+}
+
+/**
+ * Checks whether an item or category belongs to Bar/Beverage (BOT) or Kitchen (KOT).
+ */
+export function isBeverageCategory(category?: string, name?: string): boolean {
+  if (!category && !name) return false;
+  const c = (category || '').toLowerCase();
+  const n = (name || '').toLowerCase();
+  return (
+    c.includes('drink') ||
+    c.includes('mocktail') ||
+    c.includes('cocktail') ||
+    c.includes('beverage') ||
+    c.includes('bar') ||
+    c.includes('wine') ||
+    c.includes('beer') ||
+    c.includes('liquor') ||
+    c.includes('coffee') ||
+    c.includes('tea') ||
+    c.includes('juice') ||
+    c.includes('cold drink') ||
+    n.includes('sprite') ||
+    n.includes('coke') ||
+    n.includes('coca-cola') ||
+    n.includes('fanta') ||
+    n.includes('pepsi') ||
+    n.includes('mojito') ||
+    n.includes('lemonade')
+  );
 }

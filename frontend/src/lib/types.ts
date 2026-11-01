@@ -227,6 +227,11 @@ export interface MaintenanceTicketData {
   resolvedAt?: string | null;
 }
 
+export interface ProductVariant {
+  unit: string;
+  price: number;
+}
+
 export interface POSProductData {
   id: string;
   hotelId?: string;
@@ -240,6 +245,9 @@ export interface POSProductData {
   isAvailable?: boolean;
   isActive?: boolean;
   imageUrl?: string | null;
+  variants?: ProductVariant[];
+  variantsJson?: string | null;
+  department?: 'KOT' | 'BOT';
 }
 
 export interface InventoryItemData {
@@ -428,6 +436,10 @@ export interface RestaurantOrderItemData {
   quantity: number;
   total: number;
   notes?: string;
+  department?: 'KOT' | 'BOT';
+  dispatchedQuantity?: number;
+  kotNumber?: string;
+  botNumber?: string;
 }
 
 export interface ActiveRestaurantOrderData {
@@ -435,6 +447,7 @@ export interface ActiveRestaurantOrderData {
   hotelId?: string;
   orderNumber: string;
   kotNumber?: string;
+  botNumber?: string;
   outlet: string;
   tableId?: string | null;
   table?: { id: string; tableNumber: string; section?: string; capacity?: number };
@@ -443,7 +456,7 @@ export interface ActiveRestaurantOrderData {
   guestId?: string | null;
   guest?: { id: string; firstName: string; lastName: string; phone?: string };
   status: 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'BILLED' | 'COMPLETED' | 'CANCELLED';
-  orderType: 'DINE_IN' | 'NO_TABLE' | 'TAKEAWAY' | 'ROOM_SERVICE' | 'COUNTER_SALE';
+  orderType: 'DINE_IN' | 'NO_TABLE' | 'TAKEAWAY' | 'ROOM_SERVICE' | 'COUNTER_SALE' | 'ONLINE' | 'DELIVERY';
   serverName: string;
   subtotal: number;
   discountAmount: number;

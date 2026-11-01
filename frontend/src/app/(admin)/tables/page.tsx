@@ -22,6 +22,8 @@ import {
   RefreshCw,
   Bell,
   Printer,
+  Save,
+  Wine,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -46,6 +48,7 @@ import {
   DollarSign,
   Eye,
   MoreVertical,
+  Globe,
   ClipboardList,
   UserPlus,
   Sliders,
@@ -70,6 +73,8 @@ import {
   getSettedMenuItems,
   MenuItemCatalogEntry,
   resolveItemUnitInfo,
+  consolidateMenuCatalog,
+  isBeverageCategory,
 } from '@/lib/menuData';
 
 // 12-hour time formatter helper (e.g. 19:00 -> 7:00 PM, 15:00 -> 3:00 PM)
@@ -160,7 +165,7 @@ function TablesContent() {
 
   // New No Table Order Modal State (Requirement 2)
   const [isNoTableModalOpen, setIsNoTableModalOpen] = useState(false);
-  const [noTableOrderType, setNoTableOrderType] = useState<'NO_TABLE' | 'TAKEAWAY'>('NO_TABLE');
+  const [noTableOrderType, setNoTableOrderType] = useState<'NO_TABLE' | 'TAKEAWAY' | 'ONLINE'>('NO_TABLE');
   const [noTableSeatingNote, setNoTableSeatingNote] = useState('');
   const [noTableCustomerName, setNoTableCustomerName] = useState('');
   const [noTableCustomerPhone, setNoTableCustomerPhone] = useState('');
@@ -332,12 +337,20 @@ function TablesContent() {
     { id: string; search: string; isOpen: boolean; selectedIndex: number }[]
   >([]);
 
+  // Quick Add Variant Selection Modal (Requirement: For multi-size items like Sprite, pop up size choices)
+  const [variantModal, setVariantModal] = useState<{
+    isOpen: boolean;
+    menuItem: MenuItemCatalogEntry;
+    quantity: number;
+    draftId?: string;
+  } | null>(null);
+
   useEffect(() => {
     setDraftRows([]);
   }, [activeOrderTableId]);
 
   // Setted Menu items catalog (loaded dynamically from database and fallback to setted menu)
-  const [menuCatalog, setMenuCatalog] = useState<MenuItemCatalogEntry[]>(() => getSettedMenuItems());
+  const [menuCatalog, setMenuCatalog] = useState<MenuItemCatalogEntry[]>(() => consolidateMenuCatalog(getSettedMenuItems()));
 
   const loadMenuProducts = async () => {
     const localMenu = getSettedMenuItems();
@@ -365,13 +378,13 @@ function TablesContent() {
           }
         });
 
-        setMenuCatalog(merged);
+        setMenuCatalog(consolidateMenuCatalog(merged));
         return;
       }
     } catch (err) {
       console.warn('Could not load POS products from database, using setted menu', err);
     }
-    setMenuCatalog(localMenu);
+    setMenuCatalog(consolidateMenuCatalog(localMenu));
   };
 
   // Fetch setted menu items on mount and whenever Add Order page opens or active order changes
@@ -405,7 +418,8 @@ function TablesContent() {
 
   // Autocomplete suggestions filtered from setted menu as user searches or starts typing
   const suggestions = useMemo(() => {
-    const catalogList = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+    const rawCatalog = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+    const catalogList = consolidateMenuCatalog(rawCatalog);
     const q = orderProductName.toLowerCase().trim();
     if (!q) {
       return catalogList;
@@ -517,16 +531,35 @@ function TablesContent() {
             const activeOrder = activeOrdersList.find((o: any) => o.items && o.items.length > 0) || activeOrdersList[0] || null;
 
             const mappedOrders: OrderItem[] = activeOrdersList.flatMap((ord: any) =>
-              (ord.items || []).map((i: any) => ({
-                id: i.id || `item-${Date.now()}-${Math.random()}`,
-                productId: i.productId,
-                name: i.productName || i.name,
-                price: i.unitPrice ?? i.price ?? 0,
-                quantity: i.quantity || 1,
-                remarks: i.notes || '',
-                status: ord.status === 'COMPLETED' ? 'SERVED' : ord.kotNumber ? 'KITCHEN' : 'DRAFT',
-                kotNumber: ord.kotNumber,
-              }))
+              (ord.items || []).map((i: any) => {
+                const itemPrice = i.unitPrice ?? i.price ?? 0;
+                const unitMeta = resolveItemUnitInfo(
+                  { name: i.productName || i.name, price: itemPrice, unit: i.unit },
+                  menuCatalog
+                );
+                const isDispatched = !!(i.kotNumber || ord.kotNumber || i.botNumber || ord.botNumber);
+                const itemDispatchedQty = (i.dispatchedQuantity !== undefined && i.dispatchedQuantity !== null)
+                  ? Number(i.dispatchedQuantity)
+                  : (isDispatched ? Number(i.quantity || 1) : 0);
+                const itemDept: 'KOT' | 'BOT' = (i.department === 'BOT' || i.department === 'KOT')
+                  ? i.department
+                  : (unitMeta.department || (isBeverageCategory((i as any).category, i.productName || i.name) ? 'BOT' : 'KOT'));
+
+                return {
+                  id: i.id || `item-${Date.now()}-${Math.random()}`,
+                  productId: i.productId,
+                  name: i.productName || i.name,
+                  unit: i.unit || unitMeta.unit || undefined,
+                  price: itemPrice,
+                  quantity: i.quantity || 1,
+                  remarks: i.notes || '',
+                  status: ord.status === 'COMPLETED' ? 'SERVED' : isDispatched ? 'KITCHEN' : 'DRAFT',
+                  kotNumber: i.kotNumber || ord.kotNumber,
+                  botNumber: i.botNumber || ord.botNumber,
+                  department: itemDept,
+                  dispatchedQuantity: itemDispatchedQty,
+                };
+              })
             );
 
             // Filter reservations belonging to the active date, excluding cancelled/no-show
@@ -1644,36 +1677,80 @@ function TablesContent() {
   };
 
   // ---------------------------------------------------------------------------
-  // Send Order to Kitchen (Kitchen Workflow & Order Generation) - Req 4, 5, 11
+  // POS Order Management & Dispatch Workflow: Save, Print KOT, Print BOT, All in One
   // ---------------------------------------------------------------------------
-  const handleSendOrder = async () => {
+  const handleDispatchOrder = async (mode: 'SAVE' | 'KOT' | 'BOT' | 'ALL') => {
     if (!activeTable) return;
     const currentOrders = activeTable.orders || [];
     if (currentOrders.length === 0) {
-      toast.error('No Items in Order', 'Please add food or drinks before sending to the kitchen.');
+      toast.error('No Items in Order', 'Please add items before saving or printing.');
       return;
+    }
+
+    const unselectedItem = currentOrders.find((i) => i.availableUnits && i.availableUnits.length > 1 && !i.unit);
+    if (unselectedItem) {
+      toast.error('Select Size', `Please select a size for "${unselectedItem.name}".`);
+      return;
+    }
+
+    // Determine target items for dispatch/print
+    let targetItems: OrderItem[] = [];
+    if (mode === 'KOT') {
+      targetItems = currentOrders.filter(
+        (i) => (i.department === 'KOT' || !i.department) && (i.quantity > (i.dispatchedQuantity || 0))
+      );
+      if (targetItems.length === 0) {
+        targetItems = currentOrders.filter((i) => i.department === 'KOT' || !i.department);
+      }
+      if (targetItems.length === 0) {
+        toast.info('No Kitchen Items', 'There are no kitchen food items in this order.');
+        return;
+      }
+    } else if (mode === 'BOT') {
+      targetItems = currentOrders.filter(
+        (i) => i.department === 'BOT' && (i.quantity > (i.dispatchedQuantity || 0))
+      );
+      if (targetItems.length === 0) {
+        targetItems = currentOrders.filter((i) => i.department === 'BOT');
+      }
+      if (targetItems.length === 0) {
+        toast.info('No Bar Items', 'There are no bar or beverage items in this order.');
+        return;
+      }
+    } else if (mode === 'ALL') {
+      targetItems = currentOrders.filter((i) => i.quantity > (i.dispatchedQuantity || 0));
+      if (targetItems.length === 0) {
+        targetItems = currentOrders;
+      }
+      if (targetItems.length === 0) {
+        toast.info('No Items', 'There are no items in this order.');
+        return;
+      }
     }
 
     setIsSendingOrder(true);
     try {
-      const unsentItems = currentOrders.filter((item) => item.status !== 'KITCHEN');
-      const itemsToDispatch = unsentItems.length > 0 ? unsentItems : currentOrders;
-
       let resOrder: any = null;
-      if (activeTable.activeOrderId) {
-        // Append items to existing active order in backend (Req 5)
-        resOrder = await (api as any).addItemsToRestaurantOrder(activeTable.activeOrderId, {
-          items: itemsToDispatch.map((item) => ({
+      let orderId = activeTable.activeOrderId;
+      let orderNumber = activeTable.orderNumber;
+
+      // 1. Sync / Save active order to backend
+      if (orderId) {
+        resOrder = await (api as any).updateRestaurantOrderItems(orderId, {
+          items: currentOrders.map((item) => ({
             productId: item.productId,
             productName: item.name,
             unitPrice: item.price,
             quantity: item.quantity,
             notes: item.remarks,
+            department: item.department || (isBeverageCategory(item.category, item.name) ? 'BOT' : 'KOT'),
+            dispatchedQuantity: item.dispatchedQuantity || 0,
+            kotNumber: item.kotNumber,
+            botNumber: (item as any).botNumber,
           })),
           notes: activeTable.billRemarks,
         });
       } else {
-        // Create new restaurant order linked to table or no-table (Req 2 & 4)
         resOrder = await (api as any).createRestaurantOrder({
           outlet: 'RESTAURANT',
           tableId: activeTable.isNoTable ? undefined : activeTable.id,
@@ -1682,95 +1759,166 @@ function TablesContent() {
           notes: activeTable.notes || activeTable.seatingNote || (activeTable.currentGuest && activeTable.currentGuest !== 'Dine-In Guest' && activeTable.currentGuest !== 'Walk-in Customer'
             ? `Guest: ${activeTable.currentGuest}${activeTable.guestPhone ? ` (${activeTable.guestPhone})` : ''}` 
             : undefined),
-          items: itemsToDispatch.map((item) => ({
+          items: currentOrders.map((item) => ({
             productId: item.productId,
             productName: item.name,
             unitPrice: item.price,
             quantity: item.quantity,
             notes: item.remarks,
+            department: item.department || (isBeverageCategory(item.category, item.name) ? 'BOT' : 'KOT'),
+            dispatchedQuantity: 0,
           })),
         });
+        orderId = resOrder?.id || `ORD-${Date.now()}`;
+        orderNumber = resOrder?.orderNumber || `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
       }
 
-      const assignedKot = resOrder?.kotNumber || `KOT-${Math.floor(200 + Math.random() * 800)}`;
-      const assignedOrderId = resOrder?.id || activeTable.activeOrderId || `ORD-${Date.now()}`;
-      const assignedOrderNumber = resOrder?.orderNumber || activeTable.orderNumber || `ORD-${Date.now()}`;
+      if (mode === 'SAVE') {
+        toast.success('Order Saved', `Order ${orderNumber || ''} saved successfully.`);
+        fetchTables(selectedDate);
+        fetchActiveOrders();
+        return;
+      }
 
+      // 2. Dispatch Tickets via API
+      let generatedKot = activeTable.kotNumber;
+      let generatedBot = (activeTable as any).botNumber;
+
+      if (mode === 'KOT' || mode === 'ALL') {
+        try {
+          const kotRes = await (api as any).dispatchRestaurantOrderKot(orderId);
+          generatedKot = kotRes?.ticketNumber || kotRes?.kotNumber || `KOT-${Math.floor(200 + Math.random() * 800)}`;
+        } catch {
+          generatedKot = `KOT-${Math.floor(200 + Math.random() * 800)}`;
+        }
+      }
+
+      if (mode === 'BOT' || mode === 'ALL') {
+        try {
+          const botRes = await (api as any).dispatchRestaurantOrderBot(orderId);
+          generatedBot = botRes?.ticketNumber || botRes?.botNumber || `BOT-${Math.floor(100 + Math.random() * 900)}`;
+        } catch {
+          generatedBot = `BOT-${Math.floor(100 + Math.random() * 900)}`;
+        }
+      }
+
+      // 3. Update local orders with dispatched quantities
+      const updatedOrders = currentOrders.map((item) => {
+        const isTarget = targetItems.some((t) => t.id === item.id);
+        if (!isTarget) return item;
+
+        const isKotItem = (item.department === 'KOT' || !item.department);
+        const isBotItem = item.department === 'BOT';
+
+        if (mode === 'KOT' && isKotItem) {
+          return {
+            ...item,
+            dispatchedQuantity: item.quantity,
+            kotNumber: generatedKot,
+            status: 'KITCHEN' as const,
+          };
+        }
+        if (mode === 'BOT' && isBotItem) {
+          return {
+            ...item,
+            dispatchedQuantity: item.quantity,
+            botNumber: generatedBot,
+          };
+        }
+        if (mode === 'ALL') {
+          return {
+            ...item,
+            dispatchedQuantity: item.quantity,
+            kotNumber: isKotItem ? generatedKot : item.kotNumber,
+            botNumber: isBotItem ? generatedBot : (item as any).botNumber,
+            status: isKotItem ? ('KITCHEN' as const) : item.status,
+          };
+        }
+        return item;
+      });
+
+      // Update state
       if (activeTable.isNoTable) {
         setActiveCustomOrder((prev) =>
           prev
             ? {
                 ...prev,
-                activeOrderId: assignedOrderId,
-                orderNumber: assignedOrderNumber,
-                kotNumber: assignedKot,
-                orders: (prev.orders || []).map((i) => ({
-                  ...i,
-                  status: 'KITCHEN' as const,
-                  kotNumber: assignedKot,
-                })),
+                activeOrderId: orderId,
+                orderNumber,
+                kotNumber: generatedKot || prev.kotNumber,
+                botNumber: generatedBot || (prev as any).botNumber,
+                orders: updatedOrders,
               }
             : null
         );
       } else {
-        // Update local table items to KITCHEN status
         setTables((prev) =>
-          prev.map((t) => {
-            if (t.id !== activeTable.id) return t;
-            const updatedOrders = (t.orders || []).map((i) => ({
-              ...i,
-              status: 'KITCHEN' as const,
-              kotNumber: i.kotNumber || assignedKot,
-            }));
-            return {
-              ...t,
-              status: 'OCCUPIED',
-              activeOrderId: assignedOrderId,
-              orderNumber: assignedOrderNumber,
-              kotNumber: assignedKot,
-              orders: updatedOrders,
-            };
-          })
+          prev.map((t) =>
+            t.id === activeTable.id
+              ? {
+                  ...t,
+                  status: 'OCCUPIED',
+                  activeOrderId: orderId,
+                  orderNumber,
+                  kotNumber: generatedKot || t.kotNumber,
+                  botNumber: generatedBot || (t as any).botNumber,
+                  orders: updatedOrders,
+                }
+              : t
+          )
         );
       }
 
-      await fetchTables(selectedDate);
+      // Persist updated dispatched quantities and ticket numbers to backend immediately
+      syncTableOrderToBackend(activeTable.id, updatedOrders, { immediate: true });
+
+      // 4. Open Print Ticket Modal
+      const printItems = targetItems.map((i) => {
+        const remainingQty = i.quantity - (i.dispatchedQuantity || 0);
+        const qty = remainingQty > 0 ? remainingQty : i.quantity;
+        return {
+          productName: i.unit ? `${i.name} (${i.unit})` : i.name,
+          quantity: qty,
+          unitPrice: i.price,
+          total: i.price * qty,
+          notes: i.remarks,
+        };
+      });
+
+      const ticketType = mode === 'BOT' ? 'BOT' : mode === 'ALL' ? 'ALL' : 'KOT';
+      setReceiptModalData({
+        isOpen: true,
+        onClose: () => setReceiptModalData(null),
+        orderNumber: orderNumber || 'ORD',
+        ticketType: ticketType as any,
+        kotNumber: generatedKot,
+        botNumber: generatedBot,
+        receiptNumber: mode === 'BOT' ? generatedBot : generatedKot,
+        orderType: activeTable.orderType || 'DINE_IN',
+        tableNumber: activeTable.isNoTable ? null : activeTable.tableNumber,
+        seatingNote: activeTable.notes || activeTable.seatingNote,
+        createdAt: new Date().toISOString(),
+        serverName: 'ADMIN',
+        customerName: activeTable.currentGuest && activeTable.currentGuest !== 'Dine-In Guest' ? activeTable.currentGuest : undefined,
+        items: printItems,
+        subtotal: printItems.reduce((s, i) => s + i.total, 0),
+        tax: 0,
+        total: printItems.reduce((s, i) => s + i.total, 0),
+      });
+
+      const label = mode === 'KOT' ? `KOT (${generatedKot})` : mode === 'BOT' ? `BOT (${generatedBot})` : 'All in One Ticket';
+      toast.celebrate(`Dispatched Successfully!`, `${printItems.length} item(s) printed (${label}).`);
+      fetchTables(selectedDate);
       fetchActiveOrders();
-      toast.celebrate('Order Sent to Kitchen!', `Order ticket ${assignedKot} (${assignedOrderNumber}) generated.`);
     } catch (err: any) {
-      const fallbackKot = `KOT-${Math.floor(200 + Math.random() * 800)}`;
-      if (activeTable.isNoTable) {
-        setActiveCustomOrder((prev) =>
-          prev
-            ? {
-                ...prev,
-                kotNumber: fallbackKot,
-                orders: (prev.orders || []).map((i) => ({ ...i, status: 'KITCHEN' as const, kotNumber: fallbackKot })),
-              }
-            : null
-        );
-      } else {
-        setTables((prev) =>
-          prev.map((t) => {
-            if (t.id !== activeTable.id) return t;
-            const updatedOrders = (t.orders || []).map((i) => ({
-              ...i,
-              status: 'KITCHEN' as const,
-              kotNumber: i.kotNumber || fallbackKot,
-            }));
-            return {
-              ...t,
-              status: 'OCCUPIED',
-              kotNumber: fallbackKot,
-              orders: updatedOrders,
-            };
-          })
-        );
-      }
-      toast.celebrate('Order Sent to Kitchen!', `Order sent to kitchen (${fallbackKot}).`);
+      toast.error('Dispatch Failed', err.message || 'Could not complete dispatch.');
     } finally {
       setIsSendingOrder(false);
     }
+  };
+
+  const handleSendOrder = async (shouldPrint = false) => {
+    return handleDispatchOrder(shouldPrint ? 'ALL' : 'SAVE');
   };
 
   // ---------------------------------------------------------------------------
@@ -1781,6 +1929,12 @@ function TablesContent() {
     const currentOrders = activeTable.orders || [];
     if (currentOrders.length === 0) {
       toast.error('Empty Order', 'Cannot generate bill for an order with no items.');
+      return;
+    }
+
+    const unselectedItem = currentOrders.find((i) => i.availableUnits && i.availableUnits.length > 1 && !i.unit);
+    if (unselectedItem) {
+      toast.error('Select Size', `Please select a size for "${unselectedItem.name}" before generating the bill.`);
       return;
     }
 
@@ -1987,23 +2141,24 @@ function TablesContent() {
   // ---------------------------------------------------------------------------
   // Quick Order & Takeaway Handlers
   // ---------------------------------------------------------------------------
-  const handleStartNoTableOrder = (orderType: 'TAKEAWAY' | 'NO_TABLE' = 'TAKEAWAY') => {
+  const handleStartNoTableOrder = (orderType: 'TAKEAWAY' | 'NO_TABLE' | 'ONLINE' = 'TAKEAWAY') => {
+    const isOnline = orderType === 'ONLINE';
     const isTakeaway = orderType === 'TAKEAWAY';
-    const label = isTakeaway ? 'Takeaway' : 'Quick Order';
+    const label = isOnline ? 'Online Order' : isTakeaway ? 'Takeaway' : 'Quick Order';
     const orderNum = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const customItem: TableItem = {
       id: `notable-${Date.now()}`,
       tableNumber: label,
-      section: isTakeaway ? 'Takeaway / Counter' : 'Walk-in',
+      section: isOnline ? 'Online / Delivery' : isTakeaway ? 'Takeaway / Counter' : 'Walk-in',
       capacity: 1,
       status: 'OCCUPIED',
       orders: [],
       activeOrderId: undefined,
       orderNumber: orderNum,
-      currentGuest: isTakeaway ? 'Takeaway Customer' : 'Walk-in Customer',
+      currentGuest: isOnline ? 'Online Customer' : isTakeaway ? 'Takeaway Customer' : 'Walk-in Customer',
       guestPhone: '',
-      notes: undefined,
+      notes: isOnline ? 'Online Order' : undefined,
       seatingNote: undefined,
       isNoTable: true,
       orderType: orderType,
@@ -2088,16 +2243,35 @@ function TablesContent() {
   // ---------------------------------------------------------------------------
   const handleOpenOrderFromActiveList = (ord: ActiveRestaurantOrderData) => {
     const isTable = !!ord.tableId && !!ord.table?.tableNumber;
-    const mappedOrders: OrderItem[] = (ord.items || []).map((i) => ({
-      id: i.id || `item-${Date.now()}-${Math.random()}`,
-      productId: i.productId,
-      name: i.productName,
-      price: i.unitPrice,
-      quantity: i.quantity,
-      remarks: i.notes,
-      status: 'KITCHEN' as const,
-      kotNumber: ord.kotNumber,
-    }));
+    const mappedOrders: OrderItem[] = (ord.items || []).map((i) => {
+      const itemPrice = i.unitPrice;
+      const unitMeta = resolveItemUnitInfo(
+        { name: i.productName, price: itemPrice, unit: (i as any).unit },
+        menuCatalog
+      );
+      const isDispatched = !!(i.kotNumber || ord.kotNumber || (i as any).botNumber || ord.botNumber);
+      const itemDispatchedQty = ((i as any).dispatchedQuantity !== undefined && (i as any).dispatchedQuantity !== null)
+        ? Number((i as any).dispatchedQuantity)
+        : (isDispatched ? Number(i.quantity) : 0);
+      const itemDept: 'KOT' | 'BOT' = ((i as any).department === 'BOT' || (i as any).department === 'KOT')
+        ? (i as any).department
+        : (unitMeta.department || (isBeverageCategory((i as any).category, i.productName) ? 'BOT' : 'KOT'));
+
+      return {
+        id: i.id || `item-${Date.now()}-${Math.random()}`,
+        productId: i.productId,
+        name: i.productName,
+        unit: (i as any).unit || unitMeta.unit || undefined,
+        price: itemPrice,
+        quantity: i.quantity,
+        remarks: i.notes,
+        status: isDispatched ? ('KITCHEN' as const) : ('DRAFT' as const),
+        kotNumber: i.kotNumber || ord.kotNumber,
+        botNumber: (i as any).botNumber || ord.botNumber,
+        department: itemDept,
+        dispatchedQuantity: itemDispatchedQty,
+      };
+    });
 
     if (isTable) {
       const tbl = tables.find((t) => t.id === ord.tableId);
@@ -2178,12 +2352,13 @@ function TablesContent() {
       isOpen: true,
       onClose: () => setReceiptModalData(null),
       orderNumber: ord.orderNumber,
-      receiptNumber: `REC-${ord.orderNumber.replace('ORD-', '')}`,
+      ticketType: 'KOT',
+      receiptNumber: ord.kotNumber || `KOT-${ord.orderNumber.replace('ORD-', '')}`,
       orderType: ord.orderType,
       tableNumber: ord.table?.tableNumber,
       seatingNote: ord.notes,
       createdAt: ord.createdAt,
-      serverName: ord.serverName || 'David Kim',
+      serverName: ord.serverName || 'ADMIN',
       customerName: ord.guest ? `${ord.guest.firstName} ${ord.guest.lastName}`.trim() : undefined,
       customerPhone: ord.guest?.phone,
       items: (ord.items || []).map((i) => ({
@@ -2304,13 +2479,25 @@ function TablesContent() {
         const currentTarget = isCustom ? activeCustomOrder : tables.find((t) => t.id === targetTableId);
         if (!currentTarget) return;
 
-        const formattedItems = updatedOrders.map((item) => ({
-          productId: item.productId,
-          productName: item.name,
-          unitPrice: item.price,
-          quantity: item.quantity,
-          notes: item.remarks || '',
-        }));
+        const formattedItems = updatedOrders.map((item) => {
+          const dept = item.department || (isBeverageCategory(item.category, item.name) ? 'BOT' : 'KOT');
+          const isDispatched = !!(item.kotNumber || (item as any).botNumber || item.status === 'KITCHEN');
+          const dispatchedQty = (item.dispatchedQuantity !== undefined && item.dispatchedQuantity !== null)
+            ? Number(item.dispatchedQuantity)
+            : (isDispatched ? Number(item.quantity) : 0);
+
+          return {
+            productId: item.productId,
+            productName: item.name,
+            unitPrice: item.price,
+            quantity: item.quantity,
+            notes: item.remarks || '',
+            department: dept,
+            dispatchedQuantity: dispatchedQty,
+            kotNumber: item.kotNumber,
+            botNumber: (item as any).botNumber,
+          };
+        });
 
         let orderId = currentTarget.activeOrderId;
 
@@ -2388,14 +2575,18 @@ function TablesContent() {
     }
   };
 
-  // Add item directly from the Setted Menu Catalog (1-click quick add from suggestions)
-  const handleAddDirectMenuItem = (menuItem: MenuItemCatalogEntry, qtyOverride?: number) => {
+  // Helper to push confirmed item & size into the active table's order
+  const pushItemToTableOrder = (
+    menuItem: MenuItemCatalogEntry,
+    selectedTier: { unit: string; price: number },
+    qty: number
+  ) => {
     if (!activeTable) return;
     const tableId = activeTable.id;
     const unitInfo = resolveItemUnitInfo(menuItem, menuCatalog);
     const name = unitInfo.baseName || menuItem.baseName || menuItem.name.replace(/\s*\([^)]*\)$/, '').trim();
-    const price = menuItem.price;
-    const qty = qtyOverride && qtyOverride > 0 ? qtyOverride : Math.max(1, orderQuantity);
+    const unit = selectedTier.unit || 'Regular';
+    const price = selectedTier.price;
 
     // If tracked product and out of stock, prevent adding
     if (menuItem.trackStock && menuItem.stock !== undefined && menuItem.stock <= 0) {
@@ -2404,22 +2595,26 @@ function TablesContent() {
     }
 
     const currentOrders = activeTable.orders || [];
-    const existing = currentOrders.find((i) => i.name.toLowerCase() === name.toLowerCase());
+    const existing = currentOrders.find(
+      (i) => i.name.toLowerCase() === name.toLowerCase() && (i.unit || '').toLowerCase() === unit.toLowerCase()
+    );
 
     // Stock limit validation for tracked products
     if (menuItem.trackStock && menuItem.stock !== undefined) {
       const currentQty = existing ? existing.quantity : 0;
       if (currentQty + qty > menuItem.stock) {
-        toast.error('Stock Limit Reached', `Only ${menuItem.stock} units of "${name}" available in stock.`);
+        toast.error('Stock Limit Reached', `Only ${menuItem.stock} units of "${name} (${unit})" available.`);
         return;
       }
     }
 
     let updatedOrders: OrderItem[];
 
+    const dept: 'KOT' | 'BOT' = menuItem.department || (isBeverageCategory(menuItem.category, name) ? 'BOT' : 'KOT');
+
     if (existing) {
       updatedOrders = currentOrders.map((i) =>
-        i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
+        i.id === existing.id ? { ...i, quantity: i.quantity + qty } : i
       );
     } else {
       updatedOrders = [
@@ -2430,10 +2625,13 @@ function TablesContent() {
           name,
           baseName: unitInfo.baseName,
           category: menuItem.category,
-          unit: unitInfo.unit,
+          unit,
           availableUnits: unitInfo.availableUnits,
           price,
           quantity: qty,
+          department: dept,
+          dispatchedQuantity: 0,
+          status: 'DRAFT',
         },
       ];
     }
@@ -2447,8 +2645,30 @@ function TablesContent() {
     }
 
     syncTableOrderToBackend(tableId, updatedOrders);
+    toast.success(`Item Added`, `${qty}x ${name} · ${unit} (Rs. ${(price * qty).toFixed(2)}) added to Table ${activeTable.tableNumber}.`);
+  };
 
-    toast.success(`Item Added`, `${qty}x ${name} (Rs. ${price * qty}) added to Table ${activeTable.tableNumber}.`);
+  // Add item directly from the Setted Menu Catalog (1-click quick add from suggestions)
+  const handleAddDirectMenuItem = (menuItem: MenuItemCatalogEntry, qtyOverride?: number) => {
+    if (!activeTable) return;
+    const unitInfo = resolveItemUnitInfo(menuItem, menuCatalog);
+    const hasMultipleUnits = unitInfo.availableUnits && unitInfo.availableUnits.length > 1;
+    const qty = qtyOverride && qtyOverride > 0 ? qtyOverride : Math.max(1, orderQuantity);
+
+    // Rule 1 & 2: For multi-variant items, open the Quick Add popup to select size
+    if (hasMultipleUnits) {
+      setVariantModal({
+        isOpen: true,
+        menuItem,
+        quantity: qty,
+      });
+      setIsSuggestionsOpen(false);
+      return;
+    }
+
+    // Rule 4: Single-variant items add directly with default unit and price
+    const defaultTier = unitInfo.availableUnits[0] || { unit: unitInfo.unit || 'Regular', price: menuItem.price };
+    pushItemToTableOrder(menuItem, defaultTier, qty);
     setOrderProductName('');
     setOrderPrice('');
     setOrderQuantity(1);
@@ -2531,52 +2751,28 @@ function TablesContent() {
 
   const handleSelectMenuItemForDraft = (draftId: string, menuItem: MenuItemCatalogEntry) => {
     if (!activeTable) return;
-    const tableId = activeTable.id;
     const unitInfo = resolveItemUnitInfo(menuItem, menuCatalog);
-    const name = unitInfo.baseName || menuItem.baseName || menuItem.name.replace(/\s*\([^)]*\)$/, '').trim();
-    const price = menuItem.price;
-    const qty = 1;
+    const hasMultipleUnits = unitInfo.availableUnits && unitInfo.availableUnits.length > 1;
 
-    const currentOrders = activeTable.orders || [];
-    const existing = currentOrders.find((i) => i.name.toLowerCase() === name.toLowerCase());
-    let updatedOrders: OrderItem[];
-
-    if (existing) {
-      updatedOrders = currentOrders.map((i) =>
-        i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
-      );
-    } else {
-      updatedOrders = [
-        ...currentOrders,
-        {
-          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          productId: menuItem.id,
-          name,
-          baseName: unitInfo.baseName,
-          category: menuItem.category,
-          unit: unitInfo.unit,
-          availableUnits: unitInfo.availableUnits,
-          price,
-          quantity: qty,
-        },
-      ];
+    // Rule 1 & 2: For multi-variant items, open the Quick Add popup to select size
+    if (hasMultipleUnits) {
+      setVariantModal({
+        isOpen: true,
+        menuItem,
+        quantity: 1,
+        draftId,
+      });
+      setDraftRows((prev) => prev.map((d) => (d.id === draftId ? { ...d, isOpen: false } : d)));
+      return;
     }
 
-    if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
-      setActiveCustomOrder((prev) => (prev ? { ...prev, orders: updatedOrders } : null));
-    } else {
-      setTables((prev) =>
-        prev.map((t) => (t.id === tableId ? { ...t, status: 'OCCUPIED', orders: updatedOrders } : t))
-      );
-    }
-
-    syncTableOrderToBackend(tableId, updatedOrders);
-
-    toast.success('Item Added', `${name} (Rs. ${price}) added to Table ${activeTable.tableNumber}.`);
+    // Rule 4: Single-variant items add directly with default unit and price
+    const defaultTier = unitInfo.availableUnits[0] || { unit: unitInfo.unit || 'Regular', price: menuItem.price };
+    pushItemToTableOrder(menuItem, defaultTier, 1);
     setDraftRows((prev) => prev.filter((d) => d.id !== draftId));
   };
 
-  // Change order item unit / portion (e.g., Momo Half <-> Full)
+  // Change order item unit / portion (e.g., Sprite Can <-> 500ml Bottle)
   const handleUpdateItemUnit = (itemId: string, newUnit: string) => {
     if (!activeTable) return;
     const tableId = activeTable.id;
@@ -2590,11 +2786,13 @@ function TablesContent() {
         unitMeta.availableUnits.find((u) => u.unit.toLowerCase() === newUnit.toLowerCase()) ||
         unitMeta.availableUnits.find((u) => u.unit === newUnit);
 
-      const newPrice = targetTier ? targetTier.price : i.price;
+      const newPrice = targetTier ? targetTier.price : (newUnit === '' ? 0 : i.price);
       const cleanBase = unitMeta.baseName || i.baseName || i.name.replace(/\s*\([^)]*\)$/, '').trim();
       const newName = cleanBase;
 
-      toast.info('Unit Updated', `${cleanBase} set to ${newUnit} · Rs. ${newPrice}`);
+      if (targetTier) {
+        toast.info('Unit Updated', `${cleanBase} set to ${newUnit} · Rs. ${newPrice.toFixed(2)}`);
+      }
 
       return {
         ...i,
@@ -2977,23 +3175,6 @@ function TablesContent() {
               </button>
             )}
 
-            {/* Primary Action 1: Send Order to Kitchen (Req 4, 5) */}
-            <button
-              type="button"
-              disabled={isSendingOrder || activeTableOrders.length === 0}
-              onClick={handleSendOrder}
-              className="inline-flex items-center gap-1.5 rounded-[3px] bg-brand hover:bg-brand-active text-white px-3.5 py-1.5 text-xs font-bold shadow-2xs transition-all dark:bg-brand dark:hover:bg-success-subtle0 disabled:opacity-50 cursor-pointer"
-              title="Send active items to the kitchen workflow"
-            >
-              <ChefHat className="w-3.5 h-3.5" />
-              <span>{isSendingOrder ? 'Sending...' : 'Send Order'}</span>
-              {activeTableOrders.some((i) => i.status !== 'KITCHEN') && (
-                <span className="bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold">
-                  {activeTableOrders.filter((i) => i.status !== 'KITCHEN').length}
-                </span>
-              )}
-            </button>
-
             {/* Primary Action 2: Generate Bill (Req 6) */}
             <button
               type="button"
@@ -3122,45 +3303,65 @@ function TablesContent() {
                       </p>
                     </div>
                   ) : (
-                    suggestions.map((item) => (
+                  suggestions.map((item) => {
+                    const unitInfo = resolveItemUnitInfo(item, menuCatalog);
+                    const isMulti = unitInfo.availableUnits && unitInfo.availableUnits.length > 1;
+                    const variantCount = unitInfo.availableUnits?.length || 0;
+
+                    return (
                       <div
                         key={item.id}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           handleAddDirectMenuItem(item);
                         }}
-                        className="px-3 py-2 flex items-center justify-between gap-3 hover:bg-[#F2F6F4] dark:hover:bg-[#093027] cursor-pointer transition-colors group"
+                        className="px-3.5 py-2.5 flex items-center justify-between gap-3 hover:bg-[#F2F6F4] dark:hover:bg-[#093027] cursor-pointer transition-colors group"
                       >
+                        {/* 1. Item Name & 2. Category */}
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-body dark:text-body group-hover:text-brand dark:group-hover:text-emerald-300">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-body dark:text-body group-hover:text-brand dark:group-hover:text-emerald-300">
                               {item.name}
                             </span>
-                            <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.2 rounded-[2px] bg-surface-muted dark:bg-[#0E3B31] text-muted dark:text-[#A4B8AE]">
+                            <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-[2px] bg-surface-muted dark:bg-[#0E3B31] text-muted dark:text-[#A4B8AE]">
                               {item.category}
                             </span>
                           </div>
-                          <div className="text-[10px] text-muted flex items-center gap-2 mt-0.5">
-                            <span className="font-mono font-medium">{item.code}</span>
-                            <span>·</span>
-                            <span>{item.portion || '1 Portion'}</span>
+                          <div className="text-[10px] text-muted flex items-center gap-2 mt-0.5 font-mono">
+                            {item.code}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="font-mono font-bold text-xs text-brand dark:text-brand">
-                            Rs. {item.price.toFixed(0)}
-                          </span>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#0B3D32] group-hover:bg-[#093027] text-white text-[11px] font-bold shadow-2xs transition-colors dark:bg-brand dark:group-hover:bg-success-subtle0"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Add</span>
-                          </button>
-                        </div>
+                        {/* 3. Variant Summary / Price & 4. Action Button */}
+                        {isMulti ? (
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-[3px] border border-emerald-200/70 dark:border-emerald-800/60 whitespace-nowrap">
+                              {variantCount} Sizes Available
+                            </span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-[3px] bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition-colors cursor-pointer"
+                            >
+                              <span>Select</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className="font-mono font-bold text-xs text-brand dark:text-brand">
+                              Rs. {item.price.toFixed(2)}
+                            </span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#0B3D32] group-hover:bg-[#093027] text-white text-[11px] font-bold shadow-2xs transition-colors dark:bg-brand dark:group-hover:bg-success-subtle0 cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    ))
+                    );
+                  })
                   )}
                 </div>
               </>
@@ -3188,7 +3389,7 @@ function TablesContent() {
                   <tr className="border-b border-border-default dark:border-border-default text-[11px] font-semibold text-body dark:text-slate-300 bg-[#F8FAFC] dark:bg-surface-card">
                     <th className="py-2 px-3 text-center w-12 border-r border-border-default dark:border-border-default">#</th>
                     <th className="py-2 px-3.5 text-left border-r border-border-default dark:border-border-default">Particular</th>
-                    <th className="py-2 px-2.5 text-center w-28 border-r border-border-default dark:border-border-default">Unit</th>
+                    <th className="py-2 px-2.5 text-center w-40 min-w-[145px] border-r border-border-default dark:border-border-default">Unit</th>
                     <th className="py-2 px-3.5 text-right w-28 border-r border-border-default dark:border-border-default">Rate</th>
                     <th className="py-2 px-3 text-center w-20 border-r border-border-default dark:border-border-default">Qty</th>
                     <th className="py-2 px-3.5 text-right w-28 border-r border-border-default dark:border-border-default">Amount</th>
@@ -3233,7 +3434,8 @@ function TablesContent() {
                       {/* Existing Table Orders */}
                       {activeTableOrders.map((item, index) => {
                         const unitMeta = resolveItemUnitInfo(item, menuCatalog);
-                        const currentUnit = item.unit || unitMeta.unit;
+                        const matchedUnit = unitMeta.availableUnits.find((u) => Math.abs(u.price - item.price) < 0.01)?.unit;
+                        const currentUnit = item.unit || matchedUnit || unitMeta.unit;
                         const hasMultipleUnits = unitMeta.availableUnits && unitMeta.availableUnits.length > 1;
                         const itemAmount = item.price * item.quantity;
                         const particularName =
@@ -3250,36 +3452,28 @@ function TablesContent() {
                             </td>
 
                             {/* Particular */}
-                            <td className="py-2 px-3.5 text-xs text-body dark:text-body border-r border-border-default dark:border-border-default/80">
+                            <td className="py-2 px-3.5 text-xs text-body dark:text-body border-r border-border-default dark:border-border-default/80 font-medium">
                               {particularName}
                             </td>
 
-                            {/* Unit */}
-                            <td className="py-2 px-2 text-center border-r border-border-default dark:border-border-default/80">
-                              {hasMultipleUnits ? (
-                                <select
-                                  value={currentUnit}
-                                  onChange={(e) => handleUpdateItemUnit(item.id, e.target.value)}
-                                  className="w-full text-center rounded-[2px] border border-border-default bg-white dark:bg-surface-card dark:border-border-default py-0.5 px-1.5 text-xs text-brand dark:text-success focus:outline-none focus:border-[#0B3D32] cursor-pointer"
-                                  title="Change portion / unit"
-                                >
-                                  {unitMeta.availableUnits.map((u) => (
-                                    <option key={u.unit} value={u.unit}>
-                                      {u.unit}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[11px] bg-surface-muted text-body dark:bg-surface-card dark:text-slate-300">
-                                  {currentUnit || 'Standard'}
-                                </span>
-                              )}
+                            {/* Unit (Non-clickable, selected when choosing item in modal) */}
+                            <td className="py-2 px-2 text-center border-r border-border-default dark:border-border-default/80 whitespace-nowrap">
+                              <span className="inline-block px-3 py-1 rounded-[3px] text-xs font-semibold bg-surface-muted text-body dark:bg-surface-card dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 whitespace-nowrap">
+                                {currentUnit || 'Regular'}
+                              </span>
                             </td>
 
                             {/* Rate (Styled with light grey background box like in screenshot) */}
                             <td className="py-2 px-3 border-r border-border-default dark:border-border-default/80">
-                              <div className="bg-surface-muted dark:bg-surface-card/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-body dark:text-slate-200">
-                                {item.price.toFixed(2)}
+                              <div
+                                className={cn(
+                                  'px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right',
+                                  item.price > 0
+                                    ? 'bg-[#E9ECEF] dark:bg-slate-800/80 text-slate-800 dark:text-slate-200 font-semibold'
+                                    : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400'
+                                )}
+                              >
+                                {item.price > 0 ? item.price.toFixed(2) : '-'}
                               </div>
                             </td>
 
@@ -3310,21 +3504,33 @@ function TablesContent() {
 
                             {/* Amount (Styled with light grey background box like in screenshot) */}
                             <td className="py-2 px-3 border-r border-border-default dark:border-border-default/80">
-                              <div className="bg-surface-muted dark:bg-surface-card/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-body dark:text-body">
-                                {itemAmount.toFixed(0)}
+                              <div
+                                className={cn(
+                                  'px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right',
+                                  itemAmount > 0
+                                    ? 'bg-[#E9ECEF] dark:bg-slate-800/80 text-slate-900 dark:text-white font-bold'
+                                    : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400'
+                                )}
+                              >
+                                {itemAmount > 0 ? itemAmount.toFixed(2) : '0.00'}
                               </div>
                             </td>
 
                             {/* Status */}
                             <td className="py-2 px-2 text-center border-r border-border-default dark:border-border-default/80">
-                              {item.status === 'KITCHEN' ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-success-subtle text-success dark:bg-success-subtle dark:text-success">
+                              {item.department === 'BOT' && (item.botNumber || (item.dispatchedQuantity || 0) > 0) ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60">
+                                  <Wine className="w-2.5 h-2.5" />
+                                  {item.botNumber || 'BOT'}
+                                </span>
+                              ) : (item.kotNumber || (item.dispatchedQuantity || 0) > 0) ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-success-subtle text-success dark:bg-success-subtle dark:text-success border border-emerald-200/60 dark:border-emerald-800/60">
                                   <CheckCircle2 className="w-2.5 h-2.5" />
-                                  {item.kotNumber ? item.kotNumber : 'Kitchen'}
+                                  {item.kotNumber || 'KOT'}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-                                  <Clock className="w-2.5 h-2.5" />
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-surface-elevated dark:text-slate-300 border border-slate-200 dark:border-border-default">
+                                  <Clock className="w-2.5 h-2.5 text-slate-400" />
                                   Unsent
                                 </span>
                               )}
@@ -3334,10 +3540,10 @@ function TablesContent() {
                             <td className="py-1.5 px-2 text-left border-r border-border-default dark:border-border-default/80">
                               <input
                                 type="text"
-                                placeholder=""
+                                placeholder="Optional notes..."
                                 value={item.remarks || ''}
                                 onChange={(e) => handleUpdateItemRemarks(item.id, e.target.value)}
-                                className="w-full px-2 py-0.5 text-xs bg-transparent focus:bg-white dark:focus:bg-[#061D18] border border-transparent focus:border-border-default dark:focus:border-slate-700 rounded text-body dark:text-slate-200 focus:outline-none transition-colors"
+                                className="w-full px-1.5 py-0.5 text-xs bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-[#0B3D32] focus:outline-none text-slate-700 dark:text-slate-300"
                               />
                             </td>
 
@@ -3358,7 +3564,8 @@ function TablesContent() {
 
                       {/* Active In-Table Draft Rows (Matching Reference Design) */}
                       {draftRows.map((draft, draftIdx) => {
-                        const catalogList = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+                        const rawCatalog = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+                        const catalogList = consolidateMenuCatalog(rawCatalog);
                         const q = draft.search.toLowerCase().trim();
                         const filteredDraftItems = catalogList.filter((item) => {
                           if (!q) return true;
@@ -3498,21 +3705,38 @@ function TablesContent() {
                                                     : 'hover:bg-[#1E293B] hover:text-white text-body dark:text-slate-200 bg-white dark:bg-surface-card'
                                                 )}
                                               >
-                                                <span className="w-44 truncate font-medium text-left">
-                                                  {item.name}
-                                                </span>
-                                                <span className="w-32 truncate text-left text-[11px] opacity-75">
-                                                  {item.category || '-'}
-                                                </span>
-                                                <span className="w-20 font-mono text-right font-medium">
-                                                  Rs. {item.price.toFixed(2)}
-                                                </span>
-                                                <span className="w-16 text-center text-[11px] opacity-75">
-                                                  {item.portion || item.unit || '1'}
-                                                </span>
-                                                <span className="w-12 text-center font-mono opacity-75">
-                                                  {item.stock !== undefined ? item.stock : '-'}
-                                                </span>
+                                                {(() => {
+                                                  const itemUnitMeta = resolveItemUnitInfo(item, menuCatalog);
+                                                  const isMulti = itemUnitMeta.availableUnits && itemUnitMeta.availableUnits.length > 1;
+                                                  return (
+                                                    <>
+                                                      <span className="w-44 truncate font-medium text-left">
+                                                        {item.name}
+                                                      </span>
+                                                      <span className="w-32 truncate text-left text-[11px] opacity-75">
+                                                        {item.category || '-'}
+                                                      </span>
+                                                      <span className={cn(
+                                                        "w-20 text-right font-medium",
+                                                        isMulti ? "text-emerald-400 font-semibold text-[11px]" : "font-mono"
+                                                      )}>
+                                                        {isMulti ? `${itemUnitMeta.availableUnits.length} Sizes` : `Rs. ${item.price.toFixed(2)}`}
+                                                      </span>
+                                                      <span className="w-16 text-center text-[11px] opacity-90">
+                                                        {isMulti ? (
+                                                          <span className="px-1.5 py-0.5 rounded-[2px] bg-emerald-700/80 text-white text-[10px] font-bold">
+                                                            Select
+                                                          </span>
+                                                        ) : (
+                                                          item.portion || item.unit || '1'
+                                                        )}
+                                                      </span>
+                                                      <span className="w-12 text-center font-mono opacity-75">
+                                                        {item.stock !== undefined ? item.stock : '-'}
+                                                      </span>
+                                                    </>
+                                                  );
+                                                })()}
                                               </div>
                                             );
                                           })
@@ -3544,7 +3768,7 @@ function TablesContent() {
                             {/* Amount placeholder */}
                             <td className="py-2 px-3 border-r border-border-default dark:border-border-default/80">
                               <div className="bg-surface-muted dark:bg-surface-card/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-muted">
-                                0
+                                0.00
                               </div>
                             </td>
 
@@ -3576,6 +3800,78 @@ function TablesContent() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Order Action Bar: Save, Print KOT, Print BOT, All in One (Directly below table, above billing) */}
+            <div className="flex items-center justify-end gap-2 px-3.5 py-2 bg-slate-50/80 dark:bg-surface-card/80 border-t border-border-default dark:border-border-default">
+              {/* Action Buttons: Save, Print KOT, Print BOT, All in One */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 1. Save */}
+                <button
+                  type="button"
+                  disabled={isSendingOrder || activeTableOrders.length === 0}
+                  onClick={() => handleDispatchOrder('SAVE')}
+                  className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Save order changes without printing tickets"
+                >
+                  <Save className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span>{isSendingOrder ? 'Saving...' : 'Save'}</span>
+                </button>
+
+                {/* 2. Print KOT */}
+                <button
+                  type="button"
+                  disabled={isSendingOrder || activeTableOrders.length === 0}
+                  onClick={() => handleDispatchOrder('KOT')}
+                  className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Dispatch and print Kitchen Order Ticket (KOT) for kitchen items only"
+                >
+                  <ChefHat className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span>Print KOT</span>
+                  {activeTableOrders.some(
+                    (i) => (i.department === 'KOT' || !i.department) && (i.quantity > (i.dispatchedQuantity || 0))
+                  ) && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-surface-elevated text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-border-default text-[10px] font-mono font-semibold">
+                      {activeTableOrders
+                        .filter((i) => (i.department === 'KOT' || !i.department) && (i.quantity > (i.dispatchedQuantity || 0)))
+                        .reduce((s, i) => s + (i.quantity - (i.dispatchedQuantity || 0)), 0)}
+                    </span>
+                  )}
+                </button>
+
+                {/* 3. Print BOT */}
+                <button
+                  type="button"
+                  disabled={isSendingOrder || activeTableOrders.length === 0}
+                  onClick={() => handleDispatchOrder('BOT')}
+                  className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Dispatch and print Bar Order Ticket (BOT) for beverage items only"
+                >
+                  <Wine className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span>Print BOT</span>
+                  {activeTableOrders.some(
+                    (i) => i.department === 'BOT' && (i.quantity > (i.dispatchedQuantity || 0))
+                  ) && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-surface-elevated text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-border-default text-[10px] font-mono font-semibold">
+                      {activeTableOrders
+                        .filter((i) => i.department === 'BOT' && (i.quantity > (i.dispatchedQuantity || 0)))
+                        .reduce((s, i) => s + (i.quantity - (i.dispatchedQuantity || 0)), 0)}
+                    </span>
+                  )}
+                </button>
+
+                {/* 4. All in One */}
+                <button
+                  type="button"
+                  disabled={isSendingOrder || activeTableOrders.length === 0}
+                  onClick={() => handleDispatchOrder('ALL')}
+                  className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Dispatch both Kitchen and Bar tickets together"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span>All in One</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -3719,24 +4015,29 @@ function TablesContent() {
                 />
               </div>
 
-              {/* Action Buttons: Settle & Release Table */}
+              {/* Billing Action Buttons: Settle Payment & Settle & Print */}
               <div className="ml-auto flex items-end gap-2">
+                {/* Settle Payment */}
                 <button
                   type="button"
-                  disabled={isSettlingPayment}
+                  disabled={isSettlingPayment || activeTableOrders.length === 0}
                   onClick={() => handleCompletePaymentAndReleaseTable(false)}
                   className="px-3.5 py-1.5 rounded-[3px] bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-50 text-white font-semibold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  title="Settle bill payment and free table"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>{isSettlingPayment ? 'Processing...' : 'Settle Payment'}</span>
                 </button>
+
+                {/* Settle & Print Receipt */}
                 <button
                   type="button"
-                  disabled={isSettlingPayment}
+                  disabled={isSettlingPayment || activeTableOrders.length === 0}
                   onClick={() => handleCompletePaymentAndReleaseTable(true)}
                   className="px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082e25] disabled:opacity-50 text-white dark:bg-brand dark:hover:bg-success-subtle0 font-semibold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  title="Settle bill payment, free table & print tax invoice"
                 >
-                  <Printer className="w-3.5 h-3.5" />
+                  <Receipt className="w-3.5 h-3.5" />
                   <span>Settle &amp; Print</span>
                 </button>
               </div>
@@ -3885,6 +4186,111 @@ function TablesContent() {
               </div>
             </div>
           )}
+
+          {/* Quick Add Size Selection Modal for Multi-Variant Items on Table Order */}
+          {variantModal && variantModal.isOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-100">
+              <div
+                className="fixed inset-0"
+                onClick={() => {
+                  if (variantModal.draftId) {
+                    setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+                  }
+                  setVariantModal(null);
+                }}
+              />
+              <div className="relative z-10 w-full max-w-sm rounded-lg bg-white dark:bg-surface-card border border-border-default dark:border-border-default shadow-2xl p-5 animate-in zoom-in-95 duration-100">
+                {/* Header */}
+                <div className="flex items-start justify-between pb-3 border-b border-border-default dark:border-border-default">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand dark:text-success">
+                      {variantModal.menuItem.category || 'Portion / Size'}
+                    </span>
+                    <h3 className="text-base font-bold text-body dark:text-body mt-0.5">
+                      {variantModal.menuItem.baseName || variantModal.menuItem.name.replace(/\s*\([^)]*\)$/, '').trim()}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (variantModal.draftId) {
+                        setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+                      }
+                      setVariantModal(null);
+                    }}
+                    className="p-1 rounded text-muted hover:text-body dark:hover:text-white cursor-pointer"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Quantity Selector */}
+                <div className="flex items-center justify-between py-3 border-b border-border-default dark:border-border-default">
+                  <span className="text-xs font-semibold text-body dark:text-body">Quantity</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVariantModal((prev) => (prev ? { ...prev, quantity: Math.max(1, prev.quantity - 1) } : null))
+                      }
+                      className="w-7 h-7 rounded bg-surface-muted dark:bg-surface-muted text-body dark:text-body hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm select-none cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center font-mono font-bold text-sm text-body dark:text-body select-none">
+                      {variantModal.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVariantModal((prev) => (prev ? { ...prev, quantity: prev.quantity + 1 } : null))
+                      }
+                      className="w-7 h-7 rounded bg-surface-muted dark:bg-surface-muted text-body dark:text-body hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm select-none cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sizes / Variants Grid */}
+                <div className="pt-3">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted dark:text-muted mb-2">
+                    Select Size to Add:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {resolveItemUnitInfo(variantModal.menuItem, menuCatalog).availableUnits.map((tier) => (
+                      <button
+                        key={tier.unit}
+                        type="button"
+                        onClick={() => {
+                          pushItemToTableOrder(variantModal.menuItem, tier, variantModal.quantity);
+                          if (variantModal.draftId) {
+                            setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+                          }
+                          setVariantModal(null);
+                          setOrderProductName('');
+                          setOrderPrice('');
+                          setOrderQuantity(1);
+                        }}
+                        className="flex flex-col items-center justify-center p-3 rounded-md border-2 border-brand/30 hover:border-brand bg-success-subtle/50 hover:bg-success-subtle dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 transition-all text-center group cursor-pointer shadow-2xs hover:shadow-sm"
+                      >
+                        <span className="font-bold text-xs text-body dark:text-white group-hover:text-brand dark:group-hover:text-success">
+                          {tier.unit}
+                        </span>
+                        <span className="text-xs font-mono font-extrabold text-brand dark:text-success mt-1">
+                          Rs. {tier.price.toFixed(2)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PRINTED BILL / RECEIPT / KOT MODAL (Shows preview first, then user can print) */}
+          {receiptModalData && <RestaurantReceiptModal {...receiptModalData} />}
         </div>
       </div>
     );
@@ -4217,7 +4623,7 @@ function TablesContent() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5 lg:gap-4">
         {filteredTables.map((table) => {
           const statusMeta = STATUS_CONFIG[table.status] || STATUS_CONFIG.AVAILABLE;
           const orderTotal = (table.orders || []).reduce(
@@ -4254,7 +4660,7 @@ function TablesContent() {
                 setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
               }}
               className={cn(
-                'group relative flex flex-col justify-between p-4 rounded-[6px] border transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer select-none min-h-[210px]',
+                'group relative flex flex-col justify-between p-3.5 sm:p-4 rounded-[6px] border transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer select-none min-h-[210px]',
                 openTableMenuId === table.id ? 'z-30 ring-2 ring-emerald-500 shadow-lg' : 'z-10',
                 tableAlert
                   ? tableAlert.severity === 'DANGER'
@@ -4557,29 +4963,29 @@ function TablesContent() {
                         e.stopPropagation();
                         handleOpenOrderPage(table.id);
                       }}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-white text-slate-950 hover:bg-white/90 font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer"
+                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white text-slate-950 hover:bg-white/90 font-bold text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                       title="Wrap up active order"
                     >
-                      <Receipt className="w-3.5 h-3.5" />
-                      <span>Wrap Up</span>
+                      <Receipt className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Wrap Up</span>
                     </button>
                     <button
                       type="button"
                       onClick={(e) => handleAcknowledgeAlert(tableAlert.id, e)}
                       className={cn(
-                        "flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] font-black text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer",
+                        "flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] font-black text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap",
                         tableAlert.severity === 'DANGER'
                           ? "bg-rose-500 hover:bg-rose-600 text-white"
                           : "bg-amber-400 hover:bg-amber-300 text-amber-950"
                       )}
                       title="Acknowledge 15-minute alarm"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Ack Alarm</span>
+                      <Check className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Ack Alarm</span>
                     </button>
                   </div>
                 ) : isOutOfService ? (
-                  <span className="text-[11px] font-semibold text-muted py-1">Out of Service</span>
+                  <span className="text-[11px] font-semibold text-muted py-1 whitespace-nowrap">Out of Service</span>
                 ) : isOccupied ? (
                   <div className="flex items-center gap-1.5 w-full">
                     <button
@@ -4588,10 +4994,10 @@ function TablesContent() {
                         e.stopPropagation();
                         handleOpenOrderPage(table.id);
                       }}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-white/20 hover:bg-white/30 text-white font-bold text-[11px] transition-all active:scale-95 cursor-pointer"
+                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white/20 hover:bg-white/30 text-white font-bold text-[10.5px] sm:text-[11px] transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Items</span>
+                      <Plus className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Add Items</span>
                     </button>
                     <button
                       type="button"
@@ -4600,10 +5006,10 @@ function TablesContent() {
                         handleOpenOrderPage(table.id);
                         setIsBillPanelOpen(true);
                       }}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer"
+                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                     >
-                      <Receipt className="w-3.5 h-3.5" />
-                      <span>Bill</span>
+                      <Receipt className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Bill</span>
                     </button>
                   </div>
                 ) : isCleaning || table.cleaningStatus === 'DIRTY' ? (
@@ -4613,10 +5019,10 @@ function TablesContent() {
                       e.stopPropagation();
                       handleUpdateCleaningStatus(table, 'CLEAN');
                     }}
-                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer"
+                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                     title="Sanitize table and return to service"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
                     <span>Mark Cleaned</span>
                   </button>
                 ) : isBilled ? (
@@ -4627,9 +5033,9 @@ function TablesContent() {
                       handleOpenOrderPage(table.id);
                       setIsBillPanelOpen(true);
                     }}
-                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer"
+                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                   >
-                    <DollarSign className="w-3.5 h-3.5" />
+                    <DollarSign className="w-3.5 h-3.5 shrink-0" />
                     <span>Settle Payment</span>
                   </button>
                 ) : (
@@ -4638,11 +5044,11 @@ function TablesContent() {
                     <button
                       type="button"
                       onClick={(e) => handleSelectSeatCustomer(table, e)}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                       title="Walk-in customer"
                     >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>Walk in</span>
+                      <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Walk in</span>
                     </button>
                     <button
                       type="button"
@@ -4650,11 +5056,11 @@ function TablesContent() {
                         e.stopPropagation();
                         handleOpenNewReservation(table);
                       }}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                       title={`Book Table ${table.tableNumber}`}
                     >
-                      <CalendarCheck className="w-3.5 h-3.5" />
-                      <span>Book Now</span>
+                      <CalendarCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Book Now</span>
                     </button>
                   </div>
                 )}
@@ -4690,6 +5096,13 @@ function TablesContent() {
           }}
           onNewNoTableOrder={() => {
             setNoTableOrderType('NO_TABLE');
+            setNoTableSeatingNote('');
+            setNoTableCustomerName('');
+            setNoTableCustomerPhone('');
+            setIsNoTableModalOpen(true);
+          }}
+          onNewOnlineOrder={() => {
+            setNoTableOrderType('ONLINE');
             setNoTableSeatingNote('');
             setNoTableCustomerName('');
             setNoTableCustomerPhone('');
@@ -5041,26 +5454,23 @@ function TablesContent() {
                 />
               </div>
 
-              {/* Optional Status Selector (Only when editing an existing reservation) */}
-              {editingReservation && (
-                <div>
-                  <label className="block text-xs font-medium text-body dark:text-slate-300 mb-1.5">
-                    Reservation Status
-                  </label>
-                  <select
-                    value={resStatus}
-                    onChange={(e) => setResStatus(e.target.value)}
-                    className="w-full h-9 rounded-md border border-border-default dark:border-border-default bg-white dark:bg-[#0B2E24] px-3 text-sm text-body dark:text-body focus:outline-none focus:ring-2 focus:ring-[#0B3D32]/20 focus:border-[#0B3D32] transition-colors"
-                  >
-                    <option value="CONFIRMED">CONFIRMED</option>
-                    <option value="PENDING">PENDING</option>
-                    <option value="SEATED">SEATED</option>
-                    <option value="COMPLETED">COMPLETED</option>
-                    <option value="CANCELLED">CANCELLED</option>
-                    <option value="NO_SHOW">NO-SHOW</option>
-                  </select>
-                </div>
-              )}
+              {/* Reservation Status Selector (Always available) */}
+              <div>
+                <label className="block text-xs font-semibold text-body dark:text-slate-300 mb-1.5">
+                  Reservation Status <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={resStatus}
+                  onChange={(e) => setResStatus(e.target.value)}
+                  className="w-full h-9 rounded-md border border-border-default dark:border-border-default bg-white dark:bg-[#0B2E24] px-3 text-xs font-semibold uppercase tracking-wider text-body dark:text-body focus:outline-none focus:ring-2 focus:ring-[#0B3D32]/20 focus:border-[#0B3D32] transition-colors cursor-pointer"
+                >
+                  <option value="CONFIRMED">CONFIRMED</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="SEATED">SEATED</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+              </div>
 
               {/* Clear Conflict Warning Alert Box */}
               {conflictWarning && (
@@ -5273,7 +5683,7 @@ function TablesContent() {
                 <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE] mb-1.5 uppercase">
                   Service Type *
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setNoTableOrderType('NO_TABLE')}
@@ -5285,7 +5695,7 @@ function TablesContent() {
                     )}
                   >
                     <Armchair className="w-3.5 h-3.5" />
-                    <span>No Table (Dine Anywhere)</span>
+                    <span>No Table</span>
                   </button>
 
                   <button
@@ -5299,7 +5709,21 @@ function TablesContent() {
                     )}
                   >
                     <ShoppingBag className="w-3.5 h-3.5" />
-                    <span>Takeaway / Collection</span>
+                    <span>Takeaway</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNoTableOrderType('ONLINE')}
+                    className={cn(
+                      'flex items-center justify-center gap-2 py-2 px-3 rounded-[3px] border text-xs font-bold transition-all cursor-pointer',
+                      noTableOrderType === 'ONLINE'
+                        ? 'bg-[#0B3D32] text-white border-[#0B3D32] dark:bg-brand dark:border-brand shadow-xs'
+                        : 'bg-white dark:bg-surface-card border-border-default dark:border-border-default text-body dark:text-body hover:bg-surface-muted dark:hover:bg-[#093027]'
+                    )}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Online Order</span>
                   </button>
                 </div>
               </div>
@@ -5311,7 +5735,7 @@ function TablesContent() {
                 </label>
                 <input
                   type="text"
-                  placeholder={noTableOrderType === 'NO_TABLE' ? "e.g. Window side, Spare chair by bar, Outside terrace..." : "e.g. Counter pickup, Delivery pack..."}
+                  placeholder={noTableOrderType === 'ONLINE' ? "e.g. Swiggy, Zomato, Web App order #..." : noTableOrderType === 'NO_TABLE' ? "e.g. Window side, Spare chair by bar, Outside terrace..." : "e.g. Counter pickup, Delivery pack..."}
                   value={noTableSeatingNote}
                   onChange={(e) => setNoTableSeatingNote(e.target.value)}
                   className="w-full rounded-[3px] border border-border-default bg-white px-3 py-1.5 text-xs text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none dark:border-border-default dark:bg-surface-card dark:text-body"
@@ -5753,6 +6177,110 @@ function TablesContent() {
                 <Check className="w-3.5 h-3.5" />
                 <span>{isSavingSettings ? 'Saving...' : 'Save Settings'}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          QUICK ADD MODAL FOR MULTI-VARIANT ITEMS (e.g. Sprite: Glass, Can, 500ml)
+          ========================================================================= */}
+      {variantModal && variantModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-100">
+          <div
+            className="fixed inset-0"
+            onClick={() => {
+              if (variantModal.draftId) {
+                setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+              }
+              setVariantModal(null);
+            }}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-lg bg-white dark:bg-surface-card border border-border-default dark:border-border-default shadow-2xl p-5 animate-in zoom-in-95 duration-100">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-border-default dark:border-border-default">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-brand dark:text-success">
+                  {variantModal.menuItem.category || 'Portion / Size'}
+                </span>
+                <h3 className="text-base font-bold text-body dark:text-body mt-0.5">
+                  {variantModal.menuItem.baseName || variantModal.menuItem.name.replace(/\s*\([^)]*\)$/, '').trim()}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (variantModal.draftId) {
+                    setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+                  }
+                  setVariantModal(null);
+                }}
+                className="p-1 rounded text-muted hover:text-body dark:hover:text-white cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quantity Selector */}
+            <div className="flex items-center justify-between py-3 border-b border-border-default dark:border-border-default">
+              <span className="text-xs font-semibold text-body dark:text-body">Quantity</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVariantModal((prev) => (prev ? { ...prev, quantity: Math.max(1, prev.quantity - 1) } : null))
+                  }
+                  className="w-7 h-7 rounded bg-surface-muted dark:bg-surface-muted text-body dark:text-body hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm select-none cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center font-mono font-bold text-sm text-body dark:text-body select-none">
+                  {variantModal.quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVariantModal((prev) => (prev ? { ...prev, quantity: prev.quantity + 1 } : null))
+                  }
+                  className="w-7 h-7 rounded bg-surface-muted dark:bg-surface-muted text-body dark:text-body hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm select-none cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Sizes / Variants Grid */}
+            <div className="pt-3">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted dark:text-muted mb-2">
+                Select Size to Add:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {resolveItemUnitInfo(variantModal.menuItem, menuCatalog).availableUnits.map((tier) => (
+                  <button
+                    key={tier.unit}
+                    type="button"
+                    onClick={() => {
+                      pushItemToTableOrder(variantModal.menuItem, tier, variantModal.quantity);
+                      if (variantModal.draftId) {
+                        setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+                      }
+                      setVariantModal(null);
+                      setOrderProductName('');
+                      setOrderPrice('');
+                      setOrderQuantity(1);
+                    }}
+                    className="flex flex-col items-center justify-center p-3 rounded-md border-2 border-brand/30 hover:border-brand bg-success-subtle/50 hover:bg-success-subtle dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 transition-all text-center group cursor-pointer shadow-2xs hover:shadow-sm"
+                  >
+                    <span className="font-bold text-xs text-body dark:text-white group-hover:text-brand dark:group-hover:text-success">
+                      {tier.unit}
+                    </span>
+                    <span className="text-xs font-mono font-extrabold text-brand dark:text-success mt-1">
+                      Rs. {tier.price.toFixed(2)}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

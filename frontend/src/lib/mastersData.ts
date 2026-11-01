@@ -96,20 +96,26 @@ export const DEFAULT_BOOKING_AGENTS: SimpleMasterItem[] = [
 
 // 6. Default Restaurant & Bar Units / Quantities
 export const DEFAULT_UNITS: SimpleMasterItem[] = [
-  { id: 'qty-1', code: 'FULL', name: 'Full Portion', order: 1, isDefault: true, isActive: true },
-  { id: 'qty-2', code: 'HALF', name: 'Half Portion', order: 2, isActive: true },
-  { id: 'qty-3', code: 'REG', name: 'Regular / Standard', order: 3, isActive: true },
-  { id: 'qty-4', code: 'SML', name: 'Small Portion', order: 4, isActive: true },
-  { id: 'qty-5', code: 'LRG', name: 'Large Portion', order: 5, isActive: true },
-  { id: 'qty-6', code: '1PC', name: 'Single Piece (1 Pc)', order: 6, isActive: true },
-  { id: 'qty-7', code: '6PCS', name: 'Plate (6 Pcs)', order: 7, isActive: true },
-  { id: 'qty-8', code: '10PCS', name: 'Plate (10 Pcs)', order: 8, isActive: true },
-  { id: 'qty-9', code: 'PLTR', name: 'Platter / Family Pack', order: 9, isActive: true },
-  { id: 'qty-10', code: 'CUP', name: 'Cup / Mug', order: 10, isActive: true },
-  { id: 'qty-11', code: 'GLS', name: 'Glass (250ml)', order: 11, isActive: true },
-  { id: 'qty-12', code: 'BTL', name: 'Bottle (750ml)', order: 12, isActive: true },
-  { id: 'qty-13', code: 'BWL', name: 'Bowl', order: 13, isActive: true },
-  { id: 'qty-14', code: 'KG', name: 'Kilogram (Kg)', order: 14, isActive: true },
+  // Beverage Sizes
+  { id: 'qty-gls', code: 'GLS', name: 'Glass', order: 1, isActive: true },
+  { id: 'qty-can', code: 'CAN', name: 'Can', order: 2, isActive: true },
+  { id: 'qty-pit', code: 'PIT', name: 'Pitcher', order: 3, isActive: true },
+  { id: 'qty-b500', code: 'B500', name: '500ml Bottle', order: 4, isActive: true },
+  { id: 'qty-b1l', code: 'B1L', name: '1L Bottle', order: 5, isActive: true },
+  { id: 'qty-b750', code: 'B750', name: 'Bottle (750ml)', order: 6, isActive: true },
+  { id: 'qty-cup', code: 'CUP', name: 'Cup / Mug', order: 7, isActive: true },
+  { id: 'qty-sml', code: 'SML', name: 'Small', order: 8, isActive: true },
+  { id: 'qty-med', code: 'MED', name: 'Medium', order: 9, isActive: true },
+  { id: 'qty-lrg', code: 'LRG', name: 'Large', order: 10, isActive: true },
+
+  // Food Sizes
+  { id: 'qty-sngl', code: 'SNGL', name: 'Single', order: 11, isActive: true },
+  { id: 'qty-plt', code: 'PLT', name: 'Plate', order: 12, isActive: true },
+  { id: 'qty-full', code: 'FULL', name: 'Full', order: 13, isDefault: true, isActive: true },
+  { id: 'qty-half', code: 'HALF', name: 'Half', order: 14, isActive: true },
+  { id: 'qty-reg', code: 'REG', name: 'Regular', order: 15, isActive: true },
+  { id: 'qty-qtr', code: 'QTR', name: 'Quarter', order: 16, isActive: true },
+  { id: 'qty-bwl', code: 'BWL', name: 'Bowl', order: 17, isActive: true },
 ];
 
 const DEFAULT_MAP: Record<MasterType, SimpleMasterItem[]> = {

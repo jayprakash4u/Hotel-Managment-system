@@ -852,13 +852,21 @@ export const Sidebar: React.FC<{
           })}
         </div>
 
-        {/* ===================== FOOTER TOGGLE BUTTON ===================== */}
+        {/* ===================== FOOTER TOGGLE BUTTON & ACTIONS ===================== */}
         <div
           className={cn(
             'border-t border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0B1120] shrink-0 p-2.5',
-            isOpen ? 'flex justify-end' : 'flex justify-center'
+            isOpen ? 'flex items-center justify-end gap-2' : 'flex flex-col items-center gap-2'
           )}
         >
+          <button
+            type="button"
+            title="Dashboard"
+            aria-label="Dashboard"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5D0] bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[var(--brand-primary)] dark:border-[#334155] dark:bg-[#1E293B] transition-all cursor-pointer shadow-2xs group"
+          >
+            <LayoutDashboard className="w-4 h-4 text-[var(--brand-primary)] transition-transform group-hover:scale-105" />
+          </button>
           <button
             type="button"
             onClick={onToggle}

@@ -21,4 +21,8 @@ public class RestaurantOrderItem : BaseEntity
     public int Quantity { get; set; } = 1;
     public double Total { get; set; }
     public string? Notes { get; set; }
+    public string Department { get; set; } = "KOT"; // KOT or BOT
+    public int DispatchedQuantity { get; set; } = 0; // Quantities successfully dispatched/printed
+    public string? KotNumber { get; set; }
+    public string? BotNumber { get; set; }
 }

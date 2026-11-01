@@ -7,6 +7,7 @@ public class RestaurantOrder : BaseEntity
 
     public string OrderNumber { get; set; } = string.Empty; // ORD-XXXX
     public string KotNumber { get; set; } = string.Empty; // KOT-XXXX
+    public string? BotNumber { get; set; } // BOT-XXXX
     public string Outlet { get; set; } = "RESTAURANT"; // RESTAURANT, ROOFTOP_BAR, ZENITH_SPA, ROOM_SERVICE
     public string? TableId { get; set; }
     public RestaurantTable? Table { get; set; }

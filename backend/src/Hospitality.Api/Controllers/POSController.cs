@@ -62,17 +62,22 @@ public class POSController : ControllerBase
         return Ok(ApiResponse.Ok(product));
     }
 
+    public record ProductVariantDto(string Unit, double Price);
+
     public record CreatePOSProductRequest(
         string? HotelId,
         string? Outlet,
         string Category,
+        string? Department,
         string Name,
         string? Description,
         double Price,
         bool TrackStock,
         int? Stock,
         bool? IsAvailable,
-        string? ImageUrl
+        string? ImageUrl,
+        string? VariantsJson = null,
+        List<ProductVariantDto>? Variants = null
     );
 
     [HttpPost("product")]
@@ -120,18 +125,34 @@ public class POSController : ControllerBase
             isAvailable = false;
         }
 
+        string variantsJson = "[]";
+        if (req.Variants != null && req.Variants.Any())
+        {
+            variantsJson = System.Text.Json.JsonSerializer.Serialize(req.Variants);
+        }
+        else if (!string.IsNullOrWhiteSpace(req.VariantsJson))
+        {
+            variantsJson = req.VariantsJson;
+        }
+
+        var department = !string.IsNullOrWhiteSpace(req.Department) 
+            ? req.Department.Trim().ToUpper() 
+            : (req.Category.ToLower().Contains("drink") || req.Category.ToLower().Contains("bar") || req.Category.ToLower().Contains("beverage") ? "BOT" : "KOT");
+
         var product = new POSProduct
         {
             HotelId = hotelId,
             Outlet = string.IsNullOrWhiteSpace(req.Outlet) ? "RESTAURANT" : req.Outlet.ToUpper(),
             Category = req.Category.Trim(),
+            Department = department,
             Name = req.Name.Trim(),
             Description = req.Description?.Trim(),
             Price = req.Price,
             Stock = stockQuantity,
             TrackStock = req.TrackStock,
             IsAvailable = isAvailable,
-            ImageUrl = req.ImageUrl
+            ImageUrl = req.ImageUrl,
+            VariantsJson = variantsJson
         };
 
         _db.POSProducts.Add(product);
@@ -143,13 +164,16 @@ public class POSController : ControllerBase
     public record UpdatePOSProductRequest(
         string? Outlet,
         string? Category,
+        string? Department,
         string? Name,
         string? Description,
         double? Price,
         bool? TrackStock,
         int? Stock,
         bool? IsAvailable,
-        string? ImageUrl
+        string? ImageUrl,
+        string? VariantsJson = null,
+        List<ProductVariantDto>? Variants = null
     );
 
     [HttpPut("product/{id}")]
@@ -239,6 +263,15 @@ public class POSController : ControllerBase
             {
                 product.IsAvailable = req.IsAvailable.Value;
             }
+        }
+
+        if (req.Variants != null)
+        {
+            product.VariantsJson = System.Text.Json.JsonSerializer.Serialize(req.Variants);
+        }
+        else if (req.VariantsJson != null)
+        {
+            product.VariantsJson = req.VariantsJson;
         }
 
         await _db.SaveChangesAsync();

@@ -13,6 +13,9 @@ export interface OrderItem {
   remarks?: string;
   status?: 'DRAFT' | 'KITCHEN' | 'PREPARING' | 'READY' | 'SERVED';
   kotNumber?: string;
+  department?: 'KOT' | 'BOT';
+  dispatchedQuantity?: number;
+  botNumber?: string;
 }
 
 export function calculateOrderItemTotal(item: OrderItem): {

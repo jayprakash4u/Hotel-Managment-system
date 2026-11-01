@@ -13,9 +13,11 @@ import {
   Trash2,
   Receipt,
   Printer,
+  Save,
   CheckCircle2,
   RotateCcw,
   ChefHat,
+  Wine,
   BedDouble,
   Check,
   Edit2,
@@ -43,6 +45,7 @@ import {
   MenuItemCatalogEntry,
   getSettedMenuItems,
   resolveItemUnitInfo,
+  consolidateMenuCatalog,
 } from '@/lib/menuData';
 
 // Cart line item structure matching table order items
@@ -59,6 +62,10 @@ export interface QuickCartItem {
   remarks?: string;
   trackStock?: boolean;
   stock?: number;
+  department?: 'KOT' | 'BOT';
+  dispatchedQuantity?: number;
+  kotNumber?: string;
+  botNumber?: string;
 }
 
 export default function QuickSalePage() {
@@ -91,7 +98,6 @@ export default function QuickSalePage() {
   const [billPaidAmt, setBillPaidAmt] = useState<string>('');
   const [billMode, setBillMode] = useState<string>('Cash');
   const [billRemarks, setBillRemarks] = useState<string>('');
-  const [sendToKitchen, setSendToKitchen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Optional Customer Info (Never required for normal counter walk-in)
@@ -127,6 +133,14 @@ export default function QuickSalePage() {
   const [showRecentBills, setShowRecentBills] = useState<boolean>(false);
   const [localRecentOrders, setLocalRecentOrders] = useState<any[]>([]);
   const recentBillsRef = useRef<HTMLDivElement>(null);
+
+  // Quick Add Variant Selection Modal (Requirement: For multi-size items like Sprite, pop up size choices)
+  const [variantModal, setVariantModal] = useState<{
+    isOpen: boolean;
+    menuItem: MenuItemCatalogEntry;
+    quantity: number;
+    draftId?: string;
+  } | null>(null);
 
   // Load cached recent bills from localStorage on mount
   useEffect(() => {
@@ -187,7 +201,7 @@ export default function QuickSalePage() {
             }
           });
 
-          setMenuCatalog(merged);
+          setMenuCatalog(consolidateMenuCatalog(merged));
         }
       } catch (err) {
         console.warn('Could not load POS products from backend, using setted menu', err);
@@ -301,7 +315,8 @@ export default function QuickSalePage() {
 
   // Filtered autocomplete suggestions for the main search bar
   const suggestions = useMemo(() => {
-    const catalogList = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+    const rawCatalog = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+    const catalogList = consolidateMenuCatalog(rawCatalog);
     const q = orderProductName.toLowerCase().trim();
     if (!q) {
       return catalogList;
@@ -359,12 +374,16 @@ export default function QuickSalePage() {
     setBillDisPercent(calculatedPercent > 0 ? (Math.round(calculatedPercent * 10) / 10).toString() : '0');
   };
 
-  // Add Item Directly from Search Autocomplete (1-Click)
-  const handleAddDirectMenuItem = (menuItem: MenuItemCatalogEntry, qtyOverride?: number) => {
+  // Helper to push confirmed item & size into the cart
+  const pushItemToCart = (
+    menuItem: MenuItemCatalogEntry,
+    selectedTier: { unit: string; price: number },
+    qty: number
+  ) => {
     const unitInfo = resolveItemUnitInfo(menuItem, menuCatalog);
     const name = unitInfo.baseName || menuItem.baseName || menuItem.name.replace(/\s*\([^)]*\)$/, '').trim();
-    const price = menuItem.price;
-    const qty = qtyOverride && qtyOverride > 0 ? qtyOverride : Math.max(1, orderQuantity);
+    const unit = selectedTier.unit || 'Regular';
+    const unitPrice = selectedTier.price;
 
     // Stock check for tracked items
     if (menuItem.trackStock && menuItem.stock !== undefined && menuItem.stock <= 0) {
@@ -373,19 +392,21 @@ export default function QuickSalePage() {
     }
 
     setCart((prev) => {
-      const existing = prev.find((i) => i.name.toLowerCase() === name.toLowerCase());
+      const existing = prev.find(
+        (i) => i.name.toLowerCase() === name.toLowerCase() && (i.unit || '').toLowerCase() === unit.toLowerCase()
+      );
 
       if (menuItem.trackStock && menuItem.stock !== undefined) {
         const currentQty = existing ? existing.quantity : 0;
         if (currentQty + qty > menuItem.stock) {
-          toast.error('Stock Limit Reached', `Only ${menuItem.stock} units of "${name}" available in stock.`);
+          toast.error('Stock Limit Reached', `Only ${menuItem.stock} units of "${name} (${unit})" available.`);
           return prev;
         }
       }
 
       if (existing) {
         return prev.map((i) =>
-          i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
+          i.id === existing.id ? { ...i, quantity: i.quantity + qty } : i
         );
       }
 
@@ -397,17 +418,41 @@ export default function QuickSalePage() {
           name,
           baseName: unitInfo.baseName,
           category: menuItem.category,
-          unit: unitInfo.unit,
+          unit,
           availableUnits: unitInfo.availableUnits,
-          unitPrice: price,
+          unitPrice,
           quantity: qty,
           trackStock: menuItem.trackStock,
           stock: menuItem.stock,
+          department: unitInfo.department || menuItem.department || 'KOT',
+          dispatchedQuantity: 0,
         },
       ];
     });
 
-    toast.success('Item Added', `${qty}x ${name} (Rs. ${price * qty}) added to Quick Sale.`);
+    toast.success('Item Added', `${qty}x ${name} · ${unit} (Rs. ${(unitPrice * qty).toFixed(2)}) added to cart.`);
+  };
+
+  // Add Item Directly from Search Autocomplete
+  const handleAddDirectMenuItem = (menuItem: MenuItemCatalogEntry, qtyOverride?: number) => {
+    const unitInfo = resolveItemUnitInfo(menuItem, menuCatalog);
+    const hasMultipleUnits = unitInfo.availableUnits && unitInfo.availableUnits.length > 1;
+    const qty = qtyOverride && qtyOverride > 0 ? qtyOverride : Math.max(1, orderQuantity);
+
+    // Rule 1 & 2: For multi-variant items, open the Quick Add popup to select size
+    if (hasMultipleUnits) {
+      setVariantModal({
+        isOpen: true,
+        menuItem,
+        quantity: qty,
+      });
+      setIsSuggestionsOpen(false);
+      return;
+    }
+
+    // Rule 4: Single-variant items add directly with default unit and price
+    const defaultTier = unitInfo.availableUnits[0] || { unit: unitInfo.unit || 'Regular', price: menuItem.price };
+    pushItemToCart(menuItem, defaultTier, qty);
     setOrderProductName('');
     setOrderQuantity(1);
     setIsSuggestionsOpen(false);
@@ -436,40 +481,27 @@ export default function QuickSalePage() {
 
   const handleSelectMenuItemForDraft = (draftId: string, menuItem: MenuItemCatalogEntry) => {
     const unitInfo = resolveItemUnitInfo(menuItem, menuCatalog);
-    const name = unitInfo.baseName || menuItem.baseName || menuItem.name.replace(/\s*\([^)]*\)$/, '').trim();
-    const price = menuItem.price;
-    const qty = 1;
+    const hasMultipleUnits = unitInfo.availableUnits && unitInfo.availableUnits.length > 1;
 
-    setCart((prev) => {
-      const existing = prev.find((i) => i.name.toLowerCase() === name.toLowerCase());
-      if (existing) {
-        return prev.map((i) =>
-          i.name.toLowerCase() === name.toLowerCase() ? { ...i, quantity: i.quantity + qty } : i
-        );
-      }
-      return [
-        ...prev,
-        {
-          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          productId: menuItem.id,
-          name,
-          baseName: unitInfo.baseName,
-          category: menuItem.category,
-          unit: unitInfo.unit,
-          availableUnits: unitInfo.availableUnits,
-          unitPrice: price,
-          quantity: qty,
-          trackStock: menuItem.trackStock,
-          stock: menuItem.stock,
-        },
-      ];
-    });
+    // Rule 1 & 2: For multi-variant items, open the Quick Add popup to select size
+    if (hasMultipleUnits) {
+      setVariantModal({
+        isOpen: true,
+        menuItem,
+        quantity: 1,
+        draftId,
+      });
+      setDraftRows((prev) => prev.map((d) => (d.id === draftId ? { ...d, isOpen: false } : d)));
+      return;
+    }
 
-    toast.success('Item Added', `${name} (Rs. ${price}) added to Quick Sale.`);
+    // Rule 4: Single-variant items add directly with default unit and price
+    const defaultTier = unitInfo.availableUnits[0] || { unit: unitInfo.unit || 'Regular', price: menuItem.price };
+    pushItemToCart(menuItem, defaultTier, 1);
     setDraftRows((prev) => prev.filter((d) => d.id !== draftId));
   };
 
-  // Change order item unit/portion (e.g. Momo Half <-> Full)
+  // Change order item unit/portion (e.g. Sprite Glass -> Can -> 500ml Bottle)
   const handleUpdateItemUnit = (itemId: string, newUnit: string) => {
     setCart((prev) =>
       prev.map((i) => {
@@ -482,10 +514,12 @@ export default function QuickSalePage() {
           unitMeta.availableUnits.find((u) => u.unit.toLowerCase() === newUnit.toLowerCase()) ||
           unitMeta.availableUnits.find((u) => u.unit === newUnit);
 
-        const newPrice = targetTier ? targetTier.price : i.unitPrice;
+        const newPrice = targetTier ? targetTier.price : (newUnit ? i.unitPrice : 0);
         const cleanBase = unitMeta.baseName || i.baseName || i.name.replace(/\s*\([^)]*\)$/, '').trim();
 
-        toast.info('Unit Updated', `${cleanBase} set to ${newUnit} · Rs. ${newPrice}`);
+        if (targetTier) {
+          toast.success('Size Selected', `${cleanBase} (${newUnit}) · Rs. ${newPrice.toFixed(2)}`);
+        }
 
         return {
           ...i,
@@ -581,12 +615,108 @@ export default function QuickSalePage() {
     toast.success('Customer Details Saved', customerNameInput.trim() || 'Details updated.');
   };
 
+  // Dispatch KOT / BOT / All Tickets from Quick Sale
+  const handleDispatchTicket = (targetDept: 'KOT' | 'BOT' | 'ALL') => {
+    if (cart.length === 0) {
+      toast.error('Cart Empty', 'Please add items before printing tickets.');
+      return;
+    }
+
+    const unselectedItem = cart.find((i) => i.availableUnits && i.availableUnits.length > 1 && !i.unit);
+    if (unselectedItem) {
+      toast.error('Select Size', `Please select a size for "${unselectedItem.name}".`);
+      return;
+    }
+
+    let pendingItems = cart.filter((i) => {
+      const isPending = i.quantity > (i.dispatchedQuantity || 0);
+      if (!isPending) return false;
+      if (targetDept === 'KOT') return (i.department === 'KOT' || !i.department);
+      if (targetDept === 'BOT') return i.department === 'BOT';
+      return true;
+    });
+
+    if (pendingItems.length === 0) {
+      pendingItems = cart.filter((i) => {
+        if (targetDept === 'KOT') return (i.department === 'KOT' || !i.department);
+        if (targetDept === 'BOT') return i.department === 'BOT';
+        return true;
+      });
+    }
+
+    if (pendingItems.length === 0) {
+      toast.info('No Items', `No ${targetDept === 'BOT' ? 'bar/beverage' : 'kitchen'} items in order.`);
+      return;
+    }
+
+    const ticketNumber = targetDept === 'BOT' ? `BOT-${Math.floor(100 + Math.random() * 900)}` : `KOT-${Math.floor(200 + Math.random() * 800)}`;
+
+    setCart((prev) =>
+      prev.map((i) => {
+        const matches =
+          targetDept === 'ALL' ||
+          (targetDept === 'KOT' && (i.department === 'KOT' || !i.department)) ||
+          (targetDept === 'BOT' && i.department === 'BOT');
+        if (matches) {
+          return {
+            ...i,
+            dispatchedQuantity: i.quantity,
+            kotNumber: targetDept === 'BOT' ? i.kotNumber : ticketNumber,
+            botNumber: targetDept === 'KOT' ? i.botNumber : ticketNumber,
+          };
+        }
+        return i;
+      })
+    );
+
+    const printItems = pendingItems.map((i) => {
+      const remainingQty = i.quantity - (i.dispatchedQuantity || 0);
+      const qty = remainingQty > 0 ? remainingQty : i.quantity;
+      return {
+        productName: i.unit ? `${i.name} (${i.unit})` : i.name,
+        quantity: qty,
+        unitPrice: i.unitPrice,
+        total: i.unitPrice * qty,
+        notes: i.remarks,
+      };
+    });
+
+    setReceiptData({
+      isOpen: true,
+      onClose: () => setIsReceiptModalOpen(false),
+      orderNumber: activeOrderNumber || 'QS-ORDER',
+      ticketType: (targetDept === 'BOT' ? 'BOT' : targetDept === 'ALL' ? 'ALL' : 'KOT') as any,
+      kotNumber: targetDept !== 'BOT' ? ticketNumber : undefined,
+      botNumber: targetDept === 'BOT' ? ticketNumber : undefined,
+      receiptNumber: ticketNumber,
+      orderType: 'COUNTER_SALE',
+      tableNumber: null,
+      seatingNote: 'Counter Sale',
+      createdAt: new Date().toISOString(),
+      serverName: 'ADMIN',
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+      items: printItems,
+      subtotal: printItems.reduce((s, i) => s + i.total, 0),
+      tax: 0,
+      total: printItems.reduce((s, i) => s + i.total, 0),
+    });
+    setIsReceiptModalOpen(true);
+    toast.celebrate(`Ticket Dispatched!`, `${printItems.length} item(s) printed (${ticketNumber}).`);
+  };
+
   // ---------------------------------------------------------------------------
   // Complete Quick Sale & Settle
   // ---------------------------------------------------------------------------
   const handleCompleteSale = async (shouldPrint = false) => {
     if (cart.length === 0) {
       toast.error('Cart is Empty', 'Please add at least one item before completing the sale.');
+      return;
+    }
+
+    const unselectedItem = cart.find((i) => i.availableUnits && i.availableUnits.length > 1 && !i.unit);
+    if (unselectedItem) {
+      toast.error('Select Size', `Please select a size for "${unselectedItem.name}" before completing the sale.`);
       return;
     }
 
@@ -616,7 +746,7 @@ export default function QuickSalePage() {
         customerName: customerName.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
         notes: billRemarks.trim() || undefined,
-        sendToKitchen,
+        sendToKitchen: false,
         outlet: 'RESTAURANT',
       };
 
@@ -876,45 +1006,65 @@ export default function QuickSalePage() {
                     </p>
                   </div>
                 ) : (
-                  suggestions.map((item) => (
-                    <div
-                      key={item.id}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleAddDirectMenuItem(item);
-                      }}
-                      className="px-3 py-2 flex items-center justify-between gap-3 hover:bg-[#F2F6F4] dark:hover:bg-[#093027] cursor-pointer transition-colors group"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-[#24352F] dark:text-white group-hover:text-[#0B3D32] dark:group-hover:text-emerald-300">
-                            {item.name}
-                          </span>
-                          <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.2 rounded-[2px] bg-slate-100 dark:bg-[#0E3B31] text-[#64736C] dark:text-[#A4B8AE]">
-                            {item.category}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-[#879B90] flex items-center gap-2 mt-0.5">
-                          <span className="font-mono font-medium">{item.code}</span>
-                          <span>·</span>
-                          <span>{item.portion || '1 Portion'}</span>
-                        </div>
-                      </div>
+                  suggestions.map((item) => {
+                    const unitInfo = resolveItemUnitInfo(item, menuCatalog);
+                    const isMulti = unitInfo.availableUnits && unitInfo.availableUnits.length > 1;
+                    const variantCount = unitInfo.availableUnits?.length || 0;
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400">
-                          Rs. {item.price.toFixed(0)}
-                        </span>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#0B3D32] group-hover:bg-[#093027] text-white text-[11px] font-bold shadow-2xs transition-colors dark:bg-emerald-600 dark:group-hover:bg-emerald-500"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Add</span>
-                        </button>
+                    return (
+                      <div
+                        key={item.id}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleAddDirectMenuItem(item);
+                        }}
+                        className="px-3.5 py-2.5 flex items-center justify-between gap-3 hover:bg-[#F2F6F4] dark:hover:bg-[#093027] cursor-pointer transition-colors group"
+                      >
+                        {/* 1. Item Name & 2. Category */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-[#24352F] dark:text-white group-hover:text-[#0B3D32] dark:group-hover:text-emerald-300">
+                              {item.name}
+                            </span>
+                            <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-[#0E3B31] text-[#64736C] dark:text-[#A4B8AE]">
+                              {item.category}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
+                            {item.code}
+                          </div>
+                        </div>
+
+                        {/* 3. Variant Summary / Price & 4. Action Button */}
+                        {isMulti ? (
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-[3px] border border-emerald-200/70 dark:border-emerald-800/60 whitespace-nowrap">
+                              {variantCount} Sizes Available
+                            </span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-[3px] bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition-colors cursor-pointer"
+                            >
+                              <span>Select</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400">
+                              Rs. {item.price.toFixed(2)}
+                            </span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#0B3D32] group-hover:bg-[#093027] text-white text-[11px] font-bold shadow-2xs transition-colors dark:bg-emerald-600 dark:group-hover:bg-emerald-500 cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </>
@@ -944,7 +1094,7 @@ export default function QuickSalePage() {
               <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-[#F8FAFC] dark:bg-[#061D18]">
                 <th className="py-2 px-3 text-center w-12 border-r border-slate-200 dark:border-slate-800">#</th>
                 <th className="py-2 px-3.5 text-left border-r border-slate-200 dark:border-slate-800">Particular</th>
-                <th className="py-2 px-2.5 text-center w-28 border-r border-slate-200 dark:border-slate-800">Unit</th>
+                <th className="py-2 px-2.5 text-center w-40 min-w-[145px] border-r border-slate-200 dark:border-slate-800">Unit</th>
                 <th className="py-2 px-3.5 text-right w-28 border-r border-slate-200 dark:border-slate-800">Rate</th>
                 <th className="py-2 px-3 text-center w-20 border-r border-slate-200 dark:border-slate-800">Qty</th>
                 <th className="py-2 px-3.5 text-right w-28 border-r border-slate-200 dark:border-slate-800">Amount</th>
@@ -1013,32 +1163,22 @@ export default function QuickSalePage() {
                           {particularName}
                         </td>
 
-                        {/* Unit */}
-                        <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80">
-                          {hasMultipleUnits ? (
-                            <select
-                              value={currentUnit}
-                              onChange={(e) => handleUpdateItemUnit(item.id, e.target.value)}
-                              className="w-full text-center rounded-[2px] border border-slate-200 bg-white dark:bg-[#061D18] dark:border-slate-700 py-0.5 px-1.5 text-xs text-[#0B3D32] dark:text-emerald-300 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
-                              title="Change portion / unit"
-                            >
-                              {unitMeta.availableUnits.map((u) => (
-                                <option key={u.unit} value={u.unit}>
-                                  {u.unit}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[11px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                              {currentUnit || 'Standard'}
-                            </span>
-                          )}
+                        {/* Unit (Non-clickable, selected when choosing item in modal) */}
+                        <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80 whitespace-nowrap">
+                          <span className="inline-block px-3 py-1 rounded-[3px] text-xs font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 whitespace-nowrap">
+                            {currentUnit || 'Regular'}
+                          </span>
                         </td>
 
                         {/* Rate (Styled with light grey background box matching screenshot) */}
                         <td className="py-2 px-3 border-r border-slate-100 dark:border-slate-800/80">
-                          <div className="bg-[#E9ECEF] dark:bg-slate-800/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-slate-800 dark:text-slate-200">
-                            {item.unitPrice.toFixed(2)}
+                          <div className={cn(
+                            'px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right',
+                            item.unitPrice > 0
+                              ? 'bg-[#E9ECEF] dark:bg-slate-800/80 text-slate-800 dark:text-slate-200 font-semibold'
+                              : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400'
+                          )}>
+                            {item.unitPrice > 0 ? item.unitPrice.toFixed(2) : '-'}
                           </div>
                         </td>
 
@@ -1069,22 +1209,37 @@ export default function QuickSalePage() {
 
                         {/* Amount (Styled with light grey background box matching screenshot) */}
                         <td className="py-2 px-3 border-r border-slate-100 dark:border-slate-800/80">
-                          <div className="bg-[#E9ECEF] dark:bg-slate-800/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-slate-900 dark:text-white">
-                            {itemAmount.toFixed(0)}
+                          <div className={cn(
+                            'px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right',
+                            itemAmount > 0
+                              ? 'bg-[#E9ECEF] dark:bg-slate-800/80 text-slate-900 dark:text-white font-bold'
+                              : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400'
+                          )}>
+                            {itemAmount > 0 ? itemAmount.toFixed(2) : '0.00'}
                           </div>
                         </td>
 
                         {/* Status */}
                         <td className="py-2 px-2 text-center border-r border-slate-100 dark:border-slate-800/80">
-                          {sendToKitchen ? (
+                          {item.kotNumber ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                              <ChefHat className="w-2.5 h-2.5" />
-                              Kitchen KOT
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              {item.kotNumber}
+                            </span>
+                          ) : item.botNumber ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                              <Wine className="w-2.5 h-2.5" />
+                              {item.botNumber}
+                            </span>
+                          ) : item.dispatchedQuantity && item.dispatchedQuantity >= item.quantity ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              Sent
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                              <CheckCircle2 className="w-2.5 h-2.5" />
-                              Ready
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+                              <Clock className="w-2.5 h-2.5" />
+                              Unsent
                             </span>
                           )}
                         </td>
@@ -1117,7 +1272,8 @@ export default function QuickSalePage() {
 
                   {/* Active In-Table Draft Rows (Matching Reference Design) */}
                   {draftRows.map((draft, draftIdx) => {
-                    const catalogList = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+                    const rawCatalog = menuCatalog && menuCatalog.length > 0 ? menuCatalog : getSettedMenuItems();
+                    const catalogList = consolidateMenuCatalog(rawCatalog);
                     const q = draft.search.toLowerCase().trim();
                     const filteredDraftItems = catalogList.filter((item) => {
                       if (!q) return true;
@@ -1257,21 +1413,38 @@ export default function QuickSalePage() {
                                                 : 'hover:bg-[#1E293B] hover:text-white text-slate-800 dark:text-slate-200 bg-white dark:bg-[#071F1A]'
                                             )}
                                           >
-                                            <span className="w-44 truncate font-medium text-left">
-                                              {item.name}
-                                            </span>
-                                            <span className="w-32 truncate text-left text-[11px] opacity-75">
-                                              {item.category || '-'}
-                                            </span>
-                                            <span className="w-20 font-mono text-right font-medium">
-                                              Rs. {item.price.toFixed(2)}
-                                            </span>
-                                            <span className="w-16 text-center text-[11px] opacity-75">
-                                              {item.portion || item.unit || '1'}
-                                            </span>
-                                            <span className="w-12 text-center font-mono opacity-75">
-                                              {item.stock !== undefined ? item.stock : '-'}
-                                            </span>
+                                            {(() => {
+                                              const itemUnitMeta = resolveItemUnitInfo(item, menuCatalog);
+                                              const isMulti = itemUnitMeta.availableUnits && itemUnitMeta.availableUnits.length > 1;
+                                              return (
+                                                <>
+                                                  <span className="w-44 truncate font-medium text-left">
+                                                    {item.name}
+                                                  </span>
+                                                  <span className="w-32 truncate text-left text-[11px] opacity-75">
+                                                    {item.category || '-'}
+                                                  </span>
+                                                  <span className={cn(
+                                                    "w-20 text-right font-medium",
+                                                    isMulti ? "text-emerald-400 font-semibold text-[11px]" : "font-mono"
+                                                  )}>
+                                                    {isMulti ? `${itemUnitMeta.availableUnits.length} Sizes` : `Rs. ${item.price.toFixed(2)}`}
+                                                  </span>
+                                                  <span className="w-16 text-center text-[11px] opacity-90">
+                                                    {isMulti ? (
+                                                      <span className="px-1.5 py-0.5 rounded-[2px] bg-emerald-700/80 text-white text-[10px] font-bold">
+                                                        Select
+                                                      </span>
+                                                    ) : (
+                                                      item.portion || item.unit || '1'
+                                                    )}
+                                                  </span>
+                                                  <span className="w-12 text-center font-mono opacity-75">
+                                                    {item.stock !== undefined ? item.stock : '-'}
+                                                  </span>
+                                                </>
+                                              );
+                                            })()}
                                           </div>
                                         );
                                       })
@@ -1303,7 +1476,7 @@ export default function QuickSalePage() {
                         {/* Amount placeholder */}
                         <td className="py-2 px-3 border-r border-slate-100 dark:border-slate-800/80">
                           <div className="bg-[#E9ECEF] dark:bg-slate-800/80 px-2.5 py-0.5 rounded-[2px] font-mono text-xs text-right text-slate-400">
-                            0
+                            0.00
                           </div>
                         </td>
 
@@ -1335,6 +1508,77 @@ export default function QuickSalePage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Order Action Bar: Save, Print KOT, Print BOT, All in One (Directly below table, above billing) */}
+        <div className="flex items-center justify-end gap-2 px-3.5 py-2 bg-slate-50/80 dark:bg-[#061D18] border-t border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 1. Save */}
+            <button
+              type="button"
+              disabled={isSubmitting || cart.length === 0}
+              onClick={() => handleCompleteSale(false)}
+              className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#07241E] hover:bg-slate-50 dark:hover:bg-[#0c382f] text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Save order"
+            >
+              <Save className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span>{isSubmitting ? 'Saving...' : 'Save'}</span>
+            </button>
+
+            {/* 2. Print KOT */}
+            <button
+              type="button"
+              disabled={isSubmitting || cart.length === 0}
+              onClick={() => handleDispatchTicket('KOT')}
+              className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#07241E] hover:bg-slate-50 dark:hover:bg-[#0c382f] text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Dispatch and print Kitchen Order Ticket (KOT)"
+            >
+              <ChefHat className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span>Print KOT</span>
+              {cart.some(
+                (i) => (i.department === 'KOT' || !i.department) && (i.quantity > (i.dispatchedQuantity || 0))
+              ) && (
+                <span className="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-mono font-semibold">
+                  {cart
+                    .filter((i) => (i.department === 'KOT' || !i.department) && (i.quantity > (i.dispatchedQuantity || 0)))
+                    .reduce((s, i) => s + (i.quantity - (i.dispatchedQuantity || 0)), 0)}
+                </span>
+              )}
+            </button>
+
+            {/* 3. Print BOT */}
+            <button
+              type="button"
+              disabled={isSubmitting || cart.length === 0}
+              onClick={() => handleDispatchTicket('BOT')}
+              className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#07241E] hover:bg-slate-50 dark:hover:bg-[#0c382f] text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Dispatch and print Bar Order Ticket (BOT)"
+            >
+              <Wine className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span>Print BOT</span>
+              {cart.some(
+                (i) => i.department === 'BOT' && (i.quantity > (i.dispatchedQuantity || 0))
+              ) && (
+                <span className="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-mono font-semibold">
+                  {cart
+                    .filter((i) => i.department === 'BOT' && (i.quantity > (i.dispatchedQuantity || 0)))
+                    .reduce((s, i) => s + (i.quantity - (i.dispatchedQuantity || 0)), 0)}
+                </span>
+              )}
+            </button>
+
+            {/* 4. All in One */}
+            <button
+              type="button"
+              disabled={isSubmitting || cart.length === 0}
+              onClick={() => handleDispatchTicket('ALL')}
+              className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#07241E] hover:bg-slate-50 dark:hover:bg-[#0c382f] text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Dispatch both Kitchen and Bar tickets together"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span>All in One</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1482,27 +1726,14 @@ export default function QuickSalePage() {
             />
           </div>
 
-          {/* Kitchen KOT Toggle */}
-          <div className="flex items-center gap-1.5 pb-2 px-1">
-            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300 select-none">
-              <input
-                type="checkbox"
-                checked={sendToKitchen}
-                onChange={(e) => setSendToKitchen(e.target.checked)}
-                className="rounded text-[#0B3D32] focus:ring-[#0B3D32] cursor-pointer"
-              />
-              <ChefHat className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Send KOT</span>
-            </label>
-          </div>
-
-          {/* Action Buttons: Settle Payment & Settle and Print */}
+          {/* Billing Action Buttons: Settle Payment & Settle and Print */}
           <div className="ml-auto flex items-end gap-2">
             <button
               type="button"
               disabled={isSubmitting || cart.length === 0}
               onClick={() => handleCompleteSale(false)}
               className="px-3.5 py-1.5 rounded-[3px] bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-50 text-white font-semibold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Settle payment"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>{isSubmitting ? 'Processing...' : 'Settle Payment'}</span>
@@ -1512,8 +1743,9 @@ export default function QuickSalePage() {
               disabled={isSubmitting || cart.length === 0}
               onClick={() => handleCompleteSale(true)}
               className="px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082e25] disabled:opacity-50 text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 font-semibold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Settle payment and print receipt"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Receipt className="w-3.5 h-3.5" />
               <span>Settle &amp; Print</span>
             </button>
           </div>
@@ -1913,6 +2145,109 @@ export default function QuickSalePage() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          QUICK ADD MODAL FOR MULTI-VARIANT ITEMS (e.g. Sprite: Glass, Can, 500ml)
+          ========================================================================= */}
+      {variantModal && variantModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-100">
+          <div
+            className="fixed inset-0"
+            onClick={() => {
+              if (variantModal.draftId) {
+                setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+              }
+              setVariantModal(null);
+            }}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-lg bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-700 shadow-2xl p-5 animate-in zoom-in-95 duration-100">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                  {variantModal.menuItem.category || 'Portion / Size'}
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                  {variantModal.menuItem.baseName || variantModal.menuItem.name.replace(/\s*\([^)]*\)$/, '').trim()}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (variantModal.draftId) {
+                    setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+                  }
+                  setVariantModal(null);
+                }}
+                className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quantity Selector */}
+            <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Quantity</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVariantModal((prev) => (prev ? { ...prev, quantity: Math.max(1, prev.quantity - 1) } : null))
+                  }
+                  className="w-7 h-7 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm select-none cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center font-mono font-bold text-sm text-slate-900 dark:text-white select-none">
+                  {variantModal.quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVariantModal((prev) => (prev ? { ...prev, quantity: prev.quantity + 1 } : null))
+                  }
+                  className="w-7 h-7 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm select-none cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Sizes / Variants Grid */}
+            <div className="pt-3">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                Select Size to Add:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {resolveItemUnitInfo(variantModal.menuItem, menuCatalog).availableUnits.map((tier) => (
+                  <button
+                    key={tier.unit}
+                    type="button"
+                    onClick={() => {
+                      pushItemToCart(variantModal.menuItem, tier, variantModal.quantity);
+                      if (variantModal.draftId) {
+                        setDraftRows((prev) => prev.filter((d) => d.id !== variantModal.draftId));
+                      }
+                      setVariantModal(null);
+                      setOrderProductName('');
+                      setOrderQuantity(1);
+                    }}
+                    className="flex flex-col items-center justify-center p-3 rounded-md border-2 border-emerald-600/30 hover:border-emerald-600 bg-emerald-50/60 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 transition-all text-center group cursor-pointer shadow-2xs hover:shadow-sm"
+                  >
+                    <span className="font-bold text-xs text-slate-800 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
+                      {tier.unit}
+                    </span>
+                    <span className="text-xs font-mono font-extrabold text-emerald-700 dark:text-emerald-400 mt-1">
+                      Rs. {tier.price.toFixed(2)}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -199,6 +199,9 @@ export const api = {
     stock?: number;
     isAvailable?: boolean;
     imageUrl?: string;
+    variants?: Array<{ unit: string; price: number }>;
+    variantsJson?: string;
+    department?: 'KOT' | 'BOT';
   }) => {
     return fetcher<POSProductData>('/api/pos/product', {
       method: 'POST',
@@ -216,8 +219,11 @@ export const api = {
       price?: number;
       trackStock?: boolean;
       stock?: number;
+      department?: 'KOT' | 'BOT';
       isAvailable?: boolean;
       imageUrl?: string;
+      variants?: Array<{ unit: string; price: number }>;
+      variantsJson?: string;
     }
   ) => {
     return fetcher<POSProductData>(`/api/pos/product/${id}`, {
@@ -335,6 +341,18 @@ export const api = {
   deleteRestaurantOrderItem: (orderId: string, itemId: string) => {
     return fetcher<any>(`/api/restaurant/orders/${orderId}/items/${itemId}`, {
       method: 'DELETE',
+    });
+  },
+
+  dispatchRestaurantOrderKot: (orderId: string) => {
+    return fetcher<any>(`/api/restaurant/orders/${orderId}/dispatch-kot`, {
+      method: 'POST',
+    });
+  },
+
+  dispatchRestaurantOrderBot: (orderId: string) => {
+    return fetcher<any>(`/api/restaurant/orders/${orderId}/dispatch-bot`, {
+      method: 'POST',
     });
   },
 

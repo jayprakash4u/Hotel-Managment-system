@@ -9,6 +9,7 @@ public class POSProduct : BaseEntity
 
     public string Outlet { get; set; } = "RESTAURANT"; // RESTAURANT, ROOFTOP_BAR, ZENITH_SPA, ROOM_SERVICE, MINIBAR
     public string Category { get; set; } = string.Empty;
+    public string Department { get; set; } = "KOT"; // KOT (Kitchen) or BOT (Bar/Beverage)
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public double Price { get; set; }
@@ -18,6 +19,7 @@ public class POSProduct : BaseEntity
     public string? ImageUrl { get; set; }
     public string? InventoryItemId { get; set; }
     public InventoryItem? InventoryItem { get; set; }
+    public string? VariantsJson { get; set; } = "[]";
 
     [NotMapped]
     public bool IsActive
