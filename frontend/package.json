@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "db:generate": "node scripts/prisma.cjs generate",
+    "db:validate": "node scripts/prisma.cjs validate",
+    "db:update": "node scripts/prisma.cjs db push",
+    "db:studio": "node scripts/prisma.cjs studio"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

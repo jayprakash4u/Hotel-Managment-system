@@ -14,10 +14,12 @@
     "backend:run": "cd backend/src/Hospitality.Api && dotnet run",
     "backend:watch": "cd backend/src/Hospitality.Api && dotnet watch run",
     "backend:test": "cd backend && dotnet test Hospitality.sln",
-    "db:generate": "cd backend/src/Hospitality.Persistence && dotnet ef migrations add InitialCreate",
-    "db:update": "cd backend/src/Hospitality.Persistence && dotnet ef database update",
+    "db:generate": "npm run db:generate --workspace=frontend",
+    "db:validate": "npm run db:validate --workspace=frontend",
+    "db:update": "npm run db:update --workspace=frontend",
+    "db:studio": "npm run db:studio --workspace=frontend",
     "clean": "rm -rf frontend/.next frontend/node_modules backend/**/bin backend/**/obj",
-    "install:all": "npm install && cd backend && dotnet restore"
+    "install:all": "npm install && npm run db:generate"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
