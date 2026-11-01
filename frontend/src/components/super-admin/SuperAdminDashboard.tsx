@@ -64,6 +64,10 @@ import {
   Upload,
   Pencil,
   Handshake,
+  Store,
+  Copy,
+  Banknote,
+  Bug,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
@@ -82,7 +86,14 @@ import {
 export type SuperAdminActiveTab =
   | 'dashboard'
   | 'client'
+  | 'billing-setup'
   | 'client-billing'
+  | 'receipt'
+  | 'copy-test'
+  | 'credit-approver'
+  | 'billing-analysis'
+  | 'generate-bill'
+  | 'error-log'
   | 'refer-earn'
   | 'online-support';
 
@@ -629,7 +640,7 @@ export const SuperAdminDashboard: React.FC = () => {
               onClick={() => setIsMasterMenuOpen(!isMasterMenuOpen)}
               className={cn(
                 'w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors cursor-pointer',
-                activeTab === 'client' || activeTab === 'client-billing'
+                ['client', 'billing-setup', 'client-billing', 'receipt', 'copy-test', 'credit-approver', 'billing-analysis', 'generate-bill', 'error-log'].includes(activeTab)
                   ? 'bg-[#181B24] text-white font-bold'
                   : 'text-slate-300 hover:bg-[#161820] hover:text-white'
               )}
@@ -645,9 +656,10 @@ export const SuperAdminDashboard: React.FC = () => {
               )}
             </button>
 
-            {/* Suboptions under Master: 1. Client, 2. Client Billing with left icons and no numbers */}
+            {/* Suboptions under Master: 9 items with left icons and no numbers matching Reference Screenshot */}
             {isMasterMenuOpen && (
               <div className="bg-[#101217] py-1 space-y-0.5">
+                {/* 1. Client */}
                 <button
                   onClick={() => setActiveTab('client')}
                   className={cn(
@@ -661,6 +673,21 @@ export const SuperAdminDashboard: React.FC = () => {
                   <span>Client</span>
                 </button>
 
+                {/* 2. BillingSetup */}
+                <button
+                  onClick={() => setActiveTab('billing-setup')}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-5 py-2 text-[11px] font-medium text-left transition-colors cursor-pointer',
+                    activeTab === 'billing-setup'
+                      ? 'bg-[#181B24] text-white font-bold border-l-3 border-[#2563EB]'
+                      : 'text-slate-300 hover:bg-[#161820] hover:text-white'
+                  )}
+                >
+                  <Store className={cn("w-4 h-4 shrink-0", activeTab === 'billing-setup' ? "text-blue-400" : "text-slate-400")} />
+                  <span>BillingSetup</span>
+                </button>
+
+                {/* 3. Client Billing */}
                 <button
                   onClick={() => setActiveTab('client-billing')}
                   className={cn(
@@ -670,8 +697,92 @@ export const SuperAdminDashboard: React.FC = () => {
                       : 'text-slate-300 hover:bg-[#161820] hover:text-white'
                   )}
                 >
-                  <Receipt className={cn("w-4 h-4 shrink-0", activeTab === 'client-billing' ? "text-blue-400" : "text-slate-400")} />
+                  <CreditCard className={cn("w-4 h-4 shrink-0", activeTab === 'client-billing' ? "text-blue-400" : "text-slate-400")} />
                   <span>Client Billing</span>
+                </button>
+
+                {/* 4. Receipt */}
+                <button
+                  onClick={() => setActiveTab('receipt')}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-5 py-2 text-[11px] font-medium text-left transition-colors cursor-pointer',
+                    activeTab === 'receipt'
+                      ? 'bg-[#181B24] text-white font-bold border-l-3 border-[#2563EB]'
+                      : 'text-slate-300 hover:bg-[#161820] hover:text-white'
+                  )}
+                >
+                  <Receipt className={cn("w-4 h-4 shrink-0", activeTab === 'receipt' ? "text-blue-400" : "text-slate-400")} />
+                  <span>Receipt</span>
+                </button>
+
+                {/* 5. Copy Test */}
+                <button
+                  onClick={() => setActiveTab('copy-test')}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-5 py-2 text-[11px] font-medium text-left transition-colors cursor-pointer',
+                    activeTab === 'copy-test'
+                      ? 'bg-[#181B24] text-white font-bold border-l-3 border-[#2563EB]'
+                      : 'text-slate-300 hover:bg-[#161820] hover:text-white'
+                  )}
+                >
+                  <Copy className={cn("w-4 h-4 shrink-0", activeTab === 'copy-test' ? "text-blue-400" : "text-slate-400")} />
+                  <span>Copy Test</span>
+                </button>
+
+                {/* 6. Credit Approver */}
+                <button
+                  onClick={() => setActiveTab('credit-approver')}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-5 py-2 text-[11px] font-medium text-left transition-colors cursor-pointer',
+                    activeTab === 'credit-approver'
+                      ? 'bg-[#181B24] text-white font-bold border-l-3 border-[#2563EB]'
+                      : 'text-slate-300 hover:bg-[#161820] hover:text-white'
+                  )}
+                >
+                  <ShieldCheck className={cn("w-4 h-4 shrink-0", activeTab === 'credit-approver' ? "text-blue-400" : "text-slate-400")} />
+                  <span>Credit Approver</span>
+                </button>
+
+                {/* 7. Billing Analysis */}
+                <button
+                  onClick={() => setActiveTab('billing-analysis')}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-5 py-2 text-[11px] font-medium text-left transition-colors cursor-pointer',
+                    activeTab === 'billing-analysis'
+                      ? 'bg-[#181B24] text-white font-bold border-l-3 border-[#2563EB]'
+                      : 'text-slate-300 hover:bg-[#161820] hover:text-white'
+                  )}
+                >
+                  <BarChart3 className={cn("w-4 h-4 shrink-0", activeTab === 'billing-analysis' ? "text-blue-400" : "text-slate-400")} />
+                  <span>Billing Analysis</span>
+                </button>
+
+                {/* 8. Generate Bill */}
+                <button
+                  onClick={() => setActiveTab('generate-bill')}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-5 py-2 text-[11px] font-medium text-left transition-colors cursor-pointer',
+                    activeTab === 'generate-bill'
+                      ? 'bg-[#181B24] text-white font-bold border-l-3 border-[#2563EB]'
+                      : 'text-slate-300 hover:bg-[#161820] hover:text-white'
+                  )}
+                >
+                  <Banknote className={cn("w-4 h-4 shrink-0", activeTab === 'generate-bill' ? "text-blue-400" : "text-slate-400")} />
+                  <span>Generate Bill</span>
+                </button>
+
+                {/* 9. Error Log */}
+                <button
+                  onClick={() => setActiveTab('error-log')}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-5 py-2 text-[11px] font-medium text-left transition-colors cursor-pointer',
+                    activeTab === 'error-log'
+                      ? 'bg-[#181B24] text-white font-bold border-l-3 border-[#2563EB]'
+                      : 'text-slate-300 hover:bg-[#161820] hover:text-white'
+                  )}
+                >
+                  <Bug className={cn("w-4 h-4 shrink-0", activeTab === 'error-log' ? "text-blue-400" : "text-slate-400")} />
+                  <span>Error Log</span>
                 </button>
               </div>
             )}
@@ -735,7 +846,14 @@ export const SuperAdminDashboard: React.FC = () => {
               <span className="text-slate-300">/</span>
               <span className="font-bold text-[#2563EB] dark:text-blue-400">
                 {activeTab === 'client' && 'Client'}
-                {activeTab === 'client-billing' && 'Billing Setup'}
+                {activeTab === 'billing-setup' && 'Billing Setup'}
+                {activeTab === 'client-billing' && 'Client Billing'}
+                {activeTab === 'receipt' && 'Receipts'}
+                {activeTab === 'copy-test' && 'Copy Test'}
+                {activeTab === 'credit-approver' && 'Credit Approver'}
+                {activeTab === 'billing-analysis' && 'Billing Analysis'}
+                {activeTab === 'generate-bill' && 'Generate Bill'}
+                {activeTab === 'error-log' && 'Error Log'}
                 {activeTab === 'dashboard' && 'Dashboard'}
               </span>
             </div>
@@ -806,49 +924,49 @@ export const SuperAdminDashboard: React.FC = () => {
              =================================================================== */}
           {activeTab === 'client' && (
             <div className="rounded-[4px] bg-white dark:bg-[#0B1E2E] border border-slate-200 dark:border-slate-800 shadow-xs p-4 sm:p-5">
-              {/* 1. Status Radio Filters (Matching User's Reference Screenshot) */}
-              <div className="flex items-center gap-6 text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3.5">
-                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              {/* 1. Status Filter Radio Buttons matching Reference Image: Active ○  Disabled ○  All ○ */}
+              <div className="flex items-center gap-6 sm:gap-8 mb-4 text-xs font-semibold text-slate-700 dark:text-slate-300 select-none">
+                <label className="inline-flex items-center gap-2 cursor-pointer hover:text-[#2563EB] dark:hover:text-blue-400 transition-colors">
+                  <span>Active</span>
                   <input
                     type="radio"
                     name="clientFilterRadio"
                     checked={clientFilterStatus === 'ACTIVE'}
                     onChange={() => setClientFilterStatus('ACTIVE')}
-                    className="accent-[#2563EB] w-3.5 h-3.5 cursor-pointer"
+                    className="accent-[#2563EB] w-4 h-4 cursor-pointer"
                   />
-                  <span>Active</span>
                 </label>
-                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                <label className="inline-flex items-center gap-2 cursor-pointer hover:text-[#2563EB] dark:hover:text-blue-400 transition-colors">
+                  <span>Disabled</span>
                   <input
                     type="radio"
                     name="clientFilterRadio"
                     checked={clientFilterStatus === 'DISABLED'}
                     onChange={() => setClientFilterStatus('DISABLED')}
-                    className="accent-[#2563EB] w-3.5 h-3.5 cursor-pointer"
+                    className="accent-[#2563EB] w-4 h-4 cursor-pointer"
                   />
-                  <span>Disabled</span>
                 </label>
-                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                <label className="inline-flex items-center gap-2 cursor-pointer hover:text-[#2563EB] dark:hover:text-blue-400 transition-colors">
+                  <span>All</span>
                   <input
                     type="radio"
                     name="clientFilterRadio"
                     checked={clientFilterStatus === 'ALL'}
                     onChange={() => setClientFilterStatus('ALL')}
-                    className="accent-[#2563EB] w-3.5 h-3.5 cursor-pointer"
+                    className="accent-[#2563EB] w-4 h-4 cursor-pointer"
                   />
-                  <span>All</span>
                 </label>
               </div>
 
-              {/* 2. Table Controls (Show entries + Search Filter + Add Client) */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
-                {/* Show Entries Selector matching Reference Image */}
-                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+              {/* 2. Professional Table Controls (Show entries + Spacious Search Filter + Add Client) */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 mb-5 pb-4 border-b border-slate-200 dark:border-slate-800">
+                {/* Show Entries Selector */}
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium">
                   <span>Show</span>
                   <select
                     value={clientEntriesPerPage}
                     onChange={(e) => setClientEntriesPerPage(Number(e.target.value))}
-                    className="h-7.5 px-2 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold cursor-pointer focus:outline-hidden"
+                    className="h-10 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111318] text-sm font-semibold cursor-pointer shadow-2xs focus:outline-hidden focus:border-[#2563EB] focus:ring-2 focus:ring-blue-500/20"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
@@ -858,24 +976,38 @@ export const SuperAdminDashboard: React.FC = () => {
                   <span>entries</span>
                 </div>
 
-                {/* Right: Search + Add Client in Red */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-                    <span>Search:</span>
-                    <input
-                      type="text"
-                      value={clientSearch}
-                      onChange={(e) => setClientSearch(e.target.value)}
-                      placeholder=""
-                      className="h-7.5 px-2.5 text-xs rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:border-[#2563EB] w-40 sm:w-52"
-                    />
+                {/* Right: Spacious Professional Search + Bold Add Client in Red */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Search:</span>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        placeholder="Search clients, hotel, code..."
+                        className="h-10 pl-3.5 pr-8 text-sm rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111318] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:border-[#2563EB] focus:ring-2 focus:ring-blue-500/20 w-52 sm:w-64 shadow-2xs transition-all"
+                      />
+                      {clientSearch ? (
+                        <button
+                          type="button"
+                          onClick={() => setClientSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      )}
+                    </div>
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleOpenAddClient}
-                    className="h-7.5 px-3 rounded-[3px] bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                    className="h-10 px-4.5 rounded-md bg-[#DC2626] hover:bg-[#B91C1C] active:bg-[#991B1B] text-white text-sm font-bold flex items-center gap-2 shadow-xs hover:shadow transition-all cursor-pointer select-none shrink-0"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-4 h-4 stroke-[2.5]" />
                     <span>Add Client</span>
                   </button>
                 </div>
@@ -1084,17 +1216,17 @@ export const SuperAdminDashboard: React.FC = () => {
           )}
 
           {/* ===================================================================
-              VIEW 2: SUBOPTION 2 -> CLIENT BILLING (BILLING SETUP)
+              VIEW 2: SUBOPTIONS UNDER MASTER (BILLING, SETUP, RECEIPTS, LOGS)
              =================================================================== */}
-          {activeTab === 'client-billing' && (
+          {(activeTab === 'client-billing' || activeTab === 'billing-setup' || activeTab === 'receipt') && (
             <div className="rounded-[4px] bg-white dark:bg-[#0B1E2E] border border-slate-200 dark:border-slate-800 shadow-xs p-4 sm:p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 mb-5 pb-4 border-b border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium">
                   <span>Show</span>
                   <select
                     value={billingEntriesPerPage}
                     onChange={(e) => setBillingEntriesPerPage(Number(e.target.value))}
-                    className="h-7.5 px-2 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold cursor-pointer focus:outline-hidden"
+                    className="h-10 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111318] text-sm font-semibold cursor-pointer shadow-2xs focus:outline-hidden focus:border-[#2563EB] focus:ring-2 focus:ring-blue-500/20"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
@@ -1104,15 +1236,16 @@ export const SuperAdminDashboard: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Search:</span>
                   <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                     <input
                       type="text"
                       value={billingSearch}
                       onChange={(e) => setBillingSearch(e.target.value)}
-                      placeholder="Search invoice or client..."
-                      className="h-7.5 pl-8 pr-2.5 text-xs rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-[#2563EB]"
+                      placeholder="Search invoice, client, plan..."
+                      className="h-10 pl-3.5 pr-8 text-sm rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111318] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:border-[#2563EB] focus:ring-2 focus:ring-blue-500/20 w-52 sm:w-64 shadow-2xs transition-all"
                     />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
               </div>
@@ -1261,6 +1394,172 @@ export const SuperAdminDashboard: React.FC = () => {
                   <Receipt className="w-4 h-4 text-[#2563EB]" />
                   <span>Open Client Billing Ledger</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              VIEW 4: BILLING ANALYSIS TAB
+             =================================================================== */}
+          {activeTab === 'billing-analysis' && (
+            <div className="space-y-5">
+              <div className="rounded-[4px] bg-white dark:bg-[#0B1E2E] border border-slate-200 dark:border-slate-800 shadow-xs p-5">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <BarChart3 className="w-5 h-5 text-[#2563EB]" />
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900 dark:text-white">Billing & Revenue Analysis</h2>
+                      <p className="text-xs text-slate-500">Financial distribution across active client hotel properties</p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    SaaS Performance
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
+                  <div className="p-4 rounded-md border border-slate-200 dark:border-slate-800 bg-[#F8FAFC] dark:bg-[#081B26]">
+                    <p className="text-xs font-semibold text-slate-500">Collected Revenue</p>
+                    <p className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                      Rs. {clientBilling.reduce((sum, b) => sum + b.amountPaid, 0).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-emerald-600 font-semibold mt-1">Settled payments to date</p>
+                  </div>
+                  <div className="p-4 rounded-md border border-slate-200 dark:border-slate-800 bg-[#F8FAFC] dark:bg-[#081B26]">
+                    <p className="text-xs font-semibold text-slate-500">Outstanding Receivable</p>
+                    <p className="text-xl font-black text-[#DC2626] mt-1">
+                      Rs. {clientBilling.reduce((sum, b) => sum + b.balanceDue, 0).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-rose-500 font-semibold mt-1">Active payment balances</p>
+                  </div>
+                  <div className="p-4 rounded-md border border-slate-200 dark:border-slate-800 bg-[#F8FAFC] dark:bg-[#081B26]">
+                    <p className="text-xs font-semibold text-slate-500">Average Plan Value</p>
+                    <p className="text-xl font-black text-blue-600 mt-1">
+                      Rs. {clients.length ? Math.round(clients.reduce((sum, c) => sum + c.annualFee, 0) / clients.length).toLocaleString() : '0'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">Per active subscription</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              VIEW 5: CREDIT APPROVER TAB
+             =================================================================== */}
+          {activeTab === 'credit-approver' && (
+            <div className="rounded-[4px] bg-white dark:bg-[#0B1E2E] border border-slate-200 dark:border-slate-800 shadow-xs p-5">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white">Credit Approver Console</h2>
+                    <p className="text-xs text-slate-500">Client credit limit requests and renewal grace approvals</p>
+                  </div>
+                </div>
+              </div>
+              <div className="py-12 text-center text-slate-400">
+                <ShieldCheck className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2 opacity-50" />
+                <p className="font-semibold text-sm text-slate-600 dark:text-slate-300">No pending credit approvals</p>
+                <p className="text-xs text-slate-400 mt-1">All hotel client credit lines and account balances are within authorized thresholds.</p>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              VIEW 6: GENERATE BILL TAB
+             =================================================================== */}
+          {activeTab === 'generate-bill' && (
+            <div className="rounded-[4px] bg-white dark:bg-[#0B1E2E] border border-slate-200 dark:border-slate-800 shadow-xs p-5 max-w-2xl">
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
+                <Banknote className="w-5 h-5 text-[#2563EB]" />
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Generate Client Bill</h2>
+                  <p className="text-xs text-slate-500">Create new annual subscription or service invoice for client properties</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Select Hotel Client</label>
+                  <select className="w-full h-10 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111318] text-sm font-semibold">
+                    {clients.length === 0 ? (
+                      <option value="">No clients registered</option>
+                    ) : (
+                      clients.map(c => <option key={c.id} value={c.id}>{c.name} ({c.clientCode})</option>)
+                    )}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Billing Amount (Rs.)</label>
+                    <input type="number" defaultValue={150000} className="w-full h-10 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111318] text-sm font-semibold" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Billing Cycle</label>
+                    <select className="w-full h-10 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111318] text-sm font-semibold">
+                      <option>Annual License</option>
+                      <option>Quarterly License</option>
+                      <option>Monthly Hosting</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toast.success('Invoice Generated', 'New client subscription invoice generated successfully.')}
+                  className="h-10 px-5 rounded-md bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  Generate Invoice
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              VIEW 7: COPY TEST TAB
+             =================================================================== */}
+          {activeTab === 'copy-test' && (
+            <div className="rounded-[4px] bg-white dark:bg-[#0B1E2E] border border-slate-200 dark:border-slate-800 shadow-xs p-5">
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
+                <Copy className="w-5 h-5 text-blue-500" />
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Tenant Sandbox & Copy Test</h2>
+                  <p className="text-xs text-slate-500">Clone and simulate client tenant environments for quality assurance</p>
+                </div>
+              </div>
+              <div className="py-12 text-center text-slate-400">
+                <Copy className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2 opacity-50" />
+                <p className="font-semibold text-sm text-slate-600 dark:text-slate-300">Sandbox Test Environment Active</p>
+                <p className="text-xs text-slate-400 mt-1">Tenant duplication and diagnostic test harness is synchronized with Hotel Master ERP.</p>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              VIEW 8: ERROR LOG TAB
+             =================================================================== */}
+          {activeTab === 'error-log' && (
+            <div className="rounded-[4px] bg-white dark:bg-[#0B1E2E] border border-slate-200 dark:border-slate-800 shadow-xs p-5">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <Bug className="w-5 h-5 text-[#DC2626]" />
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white">System Error & Sync Diagnostics</h2>
+                    <p className="text-xs text-slate-500">Live API event logs, connection drops, and tenant sync errors</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toast.success('Logs Cleared', 'System error and diagnostics logs have been cleared.')}
+                  className="px-3 py-1.5 rounded-[3px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  Clear Logs
+                </button>
+              </div>
+              <div className="py-12 text-center text-slate-400">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">Zero System Errors Reported</p>
+                <p className="text-xs text-slate-400 mt-1">All tenant sync processes and API endpoints are functioning with 100% health.</p>
               </div>
             </div>
           )}

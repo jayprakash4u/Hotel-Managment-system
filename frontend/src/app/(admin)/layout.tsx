@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/common/Sidebar';
 import { Header } from '@/components/common/Header';
 import { ProfileDrawer } from '@/components/common/ProfileDrawer';
@@ -82,9 +82,20 @@ export default function AdminLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const router = useRouter();
   const pathname = usePathname();
   const isHotelSetup = pathname === '/hotel' || pathname?.startsWith('/hotel');
   const isSuperAdmin = pathname === '/super-admin' || pathname?.startsWith('/super-admin');
+
+  // If not logged in, smoothly redirect to login page
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        router.push('/login');
+      }
+    } catch {}
+  }, [router]);
 
   // Dedicated Super Admin Portal has its own custom navigation and layout
   if (isSuperAdmin) {

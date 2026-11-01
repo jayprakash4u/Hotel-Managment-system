@@ -11,7 +11,6 @@
     "start": "npm run start --workspace=frontend",
     "lint": "npm run lint --workspace=frontend",
     "type-check": "npm run type-check --workspace=frontend",
-<<<<<<< HEAD
     "backend:build": "cd backend && dotnet build Hospitality.sln",
     "backend:run": "cd backend/src/Hospitality.Api && dotnet run",
     "backend:watch": "cd backend/src/Hospitality.Api && dotnet watch run",
@@ -20,14 +19,6 @@
     "db:validate": "npm run db:validate --workspace=frontend",
     "db:update": "npm run db:update --workspace=frontend",
     "db:studio": "npm run db:studio --workspace=frontend",
-=======
-    "backend:build": "dotnet build backend/Hospitality.sln",
-    "backend:run": "dotnet run --project backend/src/Hospitality.Api/Hospitality.Api.csproj",
-    "backend:watch": "dotnet watch --project backend/src/Hospitality.Api/Hospitality.Api.csproj run",
-    "backend:test": "dotnet test backend/Hospitality.sln",
-    "db:generate": "cd backend/src/Hospitality.Persistence && dotnet ef migrations add InitialCreate",
-    "db:update": "cd backend/src/Hospitality.Persistence && dotnet ef database update",
->>>>>>> 6ab072ae6b0b02fd356190cc4faa0393c8d9d8c1
     "clean": "rm -rf frontend/.next frontend/node_modules backend/**/bin backend/**/obj",
     "install:all": "npm install && npm run db:generate"
   },

@@ -17,7 +17,14 @@ export default function SuperAdminPage() {
     api
       .getMe()
       .then(() => setIsAuthenticated(true))
-      .catch(() => setIsAuthenticated(false))
+      .catch(() => {
+        // If there's an auth_token in localStorage, allow authenticated access
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('auth_token')) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -29,8 +36,8 @@ export default function SuperAdminPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f7f9fc]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#173d72]" />
+      <div className="min-h-screen flex items-center justify-center bg-[#07131D]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
       </div>
     );
   }

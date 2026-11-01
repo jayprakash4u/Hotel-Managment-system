@@ -2,10 +2,12 @@ import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, Main
 
 // Generic API caller with error handling
 async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
   const res = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   });
@@ -20,13 +22,21 @@ async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Auth (Hotel Admin)
   login: (username: string, password: string) => {
-    return fetcher<{ username: string; name: string; hotelName: string }>('/api/auth/login', {
+    return fetcher<{ username: string; name: string; hotelName: string; token: string }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
+    }).then((res) => {
+      if (res.token && typeof localStorage !== 'undefined') {
+        localStorage.setItem('auth_token', res.token);
+      }
+      return res;
     });
   },
 
   logout: () => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('auth_token');
+    }
     return fetcher<any>('/api/auth/logout', { method: 'POST' });
   },
 
