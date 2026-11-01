@@ -18,13 +18,13 @@ export const Badge: React.FC<BadgeProps> = ({ className, variant = 'default', do
     progress: 'bg-[#EDE9FE] text-[#6D28D9] border-[#DDD6FE] dark:bg-[#6D28D9]/20 dark:text-[#C084FC]',
     teal: 'bg-[#CCFBF1] text-[#0F766E] border-[#99F6E4] dark:bg-[#0F766E]/20 dark:text-[#2DD4BF]',
     neutral: 'bg-[#F1F5F9] text-[#475569] border-[#E2E8F0] dark:bg-[#475569]/20 dark:text-[#94A3B8]',
-    brand: 'bg-[#E8F2EE] text-[#0B3D32] border-[#CBD5D0] dark:bg-[#0B3D32]/30 dark:text-[#E5EEE9]',
-    burgundy: 'bg-[#F9E9EC] text-[#A51F36] border-[#A51F36]/30 dark:bg-[#A51F36]/20 dark:text-[#F87171]',
+    brand: 'bg-[#E8F0FE] text-[#1A73E8] border-[#D2E3FC] dark:bg-[#1A73E8]/20 dark:text-[#8AB4F8]',
+    burgundy: 'bg-[#FEE2E2] text-[#DC2626] border-[#FECACA] dark:bg-[#DC2626]/20 dark:text-[#F87171]',
 
     // Backward compatibility aliases
-    gold: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
+    gold: 'bg-[#FEF3C7] text-[#D97706] border-[#FDE68A]',
     emerald: 'bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]',
-    rose: 'bg-[#FEE2E2] text-[#991B1B] border-[#FECACA]',
+    rose: 'bg-[#FEE2E2] text-[#DC2626] border-[#FECACA]',
     cyan: 'bg-[#CCFBF1] text-[#0F766E] border-[#99F6E4]',
     purple: 'bg-[#EDE9FE] text-[#6D28D9] border-[#DDD6FE]',
     slate: 'bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]',

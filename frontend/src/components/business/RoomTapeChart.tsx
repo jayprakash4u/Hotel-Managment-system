@@ -21,6 +21,8 @@ import {
   Mail,
   BookmarkCheck,
   LogIn,
+  Plus,
+  MoreVertical,
 } from 'lucide-react';
 import {
   RoomBooking,
@@ -29,6 +31,7 @@ import {
   getBookingFinancials,
 } from '@/app/(admin)/reservations/reservationsData';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 
 export interface TapeChartRoom {
@@ -78,6 +81,26 @@ function formatMonthDay(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function parseDateUtc(dateStr: string): number {
+  if (!dateStr) return 0;
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return 0;
+  const [y, m, d] = parts.map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+function getDayDiff(fromStr: string, toStr: string): number {
+  if (!fromStr || !toStr) return 0;
+  const ms = parseDateUtc(toStr) - parseDateUtc(fromStr);
+  return Math.round(ms / 86400000);
+}
+
+function addDaysToDateStr(dateStr: string, days: number): string {
+  const [y, m, d] = (dateStr || getRelativeDate(0)).split('-').map(Number);
+  const nextDate = new Date(y, m - 1, d + days);
+  return `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+}
+
 export interface RoomTapeChartProps {
   bookings: RoomBooking[];
   rooms?: any[];
@@ -87,6 +110,7 @@ export interface RoomTapeChartProps {
   onOpenNewBookingModal?: (roomNumber: string, checkInDate: string) => void;
   onBookingCreated?: (newBooking: RoomBooking) => void;
   onUpdateBookings?: (updatedBookings: RoomBooking[]) => void;
+  onSetCleaningStatus?: (roomId: string, status: 'CLEAN' | 'DIRTY') => void;
   onClose?: () => void;
 }
 
@@ -97,10 +121,10 @@ export const DEFAULT_TAPE_ROOMS: TapeChartRoom[] = [
   { id: 'rm-108', number: '108', floor: 1, category: 'AC Room', type: 'Deluxe AC Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
 
   // Deluxe Room
+  { id: 'rm-102', number: '102', floor: 1, category: 'Deluxe Room', type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'OCCUPIED', cleaningStatus: 'CLEAN' },
   { id: 'rm-104', number: '104', floor: 1, category: 'Deluxe Room', type: 'Deluxe Premium', bedType: 'King Bed', acType: 'AC', pricePerNight: 3800, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
 
   // Non AC Room
-  { id: 'rm-102', number: '102', floor: 1, category: 'Non AC Room', type: 'Standard Non-AC', bedType: 'Queen Bed', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
   { id: 'rm-105', number: '105', floor: 1, category: 'Non AC Room', type: 'Standard Non-AC', bedType: 'Queen Bed', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
   { id: 'rm-106', number: '106', floor: 1, category: 'Non AC Room', type: 'Standard Non-AC', bedType: 'Queen Bed', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
   { id: 'rm-109', number: '109', floor: 1, category: 'Non AC Room', type: 'Standard Non-AC', bedType: 'Twin Beds', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
@@ -145,9 +169,11 @@ export function RoomTapeChart({
   onOpenNewBookingModal,
   onBookingCreated,
   onUpdateBookings,
+  onSetCleaningStatus,
   onClose,
 }: RoomTapeChartProps) {
   const router = useRouter();
+  const toast = useToast();
   // Start date in YYYY-MM-DD
   const [startDateStr, setStartDateStr] = useState<string>(() => getRelativeDate(0));
 
@@ -195,11 +221,138 @@ export function RoomTapeChart({
   // Existing booking inspection modal
   const [inspectedBooking, setInspectedBooking] = useState<RoomBooking | null>(null);
 
+  // Housekeeping Context Menu (Right Click / Right Button on room box)
+  const [roomContextMenu, setRoomContextMenu] = useState<{ room: TapeChartRoom; x: number; y: number } | null>(null);
+  const [roomStatusOverrides, setRoomStatusOverrides] = useState<
+    Record<string, { cleaningStatus: 'CLEAN' | 'DIRTY' | 'IN_CLEANING'; operationalStatus: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE'; serviceStatus?: 'NORMAL' | 'OUT_OF_SERVICE' }>
+  >({});
+
+  // Close context menu on outside click or escape
+  useEffect(() => {
+    const handleCloseMenu = () => setRoomContextMenu(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRoomContextMenu(null);
+    };
+    if (roomContextMenu) {
+      window.addEventListener('click', handleCloseMenu);
+      window.addEventListener('contextmenu', handleCloseMenu);
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('click', handleCloseMenu);
+      window.removeEventListener('contextmenu', handleCloseMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [roomContextMenu]);
+
+  const handleSelectHousekeepingStatus = (
+    room: TapeChartRoom,
+    action: 'Clean' | 'Dirty' | 'Maintenance' | 'Out of Service'
+  ) => {
+    let newCleaning: 'CLEAN' | 'DIRTY' | 'IN_CLEANING' = 'CLEAN';
+    let newOperational: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE' = 'AVAILABLE';
+    let serviceStatus: 'NORMAL' | 'OUT_OF_SERVICE' = 'NORMAL';
+
+    if (action === 'Clean') {
+      newCleaning = 'CLEAN';
+      newOperational = 'AVAILABLE';
+      serviceStatus = 'NORMAL';
+    } else if (action === 'Dirty') {
+      newCleaning = 'DIRTY';
+      newOperational = 'AVAILABLE';
+      serviceStatus = 'NORMAL';
+    } else if (action === 'Maintenance') {
+      newCleaning = 'DIRTY';
+      newOperational = 'MAINTENANCE';
+      serviceStatus = 'NORMAL';
+    } else if (action === 'Out of Service') {
+      newCleaning = 'DIRTY';
+      newOperational = 'MAINTENANCE';
+      serviceStatus = 'OUT_OF_SERVICE';
+    }
+
+    setRoomStatusOverrides((prev) => ({
+      ...prev,
+      [room.id]: {
+        cleaningStatus: newCleaning,
+        operationalStatus: newOperational,
+        serviceStatus,
+      },
+      [room.number]: {
+        cleaningStatus: newCleaning,
+        operationalStatus: newOperational,
+        serviceStatus,
+      },
+      [`rm-${room.number}`]: {
+        cleaningStatus: newCleaning,
+        operationalStatus: newOperational,
+        serviceStatus,
+      },
+    }));
+
+    if (onSetCleaningStatus) {
+      onSetCleaningStatus(room.id, newCleaning === 'CLEAN' ? 'CLEAN' : 'DIRTY');
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hotel_rooms_setup_v2');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            const updated = parsed.map((r: any) => {
+              if (r.id === room.id || String(r.number) === String(room.number) || r.id === `rm-${room.number}`) {
+                return {
+                  ...r,
+                  cleaningStatus: newCleaning,
+                  operationalStatus: newOperational,
+                };
+              }
+              return r;
+            });
+            localStorage.setItem('hotel_rooms_setup_v2', JSON.stringify(updated));
+          }
+        }
+      } catch (e) {}
+    }
+
+    setRoomContextMenu(null);
+    toast.celebrate(
+      `Room ${room.number} Updated`,
+      `Housekeeping set to "${action}".`
+    );
+  };
+
+  // In-place instant Check In from Timeline (turns block Blue immediately without page reload)
+  const handleDirectCheckIn = (booking: RoomBooking) => {
+    const updatedBookings = bookings.map((b) => {
+      if (b.id !== booking.id) return b;
+      return {
+        ...b,
+        status: 'CHECKED_IN' as const,
+        checkInTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      };
+    });
+
+    saveBookingsToStorage(updatedBookings);
+    if (onUpdateBookings) {
+      onUpdateBookings(updatedBookings);
+    }
+    setInspectedBooking(null);
+    toast.celebrate(
+      'Guest Checked In Successfully!',
+      `${booking.guest.firstName} ${booking.guest.lastName} is now In-House (Room ${booking.room.number}). Status changed from Booked to Occupied.`
+    );
+  };
+
   // Build rooms list
   const roomsList = useMemo<TapeChartRoom[]>(() => {
-    if (rooms && rooms.length > 0) {
-      return rooms.map((r) => ({
-        id: r.id || `rm-${r.number}`,
+    const baseRooms = rooms && rooms.length > 0 ? rooms : DEFAULT_TAPE_ROOMS;
+    return baseRooms.map((r) => {
+      const roomId = r.id || `rm-${r.number}`;
+      const override = roomStatusOverrides[roomId];
+      return {
+        id: roomId,
         number: String(r.number),
         floor: Number(r.floor) || 1,
         category: getCategoryForRoom(r),
@@ -208,12 +361,11 @@ export function RoomTapeChart({
         acType: r.acType || (r.type?.toLowerCase().includes('non') ? 'Non-AC' : 'AC'),
         pricePerNight: Number(r.pricePerNight) || 3000,
         capacity: Number(r.capacity) || 2,
-        operationalStatus: r.operationalStatus || 'AVAILABLE',
-        cleaningStatus: r.cleaningStatus || 'CLEAN',
-      }));
-    }
-    return DEFAULT_TAPE_ROOMS;
-  }, [rooms]);
+        operationalStatus: override ? override.operationalStatus : (r.operationalStatus || 'AVAILABLE'),
+        cleaningStatus: override ? override.cleaningStatus : (r.cleaningStatus || 'CLEAN'),
+      };
+    });
+  }, [rooms, roomStatusOverrides]);
 
   // Group rooms by category
   const groupedRooms = useMemo(() => {
@@ -355,7 +507,30 @@ export function RoomTapeChart({
       cleaningStatus: 'CLEAN' as const,
     };
 
-    router.push(`/booking?roomId=${matchedRoom.id}&checkIn=${checkIn}&checkOut=${checkOut}&mode=reserve&from=desk`);
+    setActiveRoomNumber(dragState.roomNumber);
+    setBookingModal({
+      isOpen: true,
+      room: matchedRoom,
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      nights,
+      title: 'Mr.',
+      firstName: '',
+      lastName: '',
+      adults: 1,
+      children: 0,
+      ratePlan: 'Standard Rate',
+      roomsCount: 1,
+      isAssigned: true,
+      phone: '',
+      email: '',
+      segment: 'Single',
+      showGuarantee: false,
+      idType: 'Citizenship',
+      idNumber: '',
+      depositAmount: 0,
+      paymentMethod: 'CASH',
+    });
     setDragState(null);
   };
 
@@ -389,6 +564,36 @@ export function RoomTapeChart({
     if (dragState && dragState.isDragging && dragState.roomId === room.id) {
       setDragState((prev) => (prev ? { ...prev, currentColIndex: colIdx } : null));
     }
+  };
+
+  // Open Quick Reservation directly for a selected room & check-in date
+  const handleOpenQuickBooking = (room: TapeChartRoom, dateStr: string, customNights = 1) => {
+    const checkOutStr = addDaysToDateStr(dateStr, customNights);
+
+    setActiveRoomNumber(room.number);
+    setBookingModal({
+      isOpen: true,
+      room,
+      checkInDate: dateStr,
+      checkOutDate: checkOutStr,
+      nights: customNights,
+      title: 'Mr.',
+      firstName: '',
+      lastName: '',
+      adults: 1,
+      children: 0,
+      ratePlan: 'Standard Rate',
+      roomsCount: 1,
+      isAssigned: true,
+      phone: '',
+      email: '',
+      segment: 'Single',
+      showGuarantee: false,
+      idType: 'Citizenship',
+      idNumber: '',
+      depositAmount: 0,
+      paymentMethod: 'CASH',
+    });
   };
 
   // Confirm Quick Reservation with designated Action (Hold, Temp Reserve, Reserve, Check-In/Walk-In)
@@ -600,18 +805,18 @@ export function RoomTapeChart({
   return (
     <div className="space-y-2 select-none font-sans text-slate-800">
       {/* ------------------------------------------------------------- */}
-      {/* 1. CLEAN ENTERPRISE TOOLBAR (Matching Front-Desk Card Style)  */}
+      {/* 1. CLEAN ENTERPRISE TOOLBAR                                   */}
       {/* ------------------------------------------------------------- */}
-      <div className="p-3 bg-white dark:bg-[#071F1A] rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <div className="p-3 bg-surface-card dark:bg-surface-card rounded-lg border border-border-default dark:border-border-default shadow-2xs flex flex-wrap items-center justify-between gap-3">
         {/* Left: View Dropdown + < Today > Stepper + From Date Picker */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Timeline Duration Dropdown */}
-          <div className="flex items-center gap-1.5 rounded-[3px] border border-[#DCE3DF] bg-[#FAFBF9] dark:bg-[#061B16] dark:border-[#145447] px-2.5 py-1">
-            <span className="text-[11px] font-semibold text-[#64736C] dark:text-slate-400">View:</span>
+          <div className="flex items-center gap-1.5 rounded-md border border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card px-2.5 py-1">
+            <span className="text-[11px] font-semibold text-muted dark:text-muted">View:</span>
             <select
               value={daysCount}
               onChange={(e) => setDaysCount(Number(e.target.value) as 3 | 7 | 10 | 15 | 30)}
-              className="text-xs font-semibold text-[#24352F] dark:text-white bg-transparent outline-none cursor-pointer"
+              className="text-xs font-semibold text-body dark:text-white bg-transparent outline-none cursor-pointer"
               title="Select timeline duration"
             >
               <option value={3}>3 Days</option>
@@ -622,8 +827,8 @@ export function RoomTapeChart({
             </select>
           </div>
 
-          {/* Quick Date Stepper (< Today > matching Room Boxes) */}
-          <div className="flex items-center rounded-md border border-[#DCE3DF] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] p-0.5 shadow-2xs">
+          {/* Quick Date Stepper (< Today >) */}
+          <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-0.5 shadow-2xs">
             <button
               type="button"
               onClick={() => {
@@ -631,7 +836,7 @@ export function RoomTapeChart({
                 const prev = new Date(y, m - 1, d - daysCount);
                 setStartDateStr(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`);
               }}
-              className="p-1.5 rounded hover:bg-white dark:hover:bg-[#0E362C] text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-muted dark:text-white transition-colors cursor-pointer"
               title="Previous Range"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -642,8 +847,8 @@ export function RoomTapeChart({
               className={cn(
                 'px-3.5 py-1 text-xs font-bold rounded transition-all cursor-pointer',
                 startDateStr === getRelativeDate(0)
-                  ? 'bg-white text-[#0B3D32] shadow-2xs font-extrabold dark:bg-[#0E362C] dark:text-emerald-300'
-                  : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 hover:bg-white/60'
+                  ? 'bg-white text-success dark:text-success shadow-2xs font-extrabold dark:bg-surface-card dark:text-success'
+                  : 'text-muted dark:text-slate-300 hover:bg-surface-card/60'
               )}
             >
               Today
@@ -655,7 +860,7 @@ export function RoomTapeChart({
                 const next = new Date(y, m - 1, d + daysCount);
                 setStartDateStr(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`);
               }}
-              className="p-1.5 rounded hover:bg-white dark:hover:bg-[#0E362C] text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-muted dark:text-white transition-colors cursor-pointer"
               title="Next Range"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -663,36 +868,46 @@ export function RoomTapeChart({
           </div>
 
           {/* "From" Date Picker */}
-          <div className="flex items-center gap-1.5 border border-[#DCE3DF] dark:border-[#145447] rounded-[3px] px-2 py-1 bg-[#FAFBF9] dark:bg-[#061B16]">
-            <span className="text-[11px] font-semibold text-[#64736C] dark:text-slate-400">From</span>
+          <div className="rounded-md border border-border-default dark:border-border-default rounded-md px-2.5 py-1 bg-surface-muted dark:bg-surface-card">
+            <span className="text-[11px] font-semibold text-muted dark:text-muted">From</span>
             <input
               type="date"
               value={startDateStr}
               onChange={(e) => setStartDateStr(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-[#24352F] dark:text-white outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold text-body dark:text-white outline-none cursor-pointer"
             />
           </div>
         </div>
 
-        {/* Right: Refined Legend & Actions */}
-        <div className="flex items-center gap-2.5 ml-auto">
-          {/* Subtle Legend (Refined dots matching app tokens) */}
-          <div className="hidden lg:flex items-center gap-3 text-xs text-[#64736C] dark:text-slate-400 pr-2 border-r border-[#E4E9E5] dark:border-[#145447]">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>Booked</span>
+        {/* Right: Modern Legend & Actions */}
+        <div className="flex items-center gap-3 ml-auto">
+          {/* Soft Pastel SaaS Legend */}
+          <div className="hidden lg:flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 pr-3 border-r border-slate-100 dark:border-slate-800">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="w-2.5 h-2.5 rounded-[3px] bg-[#FEF3C7] border border-[#FDE68A]" />
+              <span className="text-[#92400E] font-medium">Booked</span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>Occupied</span>
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="w-2.5 h-2.5 rounded-[3px] bg-[#DBEAFE] border border-[#BFDBFE]" />
+              <span className="text-[#1E40AF] font-medium">Occupied</span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-rose-500" />
-              <span>Departing</span>
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="w-2.5 h-2.5 rounded-[3px] bg-[#FFE4E6] border border-[#FECDD3]" />
+              <span className="text-[#9F1239] font-medium">Departing</span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full border border-[#DCE3DF] bg-white" />
-              <span>Vacant</span>
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="w-2.5 h-2.5 rounded-[3px] bg-white border border-slate-300" />
+              <span className="text-slate-600">Vacant</span>
+            </span>
+            <span className="hidden xl:flex items-center gap-2 text-[11px] text-slate-500 font-medium pl-2 border-l border-slate-200 dark:border-slate-800">
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-white border border-slate-300" />
+                <span>Clean</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-amber-100 border border-amber-300" />
+                <span>Dirty</span>
+              </span>
             </span>
           </div>
 
@@ -704,7 +919,7 @@ export function RoomTapeChart({
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-28 sm:w-36 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] py-1 pl-7 pr-2 text-xs text-[#24352F] dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
+              className="w-28 sm:w-36 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 py-1 pl-7 pr-2 text-xs text-body dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1A73E8]"
             />
           </div>
 
@@ -712,10 +927,10 @@ export function RoomTapeChart({
           <button
             type="button"
             onClick={handleExportExcel}
-            className="px-2.5 py-1 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] hover:bg-[#F2F6F4] text-[#43534D] dark:text-slate-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+            className="px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
             title="Export CSV/Excel"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span className="hidden sm:inline">Excel</span>
           </button>
 
@@ -724,7 +939,7 @@ export function RoomTapeChart({
             <button
               type="button"
               onClick={onClose}
-              className="px-2 py-1 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#061B16] hover:bg-rose-50 text-[#43534D] hover:text-rose-700 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+              className="px-2 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
               title="Close Stay View"
             >
               <X className="w-3.5 h-3.5 text-rose-500" />
@@ -736,37 +951,40 @@ export function RoomTapeChart({
       {/* ------------------------------------------------------------- */}
       {/* 2. REFINED TIMELINE MATRIX TABLE                              */}
       {/* ------------------------------------------------------------- */}
-      <div className="rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] shadow-2xs overflow-hidden">
+      <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-[#F9FAFB] dark:bg-slate-950/40 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <div
             className="w-full min-w-[720px]"
             style={{
               display: 'grid',
-              gridTemplateColumns: `135px repeat(${totalCols}, ${colWidth})`,
+              gridTemplateColumns: `100px repeat(${totalCols}, ${colWidth})`,
             }}
           >
-            {/* Top Left Corner */}
-            <div className="sticky left-0 z-30 bg-[#F2F4F2] dark:bg-[#061B16] text-[#24352F] dark:text-slate-200 font-bold text-xs px-3 py-2 border-b border-r border-[#DCE3DF] dark:border-[#145447] flex items-center justify-between">
-              <span>Room No.</span>
-              <span className="text-[10px] text-[#64736C] font-normal">Tariff</span>
+            {/* Top Left Corner: Clean Minimal "Room" Header */}
+            <div className="sticky left-0 z-30 bg-surface-card dark:bg-surface-card text-left py-1.5 px-2.5 border-b border-r border-border-default dark:border-border-default transition-colors select-none">
+              Room
             </div>
 
-            {/* Date Column Headers */}
+            {/* Date Column Headers (Left-aligned, small grey Day, bold Date, subtle Today accent) */}
             {timelineDates.map((col) => (
               <div
                 key={col.dateStr}
                 className={cn(
-                  'bg-[#F2F4F2] dark:bg-[#061B16] text-[#24352F] dark:text-slate-200 py-1.5 px-1 text-center border-b border-r border-[#DCE3DF] dark:border-[#145447] transition-colors',
-                  col.isToday && 'bg-[#E8F2EE] dark:bg-[#0E362C]'
+                  'bg-white dark:bg-slate-900 text-left py-1.5 px-2.5 border-b border-r border-slate-100/70 dark:border-slate-800/40 transition-colors select-none',
+                  col.isToday && 'bg-blue-50/40 dark:bg-blue-950/30 border-t-2 border-t-brand'
                 )}
               >
-                <div className="text-[10px] font-semibold text-[#64736C] dark:text-slate-400 uppercase">
+                <div
+                  className={cn(
+                    'text-[10px] font-semibold uppercase tracking-wider leading-none mb-0.5', col.isToday ? 'text-brand dark:text-success' : 'text-muted dark:text-muted'
+                  )}
+                >
                   {col.dayName}
                 </div>
                 <div
                   className={cn(
-                    'text-xs font-bold font-mono tracking-tight',
-                    col.isToday ? 'text-[#0B3D32] dark:text-emerald-300 font-extrabold' : 'text-[#24352F] dark:text-white'
+                    'text-xs font-bold font-sans leading-tight',
+                    col.isToday ? 'text-brand dark:text-success font-extrabold' : 'text-body dark:text-white'
                   )}
                 >
                   {col.displayDate}
@@ -777,14 +995,25 @@ export function RoomTapeChart({
             {/* Category Groups and Room Rows */}
             {groupedRooms.map((group) => (
               <React.Fragment key={group.category}>
-                {/* Refined Category Divider: Neutral Subtle Grey Banner */}
-                <div className="sticky left-0 z-20 bg-[#F8FAF8] dark:bg-[#0A2620] text-[#43534D] dark:text-[#A4B8AE] font-bold text-[10px] uppercase tracking-wider px-3 py-1 border-b border-r border-[#DCE3DF] dark:border-[#145447]">
+                {/* Clean Neutral Category Divider Banner with Faint Lines */}
+                <div className="sticky left-0 z-20 bg-slate-50/80 dark:bg-slate-900 text-muted dark:text-muted font-bold text-[10px] uppercase tracking-wider px-3 py-1 border-b border-r border-slate-200 dark:border-slate-800 select-none flex items-center">
                   {group.category}
                 </div>
                 <div
-                  className="bg-[#F8FAF8] dark:bg-[#0A2620] border-b border-[#DCE3DF] dark:border-[#145447]"
-                  style={{ gridColumn: `span ${totalCols}` }}
-                />
+                  className="bg-surface-muted/80 dark:bg-surface-card border-b border-border-default dark:border-border-default/40"
+                  style={{
+                    gridColumn: `span ${totalCols}`,
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${totalCols}, ${colWidth})`,
+                  }}
+                >
+                  {timelineDates.map((col) => (
+                    <div
+                      key={`cat-${group.category}-${col.dateStr}`}
+                      className="h-full border-r border-slate-100/70 dark:border-slate-800/30"
+                    />
+                  ))}
+                </div>
 
                 {/* Individual Room Rows under this category */}
                 {group.rooms.map((room) => {
@@ -794,47 +1023,84 @@ export function RoomTapeChart({
                     return b.checkIn <= rangeEndStr && b.checkOut > rangeStartStr;
                   });
 
+                  const roomOverride =
+                    roomStatusOverrides[room.id] ||
+                    roomStatusOverrides[room.number] ||
+                    roomStatusOverrides[`rm-${room.number}`];
+                  const effectiveCleaning = roomOverride?.cleaningStatus || room.cleaningStatus;
+                  const effectiveOperational = roomOverride?.operationalStatus || room.operationalStatus;
+                  const isOutOfService = effectiveOperational === 'MAINTENANCE' && roomOverride?.serviceStatus === 'OUT_OF_SERVICE';
+                  const isMaintenance = effectiveOperational === 'MAINTENANCE' && !isOutOfService;
+                  const isDirty = effectiveCleaning === 'DIRTY' && !isMaintenance && !isOutOfService;
                   const isRowActive = activeRoomNumber === room.number;
 
                   return (
                     <React.Fragment key={room.id}>
-                      {/* Sticky Left: Room Number */}
+                      {/* Sticky Left: Minimal Room Column (Pure Room Number ONLY, No Inner Colored Box) */}
                       <div
                         onClick={() => setActiveRoomNumber(room.number)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setRoomContextMenu({ room, x: e.clientX, y: e.clientY });
+                        }}
+                        title={`Room ${room.number} (${isOutOfService ? 'Out of Service' : isMaintenance ? 'Maintenance' : isDirty ? 'Dirty' : 'Clean'}) - Right click for Housekeeping options`}
                         className={cn(
-                          'sticky left-0 z-20 border-b border-r border-[#E4E9E5] dark:border-[#145447] px-3 py-1.5 flex items-center justify-between transition-colors cursor-pointer',
-                          isRowActive
-                            ? 'bg-[#F2F6F4] dark:bg-[#0E362C]'
-                            : 'bg-white dark:bg-[#071F1A] hover:bg-[#FAFBF9] dark:hover:bg-[#092B23]'
+                          'group/room sticky left-0 z-20 px-3 h-[38px] flex items-center justify-between border-b border-r border-border-default dark:border-border-default select-none cursor-pointer transition-colors',
+                          isOutOfService
+                            ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200'
+                            : isMaintenance
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            : isDirty
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200'
+                            : isRowActive
+                            ? 'bg-blue-50 dark:bg-slate-800 text-[#1A73E8] dark:text-blue-400'
+                            : 'bg-white dark:bg-slate-900 text-body dark:text-white hover:bg-slate-50 dark:hover:bg-slate-850'
                         )}
                       >
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={cn(
-                              'text-xs font-bold font-mono px-1 py-0.5 rounded-[2px]',
-                              isRowActive
-                                ? 'bg-[#0B3D32] text-white shadow-2xs'
-                                : 'text-[#24352F] dark:text-white'
-                            )}
-                          >
-                            {room.number}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-[#64736C] dark:text-slate-400 font-mono">
-                          ₹{room.pricePerNight}
+                        <span
+                          className={cn(
+                            'text-xs font-bold font-mono tracking-tight',
+                            isOutOfService
+                              ? 'text-rose-950 dark:text-rose-100'
+                              : isDirty
+                              ? 'text-amber-950 dark:text-amber-100'
+                              : isRowActive
+                              ? 'text-[#1A73E8] dark:text-blue-400'
+                              : 'text-body dark:text-white'
+                          )}
+                        >
+                          {room.number}
                         </span>
+
+                        {/* Right trigger button on room box: click to open Housekeeping menu */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setRoomContextMenu({ room, x: rect.right + 4, y: rect.top });
+                          }}
+                          title="Housekeeping Options"
+                          className="w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/room:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 transition-opacity cursor-pointer text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                        >
+                          <MoreVertical className="w-3 h-3" />
+                        </button>
                       </div>
 
-                      {/* Date Cells & Booking Bars Container */}
+                      {/* Date Cells & Booking Bars Container (38px height) */}
                       <div
-                        className="relative border-b border-[#E4E9E5] dark:border-[#145447] h-8"
+                        className={cn(
+                          'relative border-b border-border-default dark:border-border-default/40 h-[38px] transition-colors',
+                          isRowActive ? 'bg-surface-muted/50 dark:bg-surface-card/40' : 'bg-white dark:bg-slate-900'
+                        )}
                         style={{
                           gridColumn: `span ${totalCols}`,
                           display: 'grid',
                           gridTemplateColumns: `repeat(${totalCols}, ${colWidth})`,
                         }}
                       >
-                        {/* Background Vacant Grid Cells (handles drag-to-book) */}
+                        {/* Background Empty / Available Grid Cells */}
                         {timelineDates.map((col, colIdx) => {
                           const isBeingDragged =
                             dragState &&
@@ -847,93 +1113,115 @@ export function RoomTapeChart({
                               key={col.dateStr}
                               onMouseDown={(e) => handleCellMouseDown(room, colIdx, e)}
                               onMouseEnter={() => handleCellMouseEnter(room, colIdx)}
+                              onClick={() => {
+                                if (dragState?.isDragging) return;
+                                handleOpenQuickBooking(room, col.dateStr);
+                              }}
                               className={cn(
-                                'h-full border-r border-[#E4E9E5] dark:border-[#145447]/60 transition-colors cursor-pointer relative select-none flex items-center justify-center',
+                                'h-full border-r border-border-default dark:border-border-default/30 transition-colors cursor-pointer relative select-none flex items-center justify-center group/cell',
                                 isBeingDragged
-                                  ? 'bg-[#E8F2EE] dark:bg-emerald-950/60 border-2 border-dashed border-[#0B3D32] dark:border-emerald-500 font-bold text-xs'
-                                  : 'bg-white dark:bg-[#071F1A] hover:bg-[#FAFBF9] dark:hover:bg-[#092B23]'
+                                  ? 'bg-success-subtle dark:bg-success-subtle border-2 border-dashed border-success font-bold text-xs'
+                                  : col.isToday
+                                  ? 'bg-info-subtle dark:bg-info-subtle hover:bg-surface-card dark:hover:bg-surface-card'
+                                  : 'hover:bg-surface-muted dark:hover:bg-surface-card'
                               )}
                               title={`Click or drag to book Room ${room.number} (${col.displayDate})`}
                             >
-                              {isBeingDragged && colIdx === Math.min(dragState.startColIndex, dragState.currentColIndex) && (
-                                <span className="text-[10px] text-white font-bold px-1.5 py-0.5 rounded-[2px] bg-[#0B3D32] shadow-2xs z-10 whitespace-nowrap">
+                              {isBeingDragged && colIdx === Math.min(dragState.startColIndex, dragState.currentColIndex) ? (
+                                <span className="text-white font-bold px-2 py-0.5 rounded bg-brand shadow-2xs z-10 whitespace-nowrap">
                                   + {Math.abs(dragState.currentColIndex - dragState.startColIndex) + 1} Days
                                 </span>
+                              ) : (
+                                /* Interactive Hover State: Faint + Icon */
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity pointer-events-none">
+                                  <span className="bg-info-subtle text-info dark:bg-info-subtle dark:text-info flex items-center justify-center shadow-2xs hover:scale-110 transition-transform">
+                                    <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
+                                  </span>
+                                </div>
                               )}
                             </div>
                           );
                         })}
 
-                        {/* Booking Bars Overlay (Refined, Subtle, Calm Enterprise Cards) */}
-                        {roomBookings.map((b) => {
-                          const startIndex = timelineDates.findIndex((d) => d.dateStr === b.checkIn);
-                          const endIndex = timelineDates.findIndex((d) => d.dateStr === b.checkOut);
+                        {/* Booking Bars Overlay: Soft Pastel Continuous Floating Pills */}
+                        {roomBookings
+                          .filter((b, idx, self) => idx === self.findIndex((x) => x.id === b.id))
+                          .map((b) => {
+                            const startOffset = getDayDiff(rangeStartStr, b.checkIn);
+                            const endOffset = getDayDiff(rangeStartStr, b.checkOut);
 
-                          const actualStart = startIndex === -1 ? 0 : startIndex;
-                          const actualEnd = endIndex === -1 ? totalCols : endIndex;
-                          const span = Math.max(1, actualEnd - actualStart);
+                            // If stay is entirely before or entirely after current visible date window, skip
+                            if (endOffset <= 0 || startOffset >= totalCols) return null;
 
-                          const isStartClipped = b.checkIn < rangeStartStr;
-                          const isEndClipped = b.checkOut > rangeEndStr;
+                            const actualStart = Math.max(0, startOffset);
+                            const actualEnd = Math.min(totalCols, endOffset);
+                            const span = Math.max(1, actualEnd - actualStart);
 
-                          // -------------------------------------------------------------
-                          // REFINED ENTERPRISE COLOR PALETTE:
-                          // - Booked: Soft Amber card with amber left border & dark text
-                          // - Occupied: Soft Blue card with blue left border & dark text
-                          // - Departing: Soft Rose card with burgundy left border
-                          // - Checked Out: Soft Slate card with grey border
-                          // -------------------------------------------------------------
-                          const isArriving = b.status === 'RESERVED';
-                          const isOccupied = b.status === 'CHECKED_IN';
-                          const isDeparting = isOccupied && b.checkOut === timelineDates[0]?.dateStr;
+                            const isStartClipped = startOffset < 0;
+                            const isEndClipped = endOffset > totalCols;
 
-                          let barStyle = 'border-l-3 border-l-amber-500 bg-[#FFFBEB] dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-y border-r border-amber-200 dark:border-amber-800/60';
-                          let dotColor = 'bg-amber-500';
+                            const isOccupied = b.status === 'CHECKED_IN';
+                            const isReserved = b.status === 'RESERVED';
+                            const isDeparting = isOccupied && b.checkOut === timelineDates[0]?.dateStr;
 
-                          if (isDeparting) {
-                            barStyle = 'border-l-3 border-l-rose-500 bg-[#FFF1F2] dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 border-y border-r border-rose-200 dark:border-rose-800/60';
-                            dotColor = 'bg-rose-500';
-                          } else if (isOccupied) {
-                            barStyle = 'border-l-3 border-l-blue-600 bg-[#EFF6FF] dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 border-y border-r border-blue-200 dark:border-blue-800/60';
-                            dotColor = 'bg-blue-600';
-                          } else if (b.status === 'CHECKED_OUT') {
-                            barStyle = 'border-l-3 border-l-slate-400 bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-y border-r border-slate-200 dark:border-slate-700';
-                            dotColor = 'bg-slate-400';
-                          }
+                            const fin = getBookingFinancials(b);
+                            const hasBalanceDue = fin.balanceDue > 0;
 
-                          return (
-                            <div
-                              key={b.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setInspectedBooking(b);
-                              }}
-                              className={cn(
-                                'absolute top-0.5 bottom-0.5 z-10 px-2 flex items-center justify-between shadow-2xs transition-transform hover:scale-[1.01] cursor-pointer rounded-[2px]',
-                                barStyle,
-                                isStartClipped && 'rounded-l-none border-l-0',
-                                isEndClipped && 'rounded-r-none border-r-0'
-                              )}
-                              style={{
-                                left: `${(actualStart / totalCols) * 100}%`,
-                                width: `calc(${(span / totalCols) * 100}% - 1px)`,
-                              }}
-                              title={`${b.guest.firstName} ${b.guest.lastName} (${
-                                isDeparting ? 'Departing' : isOccupied ? 'Occupied' : 'Booked'
-                              } · ${b.nights}N)`}
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                                <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', dotColor)} />
-                                <span className="text-xs font-semibold tracking-tight truncate">
+                            // Softer pastel colors:
+                            let barStyle = 'bg-warning-subtle text-warning border-warning hover:bg-warning-subtle';
+
+                            if (isDeparting) {
+                              barStyle = 'bg-danger-subtle text-danger border-danger hover:bg-danger-subtle';
+                            } else if (isOccupied) {
+                              barStyle = 'bg-info-subtle text-info border-info hover:bg-info-subtle';
+                            } else if (b.status === 'CHECKED_OUT') {
+                              barStyle = 'bg-surface-muted text-muted border-border-default hover:bg-surface-muted';
+                            }
+
+                            return (
+                              <div
+                                key={b.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setInspectedBooking(b);
+                                }}
+                                className={cn(
+                                  'group/bar absolute top-1 bottom-1 z-10 px-2 flex items-center justify-center shadow-xs transition-all hover:shadow-md cursor-pointer select-none',
+                                  barStyle,
+                                  isStartClipped ? 'rounded-l-none border-l-0' : 'rounded-l-md',
+                                  isEndClipped ? 'rounded-r-none border-r-0' : 'rounded-r-md'
+                                )}
+                                style={{
+                                  left: `calc(${(actualStart / totalCols) * 100}% + 2px)`,
+                                  width: `calc(${(span / totalCols) * 100}% - 4px)`,
+                                }}
+                                title={`${b.guest.firstName} ${b.guest.lastName} • ${b.nights} ${
+                                  b.nights === 1 ? 'Night' : 'Nights'
+                                } • Out: ${formatMonthDay(b.checkOut)}`}
+                              >
+                                {/* Centered Guest Name Only - NO DOTS, NO Room Type, NO Bed Number */}
+                                <span className="text-[11px] font-semibold tracking-tight whitespace-nowrap overflow-hidden text-ellipsis text-center px-1">
                                   {b.guest.firstName} {b.guest.lastName}
                                 </span>
+
+                                {/* Dark Pop-up Hover Tooltip on Mouse Hover */}
+                                <div className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 hidden group-hover/bar:flex flex-col items-center z-50 animate-in fade-in zoom-in-95 duration-100">
+                                  <div className="bg-slate-900 dark:bg-black text-white text-[11px] px-2.5 py-1.5 rounded-md shadow-2xl border border-slate-700/80 whitespace-nowrap font-medium flex items-center gap-1.5 leading-none">
+                                    <span className="font-bold">{b.guest.firstName} {b.guest.lastName}</span>
+                                    <span className="text-slate-400">•</span>
+                                    <span>{b.nights} {b.nights === 1 ? 'Night' : 'Nights'}</span>
+                                    <span className="text-slate-400">•</span>
+                                    <span>Out: {formatMonthDay(b.checkOut)}</span>
+                                    <span className="text-slate-400">•</span>
+                                    <span className={cn('font-bold font-mono', hasBalanceDue ? 'text-rose-400' : 'text-emerald-400')}>
+                                      {hasBalanceDue ? `Rs. ${fin.balanceDue.toLocaleString()} Due` : 'Paid'}
+                                    </span>
+                                  </div>
+                                  <div className="w-2 h-2 bg-slate-900 dark:bg-black rotate-45 -mt-1 border-r border-b border-slate-700/80" />
+                                </div>
                               </div>
-                              <span className="text-[10px] opacity-75 font-mono shrink-0 hidden sm:inline">
-                                {b.nights}n
-                              </span>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                       </div>
                     </React.Fragment>
                   );
@@ -942,21 +1230,32 @@ export function RoomTapeChart({
             ))}
 
             {/* ------------------------------------------------------------- */}
-            {/* 3. BOTTOM "TOTALS" SECTION (Refined, Non-Intrusive Counts)   */}
+            {/* 3. BOTTOM "TOTALS" SECTION (Clean, Minimal Counts)            */}
             {/* ------------------------------------------------------------- */}
             {/* Totals Banner */}
-            <div className="sticky left-0 z-20 bg-[#F8FAF8] dark:bg-[#0A2620] text-[#64736C] dark:text-slate-400 font-bold text-[10px] uppercase tracking-wider px-3 py-1 border-b border-t border-r border-[#DCE3DF] dark:border-[#145447]">
+            <div className="sticky left-0 z-20 bg-slate-50/80 dark:bg-slate-900 text-muted dark:text-muted font-bold text-[10px] uppercase tracking-wider px-3 py-1 border-b border-t border-r border-slate-200 dark:border-slate-800 select-none flex items-center">
               Totals
             </div>
             <div
-              className="bg-[#F8FAF8] dark:bg-[#0A2620] border-b border-t border-[#DCE3DF] dark:border-[#145447]"
-              style={{ gridColumn: `span ${totalCols}` }}
-            />
+              className="bg-slate-50/80 dark:bg-slate-900 border-b border-t border-slate-100 dark:border-slate-800/40"
+              style={{
+                gridColumn: `span ${totalCols}`,
+                display: 'grid',
+                gridTemplateColumns: `repeat(${totalCols}, ${colWidth})`,
+              }}
+            >
+              {timelineDates.map((col) => (
+                <div
+                  key={`totals-div-${col.dateStr}`}
+                  className="h-full border-r border-slate-100/70 dark:border-slate-800/30"
+                />
+              ))}
+            </div>
 
             {/* Totals Row 1: Booked */}
-            <div className="sticky left-0 z-20 bg-white dark:bg-[#071F1A] text-[#43534D] dark:text-slate-300 font-medium text-xs px-3 py-1.5 border-b border-r border-[#E4E9E5] dark:border-[#145447] flex items-center justify-between">
+            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-muted dark:text-white font-medium text-xs px-3 py-1.5 border-b border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
                 <span>Booked</span>
               </span>
             </div>
@@ -974,9 +1273,12 @@ export function RoomTapeChart({
               return (
                 <div
                   key={`totals-booked-${col.dateStr}`}
-                  className="bg-white dark:bg-[#071F1A] text-xs py-1.5 text-center border-b border-r border-[#E4E9E5] dark:border-[#145447] flex items-center justify-center font-mono font-bold"
+                  className={cn(
+                    'text-xs py-1.5 text-center border-b border-r border-slate-100/70 dark:border-slate-800/30 flex items-center justify-center font-mono font-bold',
+                    col.isToday ? 'bg-blue-50/20 dark:bg-blue-950/15' : 'bg-transparent'
+                  )}
                 >
-                  <span className={cn(bookedCount > 0 ? 'text-[#92400E] dark:text-amber-400 font-bold' : 'text-slate-300 dark:text-slate-600 font-normal')}>
+                  <span className={cn(bookedCount > 0 ? 'text-amber-700 dark:text-amber-400 font-bold' : 'text-slate-300 dark:text-slate-600 font-normal')}>
                     {bookedCount}
                   </span>
                 </div>
@@ -984,9 +1286,9 @@ export function RoomTapeChart({
             })}
 
             {/* Totals Row 2: Occupied */}
-            <div className="sticky left-0 z-20 bg-white dark:bg-[#071F1A] text-[#43534D] dark:text-slate-300 font-medium text-xs px-3 py-1.5 border-b border-r border-[#E4E9E5] dark:border-[#145447] flex items-center justify-between">
+            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-muted dark:text-white font-medium text-xs px-3 py-1.5 border-b border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
                 <span>Occupied</span>
               </span>
             </div>
@@ -1004,9 +1306,12 @@ export function RoomTapeChart({
               return (
                 <div
                   key={`totals-occupied-${col.dateStr}`}
-                  className="bg-white dark:bg-[#071F1A] text-xs py-1.5 text-center border-b border-r border-[#E4E9E5] dark:border-[#145447] flex items-center justify-center font-mono font-bold"
+                  className={cn(
+                    'text-xs py-1.5 text-center border-b border-r border-slate-100/70 dark:border-slate-800/30 flex items-center justify-center font-mono font-bold',
+                    col.isToday ? 'bg-blue-50/20 dark:bg-blue-950/15' : 'bg-transparent'
+                  )}
                 >
-                  <span className={cn(occupiedCount > 0 ? 'text-[#1E40AF] dark:text-blue-400 font-bold' : 'text-slate-300 dark:text-slate-600 font-normal')}>
+                  <span className={cn(occupiedCount > 0 ? 'text-[#1A73E8] dark:text-blue-400 font-bold' : 'text-slate-300 dark:text-slate-600 font-normal')}>
                     {occupiedCount}
                   </span>
                 </div>
@@ -1014,9 +1319,9 @@ export function RoomTapeChart({
             })}
 
             {/* Totals Row 3: Vacant */}
-            <div className="sticky left-0 z-20 bg-white dark:bg-[#071F1A] text-[#43534D] dark:text-slate-300 font-medium text-xs px-3 py-1.5 border-r border-[#E4E9E5] dark:border-[#145447] flex items-center justify-between">
+            <div className="sticky left-0 z-20 bg-white dark:bg-slate-900 text-muted dark:text-white font-medium text-xs px-3 py-1.5 border-r border-slate-200 dark:border-slate-800 flex items-center justify-between select-none">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full border border-[#CBD5D0] bg-white" />
+                <span className="w-2 h-2 rounded-full border border-slate-300 bg-white" />
                 <span>Vacant</span>
               </span>
             </div>
@@ -1035,9 +1340,12 @@ export function RoomTapeChart({
               return (
                 <div
                   key={`totals-vacant-${col.dateStr}`}
-                  className="bg-white dark:bg-[#071F1A] text-xs py-1.5 text-center border-r border-[#E4E9E5] dark:border-[#145447] flex items-center justify-center font-mono font-bold"
+                  className={cn(
+                    'text-xs py-1.5 text-center border-r border-slate-100/70 dark:border-slate-800/30 flex items-center justify-center font-mono font-bold',
+                    col.isToday ? 'bg-blue-50/20 dark:bg-blue-950/15' : 'bg-transparent'
+                  )}
                 >
-                  <span className="text-[#0B3D32] dark:text-emerald-400 font-bold">{vacantCount}</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">{vacantCount}</span>
                 </div>
               );
             })}
@@ -1099,15 +1407,67 @@ export function RoomTapeChart({
                 {/* Row 1: Stay Dates, Room Category, Assign Checkbox & Live Price Banner */}
                 <div className="p-4 rounded-xl bg-[#FAFBF9] dark:bg-[#072D26]/40 border border-[#DCE3DF] dark:border-[#145447]/60 flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-4 flex-wrap">
-                    {/* Calendar + Date Range */}
-                    <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#0B3D32] dark:text-emerald-400 font-mono">
-                      <Calendar className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400 shrink-0" />
-                      <span>
-                        {formatMonthDay(bookingModal.checkInDate)} – {formatMonthDay(bookingModal.checkOutDate)}
-                      </span>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-[#E8F2EE] text-[#0B3D32] dark:bg-[#0E362C] dark:text-emerald-300 font-sans border border-[#C5DED3] dark:border-[#145447]">
-                        {bookingModal.nights} {bookingModal.nights === 1 ? 'Night' : 'Nights'}
-                      </span>
+                    {/* Calendar + Date Range & Duration Selector */}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#0B3D32] dark:text-emerald-400 font-mono">
+                        <Calendar className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400 shrink-0" />
+                        <span>
+                          {formatMonthDay(bookingModal.checkInDate)} – {formatMonthDay(bookingModal.checkOutDate)}
+                        </span>
+                      </div>
+
+                      {/* Quick Night Counter: - [ 3 Nights ] + */}
+                      <div className="flex items-center rounded-lg border border-[#C5DED3] dark:border-[#145447] bg-white dark:bg-[#072D26] p-0.5 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextN = Math.max(1, bookingModal.nights - 1);
+                            const nextOut = addDaysToDateStr(bookingModal.checkInDate, nextN);
+                            setBookingModal({ ...bookingModal, nights: nextN, checkOutDate: nextOut });
+                          }}
+                          className="w-6 h-6 rounded flex items-center justify-center font-bold text-muted dark:text-white hover:bg-slate-100 dark:hover:bg-[#145447] transition-colors cursor-pointer text-xs"
+                          title="Decrease night"
+                        >
+                          -
+                        </button>
+                        <span className="px-2 text-xs font-bold text-[#0B3D32] dark:text-emerald-300 font-mono">
+                          {bookingModal.nights} {bookingModal.nights === 1 ? 'Night' : 'Nights'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextN = bookingModal.nights + 1;
+                            const nextOut = addDaysToDateStr(bookingModal.checkInDate, nextN);
+                            setBookingModal({ ...bookingModal, nights: nextN, checkOutDate: nextOut });
+                          }}
+                          className="w-6 h-6 rounded flex items-center justify-center font-bold text-muted dark:text-white hover:bg-slate-100 dark:hover:bg-[#145447] transition-colors cursor-pointer text-xs"
+                          title="Increase night"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {/* Quick Duration Preset Buttons: 1D, 2D, 3D, 5D, 7D */}
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 5, 7].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => {
+                              const nextOut = addDaysToDateStr(bookingModal.checkInDate, num);
+                              setBookingModal({ ...bookingModal, nights: num, checkOutDate: nextOut });
+                            }}
+                            className={cn(
+                              'px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer border',
+                              bookingModal.nights === num
+                                ? 'bg-[#0B3D32] text-white border-[#0B3D32] dark:bg-emerald-600 dark:border-emerald-600 shadow-2xs font-bold'
+                                : 'bg-white dark:bg-[#072D26] text-muted dark:text-white border-[#DCE3DF] dark:border-[#145447] hover:bg-slate-50'
+                            )}
+                          >
+                            {num}D
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Bed + Room Info */}
@@ -1343,11 +1703,11 @@ export function RoomTapeChart({
               </div>
 
               {/* Modal Footer: Matching our pattern, strictly keeping only 2 buttons: Book Now and Check-In / Walk-In */}
-              <div className="p-4 sm:p-5 border-t border-[#E4E9E5] bg-[#F2F4F2] dark:bg-[#072D26]/70 dark:border-[#145447]/60 flex items-center justify-between gap-3 shrink-0">
+              <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-between gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setBookingModal(null)}
-                  className="h-10 px-4 rounded-xl text-xs font-semibold text-[#64736C] hover:text-[#24352F] hover:bg-white dark:hover:bg-[#145447] dark:hover:text-white transition-colors border border-transparent hover:border-[#DCE3DF] cursor-pointer"
+                  className="h-10 px-4 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white dark:hover:bg-slate-800 dark:hover:text-white transition-colors border border-transparent hover:border-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1358,10 +1718,10 @@ export function RoomTapeChart({
                   <button
                     type="button"
                     onClick={() => handleQuickReservationAction('RESERVE')}
-                    className="h-10 px-5 rounded-xl border border-[#CBD5D0] dark:border-[#145447] bg-white dark:bg-[#0A2620] hover:bg-[#EEF2F0] dark:hover:bg-[#145447]/50 text-[#24352F] dark:text-white text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                    className="h-10 px-5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-body dark:text-white text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                     title="Save as confirmed room reservation"
                   >
-                    <BookmarkCheck className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+                    <BookmarkCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <span>Book Now</span>
                   </button>
 
@@ -1369,10 +1729,10 @@ export function RoomTapeChart({
                   <button
                     type="button"
                     onClick={() => handleQuickReservationAction('CHECKIN')}
-                    className="h-10 px-5 rounded-xl bg-[#0B3D32] hover:bg-[#072821] text-white text-xs sm:text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                    className="h-10 px-5 rounded-xl bg-[#1A73E8] hover:bg-blue-600 text-white text-xs sm:text-sm font-bold shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                     title="Direct Check-In / Walk-In guest now"
                   >
-                    <LogIn className="w-4 h-4 text-emerald-300" />
+                    <LogIn className="w-4 h-4 text-white" />
                     <span>Check-In / Walk-In</span>
                   </button>
                 </div>
@@ -1386,112 +1746,302 @@ export function RoomTapeChart({
       {/* 5. EXISTING BOOKING INSPECTION MODAL                          */}
       {/* ------------------------------------------------------------- */}
       {inspectedBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] shadow-xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-5 space-y-4">
             <div className="flex items-start justify-between">
               <div>
                 <span
                   className={cn(
-                    'px-2 py-0.5 rounded-[2px] text-[10px] font-bold uppercase tracking-wider',
+                    'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider',
                     inspectedBooking.status === 'CHECKED_IN'
-                      ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                      : 'bg-amber-50 text-amber-800 border border-amber-200'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
                   )}
                 >
-                  {inspectedBooking.status === 'CHECKED_IN' ? 'Occupied' : 'Booked (Reserved)'}
+                  {inspectedBooking.status === 'CHECKED_IN' ? 'Occupied (In-House)' : 'Booked (Reserved)'}
                 </span>
-                <h4 className="text-base font-bold text-[#24352F] dark:text-white mt-1">
-                  {inspectedBooking.guest.firstName} {inspectedBooking.guest.lastName}
+                <h4 className="text-base font-bold text-slate-900 dark:text-white mt-1.5 flex items-center gap-2">
+                  <span
+                    className={cn(
+                      'w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/80 shadow-2xs',
+                      getBookingFinancials(inspectedBooking).balanceDue > 0 ? 'bg-rose-500' : 'bg-emerald-500'
+                    )}
+                    title={
+                      getBookingFinancials(inspectedBooking).balanceDue > 0
+                        ? `🔴 Balance Due: Rs. ${getBookingFinancials(inspectedBooking).balanceDue.toLocaleString()}`
+                        : '🟢 Fully Paid'
+                    }
+                  />
+                  <span>Guest: {inspectedBooking.guest.firstName} {inspectedBooking.guest.lastName}</span>
                 </h4>
-                <p className="text-xs text-[#64736C]">
+                <p className="text-xs text-muted dark:text-muted">
                   Room {inspectedBooking.room.number} · {inspectedBooking.room.type}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setInspectedBooking(null)}
-                className="p-1 rounded-[2px] hover:bg-slate-100 text-slate-500 cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-3 bg-[#FAFBF9] dark:bg-[#061B16] border border-[#DCE3DF] dark:border-[#145447] rounded-[3px] space-y-1.5 text-xs">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 rounded-lg space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-[#64736C]">Stay Duration:</span>
-                <span className="font-semibold text-[#24352F] dark:text-white font-mono">
+                <span className="text-muted dark:text-muted">Stay Duration:</span>
+                <span className="font-semibold text-body dark:text-white font-mono">
                   {inspectedBooking.checkIn} → {inspectedBooking.checkOut} ({inspectedBooking.nights} Nights)
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#64736C]">Contact:</span>
-                <span className="font-semibold text-[#24352F] dark:text-white">
+                <span className="text-muted dark:text-muted">Contact:</span>
+                <span className="font-semibold text-body dark:text-white">
                   {inspectedBooking.guest.phone}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#64736C]">Tariff:</span>
-                <span className="font-semibold text-[#24352F] dark:text-white font-mono">
+                <span className="text-muted dark:text-muted">Tariff:</span>
+                <span className="font-semibold text-body dark:text-white font-mono">
                   Rs. {inspectedBooking.roomCharges?.toLocaleString()}
                 </span>
               </div>
               {(() => {
                 const fin = getBookingFinancials(inspectedBooking);
                 return (
-                  <div className="flex justify-between pt-1 border-t border-[#DCE3DF] dark:border-[#145447]">
-                    <span className="text-[#24352F] dark:text-white font-bold">Balance Due:</span>
-                    <span className={cn('font-bold font-mono', fin.balanceDue > 0 ? 'text-amber-700' : 'text-[#0B3D32]')}>
-                      Rs. {fin.balanceDue.toLocaleString()}
+                  <div className="flex justify-between pt-1.5 border-t border-slate-200 dark:border-slate-700">
+                    <span className="text-body dark:text-white font-bold flex items-center gap-1.5">
+                      <span className={cn('w-2 h-2 rounded-full', fin.balanceDue > 0 ? 'bg-rose-500' : 'bg-emerald-500')} />
+                      <span>Payment Status:</span>
+                    </span>
+                    <span className={cn('font-bold font-mono', fin.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                      {fin.balanceDue > 0 ? `Rs. ${fin.balanceDue.toLocaleString()} Due` : 'Fully Paid'}
                     </span>
                   </div>
                 );
               })()}
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
-              {inspectedBooking.status === 'RESERVED' && (
+            {/* Actions: Matching Hotel PMS Requirements Exactly: [ Cancel ] [ View Details ] [ Check In ] */}
+            {inspectedBooking.status === 'RESERVED' ? (
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => {
-                    const b = inspectedBooking;
-                    setInspectedBooking(null);
-                    router.push(`/check-in?bookingId=${b.id}`);
-                  }}
-                  className="flex-1 py-2 rounded-[3px] bg-[#0B3D32] hover:bg-[#145447] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                  onClick={() => setInspectedBooking(null)}
+                  className="py-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-muted dark:text-white text-xs font-semibold cursor-pointer transition-colors"
                 >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Check In Guest</span>
+                  Cancel
                 </button>
-              )}
-
-              {inspectedBooking.status === 'CHECKED_IN' && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const b = inspectedBooking;
+                      setInspectedBooking(null);
+                      onSelectBooking(b);
+                    }}
+                    className="py-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Receipt className="w-3.5 h-3.5 text-blue-600" />
+                    <span>View Details</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDirectCheckIn(inspectedBooking)}
+                    className="py-2 px-4 rounded-lg bg-[#1A73E8] hover:bg-blue-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors active:scale-95"
+                    title="Check In guest now (turns timeline block Blue immediately)"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Check In</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => {
-                    const b = inspectedBooking;
-                    setInspectedBooking(null);
-                    onOpenCheckOutModal(b);
-                  }}
-                  className="flex-1 py-2 rounded-[3px] bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                  onClick={() => setInspectedBooking(null)}
+                  className="py-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-muted dark:text-white text-xs font-semibold cursor-pointer transition-colors"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Check Out Guest</span>
+                  Close
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  const b = inspectedBooking;
-                  setInspectedBooking(null);
-                  onSelectBooking(b);
-                }}
-                className="py-2 px-3.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] hover:bg-[#FAFBF9] text-[#24352F] dark:text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-              >
-                <Receipt className="w-3.5 h-3.5 text-blue-600" />
-                <span>View Folio</span>
-              </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const b = inspectedBooking;
+                      setInspectedBooking(null);
+                      onSelectBooking(b);
+                    }}
+                    className="py-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Receipt className="w-3.5 h-3.5 text-blue-600" />
+                    <span>View Details</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const b = inspectedBooking;
+                      setInspectedBooking(null);
+                      onOpenCheckOutModal(b);
+                    }}
+                    className="py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors active:scale-95"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Check Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* ------------------------------------------------------------- */}
+      {/* 5. HOUSEKEEPING OPTIONS POPUP (Matches reference screenshot) */}
+      {/* ------------------------------------------------------------- */}
+      {roomContextMenu && (
+        <div
+          className="fixed inset-0 z-50 select-none"
+          onClick={() => setRoomContextMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setRoomContextMenu(null);
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="fixed bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl py-1.5 w-36 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 font-sans"
+            style={{
+              left: Math.min(roomContextMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 1000) - 160),
+              top: Math.min(roomContextMenu.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - 230),
+            }}
+          >
+            {/* Header: "House Keeping" */}
+            <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 px-3 py-1 uppercase tracking-wider">
+              House Keeping
             </div>
+
+            {(() => {
+              const targetRoom =
+                roomsList.find(
+                  (r) =>
+                    r.id === roomContextMenu.room.id ||
+                    r.number === roomContextMenu.room.number ||
+                    r.id === `rm-${roomContextMenu.room.number}`
+                ) || roomContextMenu.room;
+
+              const override =
+                roomStatusOverrides[targetRoom.id] ||
+                roomStatusOverrides[targetRoom.number] ||
+                roomStatusOverrides[`rm-${targetRoom.number}`];
+
+              const currentCleaning = override?.cleaningStatus || targetRoom.cleaningStatus;
+              const currentOperational = override?.operationalStatus || targetRoom.operationalStatus;
+              const isCurrentOutOfService = currentOperational === 'MAINTENANCE' && override?.serviceStatus === 'OUT_OF_SERVICE';
+              const isCurrentMaintenance = currentOperational === 'MAINTENANCE' && !isCurrentOutOfService;
+              const isCurrentDirty = currentCleaning === 'DIRTY' && !isCurrentMaintenance && !isCurrentOutOfService;
+              const isCurrentClean = currentCleaning === 'CLEAN' && !isCurrentMaintenance && !isCurrentOutOfService;
+
+              return (
+                <>
+                  {/* 1. Clean */}
+                  <button
+                    type="button"
+                    disabled={isCurrentClean}
+                    aria-disabled={isCurrentClean}
+                    onClick={(e) => {
+                      if (isCurrentClean) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      handleSelectHousekeepingStatus(targetRoom, 'Clean');
+                    }}
+                    className={cn(
+                      'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between',
+                      isCurrentClean
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-[#DBEAFE] hover:text-[#1E40AF] cursor-pointer'
+                    )}
+                  >
+                    <span>Clean</span>
+                    {isCurrentClean && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">✓</span>}
+                  </button>
+
+                  {/* 2. Dirty */}
+                  <button
+                    type="button"
+                    disabled={isCurrentDirty}
+                    aria-disabled={isCurrentDirty}
+                    onClick={(e) => {
+                      if (isCurrentDirty) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      handleSelectHousekeepingStatus(targetRoom, 'Dirty');
+                    }}
+                    className={cn(
+                      'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between',
+                      isCurrentDirty
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-[#DBEAFE] hover:text-[#1E40AF] cursor-pointer'
+                    )}
+                  >
+                    <span>Dirty</span>
+                    {isCurrentDirty && <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">✓</span>}
+                  </button>
+
+                  {/* 3. Maintenance */}
+                  <button
+                    type="button"
+                    disabled={isCurrentMaintenance}
+                    aria-disabled={isCurrentMaintenance}
+                    onClick={(e) => {
+                      if (isCurrentMaintenance) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      handleSelectHousekeepingStatus(targetRoom, 'Maintenance');
+                    }}
+                    className={cn(
+                      'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between',
+                      isCurrentMaintenance
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-[#DBEAFE] hover:text-[#1E40AF] cursor-pointer'
+                    )}
+                  >
+                    <span>Maintenance</span>
+                    {isCurrentMaintenance && <span className="text-[10px] text-muted dark:text-muted font-bold">✓</span>}
+                  </button>
+
+                  {/* 4. Out of Service */}
+                  <button
+                    type="button"
+                    disabled={isCurrentOutOfService}
+                    aria-disabled={isCurrentOutOfService}
+                    onClick={(e) => {
+                      if (isCurrentOutOfService) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      handleSelectHousekeepingStatus(targetRoom, 'Out of Service');
+                    }}
+                    className={cn(
+                      'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between',
+                      isCurrentOutOfService
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-[#DBEAFE] hover:text-[#1E40AF] cursor-pointer'
+                    )}
+                  >
+                    <span>Out of Service</span>
+                    {isCurrentOutOfService && <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold">✓</span>}
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

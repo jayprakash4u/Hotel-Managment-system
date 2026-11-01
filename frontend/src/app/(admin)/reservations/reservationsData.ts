@@ -74,6 +74,7 @@ export interface RoomBooking {
     idExpiryDate?: string;
     idIssuePlace?: string;
     idDocumentImage?: string;
+    idDocumentImages?: string[];
     city?: string;
     state?: string;
     postalCode?: string;
@@ -107,6 +108,7 @@ export interface RoomBooking {
   luggageTag?: string;
   checkInTime?: string;
   securityDeposit?: number;
+  bookingAgent?: string;
 }
 
 export const INITIAL_BOOKINGS: RoomBooking[] = [
@@ -135,8 +137,8 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       floorLevel: '1st Floor',
       pricePerNight: 3500,
     },
-    checkIn: getRelativeDate(-1),
-    checkOut: getRelativeDate(2),
+    checkIn: getRelativeDate(0),
+    checkOut: getRelativeDate(3),
     nights: 3,
     roomCharges: 10500,
     cafeOrders: [
@@ -382,10 +384,10 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       floorLevel: '1st Floor',
       pricePerNight: 2000,
     },
-    checkIn: getRelativeDate(-1),
-    checkOut: getRelativeDate(1),
-    nights: 2,
-    roomCharges: 4000,
+    checkIn: getRelativeDate(0),
+    checkOut: getRelativeDate(3),
+    nights: 3,
+    roomCharges: 6000,
     cafeOrders: [
       {
         id: 'ord-103',
@@ -695,9 +697,9 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
       vipTier: 'SILVER',
     },
     room: {
-      id: 'rm-102',
-      number: '102',
-      type: 'Non AC Room',
+      id: 'rm-105',
+      number: '105',
+      type: 'Standard Non-AC',
       acType: 'Non-AC',
       bedType: 'Queen Bed',
       floorLevel: '1st Floor',
@@ -721,6 +723,94 @@ export const INITIAL_BOOKINGS: RoomBooking[] = [
     ],
     bookingHistory: [],
     notes: '3-night stay hold. Non-AC room requested.',
+  },
+  {
+    id: 'bk-2001',
+    bookingCode: 'BK-2001',
+    status: 'CHECKED_IN',
+    guest: {
+      id: 'gst-2001',
+      firstName: 'Priya',
+      lastName: 'Sharma',
+      phone: '+977 9811223344',
+      email: 'priya.sharma@nepalcorp.com',
+      address: 'Pokhara, Kaski',
+      idType: 'Citizenship',
+      idNumber: 'CT-45-01-81-2233',
+      country: 'Nepal',
+      vipTier: 'PLATINUM',
+    },
+    room: {
+      id: 'rm-201',
+      number: '201',
+      type: 'Super Deluxe Ocean Suite',
+      acType: 'AC',
+      bedType: 'Emperor Bed',
+      floorLevel: '2nd Floor',
+      pricePerNight: 7500,
+    },
+    checkIn: getRelativeDate(0),
+    checkOut: getRelativeDate(3),
+    nights: 3,
+    roomCharges: 22500,
+    cafeOrders: [],
+    payments: [
+      {
+        id: 'pay-2001-a',
+        receiptNo: 'REC-2001-A',
+        date: 'Today, Full Prepayment',
+        amount: 22500,
+        method: 'CARD',
+        type: 'SETTLEMENT',
+        notes: 'Full stay pre-settlement paid via Corporate Card',
+      },
+    ],
+    bookingHistory: [],
+    notes: 'Executive corporate stay (3 nights). High floor suite assigned.',
+  },
+  {
+    id: 'bk-3001',
+    bookingCode: 'BK-3001',
+    status: 'RESERVED',
+    guest: {
+      id: 'gst-3001',
+      firstName: 'Michael',
+      lastName: 'Brown',
+      phone: '+1 415 889 9001',
+      email: 'michael.brown@techcorp.com',
+      address: 'San Francisco, CA, USA',
+      idType: 'Passport',
+      idNumber: 'PP-US-991283',
+      country: 'United States',
+      vipTier: 'GOLD',
+    },
+    room: {
+      id: 'rm-301',
+      number: '301',
+      type: 'Royal Club Penthouse',
+      acType: 'AC',
+      bedType: 'Emperor Bed',
+      floorLevel: '3rd Floor',
+      pricePerNight: 9500,
+    },
+    checkIn: getRelativeDate(1),
+    checkOut: getRelativeDate(4),
+    nights: 3,
+    roomCharges: 28500,
+    cafeOrders: [],
+    payments: [
+      {
+        id: 'pay-3001-a',
+        receiptNo: 'REC-3001-A',
+        date: 'Today, Advance Deposit',
+        amount: 10000,
+        method: 'CARD',
+        type: 'ADVANCE',
+        notes: 'International reservation deposit paid',
+      },
+    ],
+    bookingHistory: [],
+    notes: '3 nights reserved for International conference speaker.',
   },
 ];
 
@@ -852,30 +942,154 @@ export function loadBookingsFromStorage(): RoomBooking[] {
   try {
     const raw = localStorage.getItem(RESERVATIONS_STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
+      const parsed: RoomBooking[] = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Auto-heal old static dates for Ram Sharma if previously stored
-        const ram = parsed.find((b: RoomBooking) => b.id === 'bk-1001');
         let modified = false;
-        if (ram && ram.checkIn === '2026-10-15') {
-          ram.checkIn = getRelativeDate(0);
-          ram.checkOut = getRelativeDate(2);
-          modified = true;
-        }
-        if (!parsed.some((b: RoomBooking) => b.id === 'bk-1010')) {
-          const rahul = INITIAL_BOOKINGS.find((b) => b.id === 'bk-1010');
-          if (rahul) {
-            parsed.push(rahul);
+
+        // 1. Ensure Aarav Karki (bk-1002-occ) is on Room 102, CHECKED_IN for 3 nights from today
+        const aarav = parsed.find((b) => b.id === 'bk-1002-occ');
+        if (aarav) {
+          if (
+            aarav.checkIn !== getRelativeDate(0) ||
+            aarav.checkOut !== getRelativeDate(3) ||
+            aarav.nights !== 3 ||
+            aarav.room.number !== '102'
+          ) {
+            aarav.room.number = '102';
+            aarav.room.id = 'rm-102';
+            aarav.checkIn = getRelativeDate(0);
+            aarav.checkOut = getRelativeDate(3);
+            aarav.nights = 3;
+            aarav.status = 'CHECKED_IN';
             modified = true;
           }
-        }
-        if (!parsed.some((b: RoomBooking) => b.room.number === '102' && b.status === 'CHECKED_IN')) {
+        } else {
           const occ102 = INITIAL_BOOKINGS.find((b) => b.id === 'bk-1002-occ');
           if (occ102) {
-            parsed.unshift(occ102);
+            parsed.unshift({ ...occ102 });
             modified = true;
           }
         }
+
+        // 2. Ensure Rahul Gupta (bk-1010) is moved to Room 105 (Standard Non-AC) to prevent overlap on Room 102
+        const rahul = parsed.find((b) => b.id === 'bk-1010');
+        if (rahul) {
+          if (
+            rahul.room.number === '102' ||
+            rahul.checkIn !== getRelativeDate(1) ||
+            rahul.checkOut !== getRelativeDate(4)
+          ) {
+            rahul.room = {
+              id: 'rm-105',
+              number: '105',
+              type: 'Standard Non-AC',
+              acType: 'Non-AC',
+              bedType: 'Queen Bed',
+              floorLevel: '1st Floor',
+              pricePerNight: 2000,
+            };
+            rahul.checkIn = getRelativeDate(1);
+            rahul.checkOut = getRelativeDate(4);
+            rahul.nights = 3;
+            modified = true;
+          }
+        } else {
+          const initRahul = INITIAL_BOOKINGS.find((b) => b.id === 'bk-1010');
+          if (initRahul) {
+            parsed.push({ ...initRahul });
+            modified = true;
+          }
+        }
+
+        // 3. Purge any duplicate/conflicting bookings on Room 102 during Aarav's stay
+        const cleaned = parsed.filter((b) => {
+          if (b.id === 'bk-1002-occ') return true;
+          // If any other booking is on Room 102 and active, remove or move
+          if (b.room.number === '102' && b.status !== 'CHECKED_OUT' && b.status !== 'CANCELLED') {
+            if (b.id === 'bk-1010') {
+              b.room.number = '105';
+              b.room.id = 'rm-105';
+              return true;
+            }
+            modified = true;
+            return false;
+          }
+          // Also deduplicate any other booking for Aarav Karki
+          if (
+            b.guest.firstName.toLowerCase() === 'aarav' &&
+            b.guest.lastName.toLowerCase() === 'karki' &&
+            b.id !== 'bk-1002-occ'
+          ) {
+            modified = true;
+            return false;
+          }
+          return true;
+        });
+        parsed.length = 0;
+        parsed.push(...cleaned);
+
+        // 4. Ensure Ram Sharma (bk-1001) is on Room 101 for 2 nights (Today to +2)
+        const ram = parsed.find((b) => b.id === 'bk-1001');
+        if (ram && (ram.checkIn !== getRelativeDate(0) || ram.checkOut !== getRelativeDate(2))) {
+          ram.checkIn = getRelativeDate(0);
+          ram.checkOut = getRelativeDate(2);
+          ram.nights = 2;
+          ram.room.number = '101';
+          modified = true;
+        }
+
+        // 5. Ensure Anita Shrestha (bk-1005) is on Room 101 for 2 nights (+2 to +4)
+        const anita = parsed.find((b) => b.id === 'bk-1005');
+        if (anita && (anita.checkIn !== getRelativeDate(2) || anita.checkOut !== getRelativeDate(4))) {
+          anita.checkIn = getRelativeDate(2);
+          anita.checkOut = getRelativeDate(4);
+          anita.nights = 2;
+          anita.room.number = '101';
+          modified = true;
+        }
+
+        // 6. Ensure Sita Rai (bk-1002) is on Room 103 for 2 nights (Today to +2)
+        const sita = parsed.find((b) => b.id === 'bk-1002');
+        if (sita && (sita.checkIn !== getRelativeDate(0) || sita.checkOut !== getRelativeDate(2))) {
+          sita.checkIn = getRelativeDate(0);
+          sita.checkOut = getRelativeDate(2);
+          sita.nights = 2;
+          sita.room.number = '103';
+          modified = true;
+        }
+
+        // 7. Ensure Bikash Gurung (bk-1004) is on Room 104 for 3 nights (Today to +3, CHECKED_IN)
+        const bikash = parsed.find((b) => b.id === 'bk-1004');
+        if (
+          bikash &&
+          (bikash.checkIn !== getRelativeDate(0) ||
+            bikash.checkOut !== getRelativeDate(3) ||
+            bikash.nights !== 3)
+        ) {
+          bikash.checkIn = getRelativeDate(0);
+          bikash.checkOut = getRelativeDate(3);
+          bikash.nights = 3;
+          bikash.status = 'CHECKED_IN';
+          bikash.room.number = '104';
+          modified = true;
+        }
+
+        // 8. Add demo bookings for Room 201 and Room 301 if not present
+        if (!parsed.some((b) => b.id === 'bk-2001')) {
+          const init201 = INITIAL_BOOKINGS.find((b) => b.id === 'bk-2001');
+          if (init201) {
+            parsed.push({ ...init201 });
+            modified = true;
+          }
+        }
+        if (!parsed.some((b) => b.id === 'bk-3001')) {
+          const init301 = INITIAL_BOOKINGS.find((b) => b.id === 'bk-3001');
+          if (init301) {
+            parsed.push({ ...init301 });
+            modified = true;
+          }
+        }
+
         if (modified) {
           localStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(parsed));
         }

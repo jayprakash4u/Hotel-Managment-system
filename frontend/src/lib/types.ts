@@ -229,20 +229,26 @@ export interface MaintenanceTicketData {
 
 export interface POSProductData {
   id: string;
+  hotelId?: string;
   outlet: string;
   category: string;
   name: string;
   description?: string | null;
   price: number;
   stock: number;
+  trackStock: boolean;
+  isAvailable?: boolean;
+  isActive?: boolean;
   imageUrl?: string | null;
 }
 
 export interface InventoryItemData {
   id: string;
   name: string;
+  department?: 'HOTEL' | 'RESTAURANT';
   category: string;
   sku: string;
+  trackStock?: boolean;
   currentStock: number;
   minThreshold: number;
   unit: string;
@@ -291,3 +297,267 @@ export interface DashboardMetrics {
     maintenance: number;
   }>;
 }
+
+export interface TableReservationData {
+  id: string;
+  hotelId: string;
+  tableId?: string | null;
+  table?: {
+    id: string;
+    tableNumber: string;
+    section: string;
+    capacity: number;
+    status: string;
+  } | null;
+  guestId?: string | null;
+  guest?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+  } | null;
+  customerName: string;
+  phoneNumber: string;
+  reservationDate: string;
+  reservationTime: string;
+  durationMinutes: number;
+  endTime?: string;
+  partySize: number;
+  status: 'PENDING' | 'CONFIRMED' | 'SEATED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  specialRequests?: string | null;
+  internalNotes?: string | null;
+  reservationCode: string;
+  orderId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuickSaleItem {
+  productId?: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  notes?: string;
+}
+
+export interface QuickSalePayload {
+  items: QuickSaleItem[];
+  paymentMethod: string;
+  paidAmount?: number;
+  discountPercent?: number;
+  discountAmount?: number;
+  tax?: number;
+  serviceCharge?: number;
+  serverName?: string;
+  customerName?: string;
+  customerPhone?: string;
+  notes?: string;
+  sendToKitchen?: boolean;
+  outlet?: string;
+}
+
+export interface QuickSaleReceipt {
+  orderNumber: string;
+  kotNumber?: string;
+  status: string;
+  outlet: string;
+  orderType: string;
+  cashierName: string;
+  customerName?: string;
+  customerPhone?: string;
+  items: Array<{
+    productId?: string;
+    productName: string;
+    unitPrice: number;
+    quantity: number;
+    total: number;
+    notes?: string;
+  }>;
+  subtotal: number;
+  discountAmount: number;
+  discountPercent: number;
+  tax: number;
+  serviceCharge: number;
+  total: number;
+  paymentMethod: string;
+  paidAmount: number;
+  changeDue: number;
+  timestamp: string;
+}
+
+export interface DailySalesSummaryData {
+  date: string;
+  totalOrders: number;
+  totalSales: number;
+  totalSubtotal: number;
+  totalTax: number;
+  totalDiscounts: number;
+  breakdownByType: {
+    dineInSales: number;
+    quickSales: number;
+    roomServiceSales: number;
+  };
+  breakdownByPayment: {
+    cashSales: number;
+    cardSales: number;
+    upiSales: number;
+    roomFolioSales: number;
+  };
+  recentOrders: Array<{
+    id: string;
+    orderNumber: string;
+    kotNumber?: string;
+    orderType: string;
+    tableNumber?: string;
+    status: string;
+    serverName: string;
+    total: number;
+    paymentMethod: string;
+    itemCount: number;
+    createdAt: string;
+  }>;
+}
+
+export interface RestaurantOrderItemData {
+  id?: string;
+  orderId?: string;
+  productId?: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+  notes?: string;
+}
+
+export interface ActiveRestaurantOrderData {
+  id: string;
+  hotelId?: string;
+  orderNumber: string;
+  kotNumber?: string;
+  outlet: string;
+  tableId?: string | null;
+  table?: { id: string; tableNumber: string; section?: string; capacity?: number };
+  roomId?: string | null;
+  room?: { id: string; number: string };
+  guestId?: string | null;
+  guest?: { id: string; firstName: string; lastName: string; phone?: string };
+  status: 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'BILLED' | 'COMPLETED' | 'CANCELLED';
+  orderType: 'DINE_IN' | 'NO_TABLE' | 'TAKEAWAY' | 'ROOM_SERVICE' | 'COUNTER_SALE';
+  serverName: string;
+  subtotal: number;
+  discountAmount: number;
+  discountPercent: number;
+  tax: number;
+  serviceCharge: number;
+  total: number;
+  paymentMethod?: string | null;
+  isPaid: boolean;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: RestaurantOrderItemData[];
+}
+
+export type BillingType = 'QUICK_BILL' | 'WALK_IN' | 'TABLE_ORDER' | 'ROOM_SERVICE' | 'HOTEL_CHECKOUT';
+export type BillPaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'VOID' | 'REFUNDED';
+
+export interface BillLineItem {
+  productId?: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+  category?: string;
+  notes?: string;
+}
+
+export interface BillPaymentRecord {
+  id: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  transactionRef?: string;
+  receivedBy?: string;
+  notes?: string;
+}
+
+export interface BillData {
+  id: string;
+  hotelId: string;
+  billNumber: string;
+  billingType: BillingType;
+  orderId?: string | null;
+  orderNumber?: string | null;
+  reservationId?: string | null;
+  bookingCode?: string | null;
+  guestId?: string | null;
+  roomNumber?: string | null;
+  tableNumber?: string | null;
+  serverOrStaff?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  subtotal: number;
+  discountAmount: number;
+  discountPercent: number;
+  taxAmount: number;
+  serviceCharge: number;
+  roundOff: number;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  paymentStatus: BillPaymentStatus;
+  paymentMethod: string;
+  itemsJson: string;
+  paymentsJson: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BillingSummaryData {
+  totalBilled: number;
+  totalPaid: number;
+  totalDue: number;
+  totalBills: number;
+}
+
+export interface GetBillsResponse {
+  items: BillData[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  summary: BillingSummaryData;
+}
+
+export interface ReservationAlertData {
+  id: string;
+  hotelId: string;
+  reservationId: string;
+  reservationCode: string;
+  customerName: string;
+  phoneNumber: string;
+  partySize: number;
+  reservationTime: string;
+  reservationDate?: string | null;
+  tableId?: string | null;
+  tableNumber: string;
+  section: string;
+  tableCleaningStatus: string;
+  tableStatus: string;
+  alertType: 'PREPARATION_15MIN' | 'TABLE_DIRTY' | 'OVERDUE_OCCUPIED' | string;
+  scheduledFor: string;
+  triggeredAt?: string | null;
+  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'DISMISSED' | 'CANCELLED';
+  severity: 'INFO' | 'WARNING' | 'DANGER';
+  title: string;
+  message: string;
+  targetRoles: string;
+  isRead: boolean;
+  acknowledgedBy?: string | null;
+  acknowledgedAt?: string | null;
+  createdAt: string;
+}
+
+

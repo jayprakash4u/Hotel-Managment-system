@@ -1,0 +1,17 @@
+# Exclude frontend and node_modules from backend Docker build context
+frontend/
+node_modules/
+.git/
+.vs/
+.vscode/
+
+# Build output
+backend/**/bin/
+backend/**/obj/
+backend/tests/
+
+# Misc
+*.DS_Store
+Thumbs.db
+*.log
+

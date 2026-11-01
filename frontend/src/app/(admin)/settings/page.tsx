@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import { Building, Percent, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AppearanceSettings } from '@/components/common/AppearanceSettings';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 
-const cardClass = 'rounded-xl bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800';
+const cardClass = 'rounded-xl bg-surface-card border border-border-default dark:bg-surface-card dark:border-border-default';
 
 export default function SettingsPage() {
   const toast = useToast();
@@ -51,16 +52,16 @@ export default function SettingsPage() {
       {/* Top Header */}
       <PageHeader
         title="System Settings & Configuration"
-        subtitle="Property profile, tax & surcharge rules, outlet operational parameters, and database seed controls"
+        subtitle="Property profile, tax & surcharge rules, theme & appearance, and database seed controls"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Configuration Form */}
         <div className="lg:col-span-2 space-y-6">
           <form onSubmit={handleSaveSettings} className={`p-6 ${cardClass} space-y-5`}>
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <Building className="w-4 h-4 text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white font-heading">Property & Brand Profile</h3>
+            <div className="border-b border-border-default dark:border-border-default">
+              <Building className="w-4 h-4 text-muted" />
+              <h3 className="text-sm font-semibold text-body dark:text-body font-heading">Property & Brand Profile</h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -82,10 +83,10 @@ export default function SettingsPage() {
               onChange={(e) => setPropertyConfig({ ...propertyConfig, tagline: e.target.value })}
             />
 
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="pt-4 border-t border-border-default dark:border-border-default space-y-4">
               <div className="flex items-center gap-2">
-                <Percent className="w-4 h-4 text-slate-400" />
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white font-heading">Taxes & Service Fees</h3>
+                <Percent className="w-4 h-4 text-muted" />
+                <h3 className="text-sm font-semibold text-body dark:text-body font-heading">Taxes & Service Fees</h3>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -104,23 +105,27 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <Button variant="gold" size="md" type="submit">
+            <div className="pt-4 border-t border-border-default dark:border-border-default flex justify-end">
+              <Button variant="primary" size="md" type="submit">
                 Save Property Configuration
               </Button>
             </div>
           </form>
         </div>
 
-        {/* Right 1 Col: Data Management & Reset */}
+        {/* Right 1 Col: Appearance Theme Changer & Data Reset */}
         <div className="space-y-6">
+          {/* Appearance Settings Card matching user screenshot */}
+          <AppearanceSettings />
+
+          {/* Database Reset Card */}
           <div className={`p-6 ${cardClass} space-y-4`}>
             <div className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white font-heading">Data Management</h3>
+              <RefreshCw className="w-4 h-4 text-muted" />
+              <h3 className="text-sm font-semibold text-body dark:text-body font-heading">Data Management</h3>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-muted dark:text-muted leading-relaxed">
               Reset the SQLite database with rich demo data (25+ rooms across 5 floors, VIP guests, active restaurant orders, KOTs, and inventory).
             </p>
 

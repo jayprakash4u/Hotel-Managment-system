@@ -84,28 +84,25 @@ export const FrontDeskNavBoxes: React.FC<{
                 'group relative flex flex-col items-center justify-center p-2 text-center transition-all duration-150',
                 'rounded-[3px] border shadow-2xs min-h-[66px] sm:min-h-[70px] w-36 sm:w-44',
                 isSelected
-                  ? 'border-[#A51F36] bg-[#FFF5F6] text-[#A51F36] ring-1 ring-[#A51F36] dark:border-rose-700 dark:bg-[#320810] dark:text-rose-200'
-                  : 'border-[#DCE3DF] bg-white text-[#24352F] hover:border-[#0B3D32] hover:bg-[#FAFBF9] hover:shadow-xs dark:border-[#145447] dark:bg-[#07241E] dark:text-[#E5EEE9] dark:hover:border-emerald-500 dark:hover:bg-[#093027]'
+                  ? 'border-brand bg-brand-subtle text-brand ring-1 ring-brand dark:border-brand dark:bg-brand-subtle dark:text-brand'
+                  : 'border-border-default bg-white text-body hover:border-brand hover:bg-surface-hover dark:border-border-default dark:bg-surface-card dark:text-body dark:hover:border-brand'
               )}
               title={item.description}
             >
-              <div
-                className={cn(
-                  'mb-1 transition-transform group-hover:scale-110',
-                  isSelected
-                    ? 'text-[#A51F36] dark:text-rose-300'
-                    : 'text-[#A51F36] dark:text-rose-400'
-                )}
-              >
-                <Icon className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.8]" />
+                <div
+                  className={cn(
+                    'mb-1 transition-transform group-hover:scale-110 text-muted dark:text-muted'
+                  )}
+                >
+                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.8] text-muted dark:text-muted" />
               </div>
 
               <span
                 className={cn(
                   'text-[10px] sm:text-[11px] font-semibold leading-tight line-clamp-2 px-0.5',
                   isSelected
-                    ? 'font-bold text-[#A51F36] dark:text-rose-200'
-                    : 'text-[#24352F] dark:text-white'
+                    ? 'font-bold text-brand dark:text-brand'
+                    : 'text-body group-hover:text-brand dark:text-body dark:group-hover:text-brand'
                 )}
               >
                 {item.name}
@@ -116,7 +113,7 @@ export const FrontDeskNavBoxes: React.FC<{
       </div>
 
       {/* 2. STRAIGHT DIVIDER LINE (Full bleed across viewport, matching Hotel Setup) */}
-      <div className="shrink-0 -mx-3 sm:-mx-4 lg:-mx-5 border-b border-[#DCE3DF] dark:border-[#145447] my-2 sm:my-2.5" />
+      <div className="shrink-0 -mx-3 sm:-mx-4 lg:-mx-5 border-b border-divider dark:border-border-default my-2 sm:my-2.5" />
     </div>
   );
 };

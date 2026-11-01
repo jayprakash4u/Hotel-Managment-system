@@ -18,60 +18,70 @@ const config: Config = {
     },
     extend: {
       colors: {
-        // 1. Core Brand Palette: Premium Hospitality + Enterprise SaaS
+        // 1. Core Brand Palette: Pure Blue (#1A73E8), Pure Red (#DC2626), Pure Yellow (#F59E0B)
         brand: {
-          primary: "#0B3D32",       // Deep Forest Green
-          "primary-hover": "#145447",
-          "primary-active": "#072D26",
-          "primary-subtle": "#E8F2EE",
-          secondary: "#A51F36",     // Burgundy Red
-          "secondary-hover": "#8E1B2F",
-          "secondary-active": "#7A1727",
-          "secondary-subtle": "#F9E9EC",
-          forest: "#0B3D32",
-          burgundy: "#A51F36",
+          primary: "#1A73E8",       // Pure Vibrant Blue (Primary Brand & CTAs)
+          "primary-hover": "#1557B0",
+          "primary-active": "#0D47A1",
+          "primary-subtle": "#E8F0FE",
+          blue: "#1A73E8",
+
+          secondary: "#DC2626",     // Pure Signal Red (Destructive, Critical, Danger)
+          "secondary-hover": "#B91C1C",
+          "secondary-active": "#991B1B",
+          "secondary-subtle": "#FEF2F2",
+          red: "#DC2626",
+
+          tertiary: "#F59E0B",      // Pure Yellow / Amber (Pending, Hold, Caution)
+          "tertiary-hover": "#D97706",
+          "tertiary-active": "#B45309",
+          "tertiary-subtle": "#FEF3C7",
+          yellow: "#F59E0B",
+
+          forest: "#1A73E8",        // backward compat alias -> Pure Blue
+          burgundy: "#DC2626",      // backward compat alias -> Pure Red
         },
 
         // Surface & Background Tokens
         page: {
-          DEFAULT: "#F7F5F0",       // Warm Ivory Application Background
-          ivory: "#F7F5F0",
+          DEFAULT: "#F8FAFC",       // Clean Enterprise Slate-50 Background
+          ivory: "#F8FAFC",
         },
         surface: {
           DEFAULT: "#FFFFFF",       // White Surface
-          muted: "#F2F4F2",         // Neutral Grey-Green (Table headers, secondary panels)
-          hover: "#F8FAF8",         // Hover Row Background
-          selected: "#E8F2EE",      // Selected Row Background
+          muted: "#F1F5F9",         // Slate-100 (Table headers, secondary panels)
+          hover: "#F8FAFC",         // Hover Row Background
+          selected: "#E8F0FE",      // Selected Row Blue Tint
         },
 
         // Borders & Dividers
         border: {
-          DEFAULT: "#DCE3DF",       // Primary Card & Input Border
-          subtle: "#DCE3DF",
-          divider: "#E4E9E5",       // Content Separators
-          input: "#CBD5D0",         // Default Input Border
-          "input-hover": "#879B90",
-          "input-focus": "#0B3D32",
-          "input-error": "#B42332",
+          DEFAULT: "#E2E8F0",       // Primary Card & Input Border
+          subtle: "#E2E8F0",
+          divider: "#EDF2F7",       // Content Separators
+          input: "#CBD5E1",         // Default Input Border
+          "input-hover": "#94A3B8",
+          "input-focus": "#1A73E8",
+          "input-error": "#DC2626",
         },
 
         // Typography
         charcoal: {
-          heading: "#24352F",       // Charcoal Green Headings & High-Priority Content
-          body: "#43534D",          // Descriptions & Body
-          muted: "#64736C",         // Metadata, Timestamps & Breadcrumbs
-          placeholder: "#7A8982",
-          disabled: "#89948E",
+          heading: "#0F172A",       // Slate-900 Headings
+          body: "#334155",          // Slate-700 Descriptions & Body
+          muted: "#64748B",         // Slate-500 Metadata & Timestamps
+          placeholder: "#94A3B8",
+          disabled: "#CBD5E1",
         },
 
-        // Sidebar Navigation
+        // Sidebar Navigation: Modern Deep Navy (#0F172A) Shell
         sidebar: {
-          bg: "#0B3D32",
-          text: "#E5EEE9",
+          bg: "#0F172A",
+          text: "#94A3B8",
           hover: "#FFFFFF",
-          "active-bg": "#A51F36",
-          "active-hover": "#8E1B2F",
-          icon: "#B7CDC3",
+          "active-bg": "#1A73E8",
+          "active-hover": "#1557B0",
+          icon: "#64748B",
         },
 
         // Semantic Operational Statuses
