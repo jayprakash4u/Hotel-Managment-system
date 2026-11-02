@@ -13,6 +13,7 @@ public class StockMovement : BaseEntity
     public string? SourceDepartment { get; set; }
     public string? DestinationDepartment { get; set; }
     public string? TransferNumber { get; set; }
+    public string? ReferenceNumber { get; set; }
     public string? Reason { get; set; }
     public string PerformedBy { get; set; } = "Inventory Manager";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

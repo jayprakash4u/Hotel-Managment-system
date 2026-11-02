@@ -57,6 +57,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     initialDepartment === 'RESTAURANT' ? 'BEVERAGES' : 'LINEN'
   );
   const [unit, setUnit] = useState('pieces');
+  const [purchaseUnit, setPurchaseUnit] = useState('');
+  const [conversionFactor, setConversionFactor] = useState<number>(1);
+  const [openingStock, setOpeningStock] = useState<number>(0);
   const [minThreshold, setMinThreshold] = useState<number>(5);
   const [trackStock, setTrackStock] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,6 +71,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setCategory(initialDepartment === 'RESTAURANT' ? 'BEVERAGES' : 'LINEN');
       setName('');
       setUnit('pieces');
+      setPurchaseUnit('');
+      setConversionFactor(1);
+      setOpeningStock(0);
       setMinThreshold(5);
       setTrackStock(true);
       setError(null);
@@ -127,7 +133,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           department,
           category,
           unit,
-          currentStock: 0, // Item creation never adds initial stock
+          purchaseUnit: purchaseUnit.trim() || undefined,
+          conversionFactor: conversionFactor > 0 ? conversionFactor : 1,
+          openingStock: trackStock ? (Number(openingStock) || 0) : 0,
+          currentStock: trackStock ? (Number(openingStock) || 0) : 0,
           minThreshold: trackStock ? (Number(minThreshold) || 0) : 0,
           costPerUnit: 0,
           trackStock,
@@ -284,7 +293,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         {/* Unit & Low Stock Threshold (Threshold shown only for Resale) */}
         <div className={cn('grid gap-3', trackStock ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
           <Select
-            label="Unit of Measurement *"
+            label="Stock Unit (Base Unit) *"
             required
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
@@ -307,6 +316,56 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             />
           )}
         </div>
+
+        {/* Purchase Unit & Conversion Factor */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Purchase Unit (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Carton, Box, Crate, Bag"
+              value={purchaseUnit}
+              onChange={(e) => setPurchaseUnit(e.target.value)}
+              className="w-full h-9 px-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">Package in which item is purchased</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Conversion Factor
+            </label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              placeholder="e.g. 12"
+              value={conversionFactor}
+              onChange={(e) => setConversionFactor(Math.max(1, parseInt(e.target.value, 10) || 1))}
+              className="w-full h-9 px-3 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-mono"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              {purchaseUnit.trim() ? `1 ${purchaseUnit.trim()} = ${conversionFactor} ${unit}` : `Base conversion (1 = 1 ${unit})`}
+            </p>
+          </div>
+        </div>
+
+        {/* Opening Stock (For Tracked Items) */}
+        {trackStock && (
+          <div>
+            <Input
+              label="Opening Stock"
+              type="number"
+              min={0}
+              placeholder="0 (Initial count before new purchases)"
+              value={openingStock}
+              onChange={(e) => setOpeningStock(Math.max(0, parseFloat(e.target.value) || 0))}
+            />
+            <p className="text-[10px] text-slate-400 mt-1">Initial physical inventory on hand in {unit}</p>
+          </div>
+        )}
 
         {/* Informative Note */}
         <div className="p-2.5 rounded text-[11px] bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">

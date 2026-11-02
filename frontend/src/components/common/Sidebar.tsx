@@ -27,6 +27,7 @@ import {
   LayoutDashboard,
   Table2,
   CalendarCheck,
+  CalendarPlus,
   CreditCard,
   ShieldCheck,
   LayoutGrid,
@@ -36,6 +37,7 @@ import {
   Sparkles,
   BedDouble,
   BookOpen,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBusinessModules } from '@/lib/businessSetup';
@@ -64,9 +66,17 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'room-board',
     name: 'Room Board',
     href: '/front-desk',
-    icon: LayoutGrid,
+    icon: BedDouble,
     tag: 'ROOMS',
     description: 'Live room status matrix, tape chart & front desk floor grid',
+  },
+  {
+    id: 'book-now',
+    name: 'Book Now',
+    href: '/booking',
+    icon: CalendarPlus,
+    tag: 'DIRECT',
+    description: 'Instant room reservation & direct booking form',
   },
   {
     id: 'reservations',
@@ -115,54 +125,6 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     icon: Sparkles,
     tag: 'CLEAN',
     description: 'Room cleaning tasks, maid assignments & inspections',
-  },
-  {
-    id: 'room-setup',
-    name: 'Room Setup',
-    href: '/hotel',
-    icon: BedDouble,
-    tag: 'SETUP',
-    description: 'Room types, inventory numbers, floors & master rates',
-  },
-  {
-    id: 'hotel-inventory',
-    name: 'Hotel Stock',
-    href: '/inventory?dept=HOTEL',
-    icon: Boxes,
-    tag: 'STOCK',
-    description: 'Linens, toiletries, amenities & housekeeping supplies',
-  },
-  {
-    id: 'bills-invoices',
-    name: 'Bills & Invoices',
-    href: '/billing',
-    icon: FileText,
-    tag: 'BILLS',
-    description: 'Central hotel folios, guest invoices & tax receipts',
-  },
-  {
-    id: 'reports',
-    name: 'Reports',
-    href: '/reports?section=hotel',
-    icon: BarChart3,
-    tag: 'REPORTS',
-    description: 'Hotel occupancy reports, RevPAR & audit reports',
-  },
-  {
-    id: 'accounts',
-    name: 'Accounts',
-    href: '/accounts',
-    icon: BookOpen,
-    tag: 'ACCOUNTS',
-    description: 'General accounting, ledgers & financial reports',
-  },
-  {
-    id: 'administration',
-    name: 'Administration',
-    href: '/administration',
-    icon: Settings,
-    tag: 'ADMIN',
-    description: 'Property settings, staff permissions & business profile',
   },
 ];
 
@@ -223,49 +185,60 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     tag: 'MENU',
     description: 'Food & drinks catalog, portion rates & categories',
   },
+];
+
+const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [];
+
+export const SHARED_QUICK_MODULES = [
   {
-    id: 'restaurant-inventory',
-    name: 'Restaurant Inventory',
-    href: '/inventory?dept=RESTAURANT',
+    id: 'bills-invoices',
+    name: 'Bill & Invoice',
+    href: '/billing',
+    icon: FileText,
+  },
+  {
+    id: 'master-setup',
+    name: 'Master Setup',
+    href: '/hotel',
+    icon: Building2,
+  },
+  {
+    id: 'inventory',
+    name: 'Inventory',
+    href: '/inventory?tab=overview',
     icon: Boxes,
-    tag: 'STOCK',
-    description: 'Kitchen raw materials, beverages & pantry stock',
   },
   {
     id: 'purchases',
-    name: 'Purchases',
-    href: '/inventory?tab=purchases',
+    name: 'Purchase',
+    href: '/inventory?tab=receive-stock',
     icon: ShoppingCart,
-    tag: 'PURCHASE',
-    description: 'Supplier purchase orders, receiving & invoices',
   },
   {
-    id: 'bills-invoices',
-    name: 'Bills & Invoices',
-    href: '/billing',
-    icon: FileText,
-    tag: 'BILLS',
-    description: 'All central bills, tax invoices & audit trail',
+    id: 'accounts',
+    name: 'Accounts',
+    href: '/accounts',
+    icon: BookOpen,
   },
   {
-    id: 'payments-refunds',
-    name: 'Payments & Refunds',
-    href: '/billing?status=PAID',
-    icon: CreditCard,
-    tag: 'PAYMENTS',
-    description: 'Settled receipts, payment records & refunds',
+    id: 'system',
+    name: 'System',
+    href: '/system',
+    icon: SlidersHorizontal,
   },
   {
     id: 'reports',
     name: 'Reports',
-    href: '/reports?section=restaurant',
+    href: '/reports',
     icon: BarChart3,
-    tag: 'REPORTS',
-    description: 'Restaurant revenue, popular items & shift summaries',
+  },
+  {
+    id: 'dashboard',
+    name: 'Dashboard',
+    href: '/',
+    icon: LayoutDashboard,
   },
 ];
-
-const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [];
 
 export const Sidebar: React.FC<{
   isOpen: boolean;
@@ -281,6 +254,11 @@ export const Sidebar: React.FC<{
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentSearch, setCurrentSearch] = useState('');
+  const [isQuickLauncherOpen, setIsQuickLauncherOpen] = useState(false);
+
+  useEffect(() => {
+    setIsQuickLauncherOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -376,6 +354,7 @@ export const Sidebar: React.FC<{
         return [
           'dashboard',
           'room-board',
+          'book-now',
           'reservations',
           'check-in',
           'check-out',
@@ -445,8 +424,11 @@ export const Sidebar: React.FC<{
     if (item.id === 'room-board') {
       return pathname === '/front-desk' || pathname === '/room-board';
     }
+    if (item.id === 'book-now') {
+      return pathname === '/booking';
+    }
     if (item.id === 'reservations') {
-      return pathname === '/reservations' || pathname === '/booking';
+      return pathname === '/reservations' || pathname.startsWith('/reservations');
     }
     if (item.id === 'check-in') {
       return pathname === '/check-in';
@@ -502,8 +484,8 @@ export const Sidebar: React.FC<{
     if (item.id === 'reports') {
       return pathname.startsWith('/reports');
     }
-    if (item.id === 'administration') {
-      return ['/administration', '/staff', '/settings'].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    if (item.id === 'system') {
+      return pathname.startsWith('/system');
     }
     if (isQuery) {
       return pathname === baseHref && (currentSearch ? currentSearch.includes(queryStr) : false);
@@ -612,7 +594,7 @@ export const Sidebar: React.FC<{
               </div>
             </div>
           ) : (
-            <div className="py-2 flex justify-center border-b border-[#E2E8F0] dark:border-[#334155] shrink-0">
+            <div className="py-2 flex flex-col items-center gap-1.5 border-b border-[#E2E8F0] dark:border-[#334155] shrink-0">
               <button
                 type="button"
                 onClick={() => handleSetViewMode(viewMode === 'RESTAURANT' ? 'HOTEL' : 'RESTAURANT')}
@@ -621,29 +603,177 @@ export const Sidebar: React.FC<{
               >
                 {viewMode === 'RESTAURANT' ? <UtensilsCrossed className="w-4 h-4" /> : <Hotel className="w-4 h-4" />}
               </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickLauncherOpen((prev) => !prev)}
+                  title="Shared Modules & Master Setup"
+                  className={cn(
+                    'h-8 w-8 rounded-lg flex items-center justify-center border transition-all cursor-pointer shadow-2xs group',
+                    isQuickLauncherOpen
+                      ? 'border-slate-800 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                      : 'border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-muted)] text-slate-700 dark:text-slate-200 hover:scale-105'
+                  )}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+
+                {/* Popover when collapsed */}
+                {isQuickLauncherOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
+                      onClick={() => setIsQuickLauncherOpen(false)}
+                    />
+                    <div className="fixed left-[76px] top-16 w-[calc(100vw-32px)] sm:w-[420px] max-w-[440px] z-50 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 font-sans">
+                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-[4px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 flex items-center justify-center">
+                            <LayoutGrid className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                            Shared Modules
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsQuickLauncherOpen(false)}
+                          className="p-1 rounded-[4px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
+                        {SHARED_QUICK_MODULES.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <Link
+                              key={item.id}
+                              href={item.href}
+                              onClick={() => {
+                                setIsQuickLauncherOpen(false);
+                                if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                  onClose();
+                                }
+                              }}
+                              className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#0A2620] hover:border-slate-400 dark:hover:border-slate-600 hover:shadow-xs transition-all duration-150 text-center min-h-[82px] sm:min-h-[86px] cursor-pointer"
+                            >
+                              <div className="mb-2 text-slate-800 dark:text-slate-100 group-hover:scale-110 transition-transform">
+                                <Icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.75]" />
+                              </div>
+                              <span className="text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-100 group-hover:text-black dark:group-hover:text-white leading-tight line-clamp-2">
+                                {item.name}
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )
         )}
 
         {/* ===================== SEARCH BAR ===================== */}
         {isOpen && (
-          <div className="p-3 border-b border-[var(--border-divider)] dark:border-[var(--border-default)] bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)] shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+          <div className="p-2.5 sm:p-3 border-b border-[var(--border-divider)] dark:border-[var(--border-default)] bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)] shrink-0 flex items-center gap-1.5 sm:gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)]" />
               <input
                 type="text"
-                placeholder={viewMode === 'RESTAURANT' ? 'Search restaurant tasks...' : 'Search widgets & lists...'}
+                placeholder={viewMode === 'RESTAURANT' ? 'Search restaurant...' : 'Search widgets...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-[3px] border border-[var(--border-input)] bg-[var(--surface-card)] py-2 pl-9 pr-8 text-xs font-medium text-[var(--text-body)] placeholder-[var(--text-placeholder)] shadow-2xs transition-all focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus-ring-[var(--brand-primary)] dark:border-[var(--border-input)] dark:bg-[var(--surface-card)] dark:text-[var(--text-body)] dark:placeholder-[var(--text-muted)] dark:focus:border-[var(--brand-primary)]"
+                className="w-full rounded-[4px] border border-[var(--border-input)] bg-[var(--surface-card)] py-1.5 pl-8 pr-7 text-xs font-medium text-[var(--text-body)] placeholder-[var(--text-placeholder)] shadow-2xs transition-all focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus-ring-[var(--brand-primary)] dark:border-[var(--border-input)] dark:bg-[var(--surface-card)] dark:text-[var(--text-body)] dark:placeholder-[var(--text-muted)] dark:focus:border-[var(--brand-primary)]"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-body)] dark:hover:text-[var(--text-inverse)]"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-body)] dark:hover:text-[var(--text-inverse)]"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
+              )}
+            </div>
+
+            {/* Quick Launcher Icon Button placed at the right side of the search box */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsQuickLauncherOpen((prev) => !prev)}
+                title="Shared Modules & Master Setup"
+                aria-label="Shared Modules"
+                className={cn(
+                  'flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-[4px] border transition-all cursor-pointer shadow-2xs group',
+                  isQuickLauncherOpen
+                    ? 'border-slate-800 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900 ring-1 ring-slate-800'
+                    : 'border-slate-200/90 dark:border-slate-700 bg-white dark:bg-[var(--surface-card)] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400'
+                )}
+              >
+                <LayoutGrid className="w-4 h-4 transition-transform group-hover:scale-105" />
+              </button>
+
+              {/* Quick Launcher Floating Popover matching reference screenshot */}
+              {isQuickLauncherOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div
+                    className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
+                    onClick={() => setIsQuickLauncherOpen(false)}
+                  />
+
+                  {/* Popover Flyout */}
+                  <div className="absolute left-0 sm:left-full top-full sm:top-0 sm:ml-3 mt-2 sm:mt-0 w-[calc(100vw-32px)] sm:w-[420px] max-w-[440px] z-50 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 font-sans">
+                    {/* Header bar with clean close button */}
+                    <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-[4px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 flex items-center justify-center">
+                          <LayoutGrid className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                          Shared Modules
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsQuickLauncherOpen(false)}
+                        className="p-1 rounded-[4px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* 4-column cards grid matching reference */}
+                    <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
+                      {SHARED_QUICK_MODULES.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.id}
+                            href={item.href}
+                            onClick={() => {
+                              setIsQuickLauncherOpen(false);
+                              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                onClose();
+                              }
+                            }}
+                            className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#0A2620] hover:border-slate-400 dark:hover:border-slate-600 hover:shadow-xs transition-all duration-150 text-center min-h-[82px] sm:min-h-[86px] cursor-pointer"
+                          >
+                            <div className="mb-2 text-slate-800 dark:text-slate-100 group-hover:scale-110 transition-transform">
+                              <Icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.75]" />
+                            </div>
+                            <span className="text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-100 group-hover:text-black dark:group-hover:text-white leading-tight line-clamp-2">
+                              {item.name}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -856,17 +986,9 @@ export const Sidebar: React.FC<{
         <div
           className={cn(
             'border-t border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0B1120] shrink-0 p-2.5',
-            isOpen ? 'flex items-center justify-end gap-2' : 'flex flex-col items-center gap-2'
+            isOpen ? 'flex items-center justify-end' : 'flex flex-col items-center gap-2'
           )}
         >
-          <button
-            type="button"
-            title="Dashboard"
-            aria-label="Dashboard"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5D0] bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[var(--brand-primary)] dark:border-[#334155] dark:bg-[#1E293B] transition-all cursor-pointer shadow-2xs group"
-          >
-            <LayoutDashboard className="w-4 h-4 text-[var(--brand-primary)] transition-transform group-hover:scale-105" />
-          </button>
           <button
             type="button"
             onClick={onToggle}

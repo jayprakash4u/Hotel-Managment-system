@@ -53,7 +53,7 @@ export default function InHouseGuestsPage() {
   }, [inHouseList, searchQuery]);
 
   return (
-    <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
+    <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
       {/* Hotel Management Top Navigation Boxes */}
       <HotelManagementNavBoxes activeId="in-house" />
 

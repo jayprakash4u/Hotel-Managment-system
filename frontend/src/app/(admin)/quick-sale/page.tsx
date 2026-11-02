@@ -933,7 +933,7 @@ export default function QuickSalePage() {
           SEARCH / ADD ITEM WITH INSTANT AUTOCOMPLETE SUGGESTIONS
           Fetches directly from Setted Menu & POS Products Catalog
           ========================================================================= */}
-      <div className="space-y-3 max-w-5xl">
+      <div className="space-y-3 w-full">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold font-heading text-[#24352F] dark:text-white uppercase tracking-wider flex items-center gap-1.5">
             <UtensilsCrossed className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />

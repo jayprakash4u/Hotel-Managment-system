@@ -253,15 +253,103 @@ export interface POSProductData {
 export interface InventoryItemData {
   id: string;
   name: string;
-  department?: 'HOTEL' | 'RESTAURANT';
+  department: 'HOTEL' | 'RESTAURANT' | string;
   category: string;
   sku: string;
   trackStock?: boolean;
   currentStock: number;
   minThreshold: number;
   unit: string;
+  purchaseUnit?: string | null;
+  conversionFactor?: number;
   costPerUnit: number;
   lastRestocked: string;
+  previousStock?: number | null;
+  recentlyAddedStock?: number | null;
+  previousPurchaseDate?: string | null;
+  lastPurchaseDate?: string | null;
+  lastPurchaseQuantity?: string | null;
+  previousPurchaseAmount?: number | null;
+  lastPurchaseAmount?: number | null;
+  totalPurchaseAmount?: number;
+  lastSupplierName?: string | null;
+  lastSupplier?: string | null;
+  stockStatus?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NOT_TRACKED' | string;
+  supplier?: { id: string; name: string };
+  supplierId?: string | null;
+}
+
+export interface ItemPurchaseLedgerTransaction {
+  sn: number;
+  purchaseId: string;
+  purchaseNumber: string;
+  purchaseDate: string;
+  supplierName: string;
+  supplierId?: string | null;
+  supplierPhone?: string | null;
+  supplierEmail?: string | null;
+  supplierAddress?: string | null;
+  supplierPan?: string | null;
+  purchaseQuantity: number;
+  purchaseUnit: string;
+  stockUnit: string;
+  conversionFactor: number;
+  convertedStockQuantity: number;
+  totalPurchaseAmount: number;
+  purchaseType: 'SIMPLE' | 'FULL' | string;
+  paymentMethod: string;
+  paymentStatus: string;
+  invoiceNumber?: string | null;
+  status: string;
+  subtotal?: number;
+  discount?: number;
+  tax?: number;
+  additionalCharges?: number;
+  notes?: string | null;
+  attachmentUrl?: string | null;
+  createdBy?: string;
+  createdAt: string;
+  itemId?: string;
+  itemName?: string;
+  itemCode?: string;
+  category?: string;
+}
+
+export interface ItemPurchaseLedgerSummary {
+  itemId: string;
+  itemName: string;
+  itemCode: string;
+  category: string;
+  department: string;
+  stockUnit: string;
+  purchaseUnit: string;
+  trackStock: boolean;
+  currentStock: number;
+  totalQuantityPurchased: number;
+  totalPurchaseAmount: number;
+  firstPurchaseDate?: string | null;
+  lastPurchaseDate?: string | null;
+  totalTransactions: number;
+}
+
+export interface StockMovementLedgerRecord {
+  id: string;
+  createdAt: string;
+  itemId: string;
+  itemName: string;
+  itemCode: string;
+  category: string;
+  department: string;
+  movementType: string;
+  referenceNumber: string;
+  quantityIn: number;
+  quantityOut: number;
+  quantity: number;
+  previousBalance?: number | null;
+  newBalance?: number | null;
+  stockUnit: string;
+  reason: string;
+  performedBy: string;
 }
 
 export interface StaffData {
@@ -574,3 +662,87 @@ export interface ReservationAlertData {
 }
 
 
+
+// =========================================================================
+// INVENTORY & SUPPLIER MANAGEMENT TYPES
+// =========================================================================
+
+export type SupplierCategory =
+  | 'Grocery'
+  | 'Beverage'
+  | 'Alcohol'
+  | 'Meat'
+  | 'Vegetables'
+  | 'General'
+  | 'Other';
+
+export interface SupplierRecord {
+  id: string;
+  code?: string;
+  name: string;
+  contactPerson?: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  panVatNumber?: string;
+  category?: string;
+  notes?: string;
+  isActive?: boolean;
+  purchasesCount?: number;
+  itemsCount?: number;
+  purchases?: any[];
+  items?: Array<{ id: string; name: string }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type PurchaseType = 'SIMPLE' | 'FULL';
+export type PurchasePaymentStatus = 'PAID' | 'PARTIALLY_PAID' | 'UNPAID';
+export type PurchasePaymentMethod = 'CASH' | 'BANK' | 'CARD' | 'CREDIT' | 'OTHER';
+
+export interface PurchaseLineItem {
+  itemId?: string;
+  itemName: string;
+  category?: string;
+  department?: string;
+  quantity: number;
+  purchaseUnit?: string;
+  stockUnit?: string;
+  conversionFactor?: number;
+  unitCost: number;
+  totalCost: number;
+  trackStock?: boolean;
+}
+
+export interface PurchaseRecord {
+  id: string;
+  poNumber: string;
+  purchaseType?: PurchaseType | string;
+  purchaseDate?: string;
+  orderedAt?: string;
+  receivedAt?: string;
+  supplierId?: string | null;
+  supplierName?: string;
+  supplierInvoiceNumber?: string | null;
+  invoiceNumber?: string | null;
+  supplierPanVatNumber?: string | null;
+  panVatNumber?: string | null;
+  subtotal?: number;
+  discount?: number;
+  tax?: number;
+  additionalCharges?: number;
+  totalAmount: number;
+  paymentMethod?: PurchasePaymentMethod | string;
+  paymentStatus: PurchasePaymentStatus | string;
+  notes?: string | null;
+  attachmentUrl?: string | null;
+  createdBy?: string | null;
+  status: string;
+  itemsJson: string;
+  allocationsJson?: string;
+  items?: PurchaseLineItem[];
+  supplier?: SupplierRecord | null;
+  createdAt?: string;
+  updatedAt?: string;
+}

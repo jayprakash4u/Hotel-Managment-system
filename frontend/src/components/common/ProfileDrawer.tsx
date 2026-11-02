@@ -61,9 +61,14 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
     try {
       await api.logout().catch(() => {});
     } finally {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_username');
+        localStorage.removeItem('auth_role');
+      }
       toast.info('Signed Out', 'You have been safely signed out.');
       onClose();
-      router.push('/login');
+      router.replace('/login');
     }
   };
 

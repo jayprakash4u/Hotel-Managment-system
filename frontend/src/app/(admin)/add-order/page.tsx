@@ -97,7 +97,7 @@ function AddOrderContent() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto space-y-4">
+      <div className="w-full min-w-0 space-y-4">
         <div className="h-16 bg-slate-100 dark:bg-slate-900 rounded-xl animate-pulse" />
         <div className="h-72 bg-slate-100 dark:bg-slate-900 rounded-xl animate-pulse" />
       </div>
@@ -106,7 +106,7 @@ function AddOrderContent() {
 
   if (!stay) {
     return (
-      <div className="max-w-3xl mx-auto text-center py-16 text-sm text-slate-500 dark:text-slate-400">
+      <div className="w-full min-w-0 text-center py-16 text-sm text-slate-500 dark:text-slate-400">
         Stay not found.{' '}
         <Link href="/active-stays" className="text-amber-700 dark:text-amber-400 hover:underline">
           Back to Active Stays
@@ -116,7 +116,7 @@ function AddOrderContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className="w-full min-w-0 space-y-5">
       {/* Page Header */}
       <div className="flex items-center gap-3">
         <Link
@@ -234,7 +234,7 @@ function AddOrderContent() {
 
 export default function AddOrderPage() {
   return (
-    <Suspense fallback={<div className="max-w-3xl mx-auto p-8 text-center text-sm text-slate-500 dark:text-slate-400">Loading…</div>}>
+    <Suspense fallback={<div className="w-full min-w-0 p-8 text-center text-sm text-slate-500 dark:text-slate-400">Loading…</div>}>
       <AddOrderContent />
     </Suspense>
   );

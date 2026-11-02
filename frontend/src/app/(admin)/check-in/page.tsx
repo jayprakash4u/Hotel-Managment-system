@@ -996,7 +996,7 @@ function CheckInDeskContent() {
   }, [bookings, todayStr]);
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
+    <div className="space-y-4 w-full min-w-0 pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
       {/* Hotel Management Top Navigation Boxes */}
       <HotelManagementNavBoxes activeId="check-in" />
 
@@ -2399,7 +2399,7 @@ export default function CheckInPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-6xl mx-auto p-12 text-center text-xs text-[#879B90]">
+        <div className="w-full min-w-0 p-12 text-center text-xs text-[#879B90]">
           Loading Check-In Desk...
         </div>
       }

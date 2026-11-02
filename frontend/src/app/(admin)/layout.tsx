@@ -8,6 +8,7 @@ import { ProfileDrawer } from '@/components/common/ProfileDrawer';
 import { WorkspaceTabBar } from '@/components/common/WorkspaceTabBar';
 import { WorkspaceTabsProvider, useWorkspaceTabs } from '@/context/WorkspaceTabsContext';
 import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 const SIDEBAR_STORAGE_KEY = 'hotel_sidebar_is_open';
 
@@ -25,6 +26,19 @@ function AdminWorkspaceContent({
   setIsProfileDrawerOpen: (v: boolean) => void;
 }) {
   const { tabs, activeTabId, registerPage, getCachedPage } = useWorkspaceTabs();
+  const pathname = usePathname();
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const isInventory =
+    activeTab?.path?.startsWith('/inventory') ||
+    pathname === '/inventory' ||
+    pathname?.startsWith('/inventory');
+  const isDashboard =
+    activeTab?.path === '/' ||
+    activeTab?.path === '/hotel-management' ||
+    activeTab?.path === '/restaurant-management' ||
+    pathname === '/' ||
+    pathname === '/hotel-management' ||
+    pathname === '/restaurant-management';
 
   // Keep page component cached when active so state is not lost when switching tabs
   useEffect(() => {
@@ -48,7 +62,7 @@ function AdminWorkspaceContent({
         className={
           isHotelSetup
             ? 'flex-1 overflow-hidden p-3 sm:p-4 lg:p-5 flex flex-col min-h-0'
-            : 'flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8'
+            : 'flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 w-full min-w-0'
         }
       >
         {tabs.map((tab) => {
@@ -61,7 +75,7 @@ function AdminWorkspaceContent({
             <div
               key={tab.id}
               className={cn(
-                isHotelSetup ? 'w-full flex-1 flex flex-col min-h-0' : 'w-full',
+                isHotelSetup ? 'w-full flex-1 flex flex-col min-h-0' : 'w-full min-w-0',
                 isActive ? 'block' : 'hidden'
               )}
               style={{ display: isActive ? undefined : 'none' }}
@@ -82,25 +96,56 @@ export default function AdminLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const [isAuthVerified, setIsAuthVerified] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const isHotelSetup = pathname === '/hotel' || pathname?.startsWith('/hotel');
   const isSuperAdmin = pathname === '/super-admin' || pathname?.startsWith('/super-admin');
 
-  // If not logged in, smoothly redirect to login page
+  // Strict Authentication & Authorization Gate
   useEffect(() => {
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        router.push('/login');
-      }
-    } catch {}
-  }, [router]);
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const role = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_role') : null;
+      const username = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_username') : null;
 
-  // Dedicated Super Admin Portal has its own custom navigation and layout
-  if (isSuperAdmin) {
-    return <>{children}</>;
-  }
+      // 1. If not logged in at all, immediately redirect to /login and block rendering
+      if (!token) {
+        setIsAuthVerified(false);
+        setIsCheckingAuth(false);
+        router.replace('/login');
+        return;
+      }
+
+      // 2. If accessing /super-admin, strictly verify super admin role
+      if (isSuperAdmin) {
+        const isSuper =
+          role === 'SUPER_ADMIN' ||
+          role === 'PLATFORM_ADMIN' ||
+          username?.toLowerCase() === 'superadmin';
+
+        if (!isSuper) {
+          setIsAuthVerified(false);
+          setIsCheckingAuth(false);
+          router.replace('/login');
+          return;
+        }
+
+        setIsAuthVerified(true);
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      // 3. User is authenticated for general admin
+      setIsAuthVerified(true);
+      setIsCheckingAuth(false);
+    } catch {
+      setIsAuthVerified(false);
+      setIsCheckingAuth(false);
+      router.replace('/login');
+    }
+  }, [pathname, isSuperAdmin, router]);
 
   useEffect(() => {
     try {
@@ -124,6 +169,23 @@ export default function AdminLayout({
       return next;
     });
   };
+
+  // While verifying authorization, DO NOT mount or display children or admin panels
+  if (isCheckingAuth || !isAuthVerified) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-[#DC2626]" />
+          <p className="text-xs font-semibold text-slate-500">Verifying session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Dedicated Super Admin Portal has its own custom navigation and layout (rendered only once verified)
+  if (isSuperAdmin) {
+    return <>{children}</>;
+  }
 
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[var(--surface-page)]" />}>

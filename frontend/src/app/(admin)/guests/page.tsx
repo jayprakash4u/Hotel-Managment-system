@@ -89,7 +89,7 @@ export default function GuestDirectoryPage() {
   }, [guestList, vipOnly, searchQuery]);
 
   return (
-    <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
+    <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
       {/* Hotel Management Top Navigation Boxes */}
       <HotelManagementNavBoxes activeId="guest-directory" />
 

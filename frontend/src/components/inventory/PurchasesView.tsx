@@ -1,16 +1,10 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/Button';
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/Table';
-import { Modal } from '@/components/ui/Modal';
-import { Input, Select } from '@/components/ui/Input';
-import { useToast } from '@/components/ui/Toast';
-import { formatCurrency, formatDate, formatDateTime, cn } from '@/lib/utils';
 import {
   ShoppingCart,
   Plus,
-  RefreshCw,
+  RotateCcw,
   Search,
   Eye,
   CheckCircle2,
@@ -23,30 +17,28 @@ import {
   Tag,
   AlertCircle,
   Building,
+  CreditCard,
+  User,
+  X,
+  ExternalLink,
+  Receipt,
+  Download,
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { InventoryItem, SupplierOption } from './DepartmentInventoryView';
-import { AddPurchaseModal } from './AddPurchaseModal';
+import { NewPurchaseModal } from './NewPurchaseModal';
+import { PurchaseRecord, PurchaseLineItem, SupplierRecord } from '@/lib/types';
 
-export interface PurchaseRecord {
-  id: string;
-  poNumber: string;
-  invoiceNumber?: string;
-  supplierId?: string;
-  supplier?: { id: string; name: string; contactName?: string; email?: string; phone?: string };
-  totalAmount: number;
-  status: string;
-  itemsJson: string;
-  allocationsJson?: string;
-  orderedAt: string;
-  receivedAt?: string;
-}
+export type { PurchaseRecord };
 
-interface PurchasesViewProps {
+export interface PurchasesViewProps {
   purchases: PurchaseRecord[];
-  items: InventoryItem[];
-  suppliers: SupplierOption[];
+  items?: InventoryItem[];
+  suppliers?: SupplierOption[] | SupplierRecord[];
   loading: boolean;
   onRefresh: () => void;
+  defaultDepartment?: 'HOTEL' | 'RESTAURANT';
 }
 
 export interface PurchaseHistoryItem {
@@ -69,783 +61,898 @@ export interface PurchaseHistoryItem {
   rawPo: PurchaseRecord;
 }
 
-type DateFilterType = 'ALL' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM';
-
-// =========================================================================
-// HELPER: CALCULATE COMPATIBLE TOTAL QUANTITY
-// Evaluates whether recorded quantities for an item can be summed
-// =========================================================================
-function calculateCompatibleTotalQuantity(records: Array<{ quantity: number; unit: string }>): {
-  compatible: boolean;
-  total?: number;
-  unit?: string;
-  message?: string;
-} {
-  if (records.length === 0) {
-    return { compatible: true, total: 0, unit: '' };
-  }
-
-  const normalized = records.map((r) => ({
-    qty: Number(r.quantity) || 0,
-    unit: (r.unit || '').trim().toLowerCase(),
-    origUnit: r.unit || '',
-  }));
-
-  const firstUnit = normalized[0].unit;
-  const allIdentical = normalized.every((r) => r.unit === firstUnit);
-  if (allIdentical) {
-    const sum = normalized.reduce((acc, r) => acc + r.qty, 0);
-    return {
-      compatible: true,
-      total: Math.round(sum * 100) / 100,
-      unit: records[0].unit,
-    };
-  }
-
-  // Weight compatibility (kg vs g)
-  const isWeight = normalized.every((r) =>
-    ['kg', 'kilogram', 'kilograms', 'g', 'gram', 'grams'].includes(r.unit)
-  );
-  if (isWeight) {
-    let totalKg = 0;
-    for (const r of normalized) {
-      if (['g', 'gram', 'grams'].includes(r.unit)) {
-        totalKg += r.qty / 1000;
-      } else {
-        totalKg += r.qty;
-      }
-    }
-    return {
-      compatible: true,
-      total: Math.round(totalKg * 100) / 100,
-      unit: 'kg',
-    };
-  }
-
-  // Volume compatibility (l vs ml)
-  const isVolume = normalized.every((r) =>
-    ['l', 'litre', 'litres', 'liter', 'liters', 'ml', 'millilitres', 'milliliters'].includes(r.unit)
-  );
-  if (isVolume) {
-    let totalL = 0;
-    for (const r of normalized) {
-      if (['ml', 'millilitres', 'milliliters'].includes(r.unit)) {
-        totalL += r.qty / 1000;
-      } else {
-        totalL += r.qty;
-      }
-    }
-    return {
-      compatible: true,
-      total: Math.round(totalL * 100) / 100,
-      unit: 'litres',
-    };
-  }
-
-  // Count/Pieces compatibility
-  const isPieces = normalized.every((r) =>
-    ['pcs', 'piece', 'pieces', 'unit', 'units'].includes(r.unit)
-  );
-  if (isPieces) {
-    const sum = normalized.reduce((acc, r) => acc + r.qty, 0);
-    return {
-      compatible: true,
-      total: Math.round(sum),
-      unit: 'pieces',
-    };
-  }
-
-  // Incompatible units (e.g. boxes vs kg)
-  const distinctUnits = Array.from(new Set(normalized.map((r) => r.origUnit))).filter(Boolean);
-  return {
-    compatible: false,
-    message: `Different units used (${distinctUnits.join(', ')})`,
-  };
-}
+type TypeFilter = 'ALL' | 'SIMPLE' | 'FULL';
+type PaymentStatusFilter = 'ALL' | 'PAID' | 'PARTIALLY_PAID' | 'UNPAID';
+type SortField = 'sn' | 'poNumber' | 'date' | 'supplier' | 'type' | 'amount' | 'status';
 
 export const PurchasesView: React.FC<PurchasesViewProps> = ({
   purchases,
-  items,
-  suppliers,
+  items = [],
+  suppliers = [],
   loading,
   onRefresh,
+  defaultDepartment = 'RESTAURANT',
 }) => {
   const toast = useToast();
 
   // Modals
-  const [isAddPurchaseOpen, setIsAddPurchaseOpen] = useState(false);
-  const [selectedItemDetail, setSelectedItemDetail] = useState<PurchaseHistoryItem | null>(null);
+  const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
+  const [viewingPurchase, setViewingPurchase] = useState<PurchaseRecord | null>(null);
 
   // Filters
-  const [dateFilter, setDateFilter] = useState<DateFilterType>('ALL');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
-  const [selectedItemFilter, setSelectedItemFilter] = useState('ALL');
-  const [selectedSupplierFilter, setSelectedSupplierFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
+  const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('ALL');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
 
-  // 1. Flatten purchases into individual line entries
-  const allHistoryItems = useMemo<PurchaseHistoryItem[]>(() => {
-    const list: PurchaseHistoryItem[] = [];
+  // Pagination & Sorting
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-    for (const po of purchases) {
-      let lines: any[] = [];
-      try {
-        lines = JSON.parse(po.itemsJson || '[]');
-      } catch {
-        lines = [];
-      }
+  // Metrics
+  const metrics = useMemo(() => {
+    const total = purchases.length;
+    const simpleCount = purchases.filter((p) => (p.purchaseType || '').toUpperCase() === 'SIMPLE').length;
+    const fullCount = purchases.filter((p) => (p.purchaseType || '').toUpperCase() === 'FULL').length;
+    const paidCount = purchases.filter((p) => (p.paymentStatus || '').toUpperCase() === 'PAID').length;
+    const unpaidCount = purchases.filter(
+      (p) => (p.paymentStatus || '').toUpperCase() === 'UNPAID' || (p.paymentStatus || '').toUpperCase() === 'PARTIALLY_PAID'
+    ).length;
+    const totalExpenditure = purchases.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0);
 
-      if (!Array.isArray(lines) || lines.length === 0) {
-        // Fallback for single purchase with no parsed items
-        list.push({
-          id: po.id,
-          poId: po.id,
-          poNumber: po.poNumber,
-          invoiceNumber: po.invoiceNumber || '—',
-          purchaseDate: po.orderedAt,
-          itemName: 'General Supplies',
-          category: 'GENERAL',
-          department: 'RESTAURANT',
-          quantity: 1,
-          unit: 'units',
-          totalCost: po.totalAmount,
-          supplierId: po.supplierId,
-          supplierName: po.supplier?.name || 'Direct Purchase',
-          trackStock: false,
-          status: po.status,
-          rawPo: po,
-        });
-      } else {
-        lines.forEach((line, idx) => {
-          // Cross-reference with item list for category/trackStock if missing
-          const matchedItem = items.find((i) => i.id === line.itemId || i.name.toLowerCase() === (line.itemName || '').toLowerCase());
-          const cat = line.category || matchedItem?.category || 'GENERAL';
-          const dept = line.department || matchedItem?.department || 'RESTAURANT';
-          const isTrack = typeof line.trackStock === 'boolean'
-            ? line.trackStock
-            : matchedItem ? matchedItem.trackStock !== false : true;
+    return { total, simpleCount, fullCount, paidCount, unpaidCount, totalExpenditure };
+  }, [purchases]);
 
-          list.push({
-            id: `${po.id}-${idx}`,
-            poId: po.id,
-            poNumber: po.poNumber,
-            invoiceNumber: po.invoiceNumber || line.invoiceNumber || '—',
-            purchaseDate: line.purchaseDate || po.orderedAt,
-            itemId: line.itemId || matchedItem?.id,
-            itemName: line.itemName || matchedItem?.name || 'Unnamed Item',
-            category: cat,
-            department: dept,
-            quantity: Number(line.quantity) || 0,
-            unit: line.unit || matchedItem?.unit || 'pieces',
-            totalCost: Number(line.totalCost ?? (lines.length === 1 ? po.totalAmount : 0)) || 0,
-            supplierId: po.supplierId,
-            supplierName: po.supplier?.name || 'Direct Purchase',
-            trackStock: isTrack,
-            status: po.status,
-            rawPo: po,
-          });
-        });
-      }
+  // Parse items from JSON safely
+  const parseItems = (po: PurchaseRecord): PurchaseLineItem[] => {
+    if (po.items && Array.isArray(po.items) && po.items.length > 0) {
+      return po.items;
     }
+    if (!po.itemsJson) return [];
+    try {
+      const parsed = JSON.parse(po.itemsJson);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
 
-    return list.sort((a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime());
-  }, [purchases, items]);
-
-  // Distinct item names for item filter dropdown
-  const distinctItemNames = useMemo(() => {
-    const set = new Set<string>();
-    allHistoryItems.forEach((item) => {
-      if (item.itemName) set.add(item.itemName);
-    });
-    // Also include catalog items
-    items.forEach((item) => {
-      if (item.name) set.add(item.name);
-    });
-    return Array.from(set).sort();
-  }, [allHistoryItems, items]);
-
-  // 2. Filter purchases by Date, Item, Supplier, and Search
-  const filteredHistory = useMemo(() => {
-    const now = new Date();
-
-    return allHistoryItems.filter((item) => {
-      const pDate = new Date(item.purchaseDate);
-
-      // Date Range Filter
-      if (dateFilter === 'THIS_WEEK') {
-        const weekAgo = new Date();
-        weekAgo.setDate(now.getDate() - 7);
-        if (pDate < weekAgo) return false;
-      } else if (dateFilter === 'THIS_MONTH') {
-        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        if (pDate < firstOfMonth) return false;
-      } else if (dateFilter === 'CUSTOM') {
-        if (customStartDate) {
-          const s = new Date(customStartDate);
-          s.setHours(0, 0, 0, 0);
-          if (pDate < s) return false;
-        }
-        if (customEndDate) {
-          const e = new Date(customEndDate);
-          e.setHours(23, 59, 59, 999);
-          if (pDate > e) return false;
-        }
+  // Filtered Purchases
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter((po) => {
+      // Type Filter
+      if (typeFilter !== 'ALL') {
+        const pType = (po.purchaseType || 'SIMPLE').toUpperCase();
+        if (pType !== typeFilter) return false;
       }
 
-      // Item Filter
-      if (selectedItemFilter !== 'ALL') {
-        if (item.itemName.toLowerCase() !== selectedItemFilter.toLowerCase()) {
-          return false;
-        }
+      // Payment Status Filter
+      if (paymentFilter !== 'ALL') {
+        const pStatus = (po.paymentStatus || 'PAID').toUpperCase();
+        if (pStatus !== paymentFilter) return false;
       }
 
       // Supplier Filter
       if (selectedSupplierFilter !== 'ALL') {
-        if (item.supplierId !== selectedSupplierFilter && item.supplierName.toLowerCase() !== selectedSupplierFilter.toLowerCase()) {
+        if (selectedSupplierFilter === 'WALK_IN') {
+          if (po.supplierId) return false;
+        } else if (po.supplierId !== selectedSupplierFilter) {
           return false;
+        }
+      }
+
+      // Date Range Filter
+      const poDateStr = po.purchaseDate || po.orderedAt || po.createdAt;
+      if (poDateStr) {
+        const poDate = new Date(poDateStr);
+        if (dateFrom) {
+          const from = new Date(dateFrom);
+          if (poDate < from) return false;
+        }
+        if (dateTo) {
+          const to = new Date(dateTo);
+          to.setHours(23, 59, 59, 999);
+          if (poDate > to) return false;
         }
       }
 
       // Search Query
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = item.itemName.toLowerCase().includes(q);
-        const matchesInv = item.invoiceNumber.toLowerCase().includes(q);
-        const matchesPo = item.poNumber.toLowerCase().includes(q);
-        const matchesSup = item.supplierName.toLowerCase().includes(q);
-        const matchesCat = item.category.toLowerCase().includes(q);
-        if (!matchesName && !matchesInv && !matchesPo && !matchesSup && !matchesCat) {
+        const q = searchQuery.toLowerCase();
+        const num = (po.poNumber || '').toLowerCase();
+        const inv = (po.supplierInvoiceNumber || po.invoiceNumber || '').toLowerCase();
+        const supName = (po.supplier?.name || po.supplierName || 'Walk-in / Unregistered Supplier').toLowerCase();
+        const pan = (po.supplierPanVatNumber || po.panVatNumber || '').toLowerCase();
+        const items = parseItems(po);
+        const matchItem = items.some((i) => i.itemName.toLowerCase().includes(q));
+
+        if (!num.includes(q) && !inv.includes(q) && !supName.includes(q) && !pan.includes(q) && !matchItem) {
           return false;
         }
       }
 
       return true;
     });
-  }, [allHistoryItems, dateFilter, customStartDate, customEndDate, selectedItemFilter, selectedSupplierFilter, searchQuery]);
+  }, [purchases, typeFilter, paymentFilter, selectedSupplierFilter, dateFrom, dateTo, searchQuery]);
 
-  // 3. Reports & Summaries
-  const totalExpenditure = useMemo(() => {
-    return filteredHistory.reduce((sum, item) => sum + (item.totalCost || 0), 0);
-  }, [filteredHistory]);
+  // Sorting
+  const sortedPurchases = useMemo(() => {
+    const list = [...filteredPurchases];
+    list.sort((a, b) => {
+      let comp = 0;
+      if (sortField === 'poNumber') {
+        comp = a.poNumber.localeCompare(b.poNumber);
+      } else if (sortField === 'date') {
+        const d1 = new Date(a.purchaseDate || a.orderedAt || a.createdAt || 0).getTime();
+        const d2 = new Date(b.purchaseDate || b.orderedAt || b.createdAt || 0).getTime();
+        comp = d1 - d2;
+      } else if (sortField === 'supplier') {
+        const s1 = a.supplier?.name || a.supplierName || 'Walk-in';
+        const s2 = b.supplier?.name || b.supplierName || 'Walk-in';
+        comp = s1.localeCompare(s2);
+      } else if (sortField === 'type') {
+        comp = (a.purchaseType || 'SIMPLE').localeCompare(b.purchaseType || 'SIMPLE');
+      } else if (sortField === 'amount') {
+        comp = (a.totalAmount || 0) - (b.totalAmount || 0);
+      } else if (sortField === 'status') {
+        comp = (a.paymentStatus || 'PAID').localeCompare(b.paymentStatus || 'PAID');
+      }
+      return sortDirection === 'asc' ? comp : -comp;
+    });
+    return list;
+  }, [filteredPurchases, sortField, sortDirection]);
 
-  const resaleExpenditure = useMemo(() => {
-    return filteredHistory.filter((i) => i.trackStock).reduce((sum, item) => sum + (item.totalCost || 0), 0);
-  }, [filteredHistory]);
+  // Pagination
+  const totalPages = Math.ceil(sortedPurchases.length / pageSize) || 1;
+  const paginatedPurchases = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedPurchases.slice(start, start + pageSize);
+  }, [sortedPurchases, currentPage, pageSize]);
 
-  const purchaseOnlyExpenditure = useMemo(() => {
-    return filteredHistory.filter((i) => !i.trackStock).reduce((sum, item) => sum + (item.totalCost || 0), 0);
-  }, [filteredHistory]);
-
-  // Total quantity for an individual item (evaluated only when single item is filtered)
-  const itemQuantitySummary = useMemo(() => {
-    if (selectedItemFilter === 'ALL') {
-      return null;
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'date' ? 'desc' : 'asc');
     }
-    const itemRecords = filteredHistory.filter(
-      (i) => i.itemName.toLowerCase() === selectedItemFilter.toLowerCase()
-    );
-    return calculateCompatibleTotalQuantity(itemRecords);
-  }, [filteredHistory, selectedItemFilter]);
+    setCurrentPage(1);
+  };
 
   return (
-    <div className="space-y-5 select-none">
-      {/* ========================================================================= */}
-      {/* 1. HEADER */}
-      {/* ========================================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-heading">
-            Purchases & Procurement
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Unified purchase ledger for stock-tracked resale products and operational expense supplies
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            leftIcon={<RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />}
-          >
-            Refresh
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsAddPurchaseOpen(true)}
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-          >
-            + Add Purchase
-          </Button>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 2. SUMMARY & EXPENDITURE KPI CARDS */}
-      {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* Card 1: Total Purchase Expenditure */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-white dark:bg-[#071F1A] dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Total Purchase Expenditure
-            </span>
-            <div className="p-2 rounded-lg bg-emerald-50 text-[#0B3D32] dark:bg-emerald-950/60 dark:text-emerald-300">
-              <ShoppingCart className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white font-mono">
-            {formatCurrency(totalExpenditure)}
-          </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            {dateFilter === 'ALL'
-              ? 'Cumulative expenditure across all purchases'
-              : dateFilter === 'THIS_WEEK'
-              ? 'Expenditure logged for this week'
-              : dateFilter === 'THIS_MONTH'
-              ? 'Expenditure logged for this month'
-              : 'Expenditure for selected date range'}
-          </p>
-        </div>
-
-        {/* Card 2: Filtered Item Quantity OR Total Purchase Count */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-white dark:bg-[#071F1A] dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
-              {selectedItemFilter !== 'ALL' ? `Total Quantity: ${selectedItemFilter}` : 'Purchases Recorded'}
-            </span>
-            <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300">
-              <Package className="w-4 h-4" />
-            </div>
-          </div>
-
-          {selectedItemFilter !== 'ALL' && itemQuantitySummary ? (
-            itemQuantitySummary.compatible ? (
-              <>
-                <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white font-mono">
-                  {itemQuantitySummary.total} <span className="text-sm font-semibold uppercase">{itemQuantitySummary.unit}</span>
-                </div>
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">
-                  Compatible units verified for {selectedItemFilter}
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="mt-2 text-base font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  Incompatible Units
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                  {itemQuantitySummary.message}
-                </p>
-              </>
-            )
-          ) : (
-            <>
-              <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white font-mono">
-                {filteredHistory.length} <span className="text-sm font-semibold text-slate-400">items</span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Across {new Set(filteredHistory.map((i) => i.poId)).size} purchase invoices
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* Card 3: Resale vs Purchase-Only Breakdown */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-white dark:bg-[#071F1A] dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Procurement Breakdown
-            </span>
-            <div className="p-2 rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-300">
-              <Layers className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Resale (Stock):
-              </span>
-              <span className="font-mono font-bold text-slate-900 dark:text-white">
-                {formatCurrency(resaleExpenditure)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-blue-700 dark:text-blue-300 font-medium flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                Supplies & Raw:
-              </span>
-              <span className="font-mono font-bold text-slate-900 dark:text-white">
-                {formatCurrency(purchaseOnlyExpenditure)}
-              </span>
-            </div>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Split by inventory tracking configuration</p>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 3. FILTERS (DATE, ITEM, SUPPLIER, SEARCH) */}
-      {/* ========================================================================= */}
-      <div className="p-3.5 rounded-xl bg-white border border-slate-200 dark:bg-[#071F1A] dark:border-slate-800 shadow-2xs space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Quick Date Range Buttons */}
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" /> Date:
-            </span>
+    <div className="space-y-3 font-sans">
+      {/* =========================================================================
+          1. QUICK STATUS & TYPE FILTER TABS (MATCHING TABLE RESERVATIONS DESIGN)
+         ========================================================================= */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
+        {[
+          { id: 'ALL' as TypeFilter, label: 'All Purchases', count: metrics.total },
+          { id: 'SIMPLE' as TypeFilter, label: 'Simple Purchases', count: metrics.simpleCount },
+          { id: 'FULL' as TypeFilter, label: 'Full Details Purchases', count: metrics.fullCount },
+        ].map((tab) => {
+          const isSelected = typeFilter === tab.id;
+          return (
             <button
-              onClick={() => setDateFilter('ALL')}
-              className={cn(
-                'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all',
-                dateFilter === 'ALL'
-                  ? 'bg-[var(--brand-primary)] text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white'
-              )}
-            >
-              All Time
-            </button>
-            <button
-              onClick={() => setDateFilter('THIS_WEEK')}
-              className={cn(
-                'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all',
-                dateFilter === 'THIS_WEEK'
-                  ? 'bg-[var(--brand-primary)] text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white'
-              )}
-            >
-              This Week
-            </button>
-            <button
-              onClick={() => setDateFilter('THIS_MONTH')}
-              className={cn(
-                'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all',
-                dateFilter === 'THIS_MONTH'
-                  ? 'bg-[var(--brand-primary)] text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white'
-              )}
-            >
-              This Month
-            </button>
-            <button
-              onClick={() => setDateFilter('CUSTOM')}
-              className={cn(
-                'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all',
-                dateFilter === 'CUSTOM'
-                  ? 'bg-[var(--brand-primary)] text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white'
-              )}
-            >
-              Custom Range
-            </button>
-          </div>
-
-          {/* Reset Filters */}
-          {(dateFilter !== 'ALL' || selectedItemFilter !== 'ALL' || selectedSupplierFilter !== 'ALL' || searchQuery) && (
-            <button
+              key={tab.id}
+              type="button"
               onClick={() => {
-                setDateFilter('ALL');
-                setSelectedItemFilter('ALL');
-                setSelectedSupplierFilter('ALL');
-                setSearchQuery('');
-                setCustomStartDate('');
-                setCustomEndDate('');
+                setTypeFilter(tab.id);
+                setCurrentPage(1);
               }}
-              className="text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 transition-colors"
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-[3px] border transition-colors cursor-pointer shrink-0',
+                isSelected
+                  ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs'
+                  : 'bg-white dark:bg-surface-card border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-hover'
+              )}
             >
-              Reset Filters
+              <span>{tab.label}</span>
+              <span
+                className={cn(
+                  'px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold',
+                  isSelected
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-100 dark:bg-surface-elevated text-slate-600 dark:text-slate-400'
+                )}
+              >
+                {tab.count}
+              </span>
             </button>
-          )}
-        </div>
+          );
+        })}
 
-        {/* Custom Date Pickers */}
-        {dateFilter === 'CUSTOM' && (
-          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs">
-            <span className="font-semibold text-slate-600 dark:text-slate-300">From:</span>
-            <input
-              type="date"
-              value={customStartDate}
-              onChange={(e) => setCustomStartDate(e.target.value)}
-              className="h-8 px-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
-            />
-            <span className="font-semibold text-slate-600 dark:text-slate-300 ml-2">To:</span>
-            <input
-              type="date"
-              value={customEndDate}
-              onChange={(e) => setCustomEndDate(e.target.value)}
-              className="h-8 px-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
-            />
-          </div>
-        )}
-
-        {/* Item Filter, Supplier Filter & Search Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-          {/* Item Filter */}
-          <div>
-            <select
-              value={selectedItemFilter}
-              onChange={(e) => setSelectedItemFilter(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
-            >
-              <option value="ALL">All Items (Catalog & Purchases)</option>
-              {distinctItemNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="text-xs font-semibold text-slate-500 hidden sm:block">
+            Total Spend:{' '}
+            <span className="font-mono font-bold text-slate-900 dark:text-white">
+              Rs. {metrics.totalExpenditure.toLocaleString()}
+            </span>
           </div>
 
-          {/* Supplier Filter */}
-          <div>
-            <select
-              value={selectedSupplierFilter}
-              onChange={(e) => setSelectedSupplierFilter(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
-            >
-              <option value="ALL">All Suppliers (Direct & Vendors)</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Search Bar */}
-          <div>
-            <Input
-              placeholder="Search item, invoice #, supplier..."
-              leftIcon={<Search className="w-3.5 h-3.5 text-slate-400" />}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-xs h-9"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="p-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
+            title="Refresh purchases"
+          >
+            <RotateCcw className={cn('w-3.5 h-3.5', loading && 'animate-spin text-[#0B3D32]')} />
+          </button>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 4. PURCHASE HISTORY TABLE */}
-      {/* Columns: Date | Item Name | Item Category | Quantity & Unit | Total Cost | Supplier | Invoice Number | Actions */}
-      {/* ========================================================================= */}
-      <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#071F1A] shadow-xs">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50/80 dark:bg-slate-900/60">
-              <TableHead className="font-bold text-xs text-slate-900 dark:text-white">Date</TableHead>
-              <TableHead className="font-bold text-xs text-slate-900 dark:text-white">Item Name</TableHead>
-              <TableHead className="font-bold text-xs text-slate-900 dark:text-white">Item Category</TableHead>
-              <TableHead className="font-bold text-xs text-slate-900 dark:text-white">Quantity & Unit</TableHead>
-              <TableHead className="font-bold text-xs text-slate-900 dark:text-white">Total Cost</TableHead>
-              <TableHead className="font-bold text-xs text-slate-900 dark:text-white">Supplier</TableHead>
-              <TableHead className="font-bold text-xs text-slate-900 dark:text-white">Invoice #</TableHead>
-              <TableHead className="text-right font-bold text-xs text-slate-900 dark:text-white">Details</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-slate-400 text-xs">
-                  <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#0B3D32] dark:text-emerald-400 mb-2" />
-                  Loading purchase records...
-                </TableCell>
-              </TableRow>
-            ) : filteredHistory.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-slate-400 text-xs">
-                  <div className="max-w-sm mx-auto space-y-2">
-                    <ShoppingCart className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
-                    <p className="font-semibold text-slate-600 dark:text-slate-300">No purchase records found</p>
-                    <p className="text-[11px] text-slate-400">
-                      {searchQuery || dateFilter !== 'ALL' || selectedItemFilter !== 'ALL' || selectedSupplierFilter !== 'ALL'
-                        ? 'No purchases match your active filter criteria.'
-                        : 'No purchases recorded yet. Click "+ Add Purchase" to log your first supplier delivery.'}
-                    </p>
-                    <div className="pt-1">
-                      <Button variant="primary" size="sm" onClick={() => setIsAddPurchaseOpen(true)} className="text-xs">
-                        + Add Purchase
-                      </Button>
-                    </div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredHistory.map((item) => {
-                return (
-                  <TableRow key={item.id} className="text-xs hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                    {/* 1. Date */}
-                    <TableCell className="text-slate-600 dark:text-slate-400 whitespace-nowrap font-medium">
-                      {formatDate(item.purchaseDate)}
-                    </TableCell>
+      {/* =========================================================================
+          2. MAIN DATATABLES CARD
+         ========================================================================= */}
+      <div className="bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] p-3.5 shadow-2xs space-y-3">
+        {/* Top Controls: "Show entries" & Filters on left, "Search" & "+ New Purchase" on right */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs text-slate-700 dark:text-slate-300 select-none">
+          {/* Left Controls: Show entries & Dropdown Filters */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span>Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span>entries</span>
+            </div>
 
-                    {/* 2. Item Name */}
-                    <TableCell className="font-medium text-slate-900 dark:text-white">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-slate-900 dark:text-white">{item.itemName}</span>
-                        {item.trackStock ? (
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            Resale
+            {/* Payment Status Filter */}
+            <div className="flex items-center gap-1">
+              <span className="text-slate-500">Payment:</span>
+              <select
+                value={paymentFilter}
+                onChange={(e) => {
+                  setPaymentFilter(e.target.value as PaymentStatusFilter);
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+              >
+                <option value="ALL">All Payment Statuses</option>
+                <option value="PAID">Paid</option>
+                <option value="PARTIALLY_PAID">Partially Paid</option>
+                <option value="UNPAID">Unpaid / Due</option>
+              </select>
+            </div>
+
+            {/* Supplier Filter */}
+            <div className="flex items-center gap-1">
+              <span className="text-slate-500">Supplier:</span>
+              <select
+                value={selectedSupplierFilter}
+                onChange={(e) => {
+                  setSelectedSupplierFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer max-w-[150px]"
+              >
+                <option value="ALL">All Suppliers</option>
+                <option value="WALK_IN">Walk-in / Unregistered</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date Filters */}
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-1.5 py-0.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-[11px] text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#0B3D32]"
+                title="From Date"
+              />
+              <span className="text-slate-400">to</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-1.5 py-0.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-[11px] text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#0B3D32]"
+                title="To Date"
+              />
+              {(dateFrom || dateTo) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDateFrom('');
+                    setDateTo('');
+                    setCurrentPage(1);
+                  }}
+                  className="text-slate-400 hover:text-rose-600 text-[10px]"
+                  title="Clear dates"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Right Controls: Search & "+ New Purchase" Button */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-slate-600 dark:text-slate-400">Search:</span>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  placeholder="PO, invoice, item, supplier..."
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-2.5 py-1 pr-6 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] w-48 sm:w-60"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setCurrentPage(1);
+                    }}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsNewPurchaseOpen(true)}
+              className="inline-flex items-center gap-1 px-3 py-1 bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold rounded-[3px] shadow-2xs transition-colors cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Purchase</span>
+            </button>
+          </div>
+        </div>
+
+        {/* =========================================================================
+            3. TABLE CONTAINER (MATCHING SPEC COLUMNS)
+           ========================================================================= */}
+        <div className="overflow-x-auto border border-slate-200 dark:border-border-default rounded-[3px]">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-slate-100/90 dark:bg-slate-900/60 border-b border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 font-bold select-none text-[11px]">
+                <th className="py-2.5 px-3 w-12 text-center">SN</th>
+                <th
+                  onClick={() => handleSort('poNumber')}
+                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-36"
+                >
+                  Purchase Number
+                </th>
+                <th
+                  onClick={() => handleSort('date')}
+                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-28"
+                >
+                  Purchase Date
+                </th>
+                <th
+                  onClick={() => handleSort('supplier')}
+                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 min-w-[180px]"
+                >
+                  Supplier Name
+                </th>
+                <th
+                  onClick={() => handleSort('type')}
+                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-28 text-center"
+                >
+                  Purchase Type
+                </th>
+                <th
+                  onClick={() => handleSort('amount')}
+                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-28 text-right"
+                >
+                  Total Amount
+                </th>
+                <th
+                  onClick={() => handleSort('status')}
+                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-28 text-center"
+                >
+                  Payment Status
+                </th>
+                <th className="py-2.5 px-3 w-28 text-center">Created By</th>
+                <th className="py-2.5 px-3 w-24 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-[#071F1A]">
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <RotateCcw className="w-5 h-5 mx-auto animate-spin text-[#0B3D32] mb-1.5" />
+                    <span>Loading purchase history...</span>
+                  </td>
+                </tr>
+              ) : paginatedPurchases.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-10 text-center text-slate-400">
+                    <ShoppingCart className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      {searchQuery ? 'No purchases match your search filters.' : 'No purchase records found.'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Click "+ New Purchase" to record your first stock or store procurement.
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedPurchases.map((po, index) => {
+                  const serialNumber = (currentPage - 1) * pageSize + index + 1;
+                  const isSimple = (po.purchaseType || 'SIMPLE').toUpperCase() === 'SIMPLE';
+                  const supplierDisplayName =
+                    po.supplier?.name || po.supplierName || 'Walk-in / Unregistered Supplier';
+                  const isWalkIn = !po.supplierId;
+                  const items = parseItems(po);
+                  const pStatus = (po.paymentStatus || 'PAID').toUpperCase();
+
+                  // Display Date formatted
+                  const rawDate = po.purchaseDate || po.orderedAt || po.createdAt;
+                  let formattedDate = '—';
+                  if (rawDate) {
+                    try {
+                      formattedDate = new Date(rawDate).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      });
+                    } catch {
+                      formattedDate = String(rawDate);
+                    }
+                  }
+
+                  return (
+                    <tr
+                      key={po.id}
+                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      {/* SN */}
+                      <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                        {serialNumber}
+                      </td>
+
+                      {/* Purchase Number */}
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-800 dark:text-slate-200 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span>{po.poNumber}</span>
+                          {(po.supplierInvoiceNumber || po.invoiceNumber) && (
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              ({po.supplierInvoiceNumber || po.invoiceNumber})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-normal">
+                          {items.length} {items.length === 1 ? 'item' : 'items'}
+                        </div>
+                      </td>
+
+                      {/* Purchase Date */}
+                      <td className="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300 text-[11px]">
+                        {formattedDate}
+                      </td>
+
+                      {/* Supplier Name */}
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              'font-bold text-xs',
+                              isWalkIn
+                                ? 'text-slate-600 dark:text-slate-400 italic'
+                                : 'text-slate-900 dark:text-slate-100'
+                            )}
+                          >
+                            {supplierDisplayName}
                           </span>
-                        ) : (
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                            Purchase Only
+                          {isWalkIn && (
+                            <span className="px-1 py-0.2 rounded text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 font-normal">
+                              Direct / Cash
+                            </span>
+                          )}
+                        </div>
+                        {po.supplierPanVatNumber && (
+                          <span className="font-mono text-[10px] text-slate-400 block mt-0.5">
+                            PAN: {po.supplierPanVatNumber}
                           </span>
                         )}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        Ref: {item.poNumber}
-                      </div>
-                    </TableCell>
+                      </td>
 
-                    {/* 3. Item Category */}
-                    <TableCell className="text-slate-600 dark:text-slate-300 font-medium">
-                      {item.category.replace(/_/g, ' ')}
-                    </TableCell>
+                      {/* Purchase Type */}
+                      <td className="py-2.5 px-3 text-center">
+                        <span
+                          className={cn(
+                            'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border',
+                            isSimple
+                              ? 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                          )}
+                        >
+                          {isSimple ? 'Simple' : 'Full Details'}
+                        </span>
+                      </td>
 
-                    {/* 4. Quantity and Unit */}
-                    <TableCell className="font-mono font-bold text-slate-900 dark:text-white">
-                      {item.quantity} <span className="text-[11px] font-normal text-slate-500 uppercase">{item.unit}</span>
-                    </TableCell>
+                      {/* Total Amount */}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100 text-xs">
+                        Rs. {(Number(po.totalAmount) || 0).toLocaleString()}
+                      </td>
 
-                    {/* 5. Total Cost */}
-                    <TableCell className="font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                      {formatCurrency(item.totalCost)}
-                    </TableCell>
+                      {/* Payment Status */}
+                      <td className="py-2.5 px-3 text-center">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border',
+                            pStatus === 'PAID'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                              : pStatus === 'PARTIALLY_PAID'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                              : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full',
+                              pStatus === 'PAID'
+                                ? 'bg-emerald-500'
+                                : pStatus === 'PARTIALLY_PAID'
+                                ? 'bg-amber-500'
+                                : 'bg-rose-500'
+                            )}
+                          />
+                          <span>{pStatus === 'PARTIALLY_PAID' ? 'Partial' : pStatus}</span>
+                        </span>
+                      </td>
 
-                    {/* 6. Supplier */}
-                    <TableCell className="text-slate-800 dark:text-slate-200 font-medium truncate max-w-[150px]">
-                      {item.supplierName}
-                    </TableCell>
+                      {/* Created By */}
+                      <td className="py-2.5 px-3 text-center text-slate-500 dark:text-slate-400 text-[11px]">
+                        {po.createdBy || 'Admin'}
+                      </td>
 
-                    {/* 7. Invoice Number */}
-                    <TableCell className="font-mono text-slate-600 dark:text-slate-400">
-                      {item.invoiceNumber || '—'}
-                    </TableCell>
+                      {/* Actions */}
+                      <td className="py-2.5 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setViewingPurchase(po)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-slate-500" />
+                          <span>View Details</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
 
-                    {/* 8. Details */}
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedItemDetail(item)}
-                        leftIcon={<Eye className="w-3.5 h-3.5" />}
-                        className="text-xs h-7 py-1 px-2.5"
-                      >
-                        Details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+        {/* =========================================================================
+            4. BOTTOM CONTROLS: ENTRIES COUNT & PAGINATION (MATCHING DATA TABLES)
+           ========================================================================= */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1 select-none">
+          {/* Entries count */}
+          <div>
+            Showing{' '}
+            <span className="font-semibold text-slate-800 dark:text-slate-200">
+              {sortedPurchases.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+            </span>{' '}
+            to{' '}
+            <span className="font-semibold text-slate-800 dark:text-slate-200">
+              {Math.min(currentPage * pageSize, sortedPurchases.length)}
+            </span>{' '}
+            of{' '}
+            <span className="font-semibold text-slate-800 dark:text-slate-200">
+              {sortedPurchases.length}
+            </span>{' '}
+            entries
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="px-2.5 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-semibold"
+            >
+              Previous
+            </button>
+
+            {Array.from({ length: totalPages }).map((_, idx) => {
+              const pageNum = idx + 1;
+              if (
+                pageNum === 1 ||
+                pageNum === totalPages ||
+                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+              ) {
+                const isCurrent = pageNum === currentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={cn(
+                      'min-w-[28px] h-7 px-2 text-xs font-bold rounded-[3px] border transition-colors cursor-pointer',
+                      isCurrent
+                        ? 'bg-[#0B3D32] text-white border-[#0B3D32]'
+                        : 'bg-white dark:bg-surface-card border-slate-300 dark:border-border-default hover:bg-slate-50 text-slate-700 dark:text-slate-300'
+                    )}
+                  >
+                    {pageNum}
+                  </button>
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
+              }
+              if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                return (
+                  <span key={pageNum} className="px-1 text-slate-400">
+                    ...
+                  </span>
+                );
+              }
+              return null;
+            })}
+
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="px-2.5 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-semibold"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 5. MODAL 1: UNIFIED ADD PURCHASE FORM */}
-      {/* ========================================================================= */}
-      <AddPurchaseModal
-        isOpen={isAddPurchaseOpen}
-        onClose={() => setIsAddPurchaseOpen(false)}
-        items={items}
-        suppliers={suppliers}
-        onPurchaseCompleted={onRefresh}
-      />
-
-      {/* ========================================================================= */}
-      {/* 6. MODAL 2: VIEW PURCHASE LINE DETAILS */}
-      {/* ========================================================================= */}
-      {selectedItemDetail && (
-        <Modal
-          isOpen={Boolean(selectedItemDetail)}
-          onClose={() => setSelectedItemDetail(null)}
-          title={`Purchase Record: ${selectedItemDetail.itemName}`}
-          description={`Logged on ${formatDateTime(selectedItemDetail.purchaseDate)}`}
-          size="md"
-        >
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs">
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Item Name</span>
-                <span className="font-bold text-slate-900 dark:text-white text-sm">
-                  {selectedItemDetail.itemName}
-                </span>
+      {/* =========================================================================
+          MODAL: VIEW PURCHASE DETAILS BREAKDOWN
+         ========================================================================= */}
+      {viewingPurchase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-border-default rounded-[4px] shadow-2xl my-6 flex flex-col max-h-[90vh] overflow-hidden font-sans">
+            {/* Header */}
+            <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-border-default flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-[3px] bg-[#0B3D32] text-white flex items-center justify-center">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 font-mono">
+                      {viewingPurchase.poNumber}
+                    </h3>
+                    <span
+                      className={cn(
+                        'px-2 py-0.2 rounded text-[10px] font-bold uppercase',
+                        (viewingPurchase.purchaseType || 'SIMPLE').toUpperCase() === 'SIMPLE'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                          : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                      )}
+                    >
+                      {(viewingPurchase.purchaseType || 'SIMPLE').toUpperCase() === 'SIMPLE'
+                        ? 'Simple Purchase'
+                        : 'Full Details Purchase'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Recorded on {viewingPurchase.purchaseDate || viewingPurchase.orderedAt || viewingPurchase.createdAt}
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Category</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {selectedItemDetail.category.replace(/_/g, ' ')}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Quantity Purchased</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">
-                  {selectedItemDetail.quantity} {selectedItemDetail.unit}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Total Cost</span>
-                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">
-                  {formatCurrency(selectedItemDetail.totalCost)}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Supplier</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {selectedItemDetail.supplierName}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Invoice Number</span>
-                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                  {selectedItemDetail.invoiceNumber || '—'}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Order Reference</span>
-                <span className="font-mono text-slate-600 dark:text-slate-400">
-                  {selectedItemDetail.poNumber}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Tracking Type</span>
-                <span className="font-semibold">
-                  {selectedItemDetail.trackStock ? (
-                    <span className="text-emerald-700 dark:text-emerald-400">Resale (Tracked Stock)</span>
-                  ) : (
-                    <span className="text-blue-700 dark:text-blue-400">Purchase History Only</span>
-                  )}
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setViewingPurchase(null)}
+                className="text-slate-400 hover:text-slate-600 rounded p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="p-3 rounded-lg border text-xs bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400">
-              {selectedItemDetail.trackStock ? (
-                <p>
-                  📦 <strong>Resale Product:</strong> Stock was increased when this purchase was logged and is automatically deducted when sold via restaurant or room service orders.
-                </p>
-              ) : (
-                <p>
-                  📝 <strong>Purchase History Only:</strong> Saved as an operational expense record. Does not track current stock or deduct quantities when dishes or services are ordered.
-                </p>
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+              {/* Top metadata grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-[3px] border border-slate-200 dark:border-slate-800">
+                <div>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold block">Supplier</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block truncate">
+                    {viewingPurchase.supplier?.name || viewingPurchase.supplierName || 'Walk-in Supplier'}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold block">Invoice No</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">
+                    {viewingPurchase.supplierInvoiceNumber || viewingPurchase.invoiceNumber || '—'}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold block">Payment</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">
+                    {viewingPurchase.paymentMethod || 'CASH'} · {viewingPurchase.paymentStatus || 'PAID'}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold block">Total Amount</span>
+                  <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-xs mt-0.5 block">
+                    Rs. {(Number(viewingPurchase.totalAmount) || 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Items Breakdown Table */}
+              <div className="space-y-1.5">
+                <span className="font-bold text-slate-700 dark:text-slate-300 block">
+                  Purchased Items Breakdown
+                </span>
+                <div className="border border-slate-200 dark:border-border-default rounded-[3px] overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100/90 dark:bg-slate-900/60 border-b border-slate-200 text-slate-700 dark:text-slate-300 font-bold text-[11px]">
+                        <th className="py-2 px-2.5">Item</th>
+                        <th className="py-2 px-2.5 text-center">Qty & Unit</th>
+                        <th className="py-2 px-2.5 text-right">Unit Cost</th>
+                        <th className="py-2 px-2.5 text-right">Line Total</th>
+                        <th className="py-2 px-2.5 text-center">Stock Tracked</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {parseItems(viewingPurchase).map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-2.5 font-bold text-slate-800 dark:text-slate-200">
+                            {item.itemName}
+                            {item.department && (
+                              <span className="text-[10px] text-slate-400 font-normal block">
+                                {item.department} · {item.category || 'General'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-2.5 text-center font-mono">
+                            {item.quantity} {item.purchaseUnit || item.stockUnit || 'units'}
+                            {item.conversionFactor && item.conversionFactor > 1 && (
+                              <span className="text-[10px] text-slate-400 block">
+                                ({item.quantity * item.conversionFactor} {item.stockUnit})
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            Rs. {(Number(item.unitCost) || 0).toLocaleString()}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                            Rs. {(Number(item.totalCost) || (Number(item.quantity) * Number(item.unitCost)) || 0).toLocaleString()}
+                          </td>
+                          <td className="py-2 px-2.5 text-center">
+                            {item.trackStock ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> Stock Updated
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">Expense Only</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Financial Summary */}
+              <div className="bg-slate-50 dark:bg-slate-900/30 p-3 rounded-[3px] border border-slate-200 dark:border-slate-800 space-y-1.5 text-xs max-w-sm ml-auto">
+                {viewingPurchase.subtotal !== undefined && viewingPurchase.subtotal > 0 && (
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Subtotal:</span>
+                    <span className="font-mono font-semibold">
+                      Rs. {(Number(viewingPurchase.subtotal) || 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {viewingPurchase.discount !== undefined && viewingPurchase.discount > 0 && (
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Discount:</span>
+                    <span className="font-mono font-semibold text-rose-600">
+                      - Rs. {(Number(viewingPurchase.discount) || 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {viewingPurchase.tax !== undefined && viewingPurchase.tax > 0 && (
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Tax / VAT:</span>
+                    <span className="font-mono font-semibold">
+                      + Rs. {(Number(viewingPurchase.tax) || 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {viewingPurchase.additionalCharges !== undefined && viewingPurchase.additionalCharges > 0 && (
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Additional Charges:</span>
+                    <span className="font-mono font-semibold">
+                      + Rs. {(Number(viewingPurchase.additionalCharges) || 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                <div className="border-t border-slate-300 dark:border-slate-700 pt-1 flex justify-between font-bold text-slate-900 dark:text-white text-sm">
+                  <span>Grand Total:</span>
+                  <span className="font-mono text-emerald-700 dark:text-emerald-400">
+                    Rs. {(Number(viewingPurchase.totalAmount) || 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Notes & Attachment */}
+              {viewingPurchase.notes && (
+                <div>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-0.5">Notes:</span>
+                  <p className="bg-slate-50 dark:bg-slate-800 p-2 rounded text-slate-600 dark:text-slate-300 text-[11px] italic">
+                    {viewingPurchase.notes}
+                  </p>
+                </div>
+              )}
+
+              {viewingPurchase.attachmentUrl && (
+                <div className="flex items-center gap-1.5 text-xs text-sky-600">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <a
+                    href={viewingPurchase.attachmentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline font-semibold"
+                  >
+                    View Invoice Attachment
+                  </a>
+                </div>
               )}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-800">
-              <Button variant="secondary" size="sm" onClick={() => setSelectedItemDetail(null)}>
+            {/* Footer */}
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-border-default flex justify-end">
+              <button
+                type="button"
+                onClick={() => setViewingPurchase(null)}
+                className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+              >
                 Close
-              </Button>
+              </button>
             </div>
           </div>
-        </Modal>
+        </div>
+      )}
+
+      {/* =========================================================================
+          NEW PURCHASE MODAL (TWO ENTRY MODES: SIMPLE & FULL DETAILS)
+         ========================================================================= */}
+      {isNewPurchaseOpen && (
+        <NewPurchaseModal
+          isOpen={isNewPurchaseOpen}
+          onClose={() => setIsNewPurchaseOpen(false)}
+          onPurchaseCreated={() => {
+            onRefresh();
+          }}
+          initialDepartment={defaultDepartment}
+        />
       )}
     </div>
   );

@@ -145,11 +145,32 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""sourceDepartment"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""destinationDepartment"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""transferNumber"" text;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""referenceNumber"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""previousBalance"" integer;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""resultingBalance"" integer;
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""code"" text DEFAULT '';
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""panVatNumber"" text;
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""notes"" text;
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""isActive"" boolean DEFAULT true;
+
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""allocationsJson"" text DEFAULT '[]';
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""invoiceNumber"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""panVatNumber"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""supplierName"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""purchaseType"" text DEFAULT 'FULL';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""subtotal"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""discount"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""tax"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""additionalCharges"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""paymentMethod"" text DEFAULT 'Cash';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""paymentStatus"" text DEFAULT 'Paid';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""notes"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""attachmentUrl"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""createdBy"" text DEFAULT 'Admin';
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ALTER COLUMN ""supplierId"" DROP NOT NULL;
+
+            ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""purchaseUnit"" text;
+            ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""conversionFactor"" double precision DEFAULT 1.0;
 
             CREATE TABLE IF NOT EXISTS ""TableReservation"" (
                 ""id"" text PRIMARY KEY,

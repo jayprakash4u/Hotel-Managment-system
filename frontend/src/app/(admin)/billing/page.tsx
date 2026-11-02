@@ -211,7 +211,7 @@ function BillingContent() {
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-14 select-none">
+    <div className="space-y-4 w-full min-w-0 pb-14 select-none">
       {/* =====================================================================
           1. TOP NAVIGATION MODULE BOXES (QUICK HUB)
           ===================================================================== */}
@@ -595,7 +595,7 @@ export default function BillingPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-7xl mx-auto p-12 text-center text-xs text-slate-400">
+        <div className="w-full min-w-0 p-12 text-center text-xs text-slate-400">
           Loading Shared Billing & Invoicing System...
         </div>
       }

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   CalendarCheck,
+  CalendarPlus,
   UserCheck,
   LogOut,
   Users,
@@ -14,6 +15,7 @@ import {
   Sparkles,
   BedDouble,
   Boxes,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -54,11 +56,21 @@ export const HOTEL_MANAGEMENT_OPTIONS: HotelManagementSubOption[] = [
     id: 'room-board',
     name: 'Room Board',
     href: '/front-desk',
-    icon: LayoutGrid,
+    icon: BedDouble,
     iconColor: 'text-[#DC2626] dark:text-[#EF4444]',
     tag: 'ROOMS',
     badge: 'Floor Grid',
     description: 'Floor layout, tape chart & live room status matrix',
+  },
+  {
+    id: 'book-now',
+    name: 'Book Now',
+    href: '/booking',
+    icon: CalendarPlus,
+    iconColor: 'text-[#DC2626] dark:text-[#EF4444]',
+    tag: 'DIRECT',
+    badge: 'Instant',
+    description: 'Instant room reservation & direct booking form',
   },
   {
     id: 'reservations',
@@ -123,8 +135,8 @@ export const HOTEL_MANAGEMENT_OPTIONS: HotelManagementSubOption[] = [
   {
     id: 'room-setup',
     name: 'Room Setup',
-    href: '/hotel',
-    icon: BedDouble,
+    href: '/hotel?category=room-setup',
+    icon: Building2,
     iconColor: 'text-[#DC2626] dark:text-[#EF4444]',
     tag: 'SETUP',
     badge: 'Inventory',
@@ -151,7 +163,7 @@ export const HotelManagementNavBoxes: React.FC<{
 
   return (
     <div className={cn('select-none', className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-10 gap-2 sm:gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-2 sm:gap-2.5">
         {HOTEL_MANAGEMENT_OPTIONS.map((item) => {
           const Icon = item.icon;
           const isExplicitActive = activeId ? activeId === item.id : false;

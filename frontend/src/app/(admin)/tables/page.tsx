@@ -3227,7 +3227,7 @@ function TablesContent() {
             SEARCH / ADD ITEM WITH INSTANT AUTOCOMPLETE SUGGESTIONS
             Fetches directly from Setted Menu (hotel_menu_items)
            ========================================================================= */}
-        <div className="space-y-3 max-w-5xl">
+        <div className="space-y-3 w-full">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold font-heading text-body dark:text-body uppercase tracking-wider flex items-center gap-1.5">
               <UtensilsCrossed className="w-4 h-4 text-brand dark:text-brand" />
