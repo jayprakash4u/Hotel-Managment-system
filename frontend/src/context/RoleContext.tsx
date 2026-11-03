@@ -92,10 +92,34 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Single unified admin: Always maintain full ADMIN privileges
     setRoleState('ADMIN');
 
+    // Read tenant identity from localStorage (created by Super Admin)
+    if (typeof localStorage !== 'undefined') {
+      const storedName = localStorage.getItem('auth_name');
+      const storedUsername = localStorage.getItem('auth_username');
+      const storedHotel = localStorage.getItem('auth_hotel_name');
+      if (storedName || storedHotel || storedUsername) {
+        setSessionUser({
+          name: storedName || 'Property Administrator',
+          email: storedUsername || 'admin@hotel.com',
+          hotelName: storedHotel || 'Hotel Master',
+        });
+      }
+    }
+
     api
       .getMe()
-      .then((me) => setSessionUser({ name: me.name, email: me.username, hotelName: me.hotelName }))
-      .catch(() => setSessionUser(null));
+      .then((me) => {
+        const storedName = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_name') : null;
+        const storedHotel = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_hotel_name') : null;
+        setSessionUser({
+          name: storedName || me.name,
+          email: me.username,
+          hotelName: storedHotel || me.hotelName,
+        });
+      })
+      .catch(() => {
+        // Fallback already loaded from localStorage above
+      });
   }, []);
 
   const setRole = (newRole: UserRole) => {

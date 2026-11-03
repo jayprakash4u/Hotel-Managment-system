@@ -287,7 +287,7 @@ export default function ReservationDetailPage() {
   const isCheckedOut = booking.status === 'CHECKED_OUT';
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-12 select-none">
+    <div className="space-y-4 w-full min-w-0 pb-12 select-none">
       {/* -----------------------------------------------------------------------
           TOP NAVIGATION BAR & WORKFLOW ACTIONS
           ----------------------------------------------------------------------- */}

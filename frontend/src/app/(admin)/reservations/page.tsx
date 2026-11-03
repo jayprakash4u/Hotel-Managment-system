@@ -247,7 +247,7 @@ function RoomBookingsContent() {
   const isFromDesk = searchParams.get('from') === 'desk' || searchParams.get('from') === 'front-desk';
 
   return (
-    <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
+    <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
       {/* Hotel Management Top Navigation Boxes */}
       <HotelManagementNavBoxes activeId="reservations" />
 
@@ -985,7 +985,7 @@ export default function RoomBookingsPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-7xl mx-auto p-12 text-center text-xs text-slate-400 dark:text-slate-500">
+        <div className="w-full min-w-0 p-12 text-center text-xs text-slate-400 dark:text-slate-500">
           Loading Room Bookings...
         </div>
       }

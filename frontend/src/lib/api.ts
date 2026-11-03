@@ -616,7 +616,177 @@ export const api = {
     });
   },
 
+  // Supplier Management
+  getSuppliers: (params?: { activeOnly?: boolean; search?: string; category?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.activeOnly !== undefined) query.append("activeOnly", params.activeOnly.toString());
+    if (params?.search) query.append("search", params.search);
+    if (params?.category) query.append("category", params.category);
+    return fetcher<import("./types").SupplierRecord[]>(`/api/suppliers?${query.toString()}`);
+  },
+
+  getSupplierById: (id: string) => {
+    return fetcher<import("./types").SupplierRecord>(`/api/suppliers/${id}`);
+  },
+
+  createSupplier: (data: {
+    name: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    panVatNumber?: string;
+    category?: string;
+    notes?: string;
+    isActive?: boolean;
+  }) => {
+    return fetcher<import("./types").SupplierRecord>("/api/suppliers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateSupplier: (id: string, data: Partial<import("./types").SupplierRecord>) => {
+    return fetcher<import("./types").SupplierRecord>(`/api/suppliers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  toggleSupplierStatus: (id: string) => {
+    return fetcher<import("./types").SupplierRecord>(`/api/suppliers/${id}/toggle-status`, {
+      method: "PATCH",
+    });
+  },
+
+  deleteSupplier: (id: string) => {
+    return fetcher<any>(`/api/suppliers/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Unified Purchase Management
+  getPurchases: (params?: {
+    search?: string;
+    purchaseType?: string;
+    supplierId?: string;
+    paymentStatus?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.search) query.append("search", params.search);
+    if (params?.purchaseType) query.append("purchaseType", params.purchaseType);
+    if (params?.supplierId) query.append("supplierId", params.supplierId);
+    if (params?.paymentStatus) query.append("paymentStatus", params.paymentStatus);
+    if (params?.fromDate) query.append("fromDate", params.fromDate);
+    if (params?.toDate) query.append("toDate", params.toDate);
+    return fetcher<import("./types").PurchaseRecord[]>(`/api/inventory/purchases?${query.toString()}`);
+  },
+
+  createPurchaseRecord: (data: {
+    purchaseType?: string;
+    purchaseDate?: string;
+    supplierId?: string | null;
+    supplierInvoiceNumber?: string | null;
+    supplierPanVatNumber?: string | null;
+    items: Array<{
+      itemId?: string;
+      itemName: string;
+      category?: string;
+      department?: string;
+      quantity: number;
+      purchaseUnit?: string;
+      stockUnit?: string;
+      conversionFactor?: number;
+      unitCost: number;
+      totalCost: number;
+      trackStock?: boolean;
+    }>;
+    subtotal: number;
+    discount?: number;
+    tax?: number;
+    additionalCharges?: number;
+    grandTotal: number;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    notes?: string;
+    attachmentUrl?: string;
+    createdBy?: string;
+    idempotencyKey?: string;
+  }) => {
+    return fetcher<import("./types").PurchaseRecord>("/api/inventory/purchases", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
   // Analytics
+  // Item-wise Purchase History & Ledger
+  getItemPurchases: (itemId: string) => {
+    return fetcher<{
+      summary: import('./types').ItemPurchaseLedgerSummary;
+      transactions: import('./types').ItemPurchaseLedgerTransaction[];
+    }>(`/api/inventory/items/${itemId}/purchases`);
+  },
+
+  getPurchasesLedger: (params?: {
+    itemId?: string;
+    search?: string;
+    supplierId?: string;
+    paymentStatus?: string;
+    purchaseType?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.itemId) query.append('itemId', params.itemId);
+    if (params?.search) query.append('search', params.search);
+    if (params?.supplierId) query.append('supplierId', params.supplierId);
+    if (params?.paymentStatus) query.append('paymentStatus', params.paymentStatus);
+    if (params?.purchaseType) query.append('purchaseType', params.purchaseType);
+    if (params?.fromDate) query.append('fromDate', params.fromDate);
+    if (params?.toDate) query.append('toDate', params.toDate);
+    return fetcher<import('./types').ItemPurchaseLedgerTransaction[]>(`/api/inventory/purchases/ledger?${query.toString()}`);
+  },
+
+  // Stock Movement Ledger
+  getStockMovements: (params?: {
+    department?: string;
+    itemId?: string;
+    movementType?: string;
+    fromDate?: string;
+    toDate?: string;
+    search?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.department) query.append('department', params.department);
+    if (params?.itemId) query.append('itemId', params.itemId);
+    if (params?.movementType) query.append('movementType', params.movementType);
+    if (params?.fromDate) query.append('fromDate', params.fromDate);
+    if (params?.toDate) query.append('toDate', params.toDate);
+    if (params?.search) query.append('search', params.search);
+    return fetcher<import('./types').StockMovementLedgerRecord[]>(`/api/inventory/movements?${query.toString()}`);
+  },
+
+  // Stock Adjustment
+  recordStockAdjustment: (data: {
+    itemId: string;
+    adjustmentType: string;
+    quantity: number;
+    reason?: string;
+    performedBy?: string;
+  }) => {
+    return fetcher<{
+      item: import('./types').InventoryItemData;
+      movement: any;
+      referenceNumber: string;
+    }>('/api/inventory/adjustments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
   getAnalytics: () => {
     return fetcher<DashboardMetrics>('/api/analytics');
   },

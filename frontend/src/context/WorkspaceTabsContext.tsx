@@ -59,22 +59,32 @@ export function getTabInfoForUrl(
     return { id: '/reports', path: '/reports', title: 'Hotel Reports', iconName: 'BarChart3', closable: true };
   }
 
+  if (pathname === '/hotel') {
+    if (search.includes('category=restaurant-setup')) {
+      return { id: '/hotel?category=restaurant-setup', path: fullPath, title: 'Restaurant Setup', iconName: 'Building2', closable: true };
+    }
+    if (search.includes('category=room-setup')) {
+      return { id: '/hotel?category=room-setup', path: fullPath, title: 'Hotel Setup', iconName: 'Building2', closable: true };
+    }
+    return { id: '/hotel', path: fullPath, title: 'Master Setup', iconName: 'Building2', closable: true };
+  }
+
   // Exact known routes
   const MAP: Record<string, { title: string; iconName: string; closable?: boolean }> = {
     '/': { title: 'Dashboard', iconName: 'LayoutDashboard', closable: false },
     '/hotel-management': { title: 'Hotel Overview', iconName: 'LayoutDashboard', closable: false },
     '/front-desk': { title: 'Front Desk', iconName: 'LayoutGrid', closable: false },
-    '/booking': { title: 'Room Booking', iconName: 'CalendarCheck', closable: true },
+    '/booking': { title: 'Book Now', iconName: 'CalendarPlus', closable: true },
     '/reservations': { title: 'Room Bookings', iconName: 'CalendarCheck', closable: true },
     '/check-in': { title: 'Guest Check-In', iconName: 'UserCheck', closable: true },
     '/checkout': { title: 'Guest Check-Out', iconName: 'LogOut', closable: true },
     '/active-stays': { title: 'Active Stays', iconName: 'Users', closable: true },
     '/guests': { title: 'Guests CRM', iconName: 'Contact', closable: true },
     '/housekeeping': { title: 'Housekeeping', iconName: 'Sparkles', closable: true },
-    '/hotel': { title: 'Hotel Setup', iconName: 'BedDouble', closable: true },
+    '/hotel': { title: 'Master Setup', iconName: 'Building2', closable: true },
     '/billing': { title: 'Billing & Folios', iconName: 'FileText', closable: true },
     '/accounts': { title: 'Accounting', iconName: 'BookOpen', closable: true },
-    '/administration': { title: 'Settings', iconName: 'Settings', closable: true },
+
     '/restaurant-management': { title: 'Restaurant Overview', iconName: 'UtensilsCrossed', closable: true },
     '/quick-sale': { title: 'Quick Sale POS', iconName: 'Zap', closable: true },
     '/menu': { title: 'Menu Management', iconName: 'UtensilsCrossed', closable: true },

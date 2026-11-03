@@ -144,7 +144,7 @@ function CheckOutListContent() {
   };
 
   return (
-    <div className="space-y-3.5 max-w-7xl mx-auto pb-12 select-none">
+    <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
       {/* Hotel Management Option Boxes */}
       <HotelManagementNavBoxes activeId="check-out" />
 
@@ -515,7 +515,7 @@ export default function CheckOutListPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-7xl mx-auto p-12 text-center text-xs text-[#879B90]">
+        <div className="w-full min-w-0 p-12 text-center text-xs text-[#879B90]">
           Loading Check-Out List...
         </div>
       }

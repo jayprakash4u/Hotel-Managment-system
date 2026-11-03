@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, RefreshCw, Menu, Sun, Moon, LogIn, Bell, AlertTriangle, AlertCircle, CheckCircle2, Clock, UtensilsCrossed, ChevronRight, X } from 'lucide-react';
+import { Search, Plus, RefreshCw, Menu, Sun, Moon, LogIn, Bell, AlertTriangle, AlertCircle, CheckCircle2, Clock, UtensilsCrossed, ChevronRight, X, LogOut } from 'lucide-react';
 import { Breadcrumbs } from './Breadcrumbs';
 import { QuickSearchModal } from './QuickSearchModal';
 import { Button } from '@/components/ui/Button';
@@ -375,6 +375,24 @@ export const Header: React.FC<{
             {userInitials}
             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-success)] ring-2 ring-white dark:ring-[var(--surface-card)]" />
           </div>
+        </button>
+
+        {/* Quick Sign Out Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.removeItem('auth_token');
+              localStorage.removeItem('auth_username');
+              localStorage.removeItem('auth_role');
+            }
+            toast.info('Signed Out', 'You have been safely signed out.');
+            router.replace('/login');
+          }}
+          title="Sign out of Hotel Admin"
+          className="p-2 rounded-lg bg-[var(--surface-card)] border border-[var(--border-input)] text-slate-500 hover:text-red-600 hover:border-red-300 transition-all shadow-2xs cursor-pointer ml-1"
+        >
+          <LogOut className="w-4 h-4" />
         </button>
       </div>
 

@@ -2,19 +2,26 @@
 
 export const dynamic = 'force-dynamic';
 
-import React from 'react';
+import React, { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import HotelSetupContent from './HotelSetupContent';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
+
+function HotelSetupPageInner() {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category') || 'general';
+  const subParam = searchParams.get('sub') || null;
+
+  return (
+    <div className="w-full flex-1 flex flex-col min-h-0">
+      <HotelSetupContent initialCategory={categoryParam} initialSub={subParam} />
+    </div>
+  );
+}
 
 export default function HotelSetupPage() {
   return (
-    <div className="w-full flex-1 flex flex-col min-h-0 space-y-3">
-      <div className="shrink-0">
-        <HotelManagementNavBoxes activeId="room-setup" />
-      </div>
-      <div className="flex-1 min-h-0">
-        <HotelSetupContent />
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <HotelSetupPageInner />
+    </Suspense>
   );
 }

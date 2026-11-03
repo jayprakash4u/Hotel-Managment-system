@@ -8,6 +8,11 @@ import { DepartmentInventoryView, InventoryItem } from './DepartmentInventoryVie
 import { PurchasesView, PurchaseRecord } from './PurchasesView';
 import { SuppliersView, SupplierRecord } from './SuppliersView';
 import { StockTransfersView, StockTransferRecord } from './StockTransfersView';
+import { ItemPurchaseLedgerView } from './ItemPurchaseLedgerView';
+import { StockMovementLedgerView } from './StockMovementLedgerView';
+import { StockAdjustmentModal } from './StockAdjustmentModal';
+import { CategoriesView } from './CategoriesView';
+import { UnitsOfMeasurementView } from './UnitsOfMeasurementView';
 import {
   Boxes,
   Hotel,
@@ -16,17 +21,26 @@ import {
   Users,
   ArrowLeftRight,
   RefreshCw,
+  SlidersHorizontal,
+  Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
 import { InventoryNavBoxes } from '@/components/common/InventoryNavBoxes';
 
 export type InventoryTab =
+  | 'OVERVIEW'
+  | 'ITEMS'
+  | 'PURCHASE_LEDGER'
+  | 'STOCK_MOVEMENTS'
+  | 'SUPPLIERS'
+  | 'RECEIVE_STOCK'
+  | 'STOCK_ADJUSTMENT'
+  | 'STOCK_TRANSFERS'
+  | 'CATEGORIES'
+  | 'UNITS'
   | 'RESTAURANT_INVENTORY'
   | 'HOTEL_INVENTORY'
-  | 'PURCHASES'
-  | 'SUPPLIERS'
-  | 'STOCK_TRANSFERS';
+  | 'PURCHASES';
 
 interface InventoryViewProps {
   initialTab?: InventoryTab;
@@ -44,22 +58,36 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
   // Determine active tab from search params or business module
   const computeActiveTab = (): InventoryTab => {
     if (initialTab) return initialTab;
-    if (urlDept === 'RESTAURANT' && isRestaurantEnabled) return 'RESTAURANT_INVENTORY';
-    if (urlDept === 'HOTEL' && isHotelEnabled) return 'HOTEL_INVENTORY';
-    if (urlTab === 'purchases') return 'PURCHASES';
+    if (urlTab === 'overview') return 'OVERVIEW';
+    if (urlTab === 'items') return 'ITEMS';
+    if (urlTab === 'purchase-ledger') return 'PURCHASE_LEDGER';
+    if (urlTab === 'stock-movements') return 'STOCK_MOVEMENTS';
     if (urlTab === 'suppliers') return 'SUPPLIERS';
+    if (urlTab === 'receive-stock' || urlTab === 'purchases') return 'RECEIVE_STOCK';
+    if (urlTab === 'stock-adjustments') return 'STOCK_ADJUSTMENT';
     if (urlTab === 'transfers' && isTransfersEnabled) return 'STOCK_TRANSFERS';
+    if (urlTab === 'categories') return 'CATEGORIES';
+    if (urlTab === 'units') return 'UNITS';
 
-    if (isRestaurantEnabled) return 'RESTAURANT_INVENTORY';
-    if (isHotelEnabled) return 'HOTEL_INVENTORY';
-    return 'PURCHASES';
+    // Legacy department query params
+    if (urlDept === 'RESTAURANT' && isRestaurantEnabled) return 'ITEMS';
+    if (urlDept === 'HOTEL' && isHotelEnabled) return 'ITEMS';
+
+    return 'OVERVIEW';
   };
 
   const [activeTab, setActiveTab] = useState<InventoryTab>(computeActiveTab);
+  const [selectedDept, setSelectedDept] = useState<'RESTAURANT' | 'HOTEL'>(
+    isRestaurantEnabled ? 'RESTAURANT' : 'HOTEL'
+  );
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
 
   // Sync tab when search params or module setup change
   useEffect(() => {
     setActiveTab(computeActiveTab());
+    if (urlDept === 'RESTAURANT' || urlDept === 'HOTEL') {
+      setSelectedDept(urlDept as 'RESTAURANT' | 'HOTEL');
+    }
   }, [urlDept, urlTab, isHotelEnabled, isRestaurantEnabled, isTransfersEnabled]);
 
   // Core Data
@@ -105,33 +133,69 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
   // Handle Tab Change
   const handleTabSelect = (tab: InventoryTab) => {
     setActiveTab(tab);
-    if (tab === 'RESTAURANT_INVENTORY') {
-      router.push('/inventory?dept=RESTAURANT');
-    } else if (tab === 'HOTEL_INVENTORY') {
-      router.push('/inventory?dept=HOTEL');
-    } else if (tab === 'PURCHASES') {
-      router.push('/inventory?tab=purchases');
-    } else if (tab === 'SUPPLIERS') {
-      router.push('/inventory?tab=suppliers');
-    } else if (tab === 'STOCK_TRANSFERS') {
-      router.push('/inventory?tab=transfers');
+    switch (tab) {
+      case 'OVERVIEW':
+        router.push('/inventory?tab=overview');
+        break;
+      case 'ITEMS':
+        router.push(`/inventory?tab=items&dept=${selectedDept}`);
+        break;
+      case 'PURCHASE_LEDGER':
+        router.push('/inventory?tab=purchase-ledger');
+        break;
+      case 'STOCK_MOVEMENTS':
+        router.push('/inventory?tab=stock-movements');
+        break;
+      case 'SUPPLIERS':
+        router.push('/inventory?tab=suppliers');
+        break;
+      case 'RECEIVE_STOCK':
+        router.push('/inventory?tab=receive-stock');
+        break;
+      case 'STOCK_ADJUSTMENT':
+        router.push('/inventory?tab=stock-adjustments');
+        break;
+      case 'STOCK_TRANSFERS':
+        router.push('/inventory?tab=transfers');
+        break;
+      case 'CATEGORIES':
+        router.push('/inventory?tab=categories');
+        break;
+      case 'UNITS':
+        router.push('/inventory?tab=units');
+        break;
+      default:
+        router.push('/inventory?tab=overview');
+        break;
     }
   };
 
   const activeNavId = useMemo(() => {
     switch (activeTab) {
+      case 'OVERVIEW':
+        return 'overview';
+      case 'ITEMS':
       case 'RESTAURANT_INVENTORY':
-        return 'restaurant-inventory';
       case 'HOTEL_INVENTORY':
-        return 'hotel-inventory';
-      case 'PURCHASES':
-        return 'purchases';
+        return 'items';
+      case 'PURCHASE_LEDGER':
+        return 'purchase-ledger';
+      case 'STOCK_MOVEMENTS':
+        return 'stock-movements';
       case 'SUPPLIERS':
         return 'suppliers';
+      case 'RECEIVE_STOCK':
+        return 'receive-stock';
+      case 'STOCK_ADJUSTMENT':
+        return 'stock-adjustments';
       case 'STOCK_TRANSFERS':
         return 'stock-transfers';
+      case 'CATEGORIES':
+        return 'categories';
+      case 'UNITS':
+        return 'units';
       default:
-        return 'restaurant-inventory';
+        return 'overview';
     }
   }, [activeTab]);
 
@@ -147,28 +211,33 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
   );
 
   return (
-    <div className="space-y-6 select-none max-w-7xl mx-auto pb-12">
+    <div className="space-y-4 select-none w-full min-w-0 pb-12 font-sans">
       {/* =====================================================================
-          TOP INVENTORY NAVIGATION BOXES (MATCHING RESTAURANT & HOTEL PATTERN)
+          TOP INVENTORY NAVIGATION (10 ORGANIZED MODULES)
           ===================================================================== */}
       <InventoryNavBoxes
         activeId={activeNavId}
         counts={counts}
         onSelectOption={(navId) => {
-          if (navId === 'restaurant-inventory') handleTabSelect('RESTAURANT_INVENTORY');
-          else if (navId === 'hotel-inventory') handleTabSelect('HOTEL_INVENTORY');
-          else if (navId === 'purchases') handleTabSelect('PURCHASES');
+          if (navId === 'overview') handleTabSelect('OVERVIEW');
+          else if (navId === 'items') handleTabSelect('ITEMS');
+          else if (navId === 'purchase-ledger') handleTabSelect('PURCHASE_LEDGER');
+          else if (navId === 'stock-movements') handleTabSelect('STOCK_MOVEMENTS');
           else if (navId === 'suppliers') handleTabSelect('SUPPLIERS');
+          else if (navId === 'receive-stock') handleTabSelect('RECEIVE_STOCK');
+          else if (navId === 'stock-adjustments') handleTabSelect('STOCK_ADJUSTMENT');
           else if (navId === 'stock-transfers') handleTabSelect('STOCK_TRANSFERS');
+          else if (navId === 'categories') handleTabSelect('CATEGORIES');
+          else if (navId === 'units') handleTabSelect('UNITS');
         }}
       />
 
       {/* =====================================================================
-          VIEW SWITCHER
+          VIEW 1: INVENTORY OVERVIEW (MAIN COMPREHENSIVE TABLE)
           ===================================================================== */}
-      {activeTab === 'RESTAURANT_INVENTORY' && isRestaurantEnabled && (
+      {activeTab === 'OVERVIEW' && (
         <DepartmentInventoryView
-          department="RESTAURANT"
+          department="ALL"
           items={items}
           suppliers={suppliers}
           loading={loading}
@@ -176,9 +245,12 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
         />
       )}
 
-      {activeTab === 'HOTEL_INVENTORY' && isHotelEnabled && (
+      {/* =====================================================================
+          VIEW 2: INVENTORY ITEMS
+          ===================================================================== */}
+      {activeTab === 'ITEMS' && (
         <DepartmentInventoryView
-          department="HOTEL"
+          department="ALL"
           items={items}
           suppliers={suppliers}
           loading={loading}
@@ -186,7 +258,40 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
         />
       )}
 
-      {activeTab === 'PURCHASES' && (
+      {/* =====================================================================
+          VIEW 3: ITEM PURCHASE LEDGER (PURCHASE HISTORY)
+          ===================================================================== */}
+      {activeTab === 'PURCHASE_LEDGER' && (
+        <ItemPurchaseLedgerView
+          items={items}
+          suppliers={suppliers}
+        />
+      )}
+
+      {/* =====================================================================
+          VIEW 4: STOCK MOVEMENT LEDGER
+          ===================================================================== */}
+      {activeTab === 'STOCK_MOVEMENTS' && (
+        <StockMovementLedgerView
+          items={items}
+        />
+      )}
+
+      {/* =====================================================================
+          VIEW 5: SUPPLIERS DIRECTORY
+          ===================================================================== */}
+      {activeTab === 'SUPPLIERS' && (
+        <SuppliersView
+          suppliers={suppliers}
+          loading={loading}
+          onRefresh={loadData}
+        />
+      )}
+
+      {/* =====================================================================
+          VIEW 6: RECEIVE STOCK (SIMPLE & FULL DETAILS PURCHASES)
+          ===================================================================== */}
+      {activeTab === 'RECEIVE_STOCK' && (
         <PurchasesView
           purchases={purchases}
           items={items}
@@ -196,14 +301,49 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
         />
       )}
 
-      {activeTab === 'SUPPLIERS' && (
-        <SuppliersView
-          suppliers={suppliers}
-          loading={loading}
-          onRefresh={loadData}
-        />
+      {/* =====================================================================
+          VIEW 7: STOCK ADJUSTMENT
+          ===================================================================== */}
+      {activeTab === 'STOCK_ADJUSTMENT' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-[#071F1A] border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            <div>
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                Stock Adjustments & Corrections
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Record physical counts, damaged stock, expiry, wastage or manual increases/decreases.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAdjustmentModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[3px] bg-[#DC2626] hover:bg-[#b91c1c] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Record Stock Adjustment</span>
+            </button>
+          </div>
+
+          <StockMovementLedgerView
+            items={items}
+          />
+
+          <StockAdjustmentModal
+            isOpen={isAdjustmentModalOpen}
+            onClose={() => setIsAdjustmentModalOpen(false)}
+            items={items}
+            onSuccess={() => {
+              loadData();
+              setIsAdjustmentModalOpen(false);
+            }}
+          />
+        </div>
       )}
 
+      {/* =====================================================================
+          VIEW 8: STOCK TRANSFER
+          ===================================================================== */}
       {activeTab === 'STOCK_TRANSFERS' && isTransfersEnabled && (
         <StockTransfersView
           transfers={transfers}
@@ -211,6 +351,27 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
           isTransfersEnabled={isTransfersEnabled}
           loading={loading}
           onRefresh={loadData}
+        />
+      )}
+
+      {/* =====================================================================
+          VIEW 9: INVENTORY CATEGORIES
+          ===================================================================== */}
+      {activeTab === 'CATEGORIES' && (
+        <CategoriesView
+          items={items}
+          onSelectCategory={(cat) => {
+            handleTabSelect('OVERVIEW');
+          }}
+        />
+      )}
+
+      {/* =====================================================================
+          VIEW 10: UNITS OF MEASUREMENT
+          ===================================================================== */}
+      {activeTab === 'UNITS' && (
+        <UnitsOfMeasurementView
+          items={items}
         />
       )}
     </div>

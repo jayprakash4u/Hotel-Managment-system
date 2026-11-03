@@ -31,6 +31,9 @@ public class InventoryItem : BaseEntity
     }
 
     public string Unit { get; set; } = "pieces"; // pieces, bottles, kg, boxes, sets
+    public string? PurchaseUnit { get; set; } // carton, case, crate, bag
+    public double ConversionFactor { get; set; } = 1.0; // e.g. 1 carton = 24 bottles, factor = 24.0
+
     public double CostPerUnit { get; set; }
 
     [NotMapped]
@@ -43,6 +46,36 @@ public class InventoryItem : BaseEntity
     public string? SupplierId { get; set; }
     public Supplier? Supplier { get; set; }
     public DateTime LastRestocked { get; set; } = DateTime.UtcNow;
+
+    [NotMapped]
+    public int? PreviousStock { get; set; }
+
+    [NotMapped]
+    public int? RecentlyAddedStock { get; set; }
+
+    [NotMapped]
+    public DateTime? PreviousPurchaseDate { get; set; }
+
+    [NotMapped]
+    public DateTime? LastPurchaseDate { get; set; }
+
+    [NotMapped]
+    public string? LastPurchaseQuantity { get; set; }
+
+    [NotMapped]
+    public double? PreviousPurchaseAmount { get; set; }
+
+    [NotMapped]
+    public double? LastPurchaseAmount { get; set; }
+
+    [NotMapped]
+    public double TotalPurchaseAmount { get; set; }
+
+    [NotMapped]
+    public string? LastSupplierName { get; set; }
+
+    [NotMapped]
+    public string StockStatus { get; set; } = "IN_STOCK";
 
     public ICollection<StockMovement> Movements { get; set; } = new List<StockMovement>();
 }

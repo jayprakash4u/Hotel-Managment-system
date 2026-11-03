@@ -58,7 +58,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-4">
+    <div className="w-full min-w-0 space-y-4 pb-4">
       {/* Top Module Switcher Bar (only visible when both modules are enabled and on hotel dashboard) */}
       {isHotelEnabled && isRestaurantEnabled && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] shadow-xs">
