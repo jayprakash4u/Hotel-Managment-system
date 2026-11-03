@@ -13,6 +13,7 @@ import {
   Boxes,
   Zap,
   FileText,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -116,6 +117,16 @@ export const RESTAURANT_MANAGEMENT_OPTIONS: RestaurantManagementSubOption[] = [
     badge: 'Invoicing',
     description: 'Shared billing history, invoices & settlements',
   },
+  {
+    id: 'restaurant-setup',
+    name: 'Restaurant Setup',
+    href: '/hotel?category=restaurant-setup',
+    icon: Building2,
+    iconColor: 'text-[#DC2626] dark:text-[#EF4444]',
+    tag: 'SETUP',
+    badge: 'Master',
+    description: 'Food categories, products, dining tables & portion rates',
+  },
 ];
 
 export const RestaurantManagementNavBoxes: React.FC<{
@@ -127,7 +138,7 @@ export const RestaurantManagementNavBoxes: React.FC<{
 
   return (
     <div className={cn('select-none', className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2 sm:gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-10 gap-2 sm:gap-2.5">
         {RESTAURANT_MANAGEMENT_OPTIONS.map((item) => {
           const Icon = item.icon;
           const isExplicitActive = activeId ? activeId === item.id : false;
@@ -140,6 +151,7 @@ export const RestaurantManagementNavBoxes: React.FC<{
               (item.id === 'menu' && pathname.startsWith('/menu')) ||
               (item.id === 'inventory' && pathname.startsWith('/inventory')) ||
               (item.id === 'billing' && pathname.startsWith('/billing')) ||
+              (item.id === 'restaurant-setup' && pathname === '/hotel') ||
               (item.id === 'dashboard' && pathname === '/'));
           const isActive = isExplicitActive || isRouteActive;
 

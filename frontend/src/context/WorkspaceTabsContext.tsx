@@ -59,6 +59,16 @@ export function getTabInfoForUrl(
     return { id: '/reports', path: '/reports', title: 'Hotel Reports', iconName: 'BarChart3', closable: true };
   }
 
+  if (pathname === '/hotel') {
+    if (search.includes('category=restaurant-setup')) {
+      return { id: '/hotel?category=restaurant-setup', path: fullPath, title: 'Restaurant Setup', iconName: 'Building2', closable: true };
+    }
+    if (search.includes('category=room-setup')) {
+      return { id: '/hotel?category=room-setup', path: fullPath, title: 'Hotel Setup', iconName: 'Building2', closable: true };
+    }
+    return { id: '/hotel', path: fullPath, title: 'Master Setup', iconName: 'Building2', closable: true };
+  }
+
   // Exact known routes
   const MAP: Record<string, { title: string; iconName: string; closable?: boolean }> = {
     '/': { title: 'Dashboard', iconName: 'LayoutDashboard', closable: false },

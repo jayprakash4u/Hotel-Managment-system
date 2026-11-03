@@ -8,7 +8,7 @@ import HotelSetupContent from './HotelSetupContent';
 
 function HotelSetupPageInner() {
   const searchParams = useSearchParams();
-  const categoryParam = searchParams.get('category') || 'room-setup';
+  const categoryParam = searchParams.get('category') || 'general';
   const subParam = searchParams.get('sub') || null;
 
   return (

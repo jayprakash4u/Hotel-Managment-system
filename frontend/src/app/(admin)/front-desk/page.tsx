@@ -65,6 +65,7 @@ import {
 import { GuidedBookingModal } from '@/components/business/GuidedBookingModal';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { getSettedMenuItems, MenuItemCatalogEntry } from '@/lib/menuData';
+import { RoomActionsDropdown } from '@/components/hotel/RoomActionsModal';
 
 interface FrontDeskRoom {
   id: string;
@@ -1027,7 +1028,7 @@ function FrontDeskContent() {
                         )}
                       >
                         <div className="min-w-0 flex-1 pr-1.5">
-                          <div className="flex items-baseline gap-1.5">
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
                             <span
                               className={cn(
                                 'font-mono text-xl sm:text-2xl font-black tracking-tight',
@@ -1038,12 +1039,19 @@ function FrontDeskContent() {
                             </span>
                             <span
                               className={cn(
-                                'text-[10px] font-semibold uppercase tracking-wider',
-                                isDarkCard ? 'text-white/80' : 'text-muted dark:text-muted'
+                                'text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-[3px]',
+                                isDarkCard
+                                  ? 'bg-white/15 text-white/90'
+                                  : 'bg-surface-muted text-muted dark:bg-slate-800 dark:text-slate-300'
                               )}
                             >
                               Fl {room.floor}
                             </span>
+                            {isDirty && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                                Dirty
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -1082,27 +1090,50 @@ function FrontDeskContent() {
                             )}
                           </div>
 
-                          {/* 3-DOTS OPTION TRIGGER BUTTON */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
-                            }}
-                            className={cn(
-                              'w-6 h-6 flex items-center justify-center rounded-[3px] border transition-colors cursor-pointer',
-                              isDarkCard
-                                ? openOptionMenuId === room.id
-                                  ? 'border-white bg-white text-[#0B3D32]'
-                                  : 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
-                                : openOptionMenuId === room.id
-                                ? 'bg-white bg-brand text-white dark:border-success dark:bg-success'
-                                : 'text-muted group-hover:text-brand group-hover:bg-surface-hover dark:text-muted dark:group-hover:bg-surface-hover'
+                          {/* 3-DOTS OPTION TRIGGER BUTTON & Attached Contextual Dropdown */}
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
+                              }}
+                              className={cn(
+                                'w-6 h-6 flex items-center justify-center rounded-[3px] border transition-colors cursor-pointer',
+                                isDarkCard
+                                  ? openOptionMenuId === room.id
+                                    ? 'border-white bg-white text-[#0B3D32]'
+                                    : 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
+                                  : openOptionMenuId === room.id
+                                  ? 'bg-white bg-brand text-white dark:border-success dark:bg-success'
+                                  : 'text-muted group-hover:text-brand group-hover:bg-surface-hover dark:text-muted dark:group-hover:bg-surface-hover'
+                              )}
+                              title={`Room ${room.number} Contextual Options`}
+                              aria-label={`Room ${room.number} Options`}
+                            >
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            </button>
+
+                            {openOptionMenuId === room.id && (
+                              <RoomActionsDropdown
+                                room={room}
+                                status={status}
+                                activeBooking={activeBooking}
+                                selectedDate={selectedDate}
+                                onClose={() => setOpenOptionMenuId(null)}
+                                onBookNow={(r) => handleQuickBookRoom(r as FrontDeskRoom)}
+                                onWalkInCheckIn={(r) => router.push(`/check-in?roomId=${r.id}&mode=walk-in`)}
+                                onCheckInGuest={(b) => router.push(`/check-in?bookingId=${b.id}`)}
+                                onCheckOutGuest={(b) => handleOpenCheckOutModal(b)}
+                                onAddRoomService={(b) => handleOpenAddFoodModal(b)}
+                                onViewFolio={(b) => handleOpenFolioDrawer(b)}
+                                onUpdateCleaningStatus={(roomId, cStatus) =>
+                                  handleSetCleaningStatus(roomId, cStatus === 'CLEAN' ? 'CLEAN' : 'DIRTY')
+                                }
+                                onToggleMaintenance={(roomId) => handleToggleMaintenance(roomId)}
+                              />
                             )}
-                            title={`Room ${room.number} Options`}
-                          >
-                            <MoreVertical className="w-3.5 h-3.5" />
-                          </button>
+                          </div>
                         </div>
                       </div>
 
@@ -1309,254 +1340,6 @@ function FrontDeskContent() {
                         )}
                       </div>
                     </div>
-
-                    {/* Floating Dropdown Menu (Anchored under 3-dots button, simple & professional) */}
-                    {openOptionMenuId === room.id && (
-                      <>
-                        {/* Transparent Backdrop to close on outside click */}
-                        <div
-                          className="fixed inset-0 z-40 cursor-default bg-transparent"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenOptionMenuId(null);
-                          }}
-                        />
-
-                        {/* Floating Dropdown anchored right below 3-dots button */}
-                        <div
-                          className="absolute right-2.5 top-10 z-50 w-48 rounded-md border border-border-default dark:border-border-default bg-surface-card dark:bg-surface-card shadow-xl py-1 text-xs select-none animate-in fade-in-0 zoom-in-95 duration-100"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {/* Active Guest Info Header when room has guest */}
-                          {activeBooking && (
-                            <div className="px-3 py-1.5 border-b border-slate-100 dark:border-border-default bg-slate-50 dark:bg-slate-900/50">
-                              <div className="font-bold text-slate-800 dark:text-slate-100 truncate">
-                                {activeBooking.guest.firstName} {activeBooking.guest.lastName}
-                              </div>
-                              <div className="text-[10px] text-muted dark:text-muted">
-                                {status === 'ARRIVING'
-                                  ? `Arrives: ${formatDate(activeBooking.checkIn)}`
-                                  : `Departs: ${formatDate(activeBooking.checkOut)}`}
-                              </div>
-                            </div>
-                          )}
-                          {/* Front Desk Actions based on room state */}
-                          {isAvailable && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenOptionMenuId(null);
-                                  handleQuickBookRoom(room);
-                                }}
-                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                              >
-                                <Plus className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                                <span>Book Room</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenOptionMenuId(null);
-                                  router.push(`/check-in?roomId=${room.id}&mode=walk-in`);
-                                }}
-                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                              >
-                                <UserCheck className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                                <span>Walk-in Check In</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenOptionMenuId(null);
-                                  toast.info(
-                                    `Room ${room.number} is Available`,
-                                    `Check in a guest first before ordering room service.`
-                                  );
-                                }}
-                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                              >
-                                <Utensils className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                                <span>Add Order</span>
-                              </button>
-                            </>
-                          )}
-
-                          {isBooked && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenOptionMenuId(null);
-                                  if (activeBooking) {
-                                    router.push(`/check-in?bookingId=${activeBooking.id}`);
-                                  }
-                                }}
-                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                              >
-                                <UserCheck className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                                <span>Check In Guest</span>
-                              </button>
-                              {activeBooking && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenOptionMenuId(null);
-                                    handleOpenAddFoodModal(activeBooking);
-                                  }}
-                                  className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                                >
-                                  <Utensils className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                  <span>Add Order</span>
-                                </button>
-                              )}
-                            </>
-                          )}
-
-                          {isOccupied && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenOptionMenuId(null);
-                                  const targetBooking =
-                                    activeBooking ||
-                                    bookings.find(
-                                      (b) =>
-                                        b.room.number === room.number &&
-                                        (b.status === 'CHECKED_IN' || b.status === 'RESERVED')
-                                    );
-                                  if (targetBooking) {
-                                    handleOpenAddFoodModal(targetBooking);
-                                  }
-                                }}
-                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                              >
-                                <Utensils className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                <span>Add Order</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenOptionMenuId(null);
-                                  if (activeBooking) {
-                                    handleOpenCheckOutModal(activeBooking);
-                                  }
-                                }}
-                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                              >
-                                <LogOut className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                                <span>Check Out</span>
-                              </button>
-                            </>
-                          )}
-
-                          {/* View Folio (Arriving or Occupied with active booking) */}
-                          {activeBooking && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenOptionMenuId(null);
-                                handleOpenFolioDrawer(activeBooking);
-                              }}
-                              className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                            >
-                              <Receipt className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                              <span>View Folio</span>
-                            </button>
-                          )}
-
-                          {/* Divider */}
-                          <div className="my-1 border-t border-slate-100 dark:border-border-default" />
-
-                          {/* Housekeeping Actions */}
-                          {(() => {
-                            const isRoomClean = room.cleaningStatus === 'CLEAN';
-                            const isRoomDirty = room.cleaningStatus === 'DIRTY';
-
-                            return (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={isRoomClean}
-                                  aria-disabled={isRoomClean}
-                                  onClick={(e) => {
-                                    if (isRoomClean) {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      return;
-                                    }
-                                    setOpenOptionMenuId(null);
-                                    handleSetCleaningStatus(room.id, 'CLEAN');
-                                  }}
-                                  className={cn(
-                                    'w-full px-3 py-1.5 flex items-center justify-between text-left text-xs font-medium transition-colors',
-                                    isRoomClean
-                                      ? 'text-muted dark:text-muted cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
-                                      : 'text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer'
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <Sparkles className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                                    <span>Mark Clean</span>
-                                  </div>
-                                  {isRoomClean && (
-                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
-                                  )}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  disabled={isRoomDirty}
-                                  aria-disabled={isRoomDirty}
-                                  onClick={(e) => {
-                                    if (isRoomDirty) {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      return;
-                                    }
-                                    setOpenOptionMenuId(null);
-                                    handleSetCleaningStatus(room.id, 'DIRTY');
-                                  }}
-                                  className={cn(
-                                    'w-full px-3 py-1.5 flex items-center justify-between text-left text-xs font-medium transition-colors',
-                                    isRoomDirty
-                                      ? 'text-muted dark:text-muted cursor-not-allowed bg-slate-50/70 dark:bg-slate-800/40 select-none opacity-60'
-                                      : 'text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer'
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <AlertCircle className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                                    <span>Mark Dirty</span>
-                                  </div>
-                                  {isRoomDirty && (
-                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">✓</span>
-                                  )}
-                                </button>
-                              </>
-                            );
-                          })()}
-
-                          {/* Maintenance Actions */}
-                          {(isAvailable || isMaintenance) && (
-                            <>
-                              <div className="my-1 border-t border-slate-100 dark:border-border-default" />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenOptionMenuId(null);
-                                  handleToggleMaintenance(room.id);
-                                }}
-                                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-xs font-medium text-muted dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                              >
-                                <Wrench className="w-3.5 h-3.5 text-muted dark:text-muted" />
-                                <span>{isMaintenance ? 'End Maintenance' : 'Out of Service'}</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </>
-                    )}
                   </div>
                 );
               })}

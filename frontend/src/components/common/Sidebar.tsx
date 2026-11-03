@@ -126,6 +126,14 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     tag: 'CLEAN',
     description: 'Room cleaning tasks, maid assignments & inspections',
   },
+  {
+    id: 'hotel-setup',
+    name: 'Hotel Setup',
+    href: '/hotel?category=room-setup',
+    icon: Building2,
+    tag: 'SETUP',
+    description: 'Hotel room types, room numbers, floors, facilities & rates',
+  },
 ];
 
 export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
@@ -185,6 +193,14 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     tag: 'MENU',
     description: 'Food & drinks catalog, portion rates & categories',
   },
+  {
+    id: 'restaurant-setup',
+    name: 'Restaurant Setup',
+    href: '/hotel?category=restaurant-setup',
+    icon: Building2,
+    tag: 'SETUP',
+    description: 'Food categories, products setup, table sections & portion rates',
+  },
 ];
 
 const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [];
@@ -199,7 +215,7 @@ export const SHARED_QUICK_MODULES = [
   {
     id: 'master-setup',
     name: 'Master Setup',
-    href: '/hotel',
+    href: '/hotel?category=general',
     icon: Building2,
   },
   {
@@ -445,8 +461,11 @@ export const Sidebar: React.FC<{
     if (item.id === 'housekeeping') {
       return pathname === '/housekeeping';
     }
-    if (item.id === 'room-setup') {
-      return pathname === '/hotel' || pathname.startsWith('/hotel') || pathname === '/rooms';
+    if (item.id === 'hotel-setup' || item.id === 'room-setup') {
+      return (pathname === '/hotel' && (currentSearch.includes('category=room-setup') || !currentSearch || currentSearch === '')) || pathname === '/rooms';
+    }
+    if (item.id === 'restaurant-setup') {
+      return pathname === '/hotel' && currentSearch.includes('category=restaurant-setup');
     }
     if (item.id === 'hotel-inventory') {
       return pathname.startsWith('/inventory') && (currentSearch.includes('dept=HOTEL') || currentSearch.includes('filter=hotel'));
@@ -705,7 +724,7 @@ export const Sidebar: React.FC<{
                 type="button"
                 onClick={() => setIsQuickLauncherOpen((prev) => !prev)}
                 title="Shared Modules & Master Setup"
-                aria-label="Shared Modules"
+                aria-label="Shared Modules & Master Setup"
                 className={cn(
                   'flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-[4px] border transition-all cursor-pointer shadow-2xs group',
                   isQuickLauncherOpen

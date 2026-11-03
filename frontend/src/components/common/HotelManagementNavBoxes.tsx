@@ -134,7 +134,7 @@ export const HOTEL_MANAGEMENT_OPTIONS: HotelManagementSubOption[] = [
   },
   {
     id: 'room-setup',
-    name: 'Room Setup',
+    name: 'Hotel Setup',
     href: '/hotel?category=room-setup',
     icon: Building2,
     iconColor: 'text-[#DC2626] dark:text-[#EF4444]',

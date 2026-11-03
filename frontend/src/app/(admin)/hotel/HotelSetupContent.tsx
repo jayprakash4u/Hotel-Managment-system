@@ -1953,6 +1953,22 @@ export default function HotelSetupContent({
   const activeCategory =
     MASTER_CATEGORIES.find((cat) => cat.id === selectedCategoryId) || MASTER_CATEGORIES[0];
 
+  // Categories to display in top row:
+  // - In Master Setup (from Shared Modules): ONLY General Master and Employee & Staff Setup (the other 2 belong to Hotel and Restaurant sidebars)
+  // - In Hotel Setup (from Hotel sidebar): Hotel & Room Setup
+  // - In Restaurant Setup (from Restaurant sidebar): Restaurant Setup
+  const displayedCategories = useMemo(() => {
+    if (initialCategory === 'room-setup' || selectedCategoryId === 'room-setup') {
+      return MASTER_CATEGORIES.filter((cat) => cat.id === 'room-setup');
+    }
+    if (initialCategory === 'restaurant-setup' || selectedCategoryId === 'restaurant-setup') {
+      return MASTER_CATEGORIES.filter((cat) => cat.id === 'restaurant-setup');
+    }
+    return MASTER_CATEGORIES.filter(
+      (cat) => cat.id === 'general' || cat.id === 'employee-setup'
+    );
+  }, [initialCategory, selectedCategoryId]);
+
   // Clean title for current category
   const categoryHeaderTitle = useMemo(() => {
     return activeCategory.name;
@@ -2517,7 +2533,7 @@ export default function HotelSetupContent({
           Full width above the straight line!
          ========================================================================= */}
       <div className="shrink-0 flex flex-wrap items-center gap-2 sm:gap-2.5">
-        {MASTER_CATEGORIES.map((item) => {
+        {displayedCategories.map((item) => {
           const Icon = item.icon;
           const isSelected = selectedCategoryId === item.id;
 
