@@ -21,7 +21,6 @@ import {
   ShoppingBag,
   Armchair,
 } from 'lucide-react';
-import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
 import { RestaurantDashboardView } from '@/components/restaurant/RestaurantDashboardView';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -115,20 +114,7 @@ function KitchenKDSContent() {
 
   return (
     <div className="space-y-6 pb-12 select-none animate-in fade-in duration-150">
-      {/* =====================================================================
-          TOP NAVIGATION BOXES (QUICK HUB MODULES)
-          ===================================================================== */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Restaurant Quick Hub
-          </span>
-          <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 font-bold">
-            Live Kitchen Workflow
-          </span>
-        </div>
-        <RestaurantManagementNavBoxes activeId={activeSection === 'kitchen' ? 'kitchen' : 'restaurant-management'} />
-      </div>
+      
 
       {/* =====================================================================
           KITCHEN DISPLAY SYSTEM (KDS) HEADER & CONTROLS

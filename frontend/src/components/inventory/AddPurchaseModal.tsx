@@ -1,3 +1,4 @@
+import { useMasterOptions, SimpleMasterItem } from '@/lib/mastersData';
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -37,18 +38,6 @@ export interface AddPurchaseModalProps {
   defaultDepartment?: 'HOTEL' | 'RESTAURANT';
 }
 
-const COMMON_UNITS = [
-  'pieces',
-  'bottles',
-  'cans',
-  'kg',
-  'litres',
-  'boxes',
-  'packets',
-  'sets',
-  'rolls',
-  'tins',
-];
 
 const HOTEL_CATEGORIES = [
   { value: 'LINEN', label: 'Bedding & Linens (Purchase Only)' },
@@ -111,6 +100,26 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
   const [quantity, setQuantity] = useState<string>('');
   const [unit, setUnit] = useState<string>('pieces');
   const [totalCost, setTotalCost] = useState<string>('');
+  const { activeItems: masterUnits } = useMasterOptions('units');
+  const dynamicUnits = useMemo(() => {
+    const list: string[] = [];
+    masterUnits.forEach((u: SimpleMasterItem) => {
+      if (u.name && !list.includes(u.name)) list.push(u.name);
+    });
+    if (itemsList) {
+      itemsList.forEach((it: InventoryItemOption) => {
+        if (it.unit && !list.includes(it.unit)) list.push(it.unit);
+      });
+    }
+    const fallbacks = ['pieces', 'bottles', 'cans', 'kg', 'litres', 'boxes', 'packets', 'cartons', 'sets'];
+    fallbacks.forEach((f) => {
+      if (!list.some((existing) => existing.toLowerCase() === f.toLowerCase())) {
+        list.push(f);
+      }
+    });
+    return list;
+  }, [masterUnits, itemsList]);
+
   const [supplierId, setSupplierId] = useState<string>('');
   const [purchaseDate, setPurchaseDate] = useState<string>(getTodayDate());
   const [invoiceNumber, setInvoiceNumber] = useState<string>('');
@@ -329,7 +338,6 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Add Purchase"
-      description="Record supplier deliveries for resale products or business expense supplies"
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -354,7 +362,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
             )}
           >
             <Package className="w-3.5 h-3.5" />
-            Select Existing Item
+            Existing
           </button>
           <button
             type="button"
@@ -367,7 +375,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
             )}
           >
             <Plus className="w-3.5 h-3.5" />
-            Create New Item
+            New
           </button>
         </div>
 
@@ -475,44 +483,13 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
 
             {/* Item Configuration Banner */}
             {selectedItem && (
-              <div
-                className={cn(
-                  'p-3 rounded-xl border text-xs flex items-start gap-3',
-                  selectedItem.trackStock !== false
-                    ? 'bg-success-subtle border-success text-success dark:bg-success-subtle dark:border-success dark:text-success'
-                    : 'bg-info-subtle border-info text-info dark:bg-info-subtle dark:border-info dark:text-info'
-                )}
-              >
-                {selectedItem.trackStock !== false ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-success dark:text-success shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <div className="font-bold flex items-center gap-2">
-                        <span>Resale Product (Stock Tracked)</span>
-                        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white dark:bg-emerald-950 font-bold border border-emerald-300 dark:border-emerald-700">
-                          Current Stock: {selectedItem.currentStock} {selectedItem.unit}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-success dark:text-success/80">
-                        Saving this purchase will increase stock to{' '}
-                        <strong className="font-mono">
-                          {selectedItem.currentStock + (parseFloat(quantity) || 0)} {selectedItem.unit}
-                        </strong>{' '}
-                        and automatically deduct stock when sold via POS orders.
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <FileText className="w-4 h-4 text-info dark:text-info shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <div className="font-bold">Purchase History Only (No Stock Balance)</div>
-                      <p className="text-[11px] text-info dark:text-info/80">
-                        This item records purchase expenses and supplier invoices without maintaining stock quantities or stock deductions.
-                      </p>
-                    </div>
-                  </>
-                )}
+              <div className="flex items-center justify-between text-xs px-3 py-2 rounded-lg bg-surface-muted dark:bg-surface-card border border-border-default">
+                <span className="text-muted">
+                  Current Stock: <strong className="font-mono text-body">{selectedItem.currentStock} {selectedItem.unit}</strong>
+                </span>
+                <span className="text-[10px] font-semibold text-muted">
+                  {selectedItem.trackStock !== false ? 'Stock Tracked' : 'Purchase Only'}
+                </span>
               </div>
             )}
           </div>
@@ -671,7 +648,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
               step="any"
               min="0.01"
               required
-              placeholder="e.g. 24 or 5.5"
+              placeholder="0"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
             />
@@ -684,13 +661,13 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
                 <input
                   list="unit-suggestions"
                   required
-                  placeholder="e.g. bottles, kg, cans, pieces"
+                  placeholder="Select or enter unit"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:ring-1 focus-ring-[var(--brand-primary)]"
                 />
                 <datalist id="unit-suggestions">
-                  {COMMON_UNITS.map((u) => (
+                  {dynamicUnits.map((u) => (
                     <option key={u} value={u} />
                   ))}
                 </datalist>
@@ -744,7 +721,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
 
             <Input
               label="Invoice / Bill Number (Optional)"
-              placeholder="e.g. INV-2026-904"
+              placeholder="Invoice #"
               value={invoiceNumber}
               onChange={(e) => setInvoiceNumber(e.target.value)}
             />
@@ -753,18 +730,7 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
 
         {/* Modal Footer */}
         <div className="pt-3 border-t border-border-default dark:border-border-default flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-500">
-            {isResaleTracked ? (
-              <span className="text-success dark:text-success font-medium">
-                Stock balance will increase by {parseFloat(quantity) || 0} {unit}
-              </span>
-            ) : (
-              <span className="text-muted">
-                Purchase record only · No stock deduction or balance
-              </span>
-            )}
-          </div>
-
+          <div></div>
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
               Cancel
@@ -774,9 +740,8 @@ export const AddPurchaseModal: React.FC<AddPurchaseModalProps> = ({
               variant="primary"
               size="sm"
               isLoading={isSubmitting}
-              leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
             >
-              {isResaleTracked ? 'Save Purchase & Update Stock' : 'Save Purchase Record'}
+              Save
             </Button>
           </div>
         </div>

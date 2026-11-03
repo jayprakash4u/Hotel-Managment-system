@@ -135,118 +135,87 @@ export const TableBookingDetailsModal: React.FC<TableBookingDetailsModalProps> =
     }
   };
 
-  const fetchBookings = async () => {
+  const fetchTableData = async () => {
     if (!table?.id) {
       setBookings([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await api.getTableReservations({
-        tableId: table.id,
-      });
-      if (Array.isArray(data)) {
-        // Exclude completed, cancelled, and no-show bookings from active selected date list
-        const filtered = data.filter((r) => {
-          if (r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW') return false;
-          if (r.tableId && r.tableId !== table.id) return false;
-          const rDate = normalizeDate(r.reservationDate);
-          return !rDate || rDate === selectedDate;
-        });
-        filtered.sort((a, b) => (a.reservationTime || '').localeCompare(b.reservationTime || ''));
-        setBookings(filtered);
-      } else if (table.upcomingReservations) {
-        const clientFiltered = table.upcomingReservations.filter((r: any) => {
-          if (r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW') return false;
-          const rDate = normalizeDate(r.reservationDate);
-          return rDate === selectedDate;
-        });
-        clientFiltered.sort((a: any, b: any) => (a.reservationTime || '').localeCompare(b.reservationTime || ''));
-        setBookings(clientFiltered);
-      }
-    } catch (err) {
-      console.error('Failed to fetch table bookings', err);
-      if (table.upcomingReservations) {
-        const clientFiltered = table.upcomingReservations.filter((r: any) => {
-          if (r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW') return false;
-          const rDate = normalizeDate(r.reservationDate);
-          return rDate === selectedDate;
-        });
-        clientFiltered.sort((a: any, b: any) => (a.reservationTime || '').localeCompare(b.reservationTime || ''));
-        setBookings(clientFiltered);
-      } else {
-        setBookings([]);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchHistory = async () => {
-    if (!table?.id) {
       setHistoryBookings([]);
       return;
     }
+    setLoading(true);
     setHistoryLoading(true);
     try {
       const data = await api.getTableReservations({
         tableId: table.id,
       });
       if (Array.isArray(data)) {
-        // Keep past history: completed/cancelled/no-show on any date (including today), plus any past dates
-        const past = data.filter((r) => {
-          if (r.tableId && r.tableId !== table.id) return false;
-          const rDate = normalizeDate(r.reservationDate);
-          const isTerminal = r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW';
-          const isPastDate = Boolean(rDate && selectedDate && rDate < selectedDate);
-          return isTerminal || isPastDate;
-        });
-        past.sort((a, b) => {
-          const dComp = (normalizeDate(b.reservationDate) || '').localeCompare(normalizeDate(a.reservationDate) || '');
-          if (dComp !== 0) return dComp;
-          return (b.reservationTime || '').localeCompare(a.reservationTime || '');
-        });
-        setHistoryBookings(past);
-      } else if ((table as any).pastReservations || table.upcomingReservations) {
-        const pool = [...((table as any).pastReservations || []), ...(table.upcomingReservations || [])];
-        const past = pool.filter((r: any) => {
-          const rDate = normalizeDate(r.reservationDate);
-          const isTerminal = r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW';
-          const isPastDate = Boolean(rDate && selectedDate && rDate < selectedDate);
-          return isTerminal || isPastDate;
-        });
-        past.sort((a: any, b: any) => {
-          const dComp = (normalizeDate(b.reservationDate) || '').localeCompare(normalizeDate(a.reservationDate) || '');
-          if (dComp !== 0) return dComp;
-          return (b.reservationTime || '').localeCompare(a.reservationTime || '');
-        });
+        const now = selectedDate ? normalizeDate(selectedDate) : null;
+
+        // Active/upcoming bookings for selected date on this table
+        const upcoming = data
+          .filter((r) => {
+            if (r.tableId && r.tableId !== table.id) return false;
+            if (r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW') return false;
+            const rDate = normalizeDate(r.reservationDate);
+            return !now || rDate === now;
+          })
+          .sort((a, b) => (a.reservationTime || '').localeCompare(b.reservationTime || ''));
+        setBookings(upcoming);
+
+        // History: terminal statuses or past dates
+        const past = data
+          .filter((r) => {
+            if (r.tableId && r.tableId !== table.id) return false;
+            const rDate = normalizeDate(r.reservationDate);
+            const isTerminal = r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW';
+            const isPastDate = Boolean(now && rDate && rDate < now);
+            return isTerminal || isPastDate;
+          })
+          .sort((a, b) => {
+            const dComp = (normalizeDate(b.reservationDate) || '').localeCompare(normalizeDate(a.reservationDate) || '');
+            if (dComp !== 0) return dComp;
+            return (b.reservationTime || '').localeCompare(a.reservationTime || '');
+          });
         setHistoryBookings(past);
       } else {
-        setHistoryBookings([]);
+        const pool = [...(((table as any).pastReservations || []) as any[]), ...(((table as any).upcomingReservations || []) as any[])];
+        const now = selectedDate ? normalizeDate(selectedDate) : null;
+
+        const upcoming = pool
+          .filter((r: any) => {
+            if (r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW') return false;
+            const rDate = normalizeDate(r.reservationDate);
+            return !now || rDate === now;
+          })
+          .sort((a: any, b: any) => (a.reservationTime || '').localeCompare(b.reservationTime || ''));
+        setBookings(upcoming);
+
+        const past = pool
+          .filter((r: any) => {
+            const rDate = normalizeDate(r.reservationDate);
+            const isTerminal = r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW';
+            const isPastDate = Boolean(now && rDate && rDate < now);
+            return isTerminal || isPastDate;
+          })
+          .sort((a: any, b: any) => {
+            const dComp = (normalizeDate(b.reservationDate) || '').localeCompare(normalizeDate(a.reservationDate) || '');
+            if (dComp !== 0) return dComp;
+            return (b.reservationTime || '').localeCompare(a.reservationTime || '');
+          });
+        setHistoryBookings(past);
       }
     } catch (err) {
-      console.error('Failed to fetch table booking history', err);
-      if ((table as any).pastReservations || table.upcomingReservations) {
-        const pool = [...((table as any).pastReservations || []), ...(table.upcomingReservations || [])];
-        const past = pool.filter((r: any) => {
-          const rDate = normalizeDate(r.reservationDate);
-          const isTerminal = r.status === 'COMPLETED' || r.status === 'CANCELLED' || r.status === 'NO_SHOW';
-          const isPastDate = Boolean(rDate && selectedDate && rDate < selectedDate);
-          return isTerminal || isPastDate;
-        });
-        setHistoryBookings(past);
-      } else {
-        setHistoryBookings([]);
-      }
+      console.error('Failed to fetch table bookings', err);
+      setBookings([]);
+      setHistoryBookings([]);
     } finally {
+      setLoading(false);
       setHistoryLoading(false);
     }
   };
 
   useEffect(() => {
     if (isOpen && table?.id) {
-      fetchBookings();
-      fetchHistory();
+      fetchTableData();
     } else if (!isOpen) {
       setBookings([]);
       setHistoryBookings([]);
@@ -265,8 +234,7 @@ export const TableBookingDetailsModal: React.FC<TableBookingDetailsModalProps> =
     try {
       setActionInProgressId(id);
       await onConfirmBooking?.(id);
-      await fetchBookings();
-      await fetchHistory();
+      await fetchTableData();
     } catch (err) {
       console.error('Failed to confirm booking', err);
     } finally {
@@ -278,8 +246,7 @@ export const TableBookingDetailsModal: React.FC<TableBookingDetailsModalProps> =
     try {
       setActionInProgressId(id);
       await onCancelBooking?.(id);
-      await fetchBookings();
-      await fetchHistory();
+      await fetchTableData();
     } catch (err) {
       console.error('Failed to cancel booking', err);
     } finally {
@@ -291,8 +258,7 @@ export const TableBookingDetailsModal: React.FC<TableBookingDetailsModalProps> =
     try {
       setActionInProgressId(id);
       await onMarkNoShow?.(id);
-      await fetchBookings();
-      await fetchHistory();
+      await fetchTableData();
     } catch (err) {
       console.error('Failed to mark no-show', err);
     } finally {
@@ -305,8 +271,7 @@ export const TableBookingDetailsModal: React.FC<TableBookingDetailsModalProps> =
       setActionInProgressId(id);
       await api.updateTableReservationStatus(id, newStatus);
       toast.success('Status Updated', `Booking status changed to ${newStatus}.`);
-      await fetchBookings();
-      await fetchHistory();
+      await fetchTableData();
       if (onUpdateBookingStatus) {
         await onUpdateBookingStatus(id, newStatus);
       }

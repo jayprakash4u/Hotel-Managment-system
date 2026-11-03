@@ -33,7 +33,6 @@ import {
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
-import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
 import { getMasterItems, saveMasterItems, SimpleMasterItem, MASTERS_UPDATED_EVENT } from '@/lib/mastersData';
 import { QuantityAutocomplete } from '@/components/common/QuantityAutocomplete';
 
@@ -795,11 +794,7 @@ export default function RestaurantSetupPage() {
           </span>
         </div>
 
-        {/* Restaurant Quick Navigation Strip */}
-        <RestaurantManagementNavBoxes activeId="restaurant-setup" />
-      </div>
-
-      <div className="border-b border-border-default dark:border-border-default -mt-1" />
+        </div>
 
       {/* Page Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-border-default dark:border-border-default">

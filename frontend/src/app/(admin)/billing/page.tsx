@@ -27,7 +27,6 @@ import { api } from '@/lib/api';
 import { BillData, BillingType, BillPaymentStatus, BillingSummaryData } from '@/lib/types';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
-import { BillingNavBoxes } from '@/components/billing/BillingNavBoxes';
 import { ViewBillModal } from '@/components/billing/ViewBillModal';
 import { RecordPaymentModal } from '@/components/billing/RecordPaymentModal';
 
@@ -212,17 +211,7 @@ function BillingContent() {
 
   return (
     <div className="space-y-4 w-full min-w-0 pb-14 select-none">
-      {/* =====================================================================
-          1. TOP NAVIGATION MODULE BOXES (QUICK HUB)
-          ===================================================================== */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Billing & Invoicing Hub
-          </span>
-        </div>
-        <BillingNavBoxes />
-      </div>
+      
 
       {/* =====================================================================
           2. FINANCIAL SUMMARY METRICS STRIP

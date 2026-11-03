@@ -15,7 +15,6 @@ import {
   Wrench,
   Filter,
 } from 'lucide-react';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import {
@@ -96,9 +95,6 @@ export default function HousekeepingPage() {
 
   return (
     <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
-      {/* Hotel Management Top Navigation Boxes */}
-      <HotelManagementNavBoxes activeId="housekeeping" />
-
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button

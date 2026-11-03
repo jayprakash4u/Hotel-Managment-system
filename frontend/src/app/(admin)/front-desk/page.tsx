@@ -21,7 +21,10 @@ import {
   BedDouble,
   Sparkles,
   Calendar,
+  CalendarPlus,
+  Clock,
   Utensils,
+  UserPlus,
   Printer,
   X,
   ArrowRight,
@@ -39,7 +42,6 @@ import {
   Wrench,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import { RoomTapeChart } from '@/components/business/RoomTapeChart';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -671,9 +673,6 @@ function FrontDeskContent() {
 
   return (
     <div className="space-y-4">
-      {/* Hotel Management Top Navigation Boxes */}
-      <HotelManagementNavBoxes activeId="room-board" />
-
       {/* Clean Front Desk / Room Board Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-3">
@@ -1005,340 +1004,355 @@ function FrontDeskContent() {
                       setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
                     }}
                     className={cn(
-                      'relative flex flex-col justify-between p-3.5 sm:p-4 rounded-[6px] border transition-all duration-150 shadow-2xs hover:shadow-xs select-none cursor-pointer group min-h-[185px]',
-                      openOptionMenuId === room.id ? (isDarkCard ? 'z-50 shadow-md ring-2 ring-white/60' : 'z-50 shadow-md ring-2 ring-[#0B3D32]') : 'z-0',
-                      // 1. Occupied (Checked In): THE ONLY SOLID DARK CARD (Signature Pine Emerald #0B3D32)
+                      'group relative flex flex-col justify-between p-3.5 sm:p-4 rounded-[6px] border transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer select-none min-h-[210px]',
+                      openOptionMenuId === room.id ? (isDarkCard ? 'z-50 shadow-md ring-2 ring-white/60' : 'z-50 shadow-md ring-2 ring-[#0B3D32]') : 'z-10',
+                      // 1. Occupied (Checked In): Solid Dark Pine Emerald (#0B3D32)
                       isOccupied && 'bg-brand border-brand text-white hover:bg-brand-hover dark:bg-surface-hover dark:border-brand shadow-sm',
-                      // 2. Booked (Arriving / Reserved): Clean LIGHT card with subtle reserved sky accent
-                      isBooked && 'bg-surface-card dark:bg-surface-card border-info dark:border-info hover:border-info hover:shadow-xs text-body dark:text-white',
-                      // 3. Departing: Clean LIGHT card with subtle rose border
-                      isDeparting && 'bg-surface-card dark:bg-surface-card border-danger dark:border-danger hover:border-danger hover:shadow-xs text-body dark:text-white',
-                      // 4. Out of Service / Maintenance: Muted light slate card
-                      isMaintenance && 'bg-surface-muted dark:bg-surface-card border-border-default dark:border-border-default hover:border-border-default hover:shadow-xs text-body dark:text-white',
-                      // 5. Available: Clean LIGHT white card
-                      isAvailable && 'bg-surface-card dark:bg-surface-card border-border-default dark:border-border-default hover:border-brand dark:hover:border-success hover:shadow-xs text-body dark:text-white'
+                      // 2. Booked (Arriving / Reserved): Clean card with sky accent
+                      isBooked && 'bg-sky-50/50 dark:bg-sky-950/30 border-sky-300 dark:border-sky-800 text-body dark:text-white',
+                      // 3. Departing: Clean card with rose accent
+                      isDeparting && 'bg-rose-50/50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-body dark:text-white',
+                      // 4. Dirty: Clean card with amber accent
+                      isDirty && !isOccupied && 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-body dark:text-white',
+                      // 5. Out of Service / Maintenance: Muted slate card
+                      isMaintenance && 'bg-surface-muted dark:bg-surface-card border-border-default dark:border-border-default text-muted opacity-75',
+                      // 6. Available: Crisp light card with emerald hover
+                      isAvailable && !isDirty && 'bg-white dark:bg-surface-card border-border-default dark:border-border-default hover:border-emerald-400 dark:hover:border-emerald-600/70 text-body dark:text-white'
                     )}
                   >
-                    {/* Top Row: Room Number + Floor (Left) | Status Badge & 3-Dots Trigger (Right) */}
-                    <div>
-                      <div
-                        className={cn(
-                          'flex items-center justify-between gap-1 pb-2.5 border-b',
-                          isDarkCard ? 'border-white/20' : 'border-white/20'
+                    {/* Top Row: Room Number + Floor + Bed Type + Dirty Tag (Left) | Status Badge & 3-Dots Trigger (Right) */}
+                    <div className="flex items-center justify-between gap-1.5 mb-2">
+                      <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-lg sm:text-xl font-black font-mono tracking-tight leading-tight">
+                          {room.number}
+                        </span>
+                        <span
+                          className={cn(
+                            'px-1.5 py-0.5 rounded-[3px] text-[9px] font-mono font-bold border',
+                            isDarkCard
+                              ? 'bg-white/15 text-white/90 border-white/20'
+                              : 'bg-surface-muted dark:bg-slate-800 text-muted dark:text-slate-300 border-border-default dark:border-border-default'
+                          )}
+                        >
+                          Fl {room.floor}
+                        </span>
+                        <span
+                          className={cn(
+                            'px-1.5 py-0.5 rounded-[3px] text-[9px] font-mono font-bold border',
+                            isDarkCard
+                              ? 'bg-white/15 text-white/90 border-white/20'
+                              : 'bg-surface-muted dark:bg-slate-800 text-muted dark:text-slate-300 border-border-default dark:border-border-default'
+                          )}
+                        >
+                          {room.bedType || 'Room'}
+                        </span>
+                        {isDirty && !isOccupied && (
+                          <span className="px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                            Dirty
+                          </span>
                         )}
-                      >
-                        <div className="min-w-0 flex-1 pr-1.5">
-                          <div className="flex items-baseline gap-1.5 flex-wrap">
-                            <span
-                              className={cn(
-                                'font-mono text-xl sm:text-2xl font-black tracking-tight',
-                                isDarkCard ? 'text-white' : 'text-body dark:text-white'
-                              )}
-                            >
-                              {room.number}
-                            </span>
-                            <span
-                              className={cn(
-                                'text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-[3px]',
-                                isDarkCard
-                                  ? 'bg-white/15 text-white/90'
-                                  : 'bg-surface-muted text-muted dark:bg-slate-800 dark:text-slate-300'
-                              )}
-                            >
-                              Fl {room.floor}
-                            </span>
-                            {isDirty && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-500 border border-amber-500/30">
-                                Dirty
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Right side: Status Badge + 3-Dots Trigger */}
-                        <div className="shrink-0 flex items-center gap-1.5">
-                          <div>
-                            {isOccupied && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-white/20 text-white border border-white/30 backdrop-blur-xs">
-                                <span className="w-1.5 h-1.5 rounded-full bg-success text-white" />
-                                <span>Occupied</span>
-                              </span>
-                            )}
-                            {isBooked && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-info-subtle text-info border-info dark:border-info">
-                                <span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />
-                                <span>Reserved</span>
-                              </span>
-                            )}
-                            {isDeparting && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-danger-subtle text-danger border-danger dark:border-danger">
-                                <span className="w-1.5 h-1.5 rounded-full bg-danger" />
-                                <span>Departing</span>
-                              </span>
-                            )}
-                            {isMaintenance && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-surface-muted text-muted border-border-default dark:border-border-default">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span>Out of Service</span>
-                              </span>
-                            )}
-                            {isAvailable && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold uppercase tracking-wider bg-success-subtle text-success border-success dark:border-success">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                <span>Available</span>
-                              </span>
-                            )}
-                          </div>
-
-                          {/* 3-DOTS OPTION TRIGGER BUTTON & Attached Contextual Dropdown */}
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
-                              }}
-                              className={cn(
-                                'w-6 h-6 flex items-center justify-center rounded-[3px] border transition-colors cursor-pointer',
-                                isDarkCard
-                                  ? openOptionMenuId === room.id
-                                    ? 'border-white bg-white text-[#0B3D32]'
-                                    : 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
-                                  : openOptionMenuId === room.id
-                                  ? 'bg-white bg-brand text-white dark:border-success dark:bg-success'
-                                  : 'text-muted group-hover:text-brand group-hover:bg-surface-hover dark:text-muted dark:group-hover:bg-surface-hover'
-                              )}
-                              title={`Room ${room.number} Contextual Options`}
-                              aria-label={`Room ${room.number} Options`}
-                            >
-                              <MoreVertical className="w-3.5 h-3.5" />
-                            </button>
-
-                            {openOptionMenuId === room.id && (
-                              <RoomActionsDropdown
-                                room={room}
-                                status={status}
-                                activeBooking={activeBooking}
-                                selectedDate={selectedDate}
-                                onClose={() => setOpenOptionMenuId(null)}
-                                onBookNow={(r) => handleQuickBookRoom(r as FrontDeskRoom)}
-                                onWalkInCheckIn={(r) => router.push(`/check-in?roomId=${r.id}&mode=walk-in`)}
-                                onCheckInGuest={(b) => router.push(`/check-in?bookingId=${b.id}`)}
-                                onCheckOutGuest={(b) => handleOpenCheckOutModal(b)}
-                                onAddRoomService={(b) => handleOpenAddFoodModal(b)}
-                                onViewFolio={(b) => handleOpenFolioDrawer(b)}
-                                onUpdateCleaningStatus={(roomId, cStatus) =>
-                                  handleSetCleaningStatus(roomId, cStatus === 'CLEAN' ? 'CLEAN' : 'DIRTY')
-                                }
-                                onToggleMaintenance={(roomId) => handleToggleMaintenance(roomId)}
-                              />
-                            )}
-                          </div>
-                        </div>
                       </div>
 
-                      {/* Middle: Room Type & Context Info (Guest Name, Dates, Rates) */}
-                      <div className="py-2.5 flex flex-col justify-center text-xs space-y-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <p
-                            className={cn(
-                              'text-xs font-bold truncate',
-                              isDarkCard ? 'text-white' : 'text-body dark:text-white'
-                            )}
-                          >
-                            {room.type}
-                          </p>
-                          <span
-                            className={cn(
-                              'font-mono font-bold text-[11px] shrink-0',
-                              isDarkCard ? 'text-white/90' : 'text-brand dark:text-success'
-                            )}
-                          >
-                            Rs. {room.pricePerNight.toLocaleString()}
-                          </span>
+                      {/* Right side: Status Badge + 3-Dots Trigger */}
+                      <div className="shrink-0 flex items-center gap-1.5">
+                        <div>
+                          {isOccupied && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-white/15 text-emerald-300 border border-white/20 backdrop-blur-xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              <span>Occupied</span>
+                            </span>
+                          )}
+                          {isBooked && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-info-subtle text-info border border-info dark:border-info">
+                              <span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />
+                              <span>Reserved</span>
+                            </span>
+                          )}
+                          {isDeparting && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-danger-subtle text-danger border border-danger dark:border-danger">
+                              <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
+                              <span>Departing</span>
+                            </span>
+                          )}
+                          {isMaintenance && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-slate-200 text-muted dark:bg-slate-700 dark:text-muted border border-border-default">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                              <span>Out of Service</span>
+                            </span>
+                          )}
+                          {isAvailable && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-success-subtle text-success border border-success/40 dark:bg-emerald-900/60 dark:text-success">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>Available</span>
+                            </span>
+                          )}
                         </div>
 
-                        {/* Guest / State Info */}
-                        {isOccupied && activeBooking ? (
-                          <div className="text-[10px] space-y-0.5">
-                            <p className="font-medium text-success dark:text-success truncate flex items-center gap-1">
-                              <span className="opacity-75 font-normal">Guest:</span>
-                              <strong className="font-bold text-white">
-                                {activeBooking.guest.firstName} {activeBooking.guest.lastName}
-                              </strong>
-                            </p>
-                            <p className="text-[10px] text-success dark:text-success/80 truncate">
-                              Check-out: {formatDate(activeBooking.checkOut)}
-                            </p>
-                          </div>
-                        ) : isBooked && activeBooking ? (
-                          <div className="text-[10px] space-y-0.5">
-                            <p className="font-medium text-info dark:text-info truncate flex items-center gap-1">
-                              <span className="opacity-75 font-normal">Guest:</span>
-                              <strong className="font-bold text-body dark:text-white">
-                                {activeBooking.guest.firstName} {activeBooking.guest.lastName}
-                              </strong>
-                            </p>
-                            <p className="text-[10px] text-info dark:text-info truncate">
-                              Check-in: {formatDate(activeBooking.checkIn)}
-                            </p>
-                          </div>
-                        ) : isDeparting && activeBooking ? (
-                          <div className="text-[10px] space-y-0.5">
-                            <p className="font-medium text-danger dark:text-danger truncate flex items-center gap-1">
-                              <span className="opacity-75 font-normal">Departing:</span>
-                              <strong className="font-bold text-[#24352F] dark:text-white">
-                                {activeBooking.guest.firstName} {activeBooking.guest.lastName}
-                              </strong>
-                            </p>
-                            <p className="text-[10px] text-danger/80 truncate">
-                              Check-out due today (11:00 AM)
-                            </p>
-                          </div>
-                        ) : isMaintenance ? (
-                          <p className="text-[10px] font-medium text-muted dark:text-muted truncate flex items-center gap-1">
-                            <Wrench className="w-3 h-3 text-muted" />
-                            <span>{room.maintenanceReason || 'Servicing in progress'}</span>
-                          </p>
-                        ) : (
-                          <p className="text-[10px] font-medium text-muted dark:text-muted truncate">
-                            {room.bedType} · {room.acType || 'AC'}
-                          </p>
-                        )}
+                        {/* 3-DOTS OPTION TRIGGER BUTTON & Attached Contextual Dropdown */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
+                            }}
+                            className={cn(
+                              'p-1 rounded-[4px] transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer',
+                              isDarkCard
+                                ? 'text-white/80 hover:text-white hover:bg-white/20'
+                                : 'text-muted hover:text-body dark:text-muted dark:hover:text-white hover:bg-surface-muted dark:hover:bg-slate-800'
+                            )}
+                            title={`Room ${room.number} Contextual Options`}
+                            aria-label={`Room ${room.number} Options`}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {openOptionMenuId === room.id && (
+                            <RoomActionsDropdown
+                              room={room}
+                              status={status}
+                              activeBooking={activeBooking}
+                              selectedDate={selectedDate}
+                              onClose={() => setOpenOptionMenuId(null)}
+                              onBookNow={(r) => handleQuickBookRoom(r as FrontDeskRoom)}
+                              onWalkInCheckIn={(r) => router.push(`/check-in?roomId=${r.id}&mode=walk-in`)}
+                              onCheckInGuest={(b) => router.push(`/check-in?bookingId=${b.id}`)}
+                              onCheckOutGuest={(b) => handleOpenCheckOutModal(b)}
+                              onAddRoomService={(b) => handleOpenAddFoodModal(b)}
+                              onViewFolio={(b) => handleOpenFolioDrawer(b)}
+                              onExtendStay={(b) => handleOpenFolioDrawer(b)}
+                              onUpdateCleaningStatus={(roomId, cStatus) =>
+                                handleSetCleaningStatus(roomId, cStatus === 'CLEAN' ? 'CLEAN' : 'DIRTY')
+                              }
+                              onToggleMaintenance={(roomId) => handleToggleMaintenance(roomId)}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Bottom Row: Housekeeping Status Badge on Left | High-Contrast Action Box on Right */}
-                    <div
-                      className={cn(
-                        'flex items-center justify-between pt-2.5 border-t min-h-[34px] mt-auto',
-                        isDarkCard ? 'border-white/20' : 'border-border-default dark:border-border-default/60'
-                      )}
-                    >
-                      {/* Left: Housekeeping / Maintenance Semantic Pill Badge */}
-                      <div className="flex items-center gap-1.5">
-                        {isMaintenance ? (
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
-                              isDarkCard
-                                ? 'bg-white/90 text-body border-border-default'
-                                : 'bg-surface-muted text-muted border-border-default dark:bg-surface-card dark:text-muted dark:border-border-default'
-                            )}
-                          >
-                            <Wrench className="w-3 h-3 text-muted" />
-                            <span>Maintenance</span>
-                          </span>
-                        ) : room.cleaningStatus === 'DIRTY' ? (
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
-                              isDarkCard
-                                ? 'bg-warning-subtle text-warning border-warning'
-                                : 'bg-warning-subtle text-warning border-warning dark:bg-warning-subtle dark:text-warning dark:border-warning'
-                            )}
-                          >
-                            <AlertCircle className="w-3 h-3 text-amber-600" />
-                            <span>Dirty</span>
-                          </span>
-                        ) : room.cleaningStatus === 'IN_CLEANING' ? (
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
-                              isDarkCard
-                                ? 'bg-warning-subtle text-warning border-warning'
-                                : 'bg-warning-subtle text-warning border-warning dark:bg-warning-subtle dark:text-warning dark:border-warning'
-                            )}
-                          >
-                            <RefreshCw className="w-3 h-3 text-warning" />
-                            <span>Cleaning</span>
-                          </span>
-                        ) : (
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-bold border shadow-2xs',
-                              isDarkCard
-                                ? 'bg-white/95 text-[#0B3D32] border-white/40'
-                                : 'bg-success-subtle text-success border-success dark:bg-success-subtle dark:text-success dark:border-success'
-                            )}
-                          >
-                            <Sparkles className="w-3 h-3 text-emerald-600" />
-                            <span>Clean</span>
-                          </span>
-                        )}
+                    {/* Middle: Room Type & Context Info (Guest Name, Dates, Rates) */}
+                    <div className="flex-1 flex flex-col gap-1.5 py-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+                        <span
+                          className={cn(
+                            isDarkCard ? 'text-white/80' : 'text-muted dark:text-muted'
+                          )}
+                        >
+                          {room.type}
+                        </span>
+                        <span
+                          className={cn(
+                            'font-mono font-bold text-xs',
+                            isDarkCard ? 'text-emerald-300' : 'text-brand dark:text-success'
+                          )}
+                        >
+                          Rs. {room.pricePerNight.toLocaleString()}
+                        </span>
                       </div>
 
-                      {/* Right: High-contrast Action Box Button */}
-                      <div>
-                        {isAvailable ? (
+                      {/* Next Booking / Arrival indicator chip (matching Table Board) */}
+                      {isBooked && activeBooking && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/check-in?bookingId=${activeBooking.id}`);
+                          }}
+                          className="inline-flex items-center justify-between gap-1.5 px-2 py-1 rounded-[4px] bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/80 text-[11px] font-semibold text-sky-800 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors cursor-pointer"
+                          title={`Reserved for ${activeBooking.guest.firstName} ${activeBooking.guest.lastName}. Click to check in.`}
+                        >
+                          <span className="flex items-center gap-1 truncate">
+                            <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                            <span className="truncate">Arrival: {formatDate(activeBooking.checkIn)}</span>
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-sky-700 dark:text-sky-400 shrink-0">
+                            Today
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Detailed state description in body */}
+                      {isMaintenance ? (
+                        <div className="rounded-[4px] bg-slate-100 dark:bg-slate-800/40 p-2 text-center text-xs text-muted my-auto border border-border-default/60">
+                          <p className="font-semibold flex items-center justify-center gap-1">
+                            <Wrench className="w-3.5 h-3.5" />
+                            <span>Room Out of Service</span>
+                          </p>
+                          <p className="text-[11px] mt-0.5 italic">{room.maintenanceReason || 'Maintenance in progress'}</p>
+                        </div>
+                      ) : isOccupied && activeBooking ? (
+                        <div className="space-y-1 my-auto">
+                          <div className="text-xs flex items-center gap-1.5 text-white/90">
+                            <span className="font-normal opacity-75">Guest:</span>
+                            <strong className="font-semibold text-white">
+                              {activeBooking.guest.firstName} {activeBooking.guest.lastName}
+                            </strong>
+                          </div>
+                          <div className="text-[11px] text-white/75 flex items-center justify-between">
+                            <span>Check-out: {formatDate(activeBooking.checkOut)}</span>
+                            <span className="font-mono text-emerald-300 font-semibold">In-House</span>
+                          </div>
+                        </div>
+                      ) : isDeparting && activeBooking ? (
+                        <div className="space-y-1 my-auto">
+                          <div className="text-xs flex items-center gap-1.5 text-danger font-bold">
+                            <span>Due Checkout Today (11:00 AM)</span>
+                          </div>
+                          <div className="text-[11px] text-body dark:text-slate-200">
+                            Guest: <strong>{activeBooking.guest.firstName} {activeBooking.guest.lastName}</strong>
+                          </div>
+                        </div>
+                      ) : isDirty ? (
+                        <div className="text-xs flex items-center gap-1.5 text-amber-700 dark:text-amber-400 my-auto">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Room dirty · Sanitizing needed</span>
+                        </div>
+                      ) : (
+                        /* Available Room */
+                        <div className="my-auto space-y-1">
+                          <div className="text-xs flex items-center gap-1 text-success dark:text-brand">
+                            <Sparkles className="w-3 h-3 shrink-0" />
+                            <span>Room Clean & Ready for Guest</span>
+                          </div>
+                          <div className="text-[11px] text-muted dark:text-muted">
+                            {room.bedType} · {room.acType || 'AC'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card Footer: Dual Action Buttons matching Restaurant Table Board */}
+                    <div className="mt-auto pt-2 border-t border-t-border-default dark:border-t-border-default/60 flex items-center justify-between text-xs">
+                      {isMaintenance ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleMaintenance(room.id);
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-slate-100 hover:bg-slate-200 text-body border border-border-default dark:bg-slate-800 dark:text-slate-300 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Wrench className="w-3.5 h-3.5 shrink-0" />
+                          <span>End Service</span>
+                        </button>
+                      ) : isDirty && !isOccupied ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetCleaningStatus(room.id, 'CLEAN');
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          title="Sanitize room and mark clean"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                          <span>Mark Cleaned</span>
+                        </button>
+                      ) : isOccupied ? (
+                        <div className="flex items-center gap-1.5 w-full">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) handleOpenAddFoodModal(activeBooking);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white/20 hover:bg-white/30 text-white font-bold text-[10.5px] sm:text-[11px] transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Utensils className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Add Order</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) handleOpenCheckOutModal(activeBooking);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white text-[#0B3D32] hover:bg-emerald-50 font-bold text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <LogOut className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Check Out</span>
+                          </button>
+                        </div>
+                      ) : isBooked ? (
+                        <div className="flex items-center gap-1.5 w-full">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) router.push(`/check-in?bookingId=${activeBooking.id}`);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-brand hover:bg-[#093027] text-white font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                          >
+                            <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Check In</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) handleOpenFolioDrawer(activeBooking);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Receipt className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">View Folio</span>
+                          </button>
+                        </div>
+                      ) : isDeparting ? (
+                        <div className="flex items-center gap-1.5 w-full">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) handleOpenFolioDrawer(activeBooking);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-slate-100 hover:bg-slate-200 text-body border border-border-default dark:bg-slate-800 dark:text-slate-300 font-bold text-[10.5px] sm:text-[11px] transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Receipt className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Folio</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeBooking) handleOpenCheckOutModal(activeBooking);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <LogOut className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Check Out</span>
+                          </button>
+                        </div>
+                      ) : (
+                        /* Available Room - Dual Button: Walk in + Book Now */
+                        <div className="flex items-center gap-1.5 w-full">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/check-in?roomId=${room.id}&mode=walk-in`);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            title="Walk-in guest check in"
+                          >
+                            <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Walk in</span>
+                          </button>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleQuickBookRoom(room);
                             }}
-                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-brand hover:bg-[#093027] text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 font-bold text-[11px] shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            title={`Book Room ${room.number}`}
                           >
-                            Book Now
+                            <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Book Now</span>
                           </button>
-                        ) : isOccupied ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (activeBooking) {
-                                handleOpenCheckOutModal(activeBooking);
-                              } else {
-                                setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
-                              }
-                            }}
-                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-white text-[#0B3D32] hover:bg-emerald-50 font-bold text-[11px] shadow-xs transition-all active:scale-95 cursor-pointer"
-                          >
-                            Check Out
-                          </button>
-                        ) : isBooked ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (activeBooking) {
-                                router.push(`/check-in?bookingId=${activeBooking.id}`);
-                              } else {
-                                setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
-                              }
-                            }}
-                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-brand hover:bg-[#093027] text-white font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                          >
-                            Check In
-                          </button>
-                        ) : isDeparting ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (activeBooking) {
-                                handleOpenCheckOutModal(activeBooking);
-                              } else {
-                                setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
-                              }
-                            }}
-                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
-                          >
-                            Check Out
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleMaintenance(room.id);
-                            }}
-                            className="inline-flex items-center justify-center px-2.5 py-1 rounded-[3px] bg-slate-100 text-muted hover:bg-slate-200 border border-border-default dark:bg-slate-800 dark:text-slate-300 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
-                          >
-                            {isMaintenance ? 'End Service' : 'Service'}
-                          </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useMasterOptions } from '@/lib/mastersData';
 import { SupplierRecord, PurchaseType, PurchasePaymentMethod, PurchasePaymentStatus } from '@/lib/types';
 import { SupplierSearchDropdown } from './SupplierSearchDropdown';
 
@@ -62,7 +63,6 @@ interface NewPurchaseModalProps {
   initialDepartment?: 'HOTEL' | 'RESTAURANT';
 }
 
-const COMMON_UNITS = ['pieces', 'bottles', 'cans', 'kg', 'litres', 'boxes', 'packets', 'cartons', 'sets', 'rolls', 'tins'];
 
 export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
   isOpen,
@@ -80,6 +80,8 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
     const d = String(today.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   };
+
+
 
   // 1. Wizard Mode: If not chosen yet, ask choice, or default
   const [purchaseType, setPurchaseType] = useState<PurchaseType>('SIMPLE');
@@ -103,6 +105,25 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
   // Items in Purchase
   const [itemsList, setItemsList] = useState<InventoryItemOption[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+
+  const { activeItems: masterUnits } = useMasterOptions('units');
+  const dynamicUnits = useMemo(() => {
+    const list: string[] = [];
+    masterUnits.forEach((u) => {
+      if (u.name && !list.includes(u.name)) list.push(u.name);
+    });
+    itemsList.forEach((it) => {
+      if (it.unit && !list.includes(it.unit)) list.push(it.unit);
+      if (it.purchaseUnit && !list.includes(it.purchaseUnit)) list.push(it.purchaseUnit);
+    });
+    const fallbacks = ['Pieces', 'Bottles', 'Cans', 'Kg', 'Litres', 'Boxes', 'Packets', 'Cartons', 'Sets'];
+    fallbacks.forEach((f) => {
+      if (!list.some((existing) => existing.toLowerCase() === f.toLowerCase())) {
+        list.push(f);
+      }
+    });
+    return list;
+  }, [masterUnits, itemsList]);
 
   const [lineRows, setLineRows] = useState<PurchaseLineRow[]>([
     {
@@ -355,26 +376,9 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
               <ShoppingBag className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-                  New Purchase Entry
-                </h2>
-                <span
-                  className={cn(
-                    'px-2 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider',
-                    purchaseType === 'SIMPLE'
-                      ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                      : 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                  )}
-                >
-                  {purchaseType === 'SIMPLE' ? 'Option A: Simple Purchase' : 'Option B: Full Details Purchase'}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {purchaseType === 'SIMPLE'
-                  ? 'Quick purchase entry for daily/local supplies without requiring formal invoice'
-                  : 'Complete procurement record with supplier details, invoice, tax, and payment tracking'}
-              </p>
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                {purchaseType === 'SIMPLE' ? 'New Purchase Entry' : 'New Purchase Invoice'}
+              </h2>
             </div>
           </div>
 
@@ -389,7 +393,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
 
         {/* ======================= TYPE TOGGLE BAR ======================= */}
         <div className="px-5 py-2.5 bg-white dark:bg-[#071F1A] border-b border-slate-200 dark:border-border-default flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Select Purchase Entry Mode:</span>
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Mode</span>
           <div className="grid grid-cols-2 gap-2 sm:w-80">
             <button
               type="button"
@@ -402,7 +406,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
               )}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Simple Purchase</span>
+              <span>Simple</span>
             </button>
 
             <button
@@ -416,7 +420,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
               )}
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>Full Details</span>
+              <span>Detailed</span>
             </button>
           </div>
         </div>
@@ -428,10 +432,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
             <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-border-default pb-2">
               <span className="flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-[#0B3D32]" />
-                General & Supplier Information
-              </span>
-              <span className="text-[11px] font-normal text-slate-500">
-                {purchaseType === 'SIMPLE' ? 'Supplier is optional (Walk-in default)' : 'Supports registered supplier & invoice'}
+                General Information
               </span>
             </div>
 
@@ -455,12 +456,12 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
               {/* Dynamic Supplier Dropdown */}
               <div className="sm:col-span-1 md:col-span-2">
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Supplier <span className="text-slate-400 font-normal">(Optional — Search or leave Walk-in)</span>
+                  Supplier <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <SupplierSearchDropdown
                   value={selectedSupplier ? selectedSupplier.id : null}
                   onChange={handleSupplierSelect}
-                  placeholder="Select registered supplier or choose Walk-in..."
+                  placeholder="Search supplier (or leave blank for Walk-in)..."
                 />
               </div>
 
@@ -469,11 +470,11 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                 <>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      Supplier Invoice Number <span className="text-slate-400 font-normal">(Optional)</span>
+                      Invoice Number <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. INV-90421"
+                      placeholder="Invoice #"
                       value={supplierInvoiceNumber}
                       onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
                       className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
@@ -486,7 +487,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. 601234567"
+                      placeholder="PAN / VAT #"
                       value={supplierPanVatNumber}
                       onChange={(e) => setSupplierPanVatNumber(e.target.value)}
                       className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
@@ -523,7 +524,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                 className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-[#0B3D32] dark:text-emerald-400 hover:bg-slate-50 text-xs font-bold rounded-[3px] shadow-2xs transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Item Row</span>
+                <span>Add Item</span>
               </button>
             </div>
 
@@ -569,7 +570,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                               }}
                               className="w-full px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-[3px] bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#0B3D32]"
                             >
-                              <option value="">-- Choose from existing stock or type below --</option>
+                              <option value="">-- Select from Inventory (Optional) --</option>
                               {itemsList.map((item) => (
                                 <option key={item.id} value={item.id}>
                                   {item.name} ({item.department || 'GENERAL'} · Current: {item.currentStock} {item.unit})
@@ -580,7 +581,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                             <input
                               type="text"
                               required
-                              placeholder="Item name / description..."
+                              placeholder="Item name"
                               value={row.itemName}
                               onChange={(e) => handleRowChange(index, { itemName: e.target.value })}
                               className="w-full px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#0B3D32]"
@@ -594,11 +595,8 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                                   onChange={(e) => handleRowChange(index, { trackStock: e.target.checked })}
                                   className="rounded text-[#0B3D32] focus:ring-0 cursor-pointer"
                                 />
-                                <span>Track in Stock Inventory</span>
+                                <span>Track in Inventory</span>
                               </label>
-                              {!row.trackStock && (
-                                <span className="text-amber-600 font-semibold">(Direct expense, stock won't increase)</span>
-                              )}
                             </div>
                           </div>
                         </td>
@@ -610,7 +608,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                             min="0.01"
                             step="any"
                             required
-                            placeholder="Qty"
+                            placeholder="0"
                             value={row.quantity}
                             onChange={(e) => {
                               const val = e.target.value === '' ? '' : parseFloat(e.target.value);
@@ -622,32 +620,14 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
 
                         {/* Purchase Unit */}
                         <td className="py-2 px-2.5 align-top">
-                          <div className="space-y-1">
-                            <input
-                              type="text"
-                              placeholder="e.g. cartons, kg"
-                              value={row.purchaseUnit}
-                              onChange={(e) => handleRowChange(index, { purchaseUnit: e.target.value })}
-                              className="w-full px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
-                            />
-                            <div className="flex gap-1 flex-wrap">
-                              {['pieces', 'bottles', 'kg', 'cartons'].map((u) => (
-                                <button
-                                  key={u}
-                                  type="button"
-                                  onClick={() => handleRowChange(index, { purchaseUnit: u })}
-                                  className={cn(
-                                    'text-[9px] px-1 py-0.2 rounded border cursor-pointer',
-                                    row.purchaseUnit === u
-                                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold'
-                                      : 'text-slate-500 hover:bg-slate-100'
-                                  )}
-                                >
-                                  {u}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
+                          <input
+                            type="text"
+                            list="purchase-unit-options"
+                            placeholder="Unit"
+                            value={row.purchaseUnit}
+                            onChange={(e) => handleRowChange(index, { purchaseUnit: e.target.value })}
+                            className="w-full px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
+                          />
                         </td>
 
                         {/* Stock Factor (Full details only) */}
@@ -677,7 +657,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                             min="0"
                             step="any"
                             required
-                            placeholder="Price"
+                            placeholder="0.00"
                             value={row.unitCost}
                             onChange={(e) => {
                               const val = e.target.value === '' ? '' : parseFloat(e.target.value);
@@ -711,6 +691,11 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                 </tbody>
               </table>
             </div>
+            <datalist id="purchase-unit-options">
+              {dynamicUnits.map((u) => (
+                <option key={u} value={u} />
+              ))}
+            </datalist>
           </div>
 
           {/* SECTION 3: TOTALS & PAYMENT DETAILS */}
@@ -755,11 +740,11 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Notes / Purchase Remarks <span className="text-slate-400 font-normal">(Optional)</span>
+                  Notes <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <textarea
                   rows={purchaseType === 'FULL' ? 3 : 2}
-                  placeholder="e.g. Urgent kitchen restock, received via courier..."
+                  placeholder="Optional purchase notes..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
@@ -771,7 +756,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
             <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-border-default rounded-[3px] p-3.5 space-y-2 text-xs">
               <div className="font-bold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-border-default pb-1.5 flex items-center justify-between">
                 <span>Summary & Calculations</span>
-                <span className="text-[11px] text-slate-500 font-normal">NPR (Rs.)</span>
+                
               </div>
 
               {/* Subtotal */}
@@ -840,10 +825,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
 
           {/* ======================= MODAL FOOTER ======================= */}
           <div className="pt-3 border-t border-slate-200 dark:border-border-default flex items-center justify-between">
-            <span className="text-[11px] text-slate-400 flex items-center gap-1">
-              <Info className="w-3 h-3" />
-              Stock increases only for tracked items upon confirmation.
-            </span>
+            <span></span>
 
             <div className="flex items-center gap-2">
               <button
@@ -865,8 +847,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                     : 'bg-[#0B3D32] hover:bg-[#082d25] active:scale-98'
                 )}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{isSubmitting ? 'Saving Purchase...' : `Confirm & Save Purchase (Rs. ${grandTotal.toLocaleString()})`}</span>
+                <span>{isSubmitting ? 'Saving...' : 'Save'}</span>
               </button>
             </div>
           </div>

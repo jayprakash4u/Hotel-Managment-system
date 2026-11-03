@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Building2,
 } from 'lucide-react';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import {
   RoomBooking,
   loadBookingsFromStorage,
@@ -90,9 +89,6 @@ export default function GuestDirectoryPage() {
 
   return (
     <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
-      {/* Hotel Management Top Navigation Boxes */}
-      <HotelManagementNavBoxes activeId="guest-directory" />
-
       {/* Header & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
         <div>

@@ -205,7 +205,7 @@ export const SuperAdminDashboard: React.FC = () => {
     } catch {}
   }, [billingList]);
 
-  // Sync with backend API
+  // Sync with backend API - manual trigger only (not on mount)
   const syncWithBackend = useCallback(async (notify = false) => {
     setIsRefreshing(true);
     try {
@@ -259,9 +259,8 @@ export const SuperAdminDashboard: React.FC = () => {
     }
   }, [toast]);
 
-  useEffect(() => {
-    syncWithBackend(false);
-  }, [syncWithBackend]);
+  // Auto-sync on mount REMOVED to prevent blocking render on every navigation.
+  // Use the manual "Sync" button in the UI instead.
 
   // Dynamic calculations from user data
   const stats = useMemo(() => {

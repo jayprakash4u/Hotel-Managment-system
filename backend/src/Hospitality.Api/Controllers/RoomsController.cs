@@ -167,4 +167,112 @@ public class RoomsController : ControllerBase
 
         return Ok(ApiResponse.Ok(room, $"Room {room.Number} status updated to {room.Status}."));
     }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateRoom(string id, [FromBody] Room updated)
+    {
+        var room = await _db.Rooms.FindAsync(id);
+        if (room == null)
+        {
+            return NotFound(ApiResponse.Fail("Room not found."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(updated.Number)) room.Number = updated.Number.Trim();
+        if (updated.Floor > 0) room.Floor = updated.Floor;
+        if (!string.IsNullOrWhiteSpace(updated.Type)) room.Type = updated.Type;
+        if (!string.IsNullOrWhiteSpace(updated.RoomTypeId)) room.RoomTypeId = updated.RoomTypeId;
+        room.HasAC = updated.HasAC;
+        if (!string.IsNullOrWhiteSpace(updated.BedType)) room.BedType = updated.BedType;
+        if (updated.PricePerNight > 0) room.PricePerNight = updated.PricePerNight;
+        if (updated.Capacity > 0) room.Capacity = updated.Capacity;
+        if (!string.IsNullOrWhiteSpace(updated.SetupStatus)) room.SetupStatus = updated.SetupStatus.ToUpper();
+        if (!string.IsNullOrWhiteSpace(updated.Status)) room.Status = updated.Status.ToUpper();
+        if (!string.IsNullOrWhiteSpace(updated.Amenities)) room.Amenities = updated.Amenities;
+        if (updated.ImageUrl != null) room.ImageUrl = updated.ImageUrl;
+        if (updated.Description != null) room.Description = updated.Description;
+
+        // Extended setup attributes
+        if (updated.RoomSize != null) room.RoomSize = updated.RoomSize;
+        if (updated.RoomView != null) room.RoomView = updated.RoomView;
+        if (updated.MaxAdults > 0) room.MaxAdults = updated.MaxAdults;
+        if (updated.MaxChildren >= 0) room.MaxChildren = updated.MaxChildren;
+        if (updated.SmokingPolicy != null) room.SmokingPolicy = updated.SmokingPolicy;
+        if (updated.Accessibility != null) room.Accessibility = updated.Accessibility;
+        if (updated.BedConfiguration != null) room.BedConfiguration = updated.BedConfiguration;
+        if (updated.BathroomFacilities != null) room.BathroomFacilities = updated.BathroomFacilities;
+        if (updated.GalleryImages != null) room.GalleryImages = updated.GalleryImages;
+        if (updated.Policies != null) room.Policies = updated.Policies;
+        if (updated.ExtraAdultPrice >= 0) room.ExtraAdultPrice = updated.ExtraAdultPrice;
+        if (updated.ExtraChildPrice >= 0) room.ExtraChildPrice = updated.ExtraChildPrice;
+        if (updated.WeekendPrice >= 0) room.WeekendPrice = updated.WeekendPrice;
+
+        room.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(room, $"Room {room.Number} updated successfully."));
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteRoom(string id)
+    {
+        var room = await _db.Rooms
+            .Include(r => r.Reservations)
+            .FirstOrDefaultAsync(r => r.Id == id);
+
+        if (room == null)
+        {
+            return NotFound(ApiResponse.Fail("Room not found."));
+        }
+
+        var activeReservation = room.Reservations.Any(res => res.Status == "CHECKED_IN" || res.Status == "RESERVED");
+        if (activeReservation)
+        {
+            return BadRequest(ApiResponse.Fail("Cannot delete room with active or reserved bookings. Please checkout or reassign guests first."));
+        }
+
+        _db.Rooms.Remove(room);
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(new { id }, $"Room {room.Number} deleted successfully."));
+    }
+
+    [HttpPost("upload-photo")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadRoomPhoto([FromForm] IFormFile? file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(ApiResponse.Fail("No photo file provided."));
+        }
+
+        const long maxBytes = 10 * 1024 * 1024; // 10MB
+        if (file.Length > maxBytes)
+        {
+            return BadRequest(ApiResponse.Fail("File size exceeds 10MB limit."));
+        }
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif" };
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(ext))
+        {
+            return BadRequest(ApiResponse.Fail("Invalid image format. Allowed: JPG, PNG, WEBP, AVIF."));
+        }
+
+        var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "rooms");
+        if (!Directory.Exists(uploadsDir))
+        {
+            Directory.CreateDirectory(uploadsDir);
+        }
+
+        var uniqueFileName = $"{Guid.NewGuid():N}{ext}";
+        var filePath = Path.Combine(uploadsDir, uniqueFileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var relativeUrl = $"/uploads/rooms/{uniqueFileName}";
+        return Ok(ApiResponse.Ok(new { url = relativeUrl, fileName = uniqueFileName, size = file.Length }, "Photo uploaded successfully."));
+    }
 }

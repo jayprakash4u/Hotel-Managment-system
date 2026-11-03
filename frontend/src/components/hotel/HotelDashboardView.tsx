@@ -18,7 +18,6 @@ import {
   ChevronRight,
   Layers,
 } from 'lucide-react';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import { api } from '@/lib/api';
 import { RoomWithDetails, ReservationData } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -131,7 +130,6 @@ export const HotelDashboardView: React.FC = () => {
             </button>
           </div>
         </div>
-        <HotelManagementNavBoxes activeId="dashboard" />
       </div>
 
       {/* ===================== KEY HOTEL KPI METRICS (6 COLUMNS - MATCHING RESTAURANT) ===================== */}

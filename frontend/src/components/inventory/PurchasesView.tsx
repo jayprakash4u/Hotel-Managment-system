@@ -266,13 +266,6 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
         })}
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="text-xs font-semibold text-slate-500 hidden sm:block">
-            Total Spend:{' '}
-            <span className="font-mono font-bold text-slate-900 dark:text-white">
-              Rs. {metrics.totalExpenditure.toLocaleString()}
-            </span>
-          </div>
-
           <button
             type="button"
             onClick={onRefresh}

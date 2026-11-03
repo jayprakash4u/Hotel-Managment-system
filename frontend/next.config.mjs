@@ -16,11 +16,6 @@ const nextConfig = {
         destination: '/',
         permanent: false,
       },
-      {
-        source: '/portal/:path*',
-        destination: '/',
-        permanent: false,
-      },
     ];
   },
   async rewrites() {

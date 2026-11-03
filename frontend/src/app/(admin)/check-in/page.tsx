@@ -52,7 +52,6 @@ import {
 } from '../reservations/reservationsData';
 import { useMasterOptions } from '@/lib/mastersData';
 import MasterSearchableSelect from '@/components/ui/MasterSearchableSelect';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 
 // Form Room Row for multi-room check-in
 export interface FormRoomRow {
@@ -997,9 +996,6 @@ function CheckInDeskContent() {
 
   return (
     <div className="space-y-4 w-full min-w-0 pb-16 select-none font-sans text-slate-800 dark:text-slate-100">
-      {/* Hotel Management Top Navigation Boxes */}
-      <HotelManagementNavBoxes activeId="check-in" />
-
       {/* Main Check-In Container Card (Matches Book Now Design Pattern 100%) */}
       <div className="bg-surface-card dark:bg-surface-card rounded-[4px] border border-border-default dark:border-border-default shadow-sm overflow-hidden">
         {/* Top Header */}

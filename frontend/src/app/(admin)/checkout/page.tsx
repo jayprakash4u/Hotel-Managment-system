@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import {
   RoomBooking,
   loadBookingsFromStorage,
@@ -145,9 +144,6 @@ function CheckOutListContent() {
 
   return (
     <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
-      {/* Hotel Management Option Boxes */}
-      <HotelManagementNavBoxes activeId="check-out" />
-
       {/* -----------------------------------------------------------------------
           HEADER & TOOLBAR: Departure Date & Balance Filter
           ----------------------------------------------------------------------- */}

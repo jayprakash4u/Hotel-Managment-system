@@ -270,6 +270,36 @@ using (var scope = app.Services.CreateScope())
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
+            -- RoomType detailed setup columns
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""roomSize"" text;
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""roomView"" text;
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""maxAdults"" integer NOT NULL DEFAULT 2;
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""maxChildren"" integer NOT NULL DEFAULT 1;
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""smokingPolicy"" text DEFAULT 'Non-Smoking';
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""accessibility"" text;
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""bedConfiguration"" text DEFAULT '[]';
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""bathroomFacilities"" text DEFAULT '[]';
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""galleryImages"" text DEFAULT '[]';
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""policies"" text DEFAULT '{}';
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""extraAdultPrice"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""extraChildPrice"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""weekendPrice"" double precision NOT NULL DEFAULT 0;
+
+            -- Room detailed setup overrides
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""roomSize"" text;
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""roomView"" text;
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""maxAdults"" integer NOT NULL DEFAULT 2;
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""maxChildren"" integer NOT NULL DEFAULT 1;
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""smokingPolicy"" text DEFAULT 'Non-Smoking';
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""accessibility"" text;
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""bedConfiguration"" text DEFAULT '[]';
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""bathroomFacilities"" text DEFAULT '[]';
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""galleryImages"" text DEFAULT '[]';
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""policies"" text DEFAULT '{}';
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""extraAdultPrice"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""extraChildPrice"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""weekendPrice"" double precision NOT NULL DEFAULT 0;
+
         ");
         logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Bills, and ReservationAlert tables ready.");
     }
@@ -291,6 +321,7 @@ if (app.Environment.IsDevelopment() || true)
     });
 }
 
+app.UseStaticFiles();
 app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
