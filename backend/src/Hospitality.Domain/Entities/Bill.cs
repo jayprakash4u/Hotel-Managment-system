@@ -29,6 +29,8 @@ public class Bill : BaseEntity
     public string? ServerOrStaff { get; set; }
 
     // Customer info (Optional, not required for restaurant / quick sales)
+    public string? CustomerId { get; set; }
+    public Customer? Customer { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerPhone { get; set; }
 
@@ -42,10 +44,12 @@ public class Bill : BaseEntity
     public double GrandTotal { get; set; } = 0;
     public double AmountPaid { get; set; } = 0;
     public double BalanceDue { get; set; } = 0;
+    public double OutstandingAmount { get; set; } = 0;
 
-    // Payment status: UNPAID, PARTIAL, PAID, VOID, REFUNDED
+    // Payment status: UNPAID, PARTIAL, PAID, CREDIT, VOID, REFUNDED
     public string PaymentStatus { get; set; } = "PAID";
-    public string PaymentMethod { get; set; } = "CASH"; // CASH, CARD, UPI, ROOM_FOLIO, SPLIT, BANK_TRANSFER
+    public string PaymentMethod { get; set; } = "CASH"; // CASH, ONLINE, WALLET, CREDIT, CARD, UPI, ROOM_FOLIO
+    public DateTime? PaidAt { get; set; }
 
     // Immutable JSON snapshots of line items and payment ledger for audit safety & reprints
     public string ItemsJson { get; set; } = "[]";

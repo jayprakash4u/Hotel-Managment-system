@@ -12,7 +12,6 @@ import {
   DollarSign,
   ChevronRight,
 } from 'lucide-react';
-import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
 import { api } from '@/lib/api';
 import { TableReservationData } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -81,19 +80,7 @@ export const RestaurantDashboardView: React.FC = () => {
 
   return (
     <div className="space-y-5 pb-12 select-none animate-in fade-in duration-150">
-      {/* ===================== TOP NAVIGATION MODULE BOXES ===================== */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
-            Restaurant Quick Hub
-          </span>
-          <span className="text-[11px] font-mono text-[var(--brand-primary)] font-bold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live Dine-In POS Engine
-          </span>
-        </div>
-        <RestaurantManagementNavBoxes activeId="dashboard" />
-      </div>
+      
 
 
 

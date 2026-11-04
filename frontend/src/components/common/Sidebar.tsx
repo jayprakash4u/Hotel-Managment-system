@@ -162,12 +162,12 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     description: 'Advance dining reservations & guest seating',
   },
   {
-    id: 'orders',
-    name: 'Orders',
-    href: '/tables?tab=ACTIVE_ORDERS',
-    icon: Receipt,
-    tag: 'ORDERS',
-    description: 'Live table, walk-in & takeaway active orders',
+    id: 'quick-bill',
+    name: 'Quick Bill',
+    href: '/quick-sale',
+    icon: Zap,
+    tag: 'POS',
+    description: 'Counter sales, takeaway & instant billing',
   },
   {
     id: 'kitchen-display',
@@ -178,20 +178,12 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     description: 'Live kitchen order tickets & prep queue',
   },
   {
-    id: 'quick-bill',
-    name: 'Quick Bill',
-    href: '/quick-sale',
-    icon: Zap,
-    tag: 'POS',
-    description: 'Counter sales, takeaway & instant billing',
-  },
-  {
-    id: 'menu',
-    name: 'Menu',
-    href: '/menu',
-    icon: UtensilsCrossed,
-    tag: 'MENU',
-    description: 'Food & drinks catalog, portion rates & categories',
+    id: 'orders',
+    name: 'Orders',
+    href: '/tables?tab=ACTIVE_ORDERS',
+    icon: Receipt,
+    tag: 'ORDERS',
+    description: 'Live table, walk-in & takeaway active orders',
   },
   {
     id: 'restaurant-setup',
@@ -200,6 +192,14 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     icon: Building2,
     tag: 'SETUP',
     description: 'Food categories, products setup, table sections & portion rates',
+  },
+  {
+    id: 'menu',
+    name: 'Menu',
+    href: '/menu',
+    icon: UtensilsCrossed,
+    tag: 'MENU',
+    description: 'Food & drinks catalog, portion rates & categories',
   },
 ];
 
@@ -534,7 +534,8 @@ export const Sidebar: React.FC<{
       {/* Sidebar Panel: Full 2-column or Slim Mini Icon Rail */}
       <aside
         className={cn(
-          'fixed top-0 bottom-0 left-0 z-40 flex flex-col border-r select-none shadow-xs transition-all duration-300 ease-in-out',
+          'fixed top-0 bottom-0 left-0 flex flex-col border-r select-none shadow-xs transition-all duration-300 ease-in-out',
+          isQuickLauncherOpen ? 'z-[90]' : 'z-40',
           'bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-body)] dark:bg-[var(--surface-card)] dark:border-[var(--border-default)] dark:text-[var(--text-body)]',
           isOpen
             ? 'w-72 sm:w-80 translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0'
@@ -641,10 +642,10 @@ export const Sidebar: React.FC<{
                 {isQuickLauncherOpen && (
                   <>
                     <div
-                      className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
+                      className="fixed inset-0 z-[90] bg-black/30 backdrop-blur-[1px]"
                       onClick={() => setIsQuickLauncherOpen(false)}
                     />
-                    <div className="fixed left-[76px] top-16 w-[calc(100vw-32px)] sm:w-[420px] max-w-[440px] z-50 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 font-sans">
+                    <div className="fixed left-[76px] top-16 w-[calc(100vw-32px)] sm:w-[420px] max-w-[440px] z-[100] bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 font-sans">
                       <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-2">
                           <div className="w-5 h-5 rounded-[4px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 flex items-center justify-center">
@@ -740,12 +741,12 @@ export const Sidebar: React.FC<{
                 <>
                   {/* Backdrop */}
                   <div
-                    className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
+                    className="fixed inset-0 z-[90] bg-black/30 backdrop-blur-[1px]"
                     onClick={() => setIsQuickLauncherOpen(false)}
                   />
 
                   {/* Popover Flyout */}
-                  <div className="absolute left-0 sm:left-full top-full sm:top-0 sm:ml-3 mt-2 sm:mt-0 w-[calc(100vw-32px)] sm:w-[420px] max-w-[440px] z-50 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 font-sans">
+                  <div className="absolute left-0 sm:left-full top-full sm:top-0 sm:ml-3 mt-2 sm:mt-0 w-[calc(100vw-32px)] sm:w-[420px] max-w-[440px] z-[100] bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 font-sans">
                     {/* Header bar with clean close button */}
                     <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">

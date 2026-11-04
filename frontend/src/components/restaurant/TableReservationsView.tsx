@@ -17,6 +17,8 @@ import {
   Phone,
   X,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { TableReservationData } from '@/lib/types';
 import { TableItem } from '@/lib/tablesData';
@@ -295,27 +297,8 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
 
       {/* 2. Main DataTables Card */}
       <div className="bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] p-3.5 shadow-2xs space-y-3">
-        {/* Top Controls: "Show [ 10 v ] entries" on left, "Search: [ ___ ]" on right */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-700 dark:text-slate-300 select-none">
-          {/* Left: Show Entries */}
-          <div className="flex items-center gap-1.5">
-            <span>Show</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span>entries</span>
-          </div>
-
+        {/* Top Controls: Search & Book Table Button */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 text-xs text-slate-700 dark:text-slate-300 select-none">
           {/* Right: Search & Book Table Button */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
@@ -674,48 +657,69 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
           </table>
         </div>
 
-        {/* 3. Footer / Pagination (Exact Match to Screenshot: Showing X to Y of Z entries | Previous [1] [2] ... Next) */}
+        {/* 3. Footer / Pagination */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1 select-none">
-          {/* Left: Entries summary */}
-          <div>
-            Showing{' '}
-            <strong className="text-slate-800 dark:text-slate-200">
-              {totalEntries === 0 ? 0 : startIndex + 1}
-            </strong>{' '}
-            to{' '}
-            <strong className="text-slate-800 dark:text-slate-200">
-              {Math.min(startIndex + pageSize, totalEntries)}
-            </strong>{' '}
-            of{' '}
-            <strong className="text-slate-800 dark:text-slate-200">
-              {totalEntries.toLocaleString()}
-            </strong>{' '}
-            entries
-            {totalEntries !== reservations.length && (
-              <span> (filtered from {reservations.length.toLocaleString()} total entries)</span>
-            )}
+          {/* Left side: Show Entries per page + Entries summary */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+              <span className="text-slate-500 font-medium text-[11px]">Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="h-[28px] px-2 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-slate-500 font-medium text-[11px]">entries per page</span>
+            </div>
+
+            <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
+
+            <div>
+              Showing{' '}
+              <strong className="text-slate-800 dark:text-slate-200">
+                {totalEntries === 0 ? 0 : startIndex + 1}
+              </strong>{' '}
+              to{' '}
+              <strong className="text-slate-800 dark:text-slate-200">
+                {Math.min(startIndex + pageSize, totalEntries)}
+              </strong>{' '}
+              of{' '}
+              <strong className="text-slate-800 dark:text-slate-200">
+                {totalEntries.toLocaleString()}
+              </strong>{' '}
+              entries
+              {totalEntries !== reservations.length && (
+                <span> (filtered from {reservations.length.toLocaleString()} total entries)</span>
+              )}
+            </div>
           </div>
 
           {/* Right: DataTables Style Pagination Group */}
           {totalPages > 1 && (
-            <div className="flex items-center -space-x-px text-xs font-medium">
-              {/* Previous */}
+            <div className="flex items-center gap-1.5 text-xs font-medium">
               <button
                 type="button"
                 disabled={safeCurrentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1.5 border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed rounded-l-[3px] cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
               >
-                Previous
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
               </button>
 
-              {/* Page Numbers */}
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter((page) => {
                   return (
                     page === 1 ||
                     page === totalPages ||
-                    Math.abs(page - safeCurrentPage) <= 2
+                    Math.abs(page - safeCurrentPage) <= 1
                   );
                 })
                 .map((page, idx, arr) => {
@@ -725,7 +729,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                   return (
                     <React.Fragment key={page}>
                       {isGap && (
-                        <span className="px-2.5 py-1.5 border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-400 select-none">
+                        <span className="px-1 text-slate-400 select-none font-bold">
                           …
                         </span>
                       )}
@@ -733,10 +737,10 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                         type="button"
                         onClick={() => setCurrentPage(page)}
                         className={cn(
-                          'px-3 py-1.5 border border-slate-300 dark:border-border-default font-mono font-bold transition-colors cursor-pointer',
+                          'min-w-[28px] h-7 px-2 font-mono text-xs font-bold rounded-[3px] transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
                           page === safeCurrentPage
-                            ? 'bg-[#0B3D32] text-white border-[#0B3D32]'
-                            : 'bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-hover'
+                            ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-700 dark:border-emerald-700'
+                            : 'bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                         )}
                       >
                         {page}
@@ -745,14 +749,14 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                   );
                 })}
 
-              {/* Next */}
               <button
                 type="button"
                 disabled={safeCurrentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="px-3 py-1.5 border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed rounded-r-[3px] cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
               >
-                Next
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           )}

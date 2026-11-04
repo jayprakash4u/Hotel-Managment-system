@@ -2691,7 +2691,7 @@ public class RestaurantController : ControllerBase
 
     public record QuickSaleRequest(
         List<QuickSaleItemDto> Items,
-        string? PaymentMethod, // CASH, CARD, UPI, QR
+        string? PaymentMethod, // CASH, ONLINE, WALLET, CREDIT, CARD, UPI, QR
         double? PaidAmount,
         double? DiscountPercent,
         double? DiscountAmount,
@@ -2702,7 +2702,11 @@ public class RestaurantController : ControllerBase
         string? CustomerPhone,
         string? Notes,
         bool? SendToKitchen,
-        string? Outlet
+        string? Outlet,
+        string? CustomerId = null,
+        bool? ManagerOverride = false,
+        string? OverrideReason = null,
+        string? OverrideApprovedBy = null
     );
 
     [HttpPost("api/restaurant/quick-sale")]
@@ -2886,26 +2890,107 @@ public class RestaurantController : ControllerBase
                 });
             }
 
-            // 3. Shift Accounting: Update active CashRegister if open
+            // 3. Credit Customer Processing (Part 3 - Credit Billing Workflow)
+            var isCredit = (pMethod == "CREDIT");
+            Customer? creditCustomer = null;
+
+            if (isCredit)
+            {
+                if (!string.IsNullOrWhiteSpace(req.CustomerId))
+                {
+                    creditCustomer = await _db.Customers.FirstOrDefaultAsync(c => c.Id == req.CustomerId && c.HotelId == hotelId);
+                }
+                if (creditCustomer == null && !string.IsNullOrWhiteSpace(req.CustomerPhone))
+                {
+                    var cleanP = req.CustomerPhone.Trim();
+                    creditCustomer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone == cleanP && c.HotelId == hotelId);
+                }
+
+                if (creditCustomer == null)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(ApiResponse.Fail("Not a registered credit customer. Register first or collect payment."));
+                }
+
+                if (creditCustomer.CustomerType != "CREDIT")
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(ApiResponse.Fail("Cash customers cannot use Credit payment mode."));
+                }
+
+                if (creditCustomer.CreditStatus == "BLOCKED")
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(ApiResponse.Fail("Customer credit status is BLOCKED. Cannot receive new credit."));
+                }
+
+                if (creditCustomer.CreditLimit <= 0)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(ApiResponse.Fail("Credit customer has a zero credit limit. Cannot take credit."));
+                }
+
+                var newOutstanding = Math.Round(creditCustomer.CurrentOutstanding + total, 2);
+                var availableCredit = Math.Max(0, Math.Round(creditCustomer.CreditLimit - creditCustomer.CurrentOutstanding, 2));
+
+                if (newOutstanding > creditCustomer.CreditLimit + 0.01)
+                {
+                    var canOverride = req.ManagerOverride == true &&
+                                      !string.IsNullOrWhiteSpace(req.OverrideReason) &&
+                                      !string.IsNullOrWhiteSpace(req.OverrideApprovedBy);
+
+                    if (!canOverride)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest(ApiResponse.Fail($"Credit limit exceeded. Available credit: Rs. {availableCredit:N2}."));
+                    }
+
+                    // Record manager override audit
+                    _db.CreditOverrideAudits.Add(new CreditOverrideAudit
+                    {
+                        HotelId = hotelId,
+                        CustomerId = creditCustomer.Id,
+                        PreviousAvailableCredit = availableCredit,
+                        BillAmount = total,
+                        OverrideAmount = Math.Round(total - availableCredit, 2),
+                        Reason = req.OverrideReason!.Trim(),
+                        ApprovedBy = req.OverrideApprovedBy!.Trim(),
+                        ApprovedAt = DateTime.UtcNow
+                    });
+                }
+
+                // Update customer outstanding
+                creditCustomer.CurrentOutstanding = newOutstanding;
+                creditCustomer.UpdatedAt = DateTime.UtcNow;
+            }
+
+            // 4. Shift Accounting: Update active CashRegister if cash received
             var activeRegister = await _db.CashRegisters
                 .Where(r => r.Status == "OPEN")
                 .OrderByDescending(r => r.OpenedAt)
                 .FirstOrDefaultAsync();
 
-            if (activeRegister != null)
+            if (activeRegister != null && !isCredit)
             {
                 if (pMethod == "CASH")
                 {
-                    activeRegister.CashSales += total;
+                    activeRegister.CashSales = Math.Round(activeRegister.CashSales + total, 2);
                 }
-                else if (pMethod == "CARD" || pMethod == "UPI")
+                else if (pMethod == "CARD" || pMethod == "UPI" || pMethod == "ONLINE" || pMethod == "WALLET")
                 {
-                    activeRegister.CardSales += total;
+                    activeRegister.CardSales = Math.Round(activeRegister.CardSales + total, 2);
                 }
             }
 
             // Shared Billing System: Generate permanent unique Bill Number & record
             var billNo = await BillingController.GenerateBillNumberAsync(_db, hotelId);
+            var customerDisplayName = creditCustomer != null
+                ? creditCustomer.Name
+                : (string.IsNullOrWhiteSpace(req.CustomerName) ? "Counter Guest" : req.CustomerName.Trim());
+            var customerDisplayPhone = creditCustomer != null
+                ? creditCustomer.Phone
+                : req.CustomerPhone;
+
             var quickBill = new Bill
             {
                 HotelId = hotelId,
@@ -2913,8 +2998,9 @@ public class RestaurantController : ControllerBase
                 BillingType = "QUICK_BILL",
                 OrderId = order.Id,
                 OrderNumber = order.OrderNumber,
-                CustomerName = string.IsNullOrWhiteSpace(req.CustomerName) ? "Counter Guest" : req.CustomerName.Trim(),
-                CustomerPhone = req.CustomerPhone,
+                CustomerId = creditCustomer?.Id,
+                CustomerName = customerDisplayName,
+                CustomerPhone = customerDisplayPhone,
                 ServerOrStaff = req.ServerName ?? "Cashier",
                 Subtotal = subtotal,
                 DiscountAmount = discAmt,
@@ -2923,10 +3009,12 @@ public class RestaurantController : ControllerBase
                 ServiceCharge = service,
                 RoundOff = 0,
                 GrandTotal = total,
-                AmountPaid = total,
-                BalanceDue = 0,
-                PaymentStatus = "PAID",
+                AmountPaid = isCredit ? 0 : total,
+                BalanceDue = isCredit ? total : 0,
+                OutstandingAmount = isCredit ? total : 0,
+                PaymentStatus = isCredit ? "CREDIT" : "PAID",
                 PaymentMethod = pMethod,
+                PaidAt = isCredit ? null : DateTime.UtcNow,
                 ItemsJson = System.Text.Json.JsonSerializer.Serialize(req.Items.Select(i => new
                 {
                     name = i.ProductName,
@@ -2935,15 +3023,41 @@ public class RestaurantController : ControllerBase
                     total = Math.Round(i.UnitPrice * i.Quantity, 2),
                     notes = i.Notes
                 })),
-                PaymentsJson = System.Text.Json.JsonSerializer.Serialize(new[]
-                {
-                    new { Id = $"PAY-{Guid.NewGuid():N}"[..12].ToUpper(), Amount = total, PaymentMethod = pMethod, PaymentDate = DateTime.UtcNow, ReceivedBy = req.ServerName ?? "Cashier", Notes = "Quick Sale Cashier Receipt" }
-                }),
+                PaymentsJson = isCredit
+                    ? "[]"
+                    : System.Text.Json.JsonSerializer.Serialize(new[]
+                    {
+                        new { Id = $"PAY-{Guid.NewGuid():N}"[..12].ToUpper(), Amount = total, PaymentMethod = pMethod, PaymentDate = DateTime.UtcNow, ReceivedBy = req.ServerName ?? "Cashier", Notes = "Quick Sale Cashier Receipt" }
+                    }),
                 Notes = order.Notes,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
             _db.Bills.Add(quickBill);
+
+            if (isCredit && creditCustomer != null)
+            {
+                order.IsPaid = false;
+
+                // Post Customer Ledger DEBIT entry
+                var ledgerEntry = new CustomerLedgerEntry
+                {
+                    HotelId = hotelId,
+                    CustomerId = creditCustomer.Id,
+                    BillId = quickBill.Id,
+                    EntryDate = DateTime.UtcNow,
+                    Description = $"Credit bill issued: {billNo}",
+                    DebitAmount = total,
+                    CreditAmount = 0,
+                    Balance = creditCustomer.CurrentOutstanding,
+                    ReferenceType = "CREDIT_BILL",
+                    ReferenceId = billNo,
+                    PaymentMode = "CREDIT",
+                    CreatedBy = req.ServerName ?? "Cashier",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _db.CustomerLedgers.Add(ledgerEntry);
+            }
 
             _db.RestaurantOrders.Add(order);
             await _db.SaveChangesAsync();
@@ -3027,8 +3141,25 @@ public class RestaurantController : ControllerBase
 
         var cashSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "CASH").Sum(o => o.Total), 2);
         var cardSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "CARD").Sum(o => o.Total), 2);
-        var upiSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "UPI" || (o.PaymentMethod ?? "").ToUpper() == "QR").Sum(o => o.Total), 2);
+        var upiSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "UPI" || (o.PaymentMethod ?? "").ToUpper() == "QR" || (o.PaymentMethod ?? "").ToUpper() == "ONLINE").Sum(o => o.Total), 2);
         var roomFolioSales = Math.Round(orders.Where(o => (o.PaymentMethod ?? "").ToUpper() == "ROOM_FOLIO").Sum(o => o.Total), 2);
+
+        // Daily Closing Credit & Cash In Drawer Calculations (Part 7, Section 14)
+        var creditGivenToday = Math.Round(await _db.Bills
+            .Where(b => b.CreatedAt >= startOfDay && b.CreatedAt < endOfDay && (b.PaymentMethod == "CREDIT" || b.PaymentStatus == "CREDIT"))
+            .SumAsync(b => b.GrandTotal), 2);
+
+        var creditPaymentsQuery = _db.CustomerLedgers
+            .Where(l => l.EntryDate >= startOfDay && l.EntryDate < endOfDay && l.ReferenceType == "PAYMENT");
+
+        var creditCollectedToday = Math.Round(await creditPaymentsQuery.SumAsync(l => l.CreditAmount), 2);
+        var cashCollectedAgainstCreditToday = Math.Round(await creditPaymentsQuery
+            .Where(l => (l.PaymentMode ?? "").ToUpper() == "CASH")
+            .SumAsync(l => l.CreditAmount), 2);
+
+        var totalImmediatePayments = Math.Round(cashSales + cardSales + upiSales, 2);
+        var totalOutstandingCredit = Math.Round(await _db.Customers.SumAsync(c => c.CurrentOutstanding), 2);
+        var cashInDrawer = Math.Round(cashSales + cashCollectedAgainstCreditToday, 2);
 
         var recentOrdersList = orders.Count > 0 
             ? orders.Take(30).ToList() 
@@ -3059,7 +3190,21 @@ public class RestaurantController : ControllerBase
                 cashSales,
                 cardSales,
                 upiSales,
-                roomFolioSales
+                roomFolioSales,
+                creditGiven = creditGivenToday,
+                creditCollected = creditCollectedToday
+            },
+            dailyClosing = new
+            {
+                cashSalesReceivedToday = cashSales,
+                onlineSalesReceivedToday = upiSales,
+                walletSalesReceivedToday = cardSales,
+                immediatePaymentsReceived = totalImmediatePayments,
+                creditGivenToday,
+                creditCollectedToday,
+                cashCollectedAgainstCreditToday,
+                totalOutstandingCredit,
+                cashInDrawer
             },
             RecentOrders = recentOrdersList.Select(o => new
             {

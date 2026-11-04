@@ -35,19 +35,31 @@ export default function LoginPage() {
     try {
       const isSuper = cleanUser.toLowerCase() === 'superadmin' || cleanUser.toLowerCase().includes('super');
 
-      // 1. Super Admin Authentication
+      // 1. Super Admin Authentication (Instant Local Verification)
       if (isSuper) {
-        if (cleanPass !== 'superadmin@123' && cleanPass !== 'superadmin') {
-          // Verify against backend in case custom password was configured
-          const backendSuper = await api.login(cleanUser, cleanPass).catch(() => null);
-          if (!backendSuper) {
-            setError('Invalid credentials for Super Administrator.');
-            setIsLoading(false);
-            return;
+        if (cleanPass === 'superadmin@123' || cleanPass === 'superadmin') {
+          const token = `super-token-${Date.now()}`;
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('auth_token', token);
+            localStorage.setItem('auth_username', 'superadmin');
+            localStorage.setItem('auth_role', 'SUPER_ADMIN');
+            localStorage.setItem('auth_name', 'Super Administrator');
+            localStorage.setItem('auth_hotel_name', 'Company SaaS Platform');
           }
+          toast.success('Super Admin Access Granted', 'Signed in as Super Administrator.');
+          router.push('/super-admin');
+          return;
         }
 
-        const token = `super-token-${Date.now()}`;
+        // Custom password verification against backend with timeout
+        const backendSuper = await api.login(cleanUser, cleanPass).catch(() => null);
+        if (!backendSuper) {
+          setError('Invalid credentials for Super Administrator.');
+          setIsLoading(false);
+          return;
+        }
+
+        const token = backendSuper.token || `super-token-${Date.now()}`;
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('auth_token', token);
           localStorage.setItem('auth_username', 'superadmin');
@@ -58,11 +70,10 @@ export default function LoginPage() {
 
         toast.success('Super Admin Access Granted', 'Signed in as Super Administrator.');
         router.push('/super-admin');
-        router.refresh();
         return;
       }
 
-      // 2. Client Property Authentication (Created by Super Admin)
+      // 2. Client Property Authentication (Instant Local Verification)
       let registeredClients: any[] = [];
       if (typeof localStorage !== 'undefined') {
         try {
@@ -94,16 +105,8 @@ export default function LoginPage() {
           return;
         }
 
-        // Credentials verified! Sync with backend API
-        let backendRes = null;
-        try {
-          backendRes = await api.login(matchedClient.username, cleanPass);
-        } catch {
-          // Local client authentication succeeds even if backend is offline
-        }
-
-        const token = backendRes?.token || `client-token-${matchedClient.id}-${Date.now()}`;
-
+        // Instant local authentication: Set session immediately (0ms delay)
+        const token = `client-token-${matchedClient.id}-${Date.now()}`;
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('auth_token', token);
           localStorage.setItem('auth_username', matchedClient.username);
@@ -116,30 +119,43 @@ export default function LoginPage() {
           localStorage.setItem('active_hotel', JSON.stringify(matchedClient));
         }
 
+        // Background non-blocking sync with backend API (never blocks user login)
+        api.login(matchedClient.username, cleanPass).then((res) => {
+          if (res?.token && typeof localStorage !== 'undefined') {
+            localStorage.setItem('auth_token', res.token);
+          }
+        }).catch(() => {});
+
         toast.success(`Welcome to ${matchedClient.name}`, `Signed in as ${matchedClient.contactPerson || matchedClient.username}.`);
         router.push('/');
-        router.refresh();
         return;
       }
 
-      // 3. Fallback: Check backend database for system users
-      let res = null;
-      try {
-        res = await api.login(cleanUser, cleanPass);
-      } catch (err: any) {
-        // Development standard demo account fallback
-        if (cleanUser === 'admin' && (cleanPass === 'admin@123' || cleanPass === 'admin')) {
-          res = {
-            username: 'admin',
-            name: 'Hotel Administrator',
-            hotelName: 'Hotel Master',
-            token: `demo-token-${Date.now()}`,
-            role: 'HOTEL_ADMIN',
-          };
-        } else {
-          throw new Error('Invalid username or password. Please verify your credentials.');
+      // 3. Local Admin / Demo Account (Instant Local Verification)
+      if (cleanUser.toLowerCase() === 'admin' && (cleanPass === 'admin@123' || cleanPass === 'admin')) {
+        const token = `demo-token-${Date.now()}`;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('auth_token', token);
+          localStorage.setItem('auth_username', 'admin');
+          localStorage.setItem('auth_role', 'HOTEL_ADMIN');
+          localStorage.setItem('auth_name', 'Hotel Administrator');
+          localStorage.setItem('auth_hotel_name', 'Hotel Master');
         }
+
+        // Background non-blocking sync with backend API
+        api.login('admin', cleanPass).then((res) => {
+          if (res?.token && typeof localStorage !== 'undefined') {
+            localStorage.setItem('auth_token', res.token);
+          }
+        }).catch(() => {});
+
+        toast.success('Welcome back', 'Signed in successfully.');
+        router.push('/');
+        return;
       }
+
+      // 4. Fallback: Authenticate against backend database
+      const res = await api.login(cleanUser, cleanPass);
 
       if (res?.token && typeof localStorage !== 'undefined') {
         localStorage.setItem('auth_token', res.token);
@@ -151,7 +167,6 @@ export default function LoginPage() {
 
       toast.success('Welcome back', `Signed in successfully.`);
       router.push('/');
-      router.refresh();
     } catch (err: any) {
       setError(err?.message || 'Invalid username or password.');
     } finally {

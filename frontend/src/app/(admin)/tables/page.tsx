@@ -5,7 +5,6 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
 import {
   Search,
   Table2,
@@ -4324,11 +4323,7 @@ function TablesContent() {
             Restaurant Module · Tables
           </span>
         </div>
-
-        <RestaurantManagementNavBoxes activeId="tables" />
       </div>
-
-      <div className="border-b border-border-default dark:border-border-default -mt-1 mb-2" />
 
       {/* Clean Header Bar: Tables, Active Orders & Reservations Segmented Switcher + Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-border-default dark:border-border-default">

@@ -331,11 +331,11 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
          ========================================================================= */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
         {[
-          { id: 'ALL', label: 'All Items', count: metrics.total },
-          { id: 'IN_STOCK', label: 'In Stock', count: metrics.inStock },
-          { id: 'LOW_STOCK', label: 'Low Stock', count: metrics.lowStock },
-          { id: 'OUT_OF_STOCK', label: 'Out of Stock', count: metrics.outOfStock },
-          { id: 'NOT_TRACKED', label: 'Not Tracked', count: metrics.notTracked },
+          { id: 'ALL', label: 'All Items' },
+          { id: 'IN_STOCK', label: 'In Stock' },
+          { id: 'LOW_STOCK', label: 'Low Stock' },
+          { id: 'OUT_OF_STOCK', label: 'Out of Stock' },
+          { id: 'NOT_TRACKED', label: 'Not Tracked' },
         ].map((tab) => {
           const isSelected = statusFilter === tab.id;
           return (
@@ -354,16 +354,6 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
               )}
             >
               <span>{tab.label}</span>
-              <span
-                className={cn(
-                  'px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold',
-                  isSelected
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 dark:bg-surface-elevated text-slate-600 dark:text-slate-400'
-                )}
-              >
-                {tab.count}
-              </span>
             </button>
           );
         })}

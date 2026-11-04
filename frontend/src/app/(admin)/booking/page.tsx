@@ -35,7 +35,6 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import {
   RoomBooking,
   PaymentEntry,
@@ -860,9 +859,6 @@ function NewRoomBookingContent() {
 
   return (
     <div className="space-y-4 w-full min-w-0 pb-16 select-none font-sans text-body dark:text-slate-100">
-      {/* Hotel Management Top Navigation Boxes */}
-      <HotelManagementNavBoxes activeId={formMode === 'CHECK_IN' ? 'check-in' : 'book-now'} />
-
       {/* Main Booking Container Card */}
       <div className="bg-white dark:bg-surface-card rounded-[4px] border border-border-default dark:border-border-default shadow-sm overflow-hidden">
         {/* Top Header */}

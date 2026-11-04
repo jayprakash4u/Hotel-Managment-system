@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ShoppingCart,
   Plus,
@@ -23,6 +23,9 @@ import {
   ExternalLink,
   Receipt,
   Download,
+  ChevronDown,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -79,6 +82,93 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
   const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
   const [viewingPurchase, setViewingPurchase] = useState<PurchaseRecord | null>(null);
 
+  // Dynamic Suppliers & Searchable Dropdown
+  const [dynamicSuppliers, setDynamicSuppliers] = useState<any[]>(() => (Array.isArray(suppliers) ? suppliers : []));
+  const [isFetchingSuppliers, setIsFetchingSuppliers] = useState(false);
+  const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
+  const supplierDropdownRef = useRef<HTMLDivElement>(null);
+  const supplierSearchInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch dynamic suppliers from API
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSuppliers = async () => {
+      setIsFetchingSuppliers(true);
+      try {
+        const res = await fetch('/api/suppliers');
+        const json = await res.json();
+        if (!isMounted) return;
+        if (json && json.success && Array.isArray(json.data)) {
+          setDynamicSuppliers(json.data);
+        } else if (Array.isArray(json)) {
+          setDynamicSuppliers(json);
+        } else if (suppliers && suppliers.length > 0) {
+          setDynamicSuppliers(suppliers);
+        }
+      } catch (err) {
+        if (isMounted && suppliers && suppliers.length > 0) {
+          setDynamicSuppliers(suppliers);
+        }
+      } finally {
+        if (isMounted) setIsFetchingSuppliers(false);
+      }
+    };
+
+    fetchSuppliers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Sync if prop suppliers updates
+  useEffect(() => {
+    if (suppliers && suppliers.length > 0 && dynamicSuppliers.length === 0) {
+      setDynamicSuppliers(suppliers);
+    }
+  }, [suppliers]);
+
+  // Close supplier dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        supplierDropdownRef.current &&
+        !supplierDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsSupplierDropdownOpen(false);
+      }
+    };
+    if (isSupplierDropdownOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isSupplierDropdownOpen]);
+
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (isSupplierDropdownOpen) {
+      setTimeout(() => {
+        supplierSearchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [isSupplierDropdownOpen]);
+
+  // Filtered Suppliers for the search dropdown
+  const filteredSuppliersList = useMemo(() => {
+    if (!supplierSearchTerm.trim()) return dynamicSuppliers;
+    const term = supplierSearchTerm.toLowerCase();
+    return dynamicSuppliers.filter((s: any) => {
+      const name = (s.name || '').toLowerCase();
+      const code = (s.code || '').toLowerCase();
+      const phone = (s.phone || '').toLowerCase();
+      const person = (s.contactPerson || '').toLowerCase();
+      const pan = (s.panVatNumber || '').toLowerCase();
+      return name.includes(term) || code.includes(term) || phone.includes(term) || person.includes(term) || pan.includes(term);
+    });
+  }, [dynamicSuppliers, supplierSearchTerm]);
+
   // Filters
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>('ALL');
@@ -86,6 +176,14 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
   const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('ALL');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
+
+  // Selected supplier label display
+  const selectedSupplierLabel = useMemo(() => {
+    if (selectedSupplierFilter === 'ALL') return 'All Suppliers';
+    if (selectedSupplierFilter === 'WALK_IN') return 'Walk-in / Unregistered';
+    const found = dynamicSuppliers.find((s: any) => s.id === selectedSupplierFilter);
+    return found ? found.name : 'Selected Supplier';
+  }, [selectedSupplierFilter, dynamicSuppliers]);
 
   // Pagination & Sorting
   const [pageSize, setPageSize] = useState<number>(10);
@@ -139,9 +237,13 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
       // Supplier Filter
       if (selectedSupplierFilter !== 'ALL') {
         if (selectedSupplierFilter === 'WALK_IN') {
-          if (po.supplierId) return false;
-        } else if (po.supplierId !== selectedSupplierFilter) {
-          return false;
+          if (po.supplierId && po.supplierId !== 'WALK_IN') return false;
+        } else {
+          const selSup = dynamicSuppliers.find((s: any) => s.id === selectedSupplierFilter);
+          const selName = selSup?.name?.toLowerCase();
+          const matchesId = po.supplierId === selectedSupplierFilter;
+          const matchesName = Boolean(selName && po.supplierName?.toLowerCase() === selName);
+          if (!matchesId && !matchesName) return false;
         }
       }
 
@@ -230,9 +332,9 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
          ========================================================================= */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
         {[
-          { id: 'ALL' as TypeFilter, label: 'All Purchases', count: metrics.total },
-          { id: 'SIMPLE' as TypeFilter, label: 'Simple Purchases', count: metrics.simpleCount },
-          { id: 'FULL' as TypeFilter, label: 'Full Details Purchases', count: metrics.fullCount },
+          { id: 'ALL' as TypeFilter, label: 'All Purchases' },
+          { id: 'SIMPLE' as TypeFilter, label: 'Simple Purchases' },
+          { id: 'FULL' as TypeFilter, label: 'Full Details Purchases' },
         ].map((tab) => {
           const isSelected = typeFilter === tab.id;
           return (
@@ -251,28 +353,11 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
               )}
             >
               <span>{tab.label}</span>
-              <span
-                className={cn(
-                  'px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold',
-                  isSelected
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 dark:bg-surface-elevated text-slate-600 dark:text-slate-400'
-                )}
-              >
-                {tab.count}
-              </span>
             </button>
           );
         })}
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="text-xs font-semibold text-slate-500 hidden sm:block">
-            Total Spend:{' '}
-            <span className="font-mono font-bold text-slate-900 dark:text-white">
-              Rs. {metrics.totalExpenditure.toLocaleString()}
-            </span>
-          </div>
-
           <button
             type="button"
             onClick={onRefresh}
@@ -328,25 +413,152 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
               </select>
             </div>
 
-            {/* Supplier Filter */}
-            <div className="flex items-center gap-1">
+            {/* Supplier Filter (Searchable Dynamic Dropdown) */}
+            <div className="relative flex items-center gap-1" ref={supplierDropdownRef}>
               <span className="text-slate-500">Supplier:</span>
-              <select
-                value={selectedSupplierFilter}
-                onChange={(e) => {
-                  setSelectedSupplierFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer max-w-[150px]"
+              <button
+                type="button"
+                onClick={() => setIsSupplierDropdownOpen((prev) => !prev)}
+                className="h-[27px] px-2 py-0.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between gap-1.5 min-w-[130px] max-w-[190px] hover:border-[#0B3D32] focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+                title={selectedSupplierLabel}
               >
-                <option value="ALL">All Suppliers</option>
-                <option value="WALK_IN">Walk-in / Unregistered</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                <span className="truncate">{selectedSupplierLabel}</span>
+                <ChevronDown
+                  className={cn(
+                    'w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150',
+                    isSupplierDropdownOpen && 'rotate-180 text-[#0B3D32]'
+                  )}
+                />
+              </button>
+
+              {/* Dropdown Popover */}
+              {isSupplierDropdownOpen && (
+                <div className="absolute left-14 top-full mt-1 w-64 bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] shadow-xl z-50 overflow-hidden text-xs">
+                  {/* Search Input Box */}
+                  <div className="p-1.5 border-b border-slate-200 dark:border-border-default bg-slate-50 dark:bg-slate-800/60">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        ref={supplierSearchInputRef}
+                        type="text"
+                        value={supplierSearchTerm}
+                        onChange={(e) => setSupplierSearchTerm(e.target.value)}
+                        placeholder="Search supplier..."
+                        className="w-full pl-7 pr-6 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-[3px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#0B3D32]"
+                      />
+                      {supplierSearchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setSupplierSearchTerm('')}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Options List */}
+                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                    {/* All Suppliers */}
+                    {(!supplierSearchTerm || 'all suppliers'.includes(supplierSearchTerm.toLowerCase())) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSupplierFilter('ALL');
+                          setCurrentPage(1);
+                          setIsSupplierDropdownOpen(false);
+                          setSupplierSearchTerm('');
+                        }}
+                        className={cn(
+                          'w-full text-left px-2.5 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold cursor-pointer transition-colors',
+                          selectedSupplierFilter === 'ALL'
+                            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold'
+                            : 'text-slate-700 dark:text-slate-200'
+                        )}
+                      >
+                        <span>All Suppliers</span>
+                        {selectedSupplierFilter === 'ALL' && (
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        )}
+                      </button>
+                    )}
+
+                    {/* Walk-in / Unregistered */}
+                    {(!supplierSearchTerm || 'walk-in unregistered cash'.includes(supplierSearchTerm.toLowerCase())) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSupplierFilter('WALK_IN');
+                          setCurrentPage(1);
+                          setIsSupplierDropdownOpen(false);
+                          setSupplierSearchTerm('');
+                        }}
+                        className={cn(
+                          'w-full text-left px-2.5 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors',
+                          selectedSupplierFilter === 'WALK_IN'
+                            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold'
+                            : 'text-slate-700 dark:text-slate-200'
+                        )}
+                      >
+                        <span>Walk-in / Unregistered</span>
+                        {selectedSupplierFilter === 'WALK_IN' && (
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        )}
+                      </button>
+                    )}
+
+                    {/* Dynamically Fetched Suppliers from DB */}
+                    {filteredSuppliersList.map((sup: any) => {
+                      const isSelected = selectedSupplierFilter === sup.id;
+                      return (
+                        <button
+                          key={sup.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSupplierFilter(sup.id);
+                            setCurrentPage(1);
+                            setIsSupplierDropdownOpen(false);
+                            setSupplierSearchTerm('');
+                          }}
+                          className={cn(
+                            'w-full text-left px-2.5 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors',
+                            isSelected
+                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold'
+                              : 'text-slate-700 dark:text-slate-200'
+                          )}
+                        >
+                          <div className="truncate pr-2">
+                            <div className="truncate font-medium">{sup.name}</div>
+                            {(sup.code || sup.phone) && (
+                              <div className="text-[10px] text-slate-400 dark:text-slate-500 font-normal truncate">
+                                {sup.code && <span className="mr-1.5 font-mono">{sup.code}</span>}
+                                {sup.phone && <span>{sup.phone}</span>}
+                              </div>
+                            )}
+                          </div>
+                          {isSelected && (
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {/* Empty or Loading State */}
+                    {isFetchingSuppliers && dynamicSuppliers.length === 0 && (
+                      <div className="p-3 text-center text-slate-400 flex items-center justify-center gap-1.5 text-xs">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Loading suppliers...</span>
+                      </div>
+                    )}
+                    {!isFetchingSuppliers && filteredSuppliersList.length === 0 && supplierSearchTerm && (
+                      <div className="p-3 text-center text-slate-400 text-xs">
+                        No matching suppliers
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Date Filters */}

@@ -33,6 +33,10 @@ public class HospitalityDbContext : DbContext
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<Bill> Bills => Set<Bill>();
     public DbSet<ReservationAlert> ReservationAlerts => Set<ReservationAlert>();
+    public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<CustomerLedgerEntry> CustomerLedgers => Set<CustomerLedgerEntry>();
+    public DbSet<SupplierLedgerEntry> SupplierLedgers => Set<SupplierLedgerEntry>();
+    public DbSet<CreditOverrideAudit> CreditOverrideAudits => Set<CreditOverrideAudit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -167,6 +171,24 @@ public class HospitalityDbContext : DbContext
             .HasForeignKey(p => p.SupplierId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<SupplierLedgerEntry>()
+            .HasOne(s => s.Supplier)
+            .WithMany()
+            .HasForeignKey(s => s.SupplierId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SupplierLedgerEntry>()
+            .HasOne(s => s.PurchaseOrder)
+            .WithMany()
+            .HasForeignKey(s => s.PurchaseOrderId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<SupplierLedgerEntry>()
+            .HasIndex(s => new { s.HotelId, s.SupplierId });
+
+        modelBuilder.Entity<SupplierLedgerEntry>()
+            .HasIndex(s => new { s.HotelId, s.EntryDate });
 
         modelBuilder.Entity<Bill>()
             .HasIndex(b => new { b.HotelId, b.BillNumber })

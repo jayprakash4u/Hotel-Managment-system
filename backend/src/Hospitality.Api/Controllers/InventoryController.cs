@@ -1305,6 +1305,57 @@ public class InventoryController : ControllerBase
                 ? req.TotalAmount
                 : Math.Max(0, subtotal - req.Discount + req.Tax + req.AdditionalCharges);
 
+            // --- Credit Purchase Business Rules ---
+            var paymentMethod = !string.IsNullOrWhiteSpace(req.PaymentMethod) ? req.PaymentMethod : "Cash";
+            var isCredit = paymentMethod.Equals("Credit", StringComparison.OrdinalIgnoreCase);
+            DateTime? poDueDate = null;
+
+            if (isCredit && !string.IsNullOrWhiteSpace(supplierId))
+            {
+                var sup = await _db.Suppliers.FindAsync(supplierId);
+                if (sup != null)
+                {
+                    if (!sup.IsActive)
+                    {
+                        return BadRequest(ApiResponse.Fail(
+                            $"Cannot make a credit purchase from inactive supplier '{sup.Name}'."
+                        ));
+                    }
+
+                    // Calculate due date from supplier payment terms
+                    var termsDays = sup.PaymentTermsDays > 0 ? sup.PaymentTermsDays : 0;
+                    poDueDate = purchaseDate.AddDays(termsDays);
+
+                    // Check credit limit against outstanding balance + new purchase
+                    var latestLedger = await _db.SupplierLedgers
+                        .Where(l => l.HotelId == hotelId && l.SupplierId == sup.Id)
+                        .OrderByDescending(l => l.EntryDate)
+                        .ThenByDescending(l => l.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    var currentOutstanding = latestLedger?.Balance ?? sup.OpeningBalance;
+                    var projectedOutstanding = currentOutstanding + grandTotal;
+
+                    if (sup.CreditLimit > 0 && projectedOutstanding > sup.CreditLimit)
+                    {
+                        return BadRequest(ApiResponse.Fail(
+                            $"Credit limit exceeded for supplier '{sup.Name}'. " +
+                            $"Current outstanding: {currentOutstanding:N2}, " +
+                            $"This purchase: {grandTotal:N2}, " +
+                            $"Projected: {projectedOutstanding:N2}, " +
+                            $"Credit limit: {sup.CreditLimit:N2}."
+                        ));
+                    }
+                }
+                else
+                {
+                    // Credit without a registered supplier is not allowed
+                    return BadRequest(ApiResponse.Fail(
+                        "Credit purchases require a registered supplier. Please select a supplier or use Cash payment."
+                    ));
+                }
+            }
+
             var po = new PurchaseOrder
             {
                 HotelId = hotelId,
@@ -1319,7 +1370,7 @@ public class InventoryController : ControllerBase
                 Tax = req.Tax,
                 AdditionalCharges = req.AdditionalCharges,
                 TotalAmount = grandTotal,
-                PaymentMethod = !string.IsNullOrWhiteSpace(req.PaymentMethod) ? req.PaymentMethod : "Cash",
+                PaymentMethod = paymentMethod,
                 PaymentStatus = !string.IsNullOrWhiteSpace(req.PaymentStatus) ? req.PaymentStatus : "Paid",
                 Status = "RECEIVED",
                 Notes = req.Notes?.Trim(),
@@ -1334,7 +1385,8 @@ public class InventoryController : ControllerBase
                     restaurantQty = i.RestaurantQuantity ?? (i.Department != "HOTEL" ? (int)Math.Round(i.Quantity) : 0)
                 })),
                 OrderedAt = purchaseDate,
-                ReceivedAt = purchaseDate
+                ReceivedAt = purchaseDate,
+                DueDate = poDueDate
             };
 
             _db.PurchaseOrders.Add(po);
@@ -1446,6 +1498,39 @@ public class InventoryController : ControllerBase
                         });
                     }
                 }
+            }
+
+            // --- Supplier Ledger Entry for Credit Purchases ---
+            if (isCredit && !string.IsNullOrWhiteSpace(supplierId) && grandTotal > 0)
+            {
+                var sup = await _db.Suppliers.FindAsync(supplierId);
+
+                var latestLedger = await _db.SupplierLedgers
+                    .Where(l => l.HotelId == hotelId && l.SupplierId == supplierId)
+                    .OrderByDescending(l => l.EntryDate)
+                    .ThenByDescending(l => l.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                var openingBalance = latestLedger?.Balance ?? sup?.OpeningBalance ?? 0;
+
+                _db.SupplierLedgers.Add(new SupplierLedgerEntry
+                {
+                    HotelId = hotelId,
+                    SupplierId = supplierId,
+                    PurchaseOrderId = po.Id,
+                    EntryDate = purchaseDate,
+                    Description = $"Credit purchase {po.PoNumber}" +
+                                  (!string.IsNullOrWhiteSpace(po.InvoiceNumber) ? $" (Inv #{po.InvoiceNumber})" : ""),
+                    CreditAmount = grandTotal,
+                    DebitAmount = 0,
+                    Balance = openingBalance + grandTotal,
+                    DueDate = poDueDate,
+                    ReferenceType = "PURCHASE_CREDIT",
+                    ReferenceId = po.Id,
+                    PaymentMode = paymentMethod,
+                    CreatedBy = po.CreatedBy,
+                    CreatedAt = DateTime.UtcNow
+                });
             }
 
             await _db.SaveChangesAsync();

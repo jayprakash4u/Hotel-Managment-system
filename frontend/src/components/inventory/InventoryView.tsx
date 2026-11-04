@@ -25,7 +25,15 @@ import {
   Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { InventoryNavBoxes } from '@/components/common/InventoryNavBoxes';
+import {
+  LayoutDashboard,
+  Package,
+  Receipt as ReceiptIcon,
+  Activity,
+  ShoppingBag,
+  Tag,
+  Scale,
+} from 'lucide-react';
 
 export type InventoryTab =
   | 'OVERVIEW'
@@ -210,27 +218,59 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
     [items, purchases, suppliers, transfers]
   );
 
+  interface InventoryTabItem {
+    id: InventoryTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }
+
+  const tabItems: InventoryTabItem[] = useMemo(() => {
+    const list: InventoryTabItem[] = [
+      { id: 'OVERVIEW', label: 'Overview', icon: LayoutDashboard },
+      { id: 'ITEMS', label: 'Inventory Items', icon: Package },
+      { id: 'PURCHASE_LEDGER', label: 'Purchase Ledger', icon: ReceiptIcon },
+      { id: 'STOCK_MOVEMENTS', label: 'Stock Movements', icon: Activity },
+      { id: 'SUPPLIERS', label: 'Suppliers', icon: Users },
+      { id: 'RECEIVE_STOCK', label: 'Receive Stock', icon: ShoppingBag },
+      { id: 'STOCK_ADJUSTMENT', label: 'Adjustments', icon: SlidersHorizontal },
+    ];
+    if (isTransfersEnabled) {
+      list.push({ id: 'STOCK_TRANSFERS', label: 'Transfers', icon: ArrowLeftRight });
+    }
+    list.push(
+      { id: 'CATEGORIES', label: 'Categories', icon: Tag },
+      { id: 'UNITS', label: 'Units', icon: Scale }
+    );
+    return list;
+  }, [isTransfersEnabled]);
+
   return (
-    <div className="space-y-4 select-none w-full min-w-0 pb-12 font-sans">
+    <div className="space-y-3.5 select-none w-full min-w-0 pb-12 font-sans">
       {/* =====================================================================
-          TOP INVENTORY NAVIGATION (10 ORGANIZED MODULES)
+          SLEEK HORIZONTAL INVENTORY NAVIGATION TAB STRIP
           ===================================================================== */}
-      <InventoryNavBoxes
-        activeId={activeNavId}
-        counts={counts}
-        onSelectOption={(navId) => {
-          if (navId === 'overview') handleTabSelect('OVERVIEW');
-          else if (navId === 'items') handleTabSelect('ITEMS');
-          else if (navId === 'purchase-ledger') handleTabSelect('PURCHASE_LEDGER');
-          else if (navId === 'stock-movements') handleTabSelect('STOCK_MOVEMENTS');
-          else if (navId === 'suppliers') handleTabSelect('SUPPLIERS');
-          else if (navId === 'receive-stock') handleTabSelect('RECEIVE_STOCK');
-          else if (navId === 'stock-adjustments') handleTabSelect('STOCK_ADJUSTMENT');
-          else if (navId === 'stock-transfers') handleTabSelect('STOCK_TRANSFERS');
-          else if (navId === 'categories') handleTabSelect('CATEGORIES');
-          else if (navId === 'units') handleTabSelect('UNITS');
-        }}
-      />
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border-default dark:border-border-default no-scrollbar">
+        {tabItems.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => handleTabSelect(tab.id)}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[3px] border transition-all cursor-pointer shrink-0',
+                isActive
+                  ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs dark:bg-emerald-700 dark:border-emerald-600'
+                  : 'bg-white dark:bg-surface-card border-slate-200 dark:border-border-default text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-hover hover:border-slate-300'
+              )}
+            >
+              <Icon className={cn('w-3.5 h-3.5', isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400')} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* =====================================================================
           VIEW 1: INVENTORY OVERVIEW (MAIN COMPREHENSIVE TABLE)

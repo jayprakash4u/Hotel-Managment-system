@@ -25,10 +25,11 @@ import {
   LogOut,
   MoreVertical,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { HotelManagementNavBoxes } from '@/components/common/HotelManagementNavBoxes';
 import {
   RoomBooking,
   loadBookingsFromStorage,
@@ -39,7 +40,7 @@ import {
 } from './reservationsData';
 
 type StatusFilter = 'ALL' | 'RESERVED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
-type DateFilter = 'ALL' | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM';
+type DateFilter = 'ALL' | 'TODAY' | 'TOMORROW' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM';
 
 function RoomBookingsContent() {
   const router = useRouter();
@@ -56,25 +57,49 @@ function RoomBookingsContent() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [showDateFilterDropdown, setShowDateFilterDropdown] = useState(false);
-  const dateFilterDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close 3-dots menu & date filter dropdown on outside click
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Close 3-dots menu on outside click
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = () => {
       setOpenMenuId(null);
-      if (
-        dateFilterDropdownRef.current &&
-        !dateFilterDropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowDateFilterDropdown(false);
-      }
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   const todayStr = useMemo(() => getRelativeDate(0), []);
+
+  const handleDatePresetChange = (preset: DateFilter) => {
+    setDateFilter(preset);
+    if (preset === 'ALL') {
+      setCustomStartDate('');
+      setCustomEndDate('');
+    } else if (preset === 'TODAY') {
+      const today = getRelativeDate(0);
+      setCustomStartDate(today);
+      setCustomEndDate(today);
+    } else if (preset === 'TOMORROW') {
+      const tomorrow = getRelativeDate(1);
+      setCustomStartDate(tomorrow);
+      setCustomEndDate(tomorrow);
+    } else if (preset === 'THIS_WEEK') {
+      setCustomStartDate(getRelativeDate(0));
+      setCustomEndDate(getRelativeDate(7));
+    } else if (preset === 'THIS_MONTH') {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const monthStart = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const monthEnd = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      setCustomStartDate(monthStart);
+      setCustomEndDate(monthEnd);
+    }
+  };
 
   // Persist bookings to localStorage whenever they change
   useEffect(() => {
@@ -104,17 +129,17 @@ function RoomBookingsContent() {
     };
   }, [bookings]);
 
-  // Status tab definitions
+  // Status tab definitions (Box-type, no numbers)
   const statusTabs = useMemo(() => {
     return [
-      { id: 'ALL' as const, label: 'All', count: counts.all },
-      { id: 'RESERVED' as const, label: 'Reserved', count: counts.reserved },
-      { id: 'CHECKED_IN' as const, label: 'Checked In', count: counts.checkedIn },
-      { id: 'CHECKED_OUT' as const, label: 'Checked Out', count: counts.checkedOut },
-      { id: 'CANCELLED' as const, label: 'Cancelled', count: counts.cancelled },
-      { id: 'NO_SHOW' as const, label: 'No-Show', count: counts.noShow },
+      { id: 'ALL' as const, label: 'All' },
+      { id: 'RESERVED' as const, label: 'Reserved' },
+      { id: 'CHECKED_IN' as const, label: 'Checked In' },
+      { id: 'CHECKED_OUT' as const, label: 'Checked Out' },
+      { id: 'CANCELLED' as const, label: 'Cancelled' },
+      { id: 'NO_SHOW' as const, label: 'No-Show' },
     ];
-  }, [counts]);
+  }, []);
 
   // Filtered Bookings List
   const filteredBookings = useMemo(() => {
@@ -125,22 +150,7 @@ function RoomBookingsContent() {
       }
 
       // 2. Date Filter
-      if (dateFilter === 'TODAY') {
-        const touchesToday =
-          b.checkIn === todayStr ||
-          b.checkOut === todayStr ||
-          (b.checkIn <= todayStr && b.checkOut >= todayStr);
-        if (!touchesToday) return false;
-      } else if (dateFilter === 'THIS_WEEK') {
-        const weekEndStr = getRelativeDate(7);
-        const inThisWeek = b.checkIn <= weekEndStr && b.checkOut >= todayStr;
-        if (!inThisWeek) return false;
-      } else if (dateFilter === 'THIS_MONTH') {
-        const currentYearMonth = todayStr.substring(0, 7);
-        const inThisMonth =
-          b.checkIn.startsWith(currentYearMonth) || b.checkOut.startsWith(currentYearMonth);
-        if (!inThisMonth) return false;
-      } else if (dateFilter === 'CUSTOM') {
+      if (dateFilter !== 'ALL') {
         if (customStartDate && b.checkOut < customStartDate) return false;
         if (customEndDate && b.checkIn > customEndDate) return false;
       }
@@ -163,6 +173,19 @@ function RoomBookingsContent() {
       return true;
     });
   }, [bookings, activeTab, dateFilter, customStartDate, customEndDate, searchQuery, todayStr]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedBookings = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredBookings.slice(start, start + pageSize);
+  }, [filteredBookings, safeCurrentPage, pageSize]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, dateFilter, customStartDate, customEndDate, searchQuery]);
 
   // Actions on Bookings
   const handleCheckInGuest = (bookingId: string) => {
@@ -248,9 +271,6 @@ function RoomBookingsContent() {
 
   return (
     <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
-      {/* Hotel Management Top Navigation Boxes */}
-      <HotelManagementNavBoxes activeId="reservations" />
-
       {/* -----------------------------------------------------------------------
           TOP HEADER: Clean, Professional Page Title & Actions
           ----------------------------------------------------------------------- */}
@@ -311,11 +331,11 @@ function RoomBookingsContent() {
       </div>
 
       {/* -----------------------------------------------------------------------
-          STATUS TABS, SEARCH & DATE FILTER (Combined Single Minimal Row)
+          STATUS BUTTONS (BOX TYPE), DATE SELECTOR & SEARCH
           ----------------------------------------------------------------------- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border-default dark:border-border-default pt-1">
-        {/* Left Side: Minimal Text Tabs with Underline */}
-        <div className="flex items-center gap-1 sm:gap-4 overflow-x-auto no-scrollbar -mb-px">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 pt-1">
+        {/* Left Side: Box-type Status Buttons (No Numbers) */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           {statusTabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -324,44 +344,82 @@ function RoomBookingsContent() {
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'relative pb-2.5 px-2 text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer',
+                  'px-3 py-1.5 text-xs font-semibold rounded-[3px] border transition-all cursor-pointer select-none whitespace-nowrap',
                   isActive
-                    ? 'text-[#0B3D32] dark:text-emerald-400 font-bold'
-                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                    ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs font-bold dark:bg-emerald-700 dark:border-emerald-700'
+                    : 'bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 border-slate-300 dark:border-border-default hover:bg-slate-50 dark:hover:bg-slate-800'
                 )}
               >
                 <span>{tab.label}</span>
-                <span
-                  className={cn(
-                    'text-[10px] font-medium px-1.5 py-0.2 rounded-full transition-colors',
-                    isActive
-                      ? 'bg-[#E8F2EE] text-[#0B3D32] dark:bg-emerald-950/60 dark:text-emerald-300 font-bold'
-                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                  )}
-                >
-                  {tab.count}
-                </span>
-
-                {/* Underline for Active Tab */}
-                {isActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0B3D32] dark:bg-emerald-400 rounded-full" />
-                )}
               </button>
             );
           })}
         </div>
 
-        {/* Right Side: Search Bar & Filter Icon Button */}
-        <div className="flex items-center gap-2 pb-2 self-end md:self-auto w-full md:w-auto">
-          {/* Search Bar */}
-          <div className="relative flex-1 md:w-64">
+        {/* Right Side: Date Selector & Search Bar */}
+        <div className="flex items-center gap-2 flex-wrap self-start xl:self-auto w-full xl:w-auto">
+          {/* Date Selector */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Date Preset Dropdown */}
+            <select
+              value={dateFilter}
+              onChange={(e) => handleDatePresetChange(e.target.value as DateFilter)}
+              className="h-[30px] px-2.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+            >
+              <option value="ALL">All Dates</option>
+              <option value="TODAY">Today</option>
+              <option value="TOMORROW">Tomorrow</option>
+              <option value="THIS_WEEK">Next 7 Days</option>
+              <option value="THIS_MONTH">This Month</option>
+              <option value="CUSTOM">Custom Range</option>
+            </select>
+
+            {/* Date Inputs [From] to [To] */}
+            <div className="flex items-center gap-1.5 bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] px-2.5 h-[30px] shadow-2xs">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => {
+                  setCustomStartDate(e.target.value);
+                  setDateFilter('CUSTOM');
+                }}
+                className="text-xs font-medium text-slate-800 dark:text-slate-200 bg-transparent focus:outline-none cursor-pointer"
+                title="Start Date"
+              />
+              <span className="text-slate-400 text-xs font-medium">to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => {
+                  setCustomEndDate(e.target.value);
+                  setDateFilter('CUSTOM');
+                }}
+                className="text-xs font-medium text-slate-800 dark:text-slate-200 bg-transparent focus:outline-none cursor-pointer"
+                title="End Date"
+              />
+              {(customStartDate || customEndDate || dateFilter !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => handleDatePresetChange('ALL')}
+                  title="Clear Date Filter"
+                  className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 ml-0.5 cursor-pointer transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Search Bar (compact, aligned to right) */}
+          <div className="relative w-full sm:w-52 shrink-0 sm:ml-auto">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search guest, room, ID..."
-              className="w-full rounded-[3px] border border-slate-200 bg-slate-50/70 py-1.5 pl-8 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
+              className="w-full h-[28px] rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card pl-8 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
             />
             {searchQuery && (
               <button
@@ -373,194 +431,8 @@ function RoomBookingsContent() {
               </button>
             )}
           </div>
-
-          {/* Filter Icon Button (with dropdown for date ranges) */}
-          <div className="relative shrink-0" ref={dateFilterDropdownRef}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDateFilterDropdown((prev) => !prev);
-              }}
-              className={cn(
-                'inline-flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-[3px] border text-xs font-semibold transition-colors cursor-pointer shadow-2xs',
-                dateFilter !== 'ALL'
-                  ? 'bg-[#E8F2EE] border-[#0B3D32] text-[#0B3D32] dark:bg-emerald-950/40 dark:border-emerald-600 dark:text-emerald-300'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700'
-              )}
-              title="Filter by Stay Dates"
-            >
-              <Filter className="w-3.5 h-3.5" />
-              <span className="text-xs">
-                {dateFilter === 'ALL'
-                  ? 'Filter'
-                  : dateFilter === 'TODAY'
-                  ? 'Today'
-                  : dateFilter === 'THIS_WEEK'
-                  ? '7 Days'
-                  : dateFilter === 'THIS_MONTH'
-                  ? 'This Month'
-                  : 'Custom'}
-              </span>
-              {dateFilter !== 'ALL' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#0B3D32] dark:bg-emerald-400" />
-              )}
-            </button>
-
-            {/* Dropdown for date ranges */}
-            {showDateFilterDropdown && (
-              <div
-                className="absolute right-0 top-full mt-1.5 z-40 w-60 rounded-[3px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-xl p-2.5 text-xs space-y-2 animate-in fade-in duration-100"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800">
-                  <span className="font-bold text-slate-800 dark:text-white text-[11px] uppercase tracking-wider">
-                    Stay Dates
-                  </span>
-                  {dateFilter !== 'ALL' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDateFilter('ALL');
-                        setCustomStartDate('');
-                        setCustomEndDate('');
-                      }}
-                      className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-white underline cursor-pointer"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-0.5">
-                  {(
-                    [
-                      { id: 'ALL', label: 'All Dates' },
-                      { id: 'TODAY', label: 'Today' },
-                      { id: 'THIS_WEEK', label: 'Next 7 Days' },
-                      { id: 'THIS_MONTH', label: 'This Month' },
-                      { id: 'CUSTOM', label: 'Custom Range...' },
-                    ] as const
-                  ).map((df) => {
-                    const isSelected = dateFilter === df.id;
-                    return (
-                      <button
-                        key={df.id}
-                        type="button"
-                        onClick={() => {
-                          setDateFilter(df.id);
-                          if (df.id !== 'CUSTOM') {
-                            setShowDateFilterDropdown(false);
-                          }
-                        }}
-                        className={cn(
-                          'w-full flex items-center justify-between px-2.5 py-1.5 rounded-[2px] text-xs transition-colors cursor-pointer text-left',
-                          isSelected
-                            ? 'bg-[#0B3D32] text-white font-semibold dark:bg-emerald-600'
-                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        )}
-                      >
-                        <span>{df.label}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Custom Date Range Pickers */}
-                {dateFilter === 'CUSTOM' && (
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                    <div>
-                      <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
-                        From:
-                      </label>
-                      <input
-                        type="date"
-                        value={customStartDate}
-                        onChange={(e) => setCustomStartDate(e.target.value)}
-                        className="w-full px-2 py-1 rounded-[2px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
-                        To:
-                      </label>
-                      <input
-                        type="date"
-                        value={customEndDate}
-                        onChange={(e) => setCustomEndDate(e.target.value)}
-                        className="w-full px-2 py-1 rounded-[2px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowDateFilterDropdown(false)}
-                      className="w-full py-1.5 rounded-[2px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer text-center"
-                    >
-                      Apply Filter
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
-
-      {/* Sub-bar showing active filter tags and result count if filtered */}
-      {(searchQuery || dateFilter !== 'ALL' || activeTab !== 'ALL') && (
-        <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1 pt-0.5">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-medium text-slate-400">Active Filters:</span>
-            {activeTab !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#0B3D32] dark:text-emerald-400 font-semibold border border-slate-200 dark:border-slate-700">
-                Status: {activeTab}
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('ALL')}
-                  className="hover:text-rose-500 cursor-pointer"
-                  title="Remove status filter"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </span>
-            )}
-            {dateFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#0B3D32] dark:text-emerald-400 font-semibold border border-slate-200 dark:border-slate-700">
-                Dates: {dateFilter === 'TODAY' ? 'Today' : dateFilter === 'THIS_WEEK' ? 'Next 7 Days' : dateFilter === 'THIS_MONTH' ? 'This Month' : 'Custom'}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDateFilter('ALL');
-                    setCustomStartDate('');
-                    setCustomEndDate('');
-                  }}
-                  className="hover:text-rose-500 cursor-pointer"
-                  title="Remove date filter"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </span>
-            )}
-            {searchQuery && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-slate-100 dark:bg-slate-800 text-[#0B3D32] dark:text-emerald-400 font-semibold border border-slate-200 dark:border-slate-700">
-                &ldquo;{searchQuery}&rdquo;
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="hover:text-rose-500 cursor-pointer"
-                  title="Clear search"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </span>
-            )}
-          </div>
-          <div>
-            Showing <span className="font-bold text-[#0B3D32] dark:text-emerald-400">{filteredBookings.length}</span> of {bookings.length}
-          </div>
-        </div>
-      )}
 
       {/* -----------------------------------------------------------------------
          ROOM BOOKINGS: TABLE VIEW
@@ -584,7 +456,7 @@ function RoomBookingsContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {filteredBookings.map((booking, idx) => {
+                {paginatedBookings.map((booking, idx) => {
                   const financials = getBookingFinancials(booking);
 
                   return (
@@ -593,7 +465,7 @@ function RoomBookingsContent() {
                       className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                     >
                       <td className="py-3 px-4 text-center font-mono text-[11px] text-slate-400 border-r border-slate-100 dark:border-slate-800/60">
-                        {idx + 1}
+                        {(safeCurrentPage - 1) * pageSize + idx + 1}
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
                         <Link
@@ -752,7 +624,7 @@ function RoomBookingsContent() {
            ROOM BOOKING LIST: CARDS VIEW
            ----------------------------------------------------------------------- */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {filteredBookings.map((booking) => {
+          {paginatedBookings.map((booking) => {
             const financials = getBookingFinancials(booking);
             const isCheckedIn = booking.status === 'CHECKED_IN';
             const isReserved = booking.status === 'RESERVED';
@@ -976,6 +848,107 @@ function RoomBookingsContent() {
           )}
         </div>
       )}
+
+      {/* -----------------------------------------------------------------------
+          DATATABLES PAGINATION FOOTER
+          ----------------------------------------------------------------------- */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1 select-none">
+        {/* Left side: Show Entries per page + Entries summary */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+            <span className="text-slate-500 font-medium text-[11px]">Show</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-[28px] px-2 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-slate-500 font-medium text-[11px]">entries per page</span>
+          </div>
+
+          <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
+
+          <div>
+            Showing{' '}
+            <strong className="text-slate-800 dark:text-slate-200">
+              {filteredBookings.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}
+            </strong>{' '}
+            to{' '}
+            <strong className="text-slate-800 dark:text-slate-200">
+              {Math.min(safeCurrentPage * pageSize, filteredBookings.length)}
+            </strong>{' '}
+            of{' '}
+            <strong className="text-slate-800 dark:text-slate-200">{filteredBookings.length}</strong>{' '}
+            entries
+          </div>
+        </div>
+
+        {/* DataTables Prev / Page Numbers / Next */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5 text-xs font-medium">
+            <button
+              type="button"
+              disabled={safeCurrentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Previous</span>
+            </button>
+
+            {Array.from({ length: totalPages }).map((_, idx) => {
+              const pageNum = idx + 1;
+              if (
+                pageNum === 1 ||
+                pageNum === totalPages ||
+                (pageNum >= safeCurrentPage - 1 && pageNum <= safeCurrentPage + 1)
+              ) {
+                const isCurrent = pageNum === safeCurrentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={cn(
+                      'min-w-[28px] h-7 px-2 font-mono text-xs font-bold rounded-[3px] transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
+                      isCurrent
+                        ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-700 dark:border-emerald-700'
+                        : 'bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              }
+              if (pageNum === safeCurrentPage - 2 || pageNum === safeCurrentPage + 2) {
+                return (
+                  <span key={pageNum} className="px-1 text-slate-400 select-none font-bold">
+                    …
+                  </span>
+                );
+              }
+              return null;
+            })}
+
+            <button
+              type="button"
+              disabled={safeCurrentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+            >
+              <span>Next</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
 
     </div>
   );

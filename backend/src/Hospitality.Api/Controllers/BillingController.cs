@@ -334,10 +334,45 @@ public class BillingController : ControllerBase
                 {
                     activeRegister.CashSales += payAmount;
                 }
-                else if (pMethod == "CARD" || pMethod == "UPI")
+                else if (pMethod == "CARD" || pMethod == "UPI" || pMethod == "ONLINE" || pMethod == "WALLET")
                 {
                     activeRegister.CardSales += payAmount;
                 }
+            }
+
+            // Sync with Customer & CustomerLedger if this is a credit customer's bill
+            Customer? customer = null;
+            if (!string.IsNullOrWhiteSpace(bill.CustomerId))
+            {
+                customer = await _db.Customers.FirstOrDefaultAsync(c => c.Id == bill.CustomerId);
+            }
+            if (customer == null && !string.IsNullOrWhiteSpace(bill.CustomerPhone))
+            {
+                customer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone == bill.CustomerPhone.Trim() && c.HotelId == bill.HotelId);
+            }
+
+            if (customer != null)
+            {
+                customer.CurrentOutstanding = Math.Max(0, Math.Round(customer.CurrentOutstanding - payAmount, 2));
+                customer.UpdatedAt = DateTime.UtcNow;
+
+                _db.CustomerLedgers.Add(new CustomerLedgerEntry
+                {
+                    HotelId = bill.HotelId,
+                    CustomerId = customer.Id,
+                    BillId = bill.Id,
+                    PaymentId = req.TransactionRef ?? req.IdempotencyKey,
+                    EntryDate = DateTime.UtcNow,
+                    Description = $"Payment received against {bill.BillNumber} via {pMethod} {(string.IsNullOrWhiteSpace(req.Notes) ? "" : $"· {req.Notes.Trim()}")}",
+                    DebitAmount = 0,
+                    CreditAmount = payAmount,
+                    Balance = customer.CurrentOutstanding,
+                    ReferenceType = "PAYMENT",
+                    ReferenceId = bill.BillNumber,
+                    PaymentMode = pMethod,
+                    CreatedBy = req.ReceivedBy ?? "Cashier",
+                    CreatedAt = DateTime.UtcNow
+                });
             }
 
             await _db.SaveChangesAsync();
@@ -353,7 +388,7 @@ public class BillingController : ControllerBase
     }
 
     /// <summary>
-    /// Void an unpaid or disputed bill with audit reason
+    /// Void an unpaid or disputed bill with audit reason and reversal ledger entries
     /// </summary>
     [HttpPost("bills/{id}/void")]
     public async Task<IActionResult> VoidBill(string id, [FromBody] VoidBillRequest req)
@@ -363,23 +398,250 @@ public class BillingController : ControllerBase
             return BadRequest(ApiResponse.Fail("A void reason is required for audit compliance."));
         }
 
-        var bill = await _db.Bills.FirstOrDefaultAsync(b => b.Id == id || b.BillNumber == id);
-        if (bill == null)
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        try
         {
-            return NotFound(ApiResponse.Fail($"Bill '{id}' not found."));
+            var bill = await _db.Bills.FirstOrDefaultAsync(b => b.Id == id || b.BillNumber == id);
+            if (bill == null)
+            {
+                await transaction.RollbackAsync();
+                return NotFound(ApiResponse.Fail($"Bill '{id}' not found."));
+            }
+
+            if (bill.PaymentStatus == "VOID")
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(ApiResponse.Fail("Bill is already voided."));
+            }
+
+            var wasCredit = bill.PaymentMethod == "CREDIT" || bill.PaymentStatus == "CREDIT" || bill.PaymentStatus == "PARTIAL";
+
+            // If it was a credit bill, reverse customer outstanding
+            if (wasCredit && !string.IsNullOrWhiteSpace(bill.CustomerId))
+            {
+                var customer = await _db.Customers.FirstOrDefaultAsync(c => c.Id == bill.CustomerId);
+                if (customer != null && bill.BalanceDue > 0)
+                {
+                    customer.CurrentOutstanding = Math.Max(0, Math.Round(customer.CurrentOutstanding - bill.BalanceDue, 2));
+                    customer.UpdatedAt = DateTime.UtcNow;
+
+                    _db.CustomerLedgers.Add(new CustomerLedgerEntry
+                    {
+                        HotelId = bill.HotelId,
+                        CustomerId = customer.Id,
+                        BillId = bill.Id,
+                        EntryDate = DateTime.UtcNow,
+                        Description = $"REVERSAL / VOID for Bill {bill.BillNumber}: {req.Reason.Trim()}",
+                        DebitAmount = 0,
+                        CreditAmount = bill.BalanceDue,
+                        Balance = customer.CurrentOutstanding,
+                        ReferenceType = "VOID_REVERSAL",
+                        ReferenceId = bill.BillNumber,
+                        PaymentMode = "REVERSAL",
+                        CreatedBy = req.AuthorizedBy ?? "Admin",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            bill.PaymentStatus = "VOID";
+            bill.Notes = $"{bill.Notes} | [VOIDED on {DateTime.UtcNow:yyyy-MM-dd HH:mm} by {req.AuthorizedBy ?? "Admin"}: {req.Reason}]".TrimStart(' ', '|');
+            bill.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(ApiResponse.Ok(bill, $"Bill {bill.BillNumber} has been voided."));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to void bill: {ex.Message}"));
+        }
+    }
+
+    // =========================================================================
+    // CREDIT REPORTS (Part 7, Section 13)
+    // =========================================================================
+
+    /// <summary>
+    /// Outstanding balance report by customer
+    /// </summary>
+    [HttpGet("reports/credit-outstanding-customers")]
+    public async Task<IActionResult> GetOutstandingByCustomer()
+    {
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelId = hotel?.Id ?? "";
+
+        var customers = await _db.Customers
+            .AsNoTracking()
+            .Where(c => c.HotelId == hotelId && c.CurrentOutstanding > 0)
+            .OrderByDescending(c => c.CurrentOutstanding)
+            .ToListAsync();
+
+        var report = new List<object>();
+        foreach (var c in customers)
+        {
+            var totalGiven = await _db.CustomerLedgers
+                .Where(l => l.CustomerId == c.Id)
+                .SumAsync(l => l.DebitAmount);
+
+            var totalReceived = await _db.CustomerLedgers
+                .Where(l => l.CustomerId == c.Id)
+                .SumAsync(l => l.CreditAmount);
+
+            var availableCredit = Math.Max(0, Math.Round(c.CreditLimit - c.CurrentOutstanding, 2));
+
+            report.Add(new
+            {
+                c.Id,
+                c.Name,
+                c.Phone,
+                c.Address,
+                c.CustomerType,
+                c.CreditLimit,
+                TotalCreditGiven = Math.Round(totalGiven, 2),
+                TotalPaymentReceived = Math.Round(totalReceived, 2),
+                c.CurrentOutstanding,
+                AvailableCredit = availableCredit,
+                c.CreditStatus
+            });
         }
 
-        if (bill.PaymentStatus == "VOID")
+        return Ok(ApiResponse.Ok(report));
+    }
+
+    /// <summary>
+    /// Outstanding credit bills list with ageing days
+    /// </summary>
+    [HttpGet("reports/credit-outstanding-bills")]
+    public async Task<IActionResult> GetOutstandingBills()
+    {
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelId = hotel?.Id ?? "";
+
+        var bills = await _db.Bills
+            .AsNoTracking()
+            .Where(b => b.HotelId == hotelId &&
+                        (b.PaymentStatus == "CREDIT" || b.PaymentStatus == "PARTIAL" || b.PaymentStatus == "UNPAID") &&
+                        b.BalanceDue > 0)
+            .OrderBy(b => b.CreatedAt)
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        var report = bills.Select(b => new
         {
-            return BadRequest(ApiResponse.Fail("Bill is already voided."));
+            b.Id,
+            b.BillNumber,
+            BillDate = b.CreatedAt,
+            CustomerName = b.CustomerName ?? "Credit Customer",
+            CustomerPhone = b.CustomerPhone,
+            OriginalAmount = b.GrandTotal,
+            PaidAmount = b.AmountPaid,
+            RemainingDue = b.BalanceDue,
+            AgeingDays = (int)Math.Max(0, (now - b.CreatedAt).TotalDays),
+            b.PaymentStatus,
+            b.PaymentMethod
+        }).ToList();
+
+        return Ok(ApiResponse.Ok(report));
+    }
+
+    /// <summary>
+    /// Credit Ageing Report: 0-30 Days, 31-60 Days, 61+ Days
+    /// </summary>
+    [HttpGet("reports/credit-ageing")]
+    public async Task<IActionResult> GetCreditAgeingReport()
+    {
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelId = hotel?.Id ?? "";
+
+        var bills = await _db.Bills
+            .AsNoTracking()
+            .Where(b => b.HotelId == hotelId &&
+                        (b.PaymentStatus == "CREDIT" || b.PaymentStatus == "PARTIAL" || b.PaymentStatus == "UNPAID") &&
+                        b.BalanceDue > 0)
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        double days0To30 = 0;
+        int count0To30 = 0;
+        double days31To60 = 0;
+        int count31To60 = 0;
+        double days61Plus = 0;
+        int count61Plus = 0;
+
+        foreach (var b in bills)
+        {
+            var age = (now - b.CreatedAt).TotalDays;
+            if (age <= 30)
+            {
+                days0To30 += b.BalanceDue;
+                count0To30++;
+            }
+            else if (age <= 60)
+            {
+                days31To60 += b.BalanceDue;
+                count31To60++;
+            }
+            else
+            {
+                days61Plus += b.BalanceDue;
+                count61Plus++;
+            }
         }
 
-        bill.PaymentStatus = "VOID";
-        bill.Notes = $"{bill.Notes} | [VOIDED on {DateTime.UtcNow:yyyy-MM-dd HH:mm} by {req.AuthorizedBy ?? "Admin"}: {req.Reason}]".TrimStart(' ', '|');
-        bill.UpdatedAt = DateTime.UtcNow;
+        return Ok(ApiResponse.Ok(new
+        {
+            totalOutstanding = Math.Round(days0To30 + days31To60 + days61Plus, 2),
+            bracket0To30 = new { count = count0To30, amount = Math.Round(days0To30, 2) },
+            bracket31To60 = new { count = count31To60, amount = Math.Round(days31To60, 2) },
+            bracket61Plus = new { count = count61Plus, amount = Math.Round(days61Plus, 2) }
+        }));
+    }
 
-        await _db.SaveChangesAsync();
+    /// <summary>
+    /// Credit Given vs Credit Collected summary
+    /// </summary>
+    [HttpGet("reports/credit-summary")]
+    public async Task<IActionResult> GetCreditSummary([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
+    {
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelId = hotel?.Id ?? "";
 
-        return Ok(ApiResponse.Ok(bill, $"Bill {bill.BillNumber} has been voided."));
+        var billsQuery = _db.Bills
+            .AsNoTracking()
+            .Where(b => b.HotelId == hotelId && (b.PaymentMethod == "CREDIT" || b.PaymentStatus == "CREDIT"));
+
+        var paymentsQuery = _db.CustomerLedgers
+            .AsNoTracking()
+            .Where(l => l.HotelId == hotelId && l.ReferenceType == "PAYMENT");
+
+        if (startDate.HasValue)
+        {
+            var sUtc = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+            billsQuery = billsQuery.Where(b => b.CreatedAt >= sUtc);
+            paymentsQuery = paymentsQuery.Where(l => l.EntryDate >= sUtc);
+        }
+
+        if (endDate.HasValue)
+        {
+            var eUtc = DateTime.SpecifyKind(endDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+            billsQuery = billsQuery.Where(b => b.CreatedAt <= eUtc);
+            paymentsQuery = paymentsQuery.Where(l => l.EntryDate <= eUtc);
+        }
+
+        var totalCreditBillsIssued = await billsQuery.CountAsync();
+        var totalCreditGiven = Math.Round(await billsQuery.SumAsync(b => b.GrandTotal), 2);
+        var totalCreditCollected = Math.Round(await paymentsQuery.SumAsync(l => l.CreditAmount), 2);
+        var totalRemainingOutstanding = Math.Round(await _db.Customers.Where(c => c.HotelId == hotelId).SumAsync(c => c.CurrentOutstanding), 2);
+
+        return Ok(ApiResponse.Ok(new
+        {
+            totalCreditBillsIssued,
+            totalCreditGiven,
+            totalCreditCollected,
+            totalRemainingOutstanding
+        }));
     }
 }

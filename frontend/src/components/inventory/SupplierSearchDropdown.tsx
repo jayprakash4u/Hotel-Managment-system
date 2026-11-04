@@ -136,13 +136,10 @@ export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
                 </span>
               )}
             </div>
-          ) : value === 'WALK_IN' || value === '' || value === null ? (
-            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-              <span className="font-medium">Walk-in / Unregistered Supplier</span>
-              <span className="text-[10px] text-slate-400 italic">(Direct purchase)</span>
-            </div>
+          ) : value === 'WALK_IN' ? (
+            <span className="font-medium text-slate-700 dark:text-slate-300">Walk-in Supplier</span>
           ) : (
-            <span className="text-slate-400 italic truncate">{placeholder}</span>
+            <span className="text-slate-400 truncate">{placeholder || 'Select supplier...'}</span>
           )}
         </div>
 

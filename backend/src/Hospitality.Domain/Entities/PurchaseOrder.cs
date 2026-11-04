@@ -30,4 +30,9 @@ public class PurchaseOrder : BaseEntity
     public string AllocationsJson { get; set; } = "[]"; // JSON breakdown of hotel vs restaurant allocated quantities
     public DateTime OrderedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ReceivedAt { get; set; }
+
+    /// <summary>
+    /// Due date for credit purchases. Calculated as purchase date + supplier payment terms.
+    /// </summary>
+    public DateTime? DueDate { get; set; }
 }

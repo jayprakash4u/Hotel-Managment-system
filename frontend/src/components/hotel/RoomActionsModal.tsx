@@ -5,6 +5,7 @@ import {
   CalendarPlus,
   Calendar,
   UserCheck,
+  UserPlus,
   LogOut,
   UtensilsCrossed,
   Receipt,
@@ -19,8 +20,11 @@ import {
   ArrowLeft,
   FileText,
   User,
+  Eye,
+  Clock,
+  CreditCard,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { useRole } from '@/context/RoleContext';
 
@@ -49,6 +53,7 @@ export interface RoomActionsDropdownProps {
   onCheckOutGuest?: (booking: any) => void;
   onAddRoomService?: (booking: any) => void;
   onViewFolio?: (booking: any) => void;
+  onExtendStay?: (booking: any) => void;
   // Housekeeping & Operations
   onUpdateCleaningStatus?: (roomId: string, status: 'CLEAN' | 'DIRTY' | 'IN_CLEANING') => void;
   onToggleMaintenance?: (roomId: string, reason?: string) => void;
@@ -66,12 +71,15 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
   onCheckOutGuest,
   onAddRoomService,
   onViewFolio,
+  onExtendStay,
   onUpdateCleaningStatus,
   onToggleMaintenance,
 }) => {
   const toast = useToast();
   const { role } = useRole();
-  const [activeSubView, setActiveSubView] = useState<'NONE' | 'DETAILS' | 'MAINTENANCE_NOTES' | 'CONFIRM_OUT_OF_SERVICE'>('NONE');
+  const [activeSubView, setActiveSubView] = useState<
+    'NONE' | 'DETAILS' | 'MAINTENANCE_NOTES' | 'CONFIRM_OUT_OF_SERVICE' | 'VIEW_BOOKING'
+  >('NONE');
   const [maintenanceNotesInput, setMaintenanceNotesInput] = useState(room?.maintenanceReason || '');
 
   if (!room) return null;
@@ -177,14 +185,14 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
       {/* Dropdown Box Positioned Below 3-Dots */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="absolute right-0 top-full mt-1.5 w-48 sm:w-52 rounded-md bg-[#0C1815] text-white border border-white/15 shadow-2xl overflow-hidden z-50 animate-in fade-in-0 zoom-in-95 duration-100 select-none divide-y divide-white/10 text-left font-sans"
+        className="absolute right-0 top-full mt-1.5 w-52 sm:w-56 rounded-md bg-[#0C1815] text-white border border-white/15 shadow-2xl overflow-hidden z-50 animate-in fade-in-0 zoom-in-95 duration-100 select-none divide-y divide-white/10 text-left font-sans"
       >
         {/* Header Preview of Room / Active Guest */}
         {activeBooking?.guest ? (
           <div className="px-3 py-2 bg-white/5 border-b border-white/10">
             <div className="flex items-center justify-between gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 truncate">
-                {isOccupied ? 'In-House' : isArriving ? 'Arriving Today' : 'Departing'}
+                {isOccupied ? 'In-House Guest' : isArriving ? 'Arriving Today' : 'Departing Today'}
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
                 Fl {room.floor}
@@ -202,7 +210,7 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
         )}
 
         {/* Options Body */}
-        <div className="overflow-y-auto max-h-[320px] divide-y divide-white/10 custom-scrollbar">
+        <div className="overflow-y-auto max-h-[340px] divide-y divide-white/10 custom-scrollbar">
           {activeSubView === 'NONE' ? (
             <>
               {/* Housekeeping Only View */}
@@ -239,23 +247,23 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
                     <>
                       {canPerformDesk &&
                         renderOptionRow({
-                          icon: CalendarPlus,
-                          label: 'Book Room',
-                          onClick: () => {
-                            onClose();
-                            onBookNow?.(room);
-                          },
-                        })}
-
-                      {canPerformDesk &&
-                        renderOptionRow({
-                          icon: UserCheck,
-                          label: 'Walk-in Check In',
+                          icon: UserPlus,
+                          label: 'Walk in',
                           disabled: isDirty,
                           disabledReason: 'Clean room before guest check-in',
                           onClick: () => {
                             onClose();
                             onWalkInCheckIn?.(room);
+                          },
+                        })}
+
+                      {canPerformDesk &&
+                        renderOptionRow({
+                          icon: CalendarPlus,
+                          label: 'Book Room',
+                          onClick: () => {
+                            onClose();
+                            onBookNow?.(room);
                           },
                         })}
 
@@ -295,6 +303,14 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
                             onClose();
                             if (activeBooking) onCheckInGuest?.(activeBooking);
                           },
+                        })}
+
+                      {activeBooking &&
+                        renderOptionRow({
+                          icon: Eye,
+                          label: 'View Booking',
+                          rightText: `${activeBooking.guest?.firstName || 'Guest'}`,
+                          onClick: () => setActiveSubView('VIEW_BOOKING'),
                         })}
 
                       {canPerformDesk && activeBooking &&
@@ -359,10 +375,20 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
                       {canPerformDesk && activeBooking &&
                         renderOptionRow({
                           icon: LogOut,
-                          label: 'Check Out',
+                          label: 'Check Out & Settle',
                           onClick: () => {
                             onClose();
                             onCheckOutGuest?.(activeBooking);
+                          },
+                        })}
+
+                      {canPerformDesk && activeBooking &&
+                        renderOptionRow({
+                          icon: Calendar,
+                          label: 'Extend Stay',
+                          onClick: () => {
+                            onClose();
+                            onExtendStay ? onExtendStay(activeBooking) : onViewFolio?.(activeBooking);
                           },
                         })}
 
@@ -382,7 +408,8 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
                       {canPerformDesk && activeBooking &&
                         renderOptionRow({
                           icon: LogOut,
-                          label: 'Check Out Guest',
+                          label: 'Check Out & Settle',
+                          danger: true,
                           onClick: () => {
                             onClose();
                             onCheckOutGuest?.(activeBooking);
@@ -392,7 +419,7 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
                       {canPerformDesk && activeBooking &&
                         renderOptionRow({
                           icon: Receipt,
-                          label: 'View Folio & Settle',
+                          label: 'View Folio & Bill',
                           onClick: () => {
                             onClose();
                             onViewFolio?.(activeBooking);
@@ -447,7 +474,7 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
               )}
             </>
           ) : (
-            /* Subviews (Details, Maintenance Confirm, Notes) */
+            /* Subviews (Details, View Booking, Maintenance Confirm, Notes) */
             <div className="p-3 space-y-2 text-xs">
               <button
                 type="button"
@@ -492,7 +519,7 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
 
                   {activeBooking?.guest && (
                     <div className="pt-1 text-[10px] text-slate-300 space-y-0.5">
-                      <span className="text-slate-400 font-medium">Current Guest:</span>
+                      <span className="text-slate-400 font-medium">Guest:</span>
                       <p className="font-bold text-white truncate">
                         {activeBooking.guest.firstName} {activeBooking.guest.lastName}
                       </p>
@@ -501,6 +528,48 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* VIEW BOOKING SUBVIEW */}
+              {activeSubView === 'VIEW_BOOKING' && activeBooking && (
+                <div className="space-y-2 text-[11px] text-slate-300">
+                  <div className="p-2 rounded bg-white/5 border border-white/10 space-y-1">
+                    <div className="font-bold text-white text-xs">
+                      {activeBooking.guest.firstName} {activeBooking.guest.lastName}
+                    </div>
+                    {activeBooking.guest.phone && (
+                      <div className="text-slate-400">{activeBooking.guest.phone}</div>
+                    )}
+                    {activeBooking.guest.email && (
+                      <div className="text-slate-400 truncate">{activeBooking.guest.email}</div>
+                    )}
+                  </div>
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex items-center justify-between py-1 border-b border-white/10">
+                      <span className="text-slate-400">Check-in:</span>
+                      <span className="text-white font-medium">{formatDate(activeBooking.checkIn)}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-1 border-b border-white/10">
+                      <span className="text-slate-400">Check-out:</span>
+                      <span className="text-white font-medium">{formatDate(activeBooking.checkOut)}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-1 border-b border-white/10">
+                      <span className="text-slate-400">Adults / Kids:</span>
+                      <span className="text-white font-medium">{activeBooking.adults || 1}A / {activeBooking.children || 0}K</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onCheckInGuest?.(activeBooking);
+                    }}
+                    className="w-full mt-2 py-1.5 rounded bg-brand hover:bg-[#093027] text-white text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Proceed to Check In</span>
+                  </button>
                 </div>
               )}
 
@@ -561,4 +630,3 @@ export const RoomActionsDropdown: React.FC<RoomActionsDropdownProps> = ({
     </>
   );
 };
-

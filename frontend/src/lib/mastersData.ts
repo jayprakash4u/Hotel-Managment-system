@@ -7,6 +7,11 @@ export interface SimpleMasterItem {
   code: string;
   name: string;
   description?: string;
+  category?: string;
+  unit?: string;
+  basePrice?: number;
+  trackStock?: boolean;
+  stock?: number;
   isDefault?: boolean;
   isActive?: boolean;
   order?: number;
@@ -19,6 +24,7 @@ export const MASTERS_STORAGE_KEYS = {
   purposeOfVisit: 'hotel_purpose_of_visit_master',
   bookingAgents: 'hotel_booking_agents_master',
   units: 'hotel_units_master',
+  items: 'hotel_master_item-setup',
 } as const;
 
 export type MasterType = keyof typeof MASTERS_STORAGE_KEYS;
@@ -116,6 +122,28 @@ export const DEFAULT_UNITS: SimpleMasterItem[] = [
   { id: 'qty-reg', code: 'REG', name: 'Regular', order: 15, isActive: true },
   { id: 'qty-qtr', code: 'QTR', name: 'Quarter', order: 16, isActive: true },
   { id: 'qty-bwl', code: 'BWL', name: 'Bowl', order: 17, isActive: true },
+  // Inventory & Stock / Purchase Units
+  { id: 'qty-pcs', code: 'PCS', name: 'Pieces', order: 18, isActive: true },
+  { id: 'qty-btl', code: 'BTL', name: 'Bottles', order: 19, isActive: true },
+  { id: 'qty-cans', code: 'CANS', name: 'Cans', order: 20, isActive: true },
+  { id: 'qty-kg', code: 'KG', name: 'Kg', order: 21, isActive: true },
+  { id: 'qty-gm', code: 'GM', name: 'Grams', order: 22, isActive: true },
+  { id: 'qty-ltr', code: 'LTR', name: 'Litres', order: 23, isActive: true },
+  { id: 'qty-box', code: 'BOX', name: 'Boxes', order: 24, isActive: true },
+  { id: 'qty-pkt', code: 'PKT', name: 'Packets', order: 25, isActive: true },
+  { id: 'qty-ctn', code: 'CTN', name: 'Cartons', order: 26, isActive: true },
+  { id: 'qty-set', code: 'SET', name: 'Sets', order: 27, isActive: true },
+];
+
+export const DEFAULT_HOTEL_ITEMS: SimpleMasterItem[] = [
+  { id: 'itm-1', code: 'WAT-1L', name: 'Mineral Water (1 Ltr)', category: 'Guest Amenities', unit: 'bottle', basePrice: 50, trackStock: true, stock: 120, order: 1, isDefault: true, isActive: true },
+  { id: 'itm-2', code: 'TWL-BATH', name: 'Bath Towel (White Cotton)', category: 'Linen & Bedding', unit: 'pieces', basePrice: 450, trackStock: true, stock: 80, order: 2, isActive: true },
+  { id: 'itm-3', code: 'KIT-SHMP', name: 'Shampoo & Conditioner (30ml)', category: 'Toiletries & Hygiene', unit: 'pieces', basePrice: 35, trackStock: true, stock: 200, order: 3, isActive: true },
+  { id: 'itm-4', code: 'KIT-DENT', name: 'Dental Kit (Toothbrush + Paste)', category: 'Toiletries & Hygiene', unit: 'set', basePrice: 25, trackStock: true, stock: 150, order: 4, isActive: true },
+  { id: 'itm-5', code: 'LIN-BED', name: 'Bed Sheet King Size (White)', category: 'Linen & Bedding', unit: 'pieces', basePrice: 950, trackStock: true, stock: 60, order: 5, isActive: true },
+  { id: 'itm-6', code: 'TEA-COFF', name: 'Tea Bags & Coffee Sachets (Assorted)', category: 'Minibar & Beverages', unit: 'pack', basePrice: 20, trackStock: true, stock: 300, order: 6, isActive: true },
+  { id: 'itm-7', code: 'SLP-DISP', name: 'Room Slippers (Disposable)', category: 'Guest Amenities', unit: 'pair', basePrice: 65, trackStock: true, stock: 90, order: 7, isActive: true },
+  { id: 'itm-8', code: 'HK-CLEAN', name: 'Multi-Surface Disinfectant Cleaner (5L)', category: 'Housekeeping & Supplies', unit: 'can', basePrice: 650, trackStock: true, stock: 15, order: 8, isActive: true },
 ];
 
 const DEFAULT_MAP: Record<MasterType, SimpleMasterItem[]> = {
@@ -125,6 +153,7 @@ const DEFAULT_MAP: Record<MasterType, SimpleMasterItem[]> = {
   purposeOfVisit: DEFAULT_PURPOSE_OF_VISIT,
   bookingAgents: DEFAULT_BOOKING_AGENTS,
   units: DEFAULT_UNITS,
+  items: DEFAULT_HOTEL_ITEMS,
 };
 
 export function getMasterItems(type: MasterType): SimpleMasterItem[] {
@@ -134,6 +163,13 @@ export function getMasterItems(type: MasterType): SimpleMasterItem[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    if (type === 'units') {
+      const restRaw = localStorage.getItem('restaurant_setup_units');
+      if (restRaw) {
+        const parsedRest = JSON.parse(restRaw);
+        if (Array.isArray(parsedRest) && parsedRest.length > 0) return parsedRest;
+      }
     }
   } catch (err) {
     console.error(`Failed to read master ${type}`, err);

@@ -26,6 +26,21 @@ public class Supplier : BaseEntity
     public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Maximum credit amount allowed for this supplier. Zero means no limit.
+    /// </summary>
+    public double CreditLimit { get; set; } = 0;
+
+    /// <summary>
+    /// Standard payment terms in days (e.g., 15, 30). Used to calculate due dates on credit purchases.
+    /// </summary>
+    public int PaymentTermsDays { get; set; } = 0;
+
+    /// <summary>
+    /// Opening balance migrated from previous system. Positive = amount owed to supplier.
+    /// </summary>
+    public double OpeningBalance { get; set; } = 0;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<InventoryItem> Items { get; set; } = new List<InventoryItem>();
