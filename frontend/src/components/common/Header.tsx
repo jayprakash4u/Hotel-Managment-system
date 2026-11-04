@@ -5,16 +5,23 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, RefreshCw, Menu, Sun, Moon, LogIn, Bell, AlertTriangle, AlertCircle, CheckCircle2, Clock, UtensilsCrossed, ChevronRight, X, LogOut } from 'lucide-react';
+import { Search, Plus, RefreshCw, Menu, Sun, Moon, Bell, AlertTriangle, AlertCircle, CheckCircle2, Clock, UtensilsCrossed, ChevronRight, X, Calendar, ChevronDown, Check } from 'lucide-react';
 import { Breadcrumbs } from './Breadcrumbs';
 import { QuickSearchModal } from './QuickSearchModal';
-import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/context/ThemeContext';
 import { useRole } from '@/context/RoleContext';
 import { api } from '@/lib/api';
 import { ReservationAlertData } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+const FISCAL_YEARS = [
+  { year: '2083/84', ad: '2026/27 AD', status: 'UPCOMING' },
+  { year: '2082/83', ad: '2025/26 AD', status: 'NEXT' },
+  { year: '2081/82', ad: '2024/25 AD', status: 'ACTIVE' },
+  { year: '2080/81', ad: '2023/24 AD', status: 'CLOSED' },
+  { year: '2079/80', ad: '2022/23 AD', status: 'CLOSED' },
+];
 
 export const Header: React.FC<{
   isSidebarOpen?: boolean;
@@ -26,7 +33,26 @@ export const Header: React.FC<{
   const { theme, toggleTheme } = useTheme();
   const { user } = useRole();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
+
+  // Active Fiscal Year State (Persisted in localStorage)
+  const [activeFiscalYear, setActiveFiscalYear] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('active_fiscal_year') || '2081/82';
+    }
+    return '2081/82';
+  });
+  const [isFiscalOpen, setIsFiscalOpen] = useState(false);
+  const fiscalDropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleSelectFiscalYear = (year: string) => {
+    setActiveFiscalYear(year);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('active_fiscal_year', year);
+      window.dispatchEvent(new CustomEvent('fiscal_year_changed', { detail: year }));
+    }
+    setIsFiscalOpen(false);
+    toast.success('Fiscal Year Updated', `Active ledger switched to FY ${year}.`);
+  };
 
   // Reservation Alerts Notification State
   const [alerts, setAlerts] = useState<ReservationAlertData[]>([]);
@@ -49,18 +75,19 @@ export const Header: React.FC<{
     return () => clearInterval(interval);
   }, [user.role]);
 
-  // Close dropdown on click outside
+  // Close dropdowns on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (alertsDropdownRef.current && !alertsDropdownRef.current.contains(event.target as Node)) {
         setIsAlertsOpen(false);
       }
+      if (fiscalDropdownRef.current && !fiscalDropdownRef.current.contains(event.target as Node)) {
+        setIsFiscalOpen(false);
+      }
     };
-    if (isAlertsOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isAlertsOpen]);
+  }, []);
 
   const handleAcknowledgeAlert = async (alertId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -86,22 +113,6 @@ export const Header: React.FC<{
 
   const handleOpenProfile = () => {
     onOpenProfile?.();
-  };
-
-  const handleResetData = async () => {
-    if (isSeeding) return;
-    setIsSeeding(true);
-    try {
-      await api.seedDatabase();
-      toast.celebrate('Database Refreshed!', 'Sample rooms, reservations, and active stays restored.');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } catch (err: any) {
-      toast.error('Reset Failed', err.message);
-    } finally {
-      setIsSeeding(false);
-    }
   };
 
   const userInitials = (user.name || user.email || 'Admin')
@@ -325,29 +336,66 @@ export const Header: React.FC<{
           )}
         </button>
 
-        {/* Reset / Demo Data Button (Secondary Action) */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleResetData}
-          isLoading={isSeeding}
-          leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin' : ''}`} />}
-          className="hidden sm:inline-flex text-xs px-3 py-1.5 h-9 font-semibold"
-        >
-          Reset Demo
-        </Button>
-
-        {/* Check-In Desk Shortcut (Primary Action using active Theme Color) */}
-        <Link href="/front-desk">
-          <Button
-            variant="primary"
-            size="sm"
-            leftIcon={<LogIn className="w-4 h-4" />}
-            className="text-xs px-3.5 py-1.5 h-9 font-bold shadow-xs bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover-calc)] text-white"
+        {/* Fiscal Year Selector */}
+        <div className="relative" ref={fiscalDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsFiscalOpen((prev) => !prev)}
+            className="flex items-center gap-1.5 h-9 px-2.5 rounded-lg bg-[var(--surface-card)] border border-[var(--border-input)] text-xs font-semibold text-[var(--text-body)] hover:border-[var(--brand-primary)] dark:bg-[var(--surface-card)] dark:border-[var(--border-input)] dark:text-[var(--text-body)] transition-all shadow-2xs cursor-pointer select-none"
+            title="Active Fiscal Year (Click to change)"
           >
-            Check-in Desk
-          </Button>
-        </Link>
+            <Calendar className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">FY</span>
+            <span className="font-bold text-[var(--brand-primary)] font-mono">{activeFiscalYear}</span>
+            <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-150", isFiscalOpen && "rotate-180")} />
+          </button>
+
+          {isFiscalOpen && (
+            <div className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xl z-50 overflow-hidden text-left animate-in fade-in zoom-in-95 duration-100 p-1.5 space-y-1">
+              <div className="px-2.5 py-1.5 border-b border-[var(--border-default)] flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                <span>Select Fiscal Year</span>
+                <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 px-1.5 py-0.5 rounded">Active: {activeFiscalYear}</span>
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-0.5">
+                {FISCAL_YEARS.map((fy) => {
+                  const isSelected = fy.year === activeFiscalYear;
+                  const isCurrent = fy.status === 'ACTIVE';
+                  return (
+                    <button
+                      key={fy.year}
+                      type="button"
+                      onClick={() => handleSelectFiscalYear(fy.year)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left",
+                        isSelected
+                          ? "bg-[#0B3D32] text-white font-bold dark:bg-emerald-700"
+                          : "text-[var(--text-body)] hover:bg-[var(--surface-muted)]"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono">{fy.year}</span>
+                        <span className={cn("text-[10px]", isSelected ? "text-emerald-200" : "text-[var(--text-muted)]")}>
+                          ({fy.ad})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {isCurrent && (
+                          <span className={cn(
+                            "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase",
+                            isSelected ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                          )}>
+                            Current
+                          </span>
+                        )}
+                        {isSelected && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* User Profile Trigger -> Opens Right-Side Profile & Appearance Drawer */}
         <button
@@ -375,24 +423,6 @@ export const Header: React.FC<{
             {userInitials}
             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-success)] ring-2 ring-white dark:ring-[var(--surface-card)]" />
           </div>
-        </button>
-
-        {/* Quick Sign Out Button */}
-        <button
-          type="button"
-          onClick={() => {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.removeItem('auth_token');
-              localStorage.removeItem('auth_username');
-              localStorage.removeItem('auth_role');
-            }
-            toast.info('Signed Out', 'You have been safely signed out.');
-            router.replace('/login');
-          }}
-          title="Sign out of Hotel Admin"
-          className="p-2 rounded-lg bg-[var(--surface-card)] border border-[var(--border-input)] text-slate-500 hover:text-red-600 hover:border-red-300 transition-all shadow-2xs cursor-pointer ml-1"
-        >
-          <LogOut className="w-4 h-4" />
         </button>
       </div>
 

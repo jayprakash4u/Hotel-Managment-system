@@ -152,6 +152,9 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""panVatNumber"" text;
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""notes"" text;
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""isActive"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""creditLimit"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""paymentTermsDays"" integer DEFAULT 0;
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""openingBalance"" double precision DEFAULT 0;
 
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""allocationsJson"" text DEFAULT '[]';
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""invoiceNumber"" text;
@@ -167,6 +170,7 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""notes"" text;
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""attachmentUrl"" text;
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""createdBy"" text DEFAULT 'Admin';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""dueDate"" timestamp with time zone;
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ALTER COLUMN ""supplierId"" DROP NOT NULL;
 
             ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""purchaseUnit"" text;
@@ -299,6 +303,91 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""extraAdultPrice"" double precision NOT NULL DEFAULT 0;
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""extraChildPrice"" double precision NOT NULL DEFAULT 0;
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""weekendPrice"" double precision NOT NULL DEFAULT 0;
+
+            -- Customer table
+            CREATE TABLE IF NOT EXISTS ""Customer"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""name"" text NOT NULL,
+                ""phone"" text NOT NULL,
+                ""address"" text,
+                ""customerType"" text NOT NULL DEFAULT 'CASH',
+                ""creditLimit"" double precision NOT NULL DEFAULT 0,
+                ""creditStatus"" text NOT NULL DEFAULT 'ACTIVE',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""currentOutstanding"" double precision NOT NULL DEFAULT 0,
+                ""notes"" text,
+                ""createdBy"" text,
+                ""updatedBy"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ""ix_customer_hotel_phone"" ON ""Customer"" (""hotelId"", ""phone"");
+            CREATE INDEX IF NOT EXISTS ""ix_customer_type"" ON ""Customer"" (""customerType"");
+            CREATE INDEX IF NOT EXISTS ""ix_customer_status"" ON ""Customer"" (""creditStatus"");
+
+            -- Customer Ledger Entry table
+            CREATE TABLE IF NOT EXISTS ""CustomerLedgerEntry"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""customerId"" text NOT NULL,
+                ""billId"" text,
+                ""paymentId"" text,
+                ""entryDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""description"" text NOT NULL,
+                ""debitAmount"" double precision NOT NULL DEFAULT 0,
+                ""creditAmount"" double precision NOT NULL DEFAULT 0,
+                ""balance"" double precision NOT NULL DEFAULT 0,
+                ""referenceType"" text NOT NULL DEFAULT 'CREDIT_BILL',
+                ""referenceId"" text,
+                ""paymentMode"" text,
+                ""createdBy"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS ""ix_customer_ledger_customer"" ON ""CustomerLedgerEntry"" (""customerId"", ""entryDate"");
+            CREATE INDEX IF NOT EXISTS ""ix_customer_ledger_bill"" ON ""CustomerLedgerEntry"" (""billId"");
+
+            -- Supplier Ledger table (tracks credit purchases and payments to suppliers)
+            CREATE TABLE IF NOT EXISTS ""SupplierLedgerEntry"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""supplierId"" text NOT NULL,
+                ""purchaseOrderId"" text,
+                ""entryDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""description"" text NOT NULL,
+                ""creditAmount"" double precision NOT NULL DEFAULT 0,
+                ""debitAmount"" double precision NOT NULL DEFAULT 0,
+                ""balance"" double precision NOT NULL DEFAULT 0,
+                ""dueDate"" timestamp with time zone,
+                ""referenceType"" text NOT NULL DEFAULT 'PURCHASE_CREDIT',
+                ""referenceId"" text,
+                ""paymentMode"" text,
+                ""createdBy"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS ""ix_supplier_ledger_supplier"" ON ""SupplierLedgerEntry"" (""supplierId"", ""entryDate"");
+            CREATE INDEX IF NOT EXISTS ""ix_supplier_ledger_purchase_order"" ON ""SupplierLedgerEntry"" (""purchaseOrderId"");
+
+            -- Credit Override Audit table
+            CREATE TABLE IF NOT EXISTS ""CreditOverrideAudit"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""customerId"" text NOT NULL,
+                ""billId"" text,
+                ""billNumber"" text,
+                ""previousAvailableCredit"" double precision NOT NULL DEFAULT 0,
+                ""billAmount"" double precision NOT NULL DEFAULT 0,
+                ""overrideAmount"" double precision NOT NULL DEFAULT 0,
+                ""reason"" text NOT NULL,
+                ""approvedBy"" text NOT NULL,
+                ""approvedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS ""ix_credit_override_customer"" ON ""CreditOverrideAudit"" (""customerId"");
+
+            -- Bill table updates
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""customerId"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""outstandingAmount"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""paidAt"" timestamp with time zone;
 
         ");
         logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Bills, and ReservationAlert tables ready.");

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -14,6 +14,8 @@ import {
   User,
   Wrench,
   Filter,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
@@ -61,6 +63,8 @@ export default function HousekeepingPage() {
   const [filterTab, setFilterTab] = useState<'ALL' | 'DIRTY' | 'IN_CLEANING' | 'CLEAN'>('ALL');
   const [floorFilter, setFloorFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const persistRooms = (updatedRooms: RoomRecord[]) => {
     setRooms(updatedRooms);
@@ -92,6 +96,19 @@ export default function HousekeepingPage() {
       return true;
     });
   }, [rooms, filterTab, floorFilter, searchQuery]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredList.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedList = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredList.slice(start, start + pageSize);
+  }, [filteredList, safeCurrentPage, pageSize]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterTab, floorFilter, searchQuery]);
 
   return (
     <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
@@ -159,7 +176,7 @@ export default function HousekeepingPage() {
             placeholder="Search room..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#1A73E8]"
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#0B3D32]"
           />
         </div>
 
@@ -172,7 +189,7 @@ export default function HousekeepingPage() {
               className={cn(
                 'px-2.5 py-1 text-xs font-semibold rounded border transition-colors',
                 floorFilter === fl
-                  ? 'border-[#1A73E8] bg-[#1A73E8] text-white'
+                  ? 'border-[#0B3D32] bg-[#0B3D32] text-white'
                   : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
               )}
             >
@@ -188,6 +205,7 @@ export default function HousekeepingPage() {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-semibold">
+                <th className="py-2.5 px-3 w-10 text-center">#</th>
                 <th className="py-2.5 px-3">Room</th>
                 <th className="py-2.5 px-3">Room Type</th>
                 <th className="py-2.5 px-3">Operational Status</th>
@@ -196,87 +214,199 @@ export default function HousekeepingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-200">
-              {filteredList.map((r) => {
-                const isClean = r.cleaningStatus === 'CLEAN';
-                const isInCleaning = r.cleaningStatus === 'IN_CLEANING';
-                const isDirty = r.cleaningStatus === 'DIRTY';
+              {filteredList.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-slate-400 text-xs">
+                    No rooms found matching your filters.
+                  </td>
+                </tr>
+              ) : (
+                paginatedList.map((r, idx) => {
+                  const isClean = r.cleaningStatus === 'CLEAN';
+                  const isInCleaning = r.cleaningStatus === 'IN_CLEANING';
+                  const isDirty = r.cleaningStatus === 'DIRTY';
 
-                return (
-                  <tr key={r.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3">
-                      <div className="font-bold text-[#1A73E8] bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900 text-xs inline-block">
-                        Room {r.number}
-                      </div>
-                      <span className="text-[10px] text-slate-400 ml-1.5 font-medium">Floor {r.floor}</span>
-                    </td>
+                  return (
+                    <tr key={r.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400">
+                        {(safeCurrentPage - 1) * pageSize + idx + 1}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="font-bold text-[#0B3D32] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-100 dark:border-emerald-900 text-xs inline-block">
+                          Room {r.number}
+                        </div>
+                        <span className="text-[10px] text-slate-400 ml-1.5 font-medium">Floor {r.floor}</span>
+                      </td>
 
-                    <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">
-                      {r.type}
-                    </td>
+                      <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">
+                        {r.type}
+                      </td>
 
-                    <td className="py-2.5 px-3">
-                      <span
-                        className={cn(
-                          'text-[10px] font-bold px-2 py-0.5 rounded uppercase',
-                          r.operationalStatus === 'OCCUPIED'
-                            ? 'bg-blue-100 text-[#1A73E8]'
-                            : r.operationalStatus === 'MAINTENANCE'
-                            ? 'bg-rose-100 text-rose-700'
-                            : 'bg-emerald-100 text-emerald-800'
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={cn(
+                            'text-[10px] font-bold px-2 py-0.5 rounded uppercase',
+                            r.operationalStatus === 'OCCUPIED'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
+                              : r.operationalStatus === 'MAINTENANCE'
+                              ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                          )}
+                        >
+                          {r.operationalStatus}
+                        </span>
+                      </td>
+
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={cn(
+                            'text-[10px] font-bold px-2 py-0.5 rounded inline-flex items-center gap-1 uppercase',
+                            isClean
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                              : isInCleaning
+                              ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+                          )}
+                        >
+                          {isClean && <Sparkles className="w-3 h-3" />}
+                          {isClean ? 'Clean' : isInCleaning ? 'In Cleaning' : 'Dirty'}
+                        </span>
+                      </td>
+
+                      <td className="py-2.5 px-3 text-right space-x-1.5">
+                        {isDirty && (
+                          <button
+                            onClick={() => updateCleanStatus(r.id, 'IN_CLEANING')}
+                            className="px-2 py-1 rounded border border-cyan-300 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 font-semibold text-[11px] cursor-pointer"
+                          >
+                            Start Cleaning
+                          </button>
                         )}
-                      >
-                        {r.operationalStatus}
-                      </span>
-                    </td>
-
-                    <td className="py-2.5 px-3">
-                      <span
-                        className={cn(
-                          'text-[10px] font-bold px-2 py-0.5 rounded inline-flex items-center gap-1 uppercase',
-                          isClean
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : isInCleaning
-                            ? 'bg-cyan-100 text-cyan-800'
-                            : 'bg-amber-100 text-amber-800'
+                        {!isClean && (
+                          <button
+                            onClick={() => updateCleanStatus(r.id, 'CLEAN')}
+                            className="px-2 py-1 rounded border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold text-[11px] cursor-pointer"
+                          >
+                            Mark Clean
+                          </button>
                         )}
-                      >
-                        {isClean && <Sparkles className="w-3 h-3" />}
-                        {isClean ? 'Clean' : isInCleaning ? 'In Cleaning' : 'Dirty'}
-                      </span>
-                    </td>
-
-                    <td className="py-2.5 px-3 text-right space-x-1.5">
-                      {isDirty && (
-                        <button
-                          onClick={() => updateCleanStatus(r.id, 'IN_CLEANING')}
-                          className="px-2 py-1 rounded border border-cyan-300 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 font-semibold text-[11px]"
-                        >
-                          Start Cleaning
-                        </button>
-                      )}
-                      {!isClean && (
-                        <button
-                          onClick={() => updateCleanStatus(r.id, 'CLEAN')}
-                          className="px-2 py-1 rounded border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold text-[11px]"
-                        >
-                          Mark Clean
-                        </button>
-                      )}
-                      {isClean && (
-                        <button
-                          onClick={() => updateCleanStatus(r.id, 'DIRTY')}
-                          className="px-2 py-1 rounded border border-slate-200 text-slate-700 hover:bg-slate-100 font-medium text-[11px]"
-                        >
-                          Mark Dirty
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                        {isClean && (
+                          <button
+                            onClick={() => updateCleanStatus(r.id, 'DIRTY')}
+                            className="px-2 py-1 rounded border border-slate-200 text-slate-700 hover:bg-slate-100 font-medium text-[11px] cursor-pointer"
+                          >
+                            Mark Dirty
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* -----------------------------------------------------------------------
+          DATATABLES PAGINATION FOOTER
+          ----------------------------------------------------------------------- */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1 select-none">
+        {/* Left side: Show Entries per page + Entries summary */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+            <span className="text-slate-500 font-medium text-[11px]">Show</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-[28px] px-2 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-slate-500 font-medium text-[11px]">entries per page</span>
+          </div>
+
+          <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
+
+          <div>
+            Showing{' '}
+            <strong className="text-slate-800 dark:text-slate-200">
+              {filteredList.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}
+            </strong>{' '}
+            to{' '}
+            <strong className="text-slate-800 dark:text-slate-200">
+              {Math.min(safeCurrentPage * pageSize, filteredList.length)}
+            </strong>{' '}
+            of{' '}
+            <strong className="text-slate-800 dark:text-slate-200">{filteredList.length}</strong>{' '}
+            entries
+          </div>
+        </div>
+
+        {/* DataTables Prev / Page Numbers / Next */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5 text-xs font-medium">
+            <button
+              type="button"
+              disabled={safeCurrentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Previous</span>
+            </button>
+
+            {Array.from({ length: totalPages }).map((_, idx) => {
+              const pageNum = idx + 1;
+              if (
+                pageNum === 1 ||
+                pageNum === totalPages ||
+                (pageNum >= safeCurrentPage - 1 && pageNum <= safeCurrentPage + 1)
+              ) {
+                const isCurrent = pageNum === safeCurrentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={cn(
+                      'min-w-[28px] h-7 px-2 font-mono text-xs font-bold rounded-[3px] transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
+                      isCurrent
+                        ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-700 dark:border-emerald-700'
+                        : 'bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              }
+              if (pageNum === safeCurrentPage - 2 || pageNum === safeCurrentPage + 2) {
+                return (
+                  <span key={pageNum} className="px-1 text-slate-400 select-none font-bold">
+                    …
+                  </span>
+                );
+              }
+              return null;
+            })}
+
+            <button
+              type="button"
+              disabled={safeCurrentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+            >
+              <span>Next</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -15,6 +15,8 @@ import {
   BedDouble,
   ArrowRight,
   UserCheck,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   RoomBooking,
@@ -26,6 +28,8 @@ import { cn } from '@/lib/utils';
 export default function InHouseGuestsPage() {
   const [bookings, setBookings] = useState<RoomBooking[]>(() => loadBookingsFromStorage());
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const handleFocus = () => {
@@ -51,6 +55,18 @@ export default function InHouseGuestsPage() {
     });
   }, [inHouseList, searchQuery]);
 
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredGuests.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedGuests = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredGuests.slice(start, start + pageSize);
+  }, [filteredGuests, safeCurrentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   return (
     <div className="space-y-3.5 w-full min-w-0 pb-12 select-none">
       {/* Header & Search */}
@@ -65,14 +81,14 @@ export default function InHouseGuestsPage() {
           </p>
         </div>
 
-        <div className="relative w-full sm:w-72">
+        <div className="relative w-full sm:w-64">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search guest, room or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card text-body dark:text-body placeholder-text-muted focus:outline-none focus:border-brand"
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card text-body dark:text-body placeholder-text-muted focus:outline-none focus:border-[#0B3D32]"
           />
         </div>
       </div>
@@ -83,6 +99,7 @@ export default function InHouseGuestsPage() {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card text-muted dark:text-muted font-semibold">
+                <th className="py-3 px-3 w-10 text-center">#</th>
                 <th className="py-3 px-3">Room</th>
                 <th className="py-3 px-3">Guest Information</th>
                 <th className="py-3 px-3">Contact</th>
@@ -94,15 +111,18 @@ export default function InHouseGuestsPage() {
             <tbody className="divide-y divide-border-default dark:divide-border-default text-body dark:text-body">
               {filteredGuests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={7} className="py-10 text-center text-slate-400 text-xs">
                     {searchQuery ? 'No in-house guests match your search criteria.' : 'No in-house guests currently registered.'}
                   </td>
                 </tr>
               ) : (
-                filteredGuests.map((b) => {
+                paginatedGuests.map((b, idx) => {
                   const fin = getBookingFinancials(b);
                   return (
                     <tr key={b.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3 px-3 text-center font-mono text-[11px] text-slate-400">
+                        {(safeCurrentPage - 1) * pageSize + idx + 1}
+                      </td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-[#0B3D32] bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded border border-blue-100 dark:border-blue-900 text-xs inline-flex items-center gap-1.5">
                           <BedDouble className="w-3.5 h-3.5" />
@@ -181,6 +201,107 @@ export default function InHouseGuestsPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* -----------------------------------------------------------------------
+          DATATABLES PAGINATION FOOTER
+          ----------------------------------------------------------------------- */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1 select-none">
+        {/* Left side: Show Entries per page + Entries summary */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+            <span className="text-slate-500 font-medium text-[11px]">Show</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-[28px] px-2 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-slate-500 font-medium text-[11px]">entries per page</span>
+          </div>
+
+          <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
+
+          <div>
+            Showing{' '}
+            <strong className="text-slate-800 dark:text-slate-200">
+              {filteredGuests.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}
+            </strong>{' '}
+            to{' '}
+            <strong className="text-slate-800 dark:text-slate-200">
+              {Math.min(safeCurrentPage * pageSize, filteredGuests.length)}
+            </strong>{' '}
+            of{' '}
+            <strong className="text-slate-800 dark:text-slate-200">{filteredGuests.length}</strong>{' '}
+            entries
+          </div>
+        </div>
+
+        {/* DataTables Prev / Page Numbers / Next */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5 text-xs font-medium">
+            <button
+              type="button"
+              disabled={safeCurrentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Previous</span>
+            </button>
+
+            {Array.from({ length: totalPages }).map((_, idx) => {
+              const pageNum = idx + 1;
+              if (
+                pageNum === 1 ||
+                pageNum === totalPages ||
+                (pageNum >= safeCurrentPage - 1 && pageNum <= safeCurrentPage + 1)
+              ) {
+                const isCurrent = pageNum === safeCurrentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={cn(
+                      'min-w-[28px] h-7 px-2 font-mono text-xs font-bold rounded-[3px] transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
+                      isCurrent
+                        ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-700 dark:border-emerald-700'
+                        : 'bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              }
+              if (pageNum === safeCurrentPage - 2 || pageNum === safeCurrentPage + 2) {
+                return (
+                  <span key={pageNum} className="px-1 text-slate-400 select-none font-bold">
+                    …
+                  </span>
+                );
+              }
+              return null;
+            })}
+
+            <button
+              type="button"
+              disabled={safeCurrentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+            >
+              <span>Next</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

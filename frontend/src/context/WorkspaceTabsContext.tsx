@@ -23,7 +23,7 @@ export interface WorkspaceTabsContextType {
   getCachedPage: (tabId: string) => React.ReactNode | undefined;
 }
 
-const STORAGE_KEY = 'hotel_workspace_open_tabs_v1';
+const STORAGE_KEY = 'hotel_workspace_open_tabs_v2';
 
 export function getTabInfoForUrl(
   pathname: string,
@@ -72,8 +72,9 @@ export function getTabInfoForUrl(
   // Exact known routes
   const MAP: Record<string, { title: string; iconName: string; closable?: boolean }> = {
     '/': { title: 'Dashboard', iconName: 'LayoutDashboard', closable: false },
-    '/hotel-management': { title: 'Hotel Overview', iconName: 'LayoutDashboard', closable: false },
-    '/front-desk': { title: 'Front Desk', iconName: 'LayoutGrid', closable: false },
+    '/hotel-management': { title: 'Hotel Overview', iconName: 'LayoutDashboard', closable: true },
+    '/front-desk': { title: 'Room Board', iconName: 'BedDouble', closable: true },
+    '/room-board': { title: 'Room Board', iconName: 'BedDouble', closable: true },
     '/booking': { title: 'Book Now', iconName: 'CalendarPlus', closable: true },
     '/reservations': { title: 'Room Bookings', iconName: 'CalendarCheck', closable: true },
     '/check-in': { title: 'Guest Check-In', iconName: 'UserCheck', closable: true },
@@ -119,10 +120,10 @@ export function getTabInfoForUrl(
 }
 
 const DEFAULT_HOME_TAB: WorkspaceTab = {
-  id: '/front-desk',
-  path: '/front-desk',
-  title: 'Front Desk',
-  iconName: 'LayoutGrid',
+  id: '/',
+  path: '/',
+  title: 'Dashboard',
+  iconName: 'LayoutDashboard',
   closable: false,
 };
 
@@ -143,13 +144,23 @@ export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({
   // Load saved tabs on initial mount
   useEffect(() => {
     try {
+      localStorage.removeItem('hotel_workspace_open_tabs_v1');
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setTabs(parsed);
+          const cleaned = parsed.map((t) => {
+            const info = getTabInfoForUrl(t.path?.split('?')[0] || t.id, t.path?.includes('?') ? t.path.split('?')[1] : '');
+            return {
+              ...t,
+              closable: info.closable,
+            };
+          });
+          setTabs(cleaned);
+          return;
         }
       }
+      setTabs([DEFAULT_HOME_TAB]);
     } catch {}
   }, []);
 

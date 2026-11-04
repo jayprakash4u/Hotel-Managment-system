@@ -1,22 +1,37 @@
 import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData } from './types';
 
-// Generic API caller with error handling
-async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
+// Generic API caller with error handling and timeout protection
+async function fetcher<T>(url: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  });
+  const timeoutMs = options?.timeoutMs ?? 2500;
 
-  const json = await res.json();
-  if (!res.ok || json.success === false) {
-    throw new Error(json.error || `Request failed with status ${res.status}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: options?.signal || controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    });
+
+    const json = await res.json();
+    if (!res.ok || json.success === false) {
+      throw new Error(json.error || `Request failed with status ${res.status}`);
+    }
+    return json.data as T;
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error(`Request timeout (${timeoutMs}ms) connecting to backend API`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return json.data as T;
 }
 
 export const api = {
@@ -92,6 +107,19 @@ export const api = {
     return fetcher<any>(`/api/rooms/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  },
+
+  updateRoom: (id: string, data: any) => {
+    return fetcher<RoomWithDetails>(`/api/rooms/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteRoom: (id: string) => {
+    return fetcher<{ id: string }>(`/api/rooms/${id}`, {
+      method: 'DELETE',
     });
   },
 
@@ -866,6 +894,122 @@ export const api = {
   // Seed / Reset
   seedDatabase: () => {
     return fetcher<any>('/api/seed', { method: 'POST' });
+  },
+
+  // Customer Management & Credit Customers
+  getCustomers: (params?: { type?: string; status?: string; search?: string; hasOutstanding?: boolean }) => {
+    const query = new URLSearchParams();
+    if (params?.type) query.append('type', params.type);
+    if (params?.status) query.append('status', params.status);
+    if (params?.search) query.append('search', params.search);
+    if (params?.hasOutstanding !== undefined) query.append('hasOutstanding', String(params.hasOutstanding));
+    return fetcher<import('./types').CustomerData[]>(`/api/customers?${query.toString()}`);
+  },
+
+  getCustomer: (id: string) => {
+    return fetcher<import('./types').CustomerData>(`/api/customers/${id}`);
+  },
+
+  createCustomer: (data: {
+    name: string;
+    phone: string;
+    address?: string;
+    customerType: 'CASH' | 'CREDIT';
+    creditLimit?: number;
+    creditStatus?: 'ACTIVE' | 'BLOCKED';
+    openingBalance?: number;
+    notes?: string;
+  }) => {
+    return fetcher<import('./types').CustomerData>('/api/customers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateCustomer: (id: string, data: {
+    name: string;
+    phone: string;
+    address?: string;
+    customerType: 'CASH' | 'CREDIT';
+    creditLimit?: number;
+    creditStatus?: 'ACTIVE' | 'BLOCKED';
+    notes?: string;
+  }) => {
+    return fetcher<import('./types').CustomerData>(`/api/customers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateCustomerStatus: (id: string, status: 'ACTIVE' | 'BLOCKED', reason?: string) => {
+    return fetcher<import('./types').CustomerData>(`/api/customers/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, reason }),
+    });
+  },
+
+  getCustomerLedger: (id: string, params?: { fromDate?: string; toDate?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.fromDate) query.append('fromDate', params.fromDate);
+    if (params?.toDate) query.append('toDate', params.toDate);
+    return fetcher<{
+      customer: import('./types').CustomerData;
+      entries: import('./types').CustomerLedgerEntryData[];
+      summary: {
+        creditLimit: number;
+        totalCreditGiven: number;
+        totalPaymentReceived: number;
+        currentOutstanding: number;
+        availableCredit: number;
+        creditStatus: string;
+      };
+    }>(`/api/customers/${id}/ledger?${query.toString()}`);
+  },
+
+  getCustomerUnpaidBills: (id: string) => {
+    return fetcher<import('./types').CustomerUnpaidBillData[]>(`/api/customers/${id}/unpaid-bills`);
+  },
+
+  receiveCustomerPayment: (data: import('./types').ReceiveCreditPaymentPayload) => {
+    return fetcher<{
+      success: boolean;
+      message: string;
+      totalSettled: number;
+      ledgerEntryId: string;
+      newOutstanding: number;
+      settledBills: any[];
+    }>('/api/customers/receive-payment', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  overrideCustomerCredit: (data: import('./types').CreditOverridePayload) => {
+    return fetcher<{
+      success: boolean;
+      auditId: string;
+      overrideAmount: number;
+    }>('/api/customers/manager-override', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Credit Reports
+  getCreditOutstandingCustomers: () => {
+    return fetcher<any[]>('/api/billing/reports/credit-outstanding-customers');
+  },
+
+  getCreditOutstandingBills: () => {
+    return fetcher<any[]>('/api/billing/reports/credit-outstanding-bills');
+  },
+
+  getCreditAgeingReport: () => {
+    return fetcher<any[]>('/api/billing/reports/credit-ageing');
+  },
+
+  getCreditSummaryReport: () => {
+    return fetcher<any>('/api/billing/reports/credit-summary');
   },
 };
 

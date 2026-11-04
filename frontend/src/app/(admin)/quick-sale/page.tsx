@@ -26,10 +26,11 @@ import {
   Clock,
   ArrowLeft,
   User,
+  Users,
+  AlertCircle,
   Phone,
   Tag,
 } from 'lucide-react';
-import { RestaurantManagementNavBoxes } from '@/components/common/RestaurantManagementNavBoxes';
 import { RestaurantReceiptModal, ReceiptModalProps, ReceiptItem } from '@/components/common/RestaurantReceiptModal';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -39,6 +40,7 @@ import {
   QuickSalePayload,
   QuickSaleReceipt,
   DailySalesSummaryData,
+  CustomerData,
 } from '@/lib/types';
 import {
   DEFAULT_MENU_CATALOG,
@@ -134,6 +136,24 @@ export default function QuickSalePage() {
     guestName?: string;
     bookingCode?: string;
   } | null>(null);
+
+  // Credit Customer State for Quick Billing POS
+  const [creditCustomers, setCreditCustomers] = useState<CustomerData[]>([]);
+  const [selectedCreditCustomer, setSelectedCreditCustomer] = useState<CustomerData | null>(null);
+  const [creditSearchQuery, setCreditSearchQuery] = useState<string>('');
+  const [isCreditDropdownOpen, setIsCreditDropdownOpen] = useState<boolean>(false);
+  const [isManagerOverrideAllowed, setIsManagerOverrideAllowed] = useState<boolean>(false);
+  const [overrideReason, setOverrideReason] = useState<string>('');
+  const [showOverrideDialog, setShowOverrideDialog] = useState<boolean>(false);
+
+  // Load active credit customers when Credit mode is chosen
+  useEffect(() => {
+    if (billMode === 'Credit') {
+      api.getCustomers({ type: 'CREDIT', status: 'ACTIVE' })
+        .then((res) => setCreditCustomers(res || []))
+        .catch(() => {});
+    }
+  }, [billMode]);
 
   // Receipt Modal State
   const [receiptData, setReceiptData] = useState<ReceiptModalProps | null>(null);
@@ -1086,6 +1106,33 @@ export default function QuickSalePage() {
       return;
     }
 
+    const isCreditSale = billMode === 'Credit' || billMode === 'CREDIT';
+
+    // Credit Customer validation
+    if (isCreditSale) {
+      if (!selectedCreditCustomer) {
+        toast.error('Credit Customer Required', 'Please select an eligible registered credit customer before confirming the bill.');
+        return;
+      }
+      if (selectedCreditCustomer.creditStatus !== 'ACTIVE') {
+        toast.error('Customer Blocked', `Customer "${selectedCreditCustomer.name}" is currently blocked from taking new credit.`);
+        return;
+      }
+      if ((selectedCreditCustomer.creditLimit || 0) <= 0) {
+        toast.error('Zero Credit Limit', `Customer "${selectedCreditCustomer.name}" has a credit limit of zero and cannot take credit.`);
+        return;
+      }
+      const availCredit = Math.max(0, (selectedCreditCustomer.creditLimit || 0) - (selectedCreditCustomer.currentOutstanding || 0));
+      if (netAmount > availCredit && !isManagerOverrideAllowed) {
+        toast.error(
+          'Credit Limit Exceeded',
+          `Credit limit exceeded. Available credit: Rs. ${availCredit.toLocaleString()}.`
+        );
+        setShowOverrideDialog(true);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const payload: QuickSalePayload = {
@@ -1096,15 +1143,18 @@ export default function QuickSalePage() {
           quantity: i.quantity,
           notes: i.remarks,
         })),
-        paymentMethod: billMode,
-        paidAmount: parsedPaidAmt,
+        paymentMethod: isCreditSale ? 'CREDIT' : billMode,
+        paidAmount: isCreditSale ? 0 : parsedPaidAmt,
+        customerId: isCreditSale ? selectedCreditCustomer?.id : undefined,
+        overrideLimit: isCreditSale ? isManagerOverrideAllowed : undefined,
+        overrideReason: isCreditSale && isManagerOverrideAllowed ? overrideReason : undefined,
         discountPercent: parsedDisPercent > 0 ? parsedDisPercent : undefined,
         discountAmount: effectiveDisAmt > 0 ? effectiveDisAmt : undefined,
         tax: 0,
         serviceCharge: 0,
         serverName: 'Counter Cashier',
-        customerName: customerName.trim() || undefined,
-        customerPhone: customerPhone.trim() || undefined,
+        customerName: isCreditSale ? selectedCreditCustomer?.name : (customerName.trim() || undefined),
+        customerPhone: isCreditSale ? selectedCreditCustomer?.phone : (customerPhone.trim() || undefined),
         notes: billRemarks.trim() || undefined,
         sendToKitchen: false,
         outlet: 'RESTAURANT',
@@ -1115,7 +1165,9 @@ export default function QuickSalePage() {
       const savedOrderNumber = result.receipt?.orderNumber || activeOrderNumber;
       toast.celebrate(
         'Sale Completed Successfully!',
-        `Bill #${savedOrderNumber} settled for Rs. ${netAmount.toFixed(0)} (${billMode}).`
+        isCreditSale
+          ? `Bill #${savedOrderNumber} saved as CREDIT for ${selectedCreditCustomer?.name || 'Customer'} (Rs. ${netAmount.toFixed(0)}).`
+          : `Bill #${savedOrderNumber} settled for Rs. ${netAmount.toFixed(0)} (${billMode}).`
       );
 
       // Assign VAT invoice number if VAT Bill
@@ -1139,8 +1191,8 @@ export default function QuickSalePage() {
         seatingNote: isVatBill ? 'TAX INVOICE (VAT 13%) · Counter Takeaway' : 'Counter Takeaway',
         createdAt: new Date().toISOString(),
         serverName: 'Counter Cashier',
-        customerName: customerName.trim() || 'Walk-in Customer',
-        customerPhone: customerPhone.trim() || undefined,
+        customerName: isCreditSale && selectedCreditCustomer ? selectedCreditCustomer.name : (customerName.trim() || 'Walk-in Customer'),
+        customerPhone: isCreditSale && selectedCreditCustomer ? selectedCreditCustomer.phone : (customerPhone.trim() || undefined),
         items: cart.map((i) => ({
           productName: i.name,
           quantity: i.quantity,
@@ -1154,10 +1206,10 @@ export default function QuickSalePage() {
         tax: isVatBill ? vatAmount : 0,
         serviceCharge: 0,
         total: netAmount,
-        paidAmount: parsedPaidAmt,
-        changeDue: changeDue,
-        paymentMethod: billMode,
-        paymentStatus: 'PAID',
+        paidAmount: isCreditSale ? 0 : parsedPaidAmt,
+        changeDue: isCreditSale ? 0 : changeDue,
+        paymentMethod: isCreditSale ? 'CREDIT' : billMode,
+        paymentStatus: isCreditSale ? 'CREDIT' : 'PAID',
       };
 
       setReceiptData(receiptProps);
@@ -1173,8 +1225,12 @@ export default function QuickSalePage() {
         setIsReceiptModalOpen(true);
       }
 
-      // Reset cart and tender for next customer
+      // Reset cart, tender and credit customer for next customer
       handleClearCart();
+      setSelectedCreditCustomer(null);
+      setCreditSearchQuery('');
+      setIsManagerOverrideAllowed(false);
+      setOverrideReason('');
 
       // Refresh daily sales
       await loadDailySales();
@@ -1213,22 +1269,6 @@ export default function QuickSalePage() {
 
   return (
     <div className="space-y-4 pb-12 select-none animate-in fade-in duration-150">
-      {/* =======================================================================
-          TOP NAVIGATION BOXES (RESTAURANT HUB MODULES)
-          ======================================================================= */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Restaurant Management Suite
-          </span>
-          <span className="text-[11px] font-mono text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 fill-current" />
-            <span>Counter POS & Quick Sale</span>
-          </span>
-        </div>
-        <RestaurantManagementNavBoxes activeId="quick-sale" />
-      </div>
-
       {/* =======================================================================
           TOP SERVICE & CUSTOMER INFORMATION STRIP (MATCHING TABLE ORDER PAGE)
           ======================================================================= */}
@@ -1346,9 +1386,9 @@ export default function QuickSalePage() {
         </div>
 
         {/* Search Input Bar with Instant Dropdown Suggestions Below */}
-        <div ref={topSearchRef} className="relative w-full max-w-sm sm:max-w-md">
+        <div ref={topSearchRef} className={cn('relative w-full max-w-sm sm:max-w-md', isSuggestionsOpen ? 'z-30' : 'z-10')}>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#879B90] pointer-events-none z-40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#879B90] pointer-events-none" />
             <input
               type="text"
               placeholder="search item & Add"
@@ -1374,7 +1414,7 @@ export default function QuickSalePage() {
                   }
                 }
               }}
-              className="relative z-40 w-full rounded-[3px] border border-[#DCE3DF] bg-white dark:bg-[#061D18] pl-9 pr-8 py-2.5 text-xs text-[#24352F] placeholder-[#879B90] dark:border-[#145447] dark:text-white focus:outline-none focus:border-[#0B3D32] shadow-2xs transition-colors"
+              className="relative w-full rounded-[3px] border border-[#DCE3DF] bg-white dark:bg-[#061D18] pl-9 pr-8 py-2.5 text-xs text-[#24352F] placeholder-[#879B90] dark:border-[#145447] dark:text-white focus:outline-none focus:border-[#0B3D32] shadow-2xs transition-colors"
             />
             {orderProductName && (
               <button
@@ -1390,15 +1430,7 @@ export default function QuickSalePage() {
 
           {/* Suggestions Dropdown Appearing Directly Below Input (Exact Tabular Design matching Screenshot 1) */}
           {isSuggestionsOpen && (
-            <>
-              {/* Transparent backdrop to dismiss on click outside */}
-              <div
-                className="fixed inset-0 z-30 cursor-default bg-transparent"
-                onClick={() => setIsSuggestionsOpen(false)}
-              />
-
-              {/* Dropdown Menu */}
-              <div className="absolute left-0 top-full mt-1 z-50 w-full max-w-[620px] bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 shadow-2xl rounded-[4px] overflow-hidden animate-in fade-in-0 duration-75">
+            <div className="absolute left-0 top-full mt-1 z-30 w-full max-w-[620px] bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 shadow-2xl rounded-[4px] overflow-hidden animate-in fade-in-0 duration-75">
                 {/* Teal Header Bar */}
                 <div className="bg-[#00838F] text-white px-2.5 py-1.5 flex items-center text-[10px] font-bold tracking-wider uppercase select-none border-b border-[#006978]">
                   <span className="flex-1 min-w-[170px] text-left">ITEM</span>
@@ -1463,7 +1495,6 @@ export default function QuickSalePage() {
                   )}
                 </div>
               </div>
-            </>
           )}
         </div>
       </div>
@@ -1720,8 +1751,8 @@ export default function QuickSalePage() {
                         </td>
 
                         {/* Particular Input with Green Border & Autocomplete Popover */}
-                        <td className={cn('py-1 px-2 relative border-r border-slate-100 dark:border-slate-800/80', draft.isOpen && 'z-50')}>
-                          <div className={cn('relative draft-row-container', draft.isOpen && 'z-50')}>
+                        <td className={cn('py-1 px-2 relative border-r border-slate-100 dark:border-slate-800/80', draft.isOpen && 'z-30')}>
+                          <div className={cn('relative draft-row-container', draft.isOpen && 'z-30')}>
                             <input
                               type="text"
                               placeholder="search item & Add"
@@ -1781,21 +1812,15 @@ export default function QuickSalePage() {
                                   handleRemoveDraftRow(draft.id);
                                 }
                               }}
-                              className="relative z-50 w-full px-2 py-1 text-xs bg-white dark:bg-[#061D18] border border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 rounded-[2px] text-slate-900 dark:text-white font-medium shadow-xs"
+                              className={cn(
+                                'relative w-full px-2 py-1 text-xs bg-white dark:bg-[#061D18] border border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 rounded-[2px] text-slate-900 dark:text-white font-medium shadow-xs',
+                                draft.isOpen && 'z-30'
+                              )}
                             />
 
                             {/* Popover Table Directly Under Input (Matching Reference Screenshot) */}
                             {draft.isOpen && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-40 bg-transparent cursor-default"
-                                  onClick={() => {
-                                    setDraftRows((prev) =>
-                                      prev.map((d) => (d.id === draft.id ? { ...d, isOpen: false } : d))
-                                    );
-                                  }}
-                                />
-                                <div className="absolute left-0 top-full mt-1 z-50 w-[540px] max-w-[90vw] bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 shadow-2xl rounded-[4px] overflow-hidden animate-in fade-in-0 duration-75">
+                              <div className="absolute left-0 top-full mt-1 z-30 w-[540px] max-w-[90vw] bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 shadow-2xl rounded-[4px] overflow-hidden animate-in fade-in-0 duration-75">
                                   {/* Teal Header Bar */}
                                   <div className="bg-[#00838F] text-white px-2.5 py-1.5 flex items-center text-[10px] font-bold tracking-wider uppercase select-none border-b border-[#006978]">
                                     <span className="w-44 text-left">ITEM</span>
@@ -1873,7 +1898,6 @@ export default function QuickSalePage() {
                                     )}
                                   </div>
                                 </div>
-                              </>
                             )}
                           </div>
                         </td>
@@ -2154,31 +2178,137 @@ export default function QuickSalePage() {
             />
           </div>
 
-          <div className="w-40">
+          <div className="w-36">
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
               Payment Mode
             </label>
             <select
               value={billMode}
-              onChange={(e) => setBillMode(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setBillMode(val);
+                if (val === 'Credit') {
+                  setSelectedCreditCustomer(null);
+                  setIsCreditDropdownOpen(false);
+                  setIsManagerOverrideAllowed(false);
+                  setOverrideReason('');
+                }
+              }}
               className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white font-medium focus:outline-none focus:border-[#0B3D32] cursor-pointer"
             >
               <option value="Cash">Cash</option>
-              <option value="Credit Card">Credit Card</option>
-              <option value="Debit Card">Debit Card</option>
-              <option value="UPI / QR">UPI / QR</option>
+              <option value="Online">Online</option>
+              <option value="Wallet">Wallet</option>
+              <option value="Credit">Credit</option>
               <option value="Charge to Room">Charge to Room (Hotel Guest)</option>
-              <option value="Due / Credit">Due / Credit</option>
             </select>
           </div>
 
-          <div className="flex-1 min-w-[200px]">
+          {/* Credit Customer Selector: Exact right side of Payment Mode */}
+          {billMode === 'Credit' && (
+            <div className="w-52 sm:w-60 relative">
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Credit Customer <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Select customer..."
+                  value={
+                    selectedCreditCustomer
+                      ? `${selectedCreditCustomer.name} (${selectedCreditCustomer.phone})`
+                      : creditSearchQuery
+                  }
+                  onFocus={() => {
+                    setIsCreditDropdownOpen(true);
+                    if (selectedCreditCustomer) {
+                      setCreditSearchQuery('');
+                    }
+                  }}
+                  onClick={() => setIsCreditDropdownOpen(true)}
+                  onChange={(e) => {
+                    setSelectedCreditCustomer(null);
+                    setCreditSearchQuery(e.target.value);
+                    setIsCreditDropdownOpen(true);
+                  }}
+                  className={cn(
+                    'w-full pl-2.5 pr-7 py-1.5 text-xs rounded-[3px] border bg-white dark:bg-[#061D18] text-slate-900 dark:text-white focus:outline-none shadow-2xs',
+                    selectedCreditCustomer
+                      ? 'border-emerald-500 font-semibold text-emerald-700 dark:text-emerald-400'
+                      : 'border-slate-300 dark:border-slate-700 focus:border-[#0B3D32]'
+                  )}
+                />
+                {selectedCreditCustomer || creditSearchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCreditCustomer(null);
+                      setCreditSearchQuery('');
+                      setIsCreditDropdownOpen(false);
+                      setIsManagerOverrideAllowed(false);
+                      setOverrideReason('');
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    title="Clear selected customer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <Search className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                )}
+              </div>
+
+              {/* Clean suggestions dropdown */}
+              {isCreditDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30 cursor-default bg-transparent"
+                    onClick={() => setIsCreditDropdownOpen(false)}
+                  />
+                  <div className="absolute left-0 right-0 top-full mt-1 z-40 bg-white dark:bg-[#061D18] border border-slate-200 dark:border-slate-700 rounded-[3px] shadow-lg max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                    {creditCustomers
+                      .filter((c) => {
+                        const q = creditSearchQuery.toLowerCase().trim();
+                        const matches = !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
+                        return matches && c.customerType === 'CREDIT' && c.creditStatus === 'ACTIVE';
+                      })
+                      .map((cust) => (
+                        <div
+                          key={cust.id}
+                          onClick={() => {
+                            setSelectedCreditCustomer(cust);
+                            setCreditSearchQuery('');
+                            setIsCreditDropdownOpen(false);
+                          }}
+                          className="p-2 hover:bg-slate-50 dark:hover:bg-[#0E2E25] cursor-pointer flex items-center justify-between text-xs transition-colors"
+                        >
+                          <span className="font-semibold text-slate-900 dark:text-white">{cust.name}</span>
+                          <span className="text-[11px] text-slate-500 font-mono">{cust.phone}</span>
+                        </div>
+                      ))}
+                    {creditCustomers.filter((c) => {
+                      const q = creditSearchQuery.toLowerCase().trim();
+                      const matches = !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
+                      return matches && c.customerType === 'CREDIT' && c.creditStatus === 'ACTIVE';
+                    }).length === 0 && (
+                      <div className="p-2.5 text-center text-[11px] text-slate-400 italic">
+                        No credit customers found
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Remarks / Notes - made small */}
+          <div className="w-36 sm:w-44">
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
               Remarks / Notes
             </label>
             <input
               type="text"
-              placeholder="Optional billing note..."
+              placeholder="Optional note..."
               value={billRemarks}
               onChange={(e) => setBillRemarks(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
@@ -2230,6 +2360,55 @@ export default function QuickSalePage() {
             </button>
           </div>
         </div>
+
+        {/* Manager Override Modal */}
+        {showOverrideDialog && selectedCreditCustomer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xl p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 text-xs">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                <span>Manager Credit Limit Override</span>
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400">
+                Customer <strong className="text-slate-900 dark:text-white">{selectedCreditCustomer.name}</strong> has available credit of Rs. {Math.max(0, (selectedCreditCustomer.creditLimit || 0) - (selectedCreditCustomer.currentOutstanding || 0)).toLocaleString()}. Current bill amount is Rs. {netAmount.toFixed(0)}.
+              </p>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Reason for Exceeding Limit <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  placeholder="Enter manager authorization reason (e.g. Approved by Director for event)..."
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  className="w-full px-2.5 py-1.5 border rounded bg-white dark:bg-[#061D18] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowOverrideDialog(false)}
+                  className="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!overrideReason.trim()}
+                  onClick={() => {
+                    setIsManagerOverrideAllowed(true);
+                    setShowOverrideDialog(false);
+                    toast.warning('Override Approved', 'Credit limit override granted for this transaction.');
+                  }}
+                  className="px-3.5 py-1.5 rounded bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold cursor-pointer"
+                >
+                  Approve Override
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Charge to Room Verification Panel */}
         {(billMode === 'Charge to Room' || billMode === 'Room Charge') && (

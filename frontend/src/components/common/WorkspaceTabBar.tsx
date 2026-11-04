@@ -59,7 +59,7 @@ const QUICK_MODULES = [
   { path: '/quick-sale', title: 'Quick Sale POS', icon: Zap, desc: 'Instant counter billing & quick takeaways' },
   { path: '/tables', title: 'Tables & Floor', icon: Table2, desc: 'Dine-in floor plan & table orders' },
   { path: '/tables?tab=ACTIVE_ORDERS', title: 'Live Kitchen Orders', icon: Receipt, desc: 'Active order tickets & prep status' },
-  { path: '/front-desk', title: 'Front Desk Matrix', icon: LayoutGrid, desc: 'Tape chart & live room grid' },
+  { path: '/front-desk', title: 'Room Board', icon: BedDouble, desc: 'Tape chart & live room grid' },
   { path: '/housekeeping', title: 'Housekeeping', icon: Sparkles, desc: 'Room cleaning & maid task status' },
   { path: '/inventory', title: 'Inventory Stock', icon: Boxes, desc: 'Kitchen pantry & hotel linen stock' },
   { path: '/reports', title: 'Reports & Analytics', icon: BarChart3, desc: 'Daily revenue, audits & metrics' },

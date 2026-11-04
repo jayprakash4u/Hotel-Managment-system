@@ -222,28 +222,27 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
     id: InventoryTab;
     label: string;
     icon: React.ComponentType<{ className?: string }>;
-    count?: number;
   }
 
   const tabItems: InventoryTabItem[] = useMemo(() => {
     const list: InventoryTabItem[] = [
       { id: 'OVERVIEW', label: 'Overview', icon: LayoutDashboard },
-      { id: 'ITEMS', label: 'Inventory Items', icon: Package, count: items.length },
+      { id: 'ITEMS', label: 'Inventory Items', icon: Package },
       { id: 'PURCHASE_LEDGER', label: 'Purchase Ledger', icon: ReceiptIcon },
       { id: 'STOCK_MOVEMENTS', label: 'Stock Movements', icon: Activity },
-      { id: 'SUPPLIERS', label: 'Suppliers', icon: Users, count: suppliers.length },
-      { id: 'RECEIVE_STOCK', label: 'Receive Stock', icon: ShoppingBag, count: purchases.length },
+      { id: 'SUPPLIERS', label: 'Suppliers', icon: Users },
+      { id: 'RECEIVE_STOCK', label: 'Receive Stock', icon: ShoppingBag },
       { id: 'STOCK_ADJUSTMENT', label: 'Adjustments', icon: SlidersHorizontal },
     ];
     if (isTransfersEnabled) {
-      list.push({ id: 'STOCK_TRANSFERS', label: 'Transfers', icon: ArrowLeftRight, count: transfers.length });
+      list.push({ id: 'STOCK_TRANSFERS', label: 'Transfers', icon: ArrowLeftRight });
     }
     list.push(
       { id: 'CATEGORIES', label: 'Categories', icon: Tag },
       { id: 'UNITS', label: 'Units', icon: Scale }
     );
     return list;
-  }, [items.length, suppliers.length, purchases.length, transfers.length, isTransfersEnabled]);
+  }, [isTransfersEnabled]);
 
   return (
     <div className="space-y-3.5 select-none w-full min-w-0 pb-12 font-sans">
@@ -268,18 +267,6 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
             >
               <Icon className={cn('w-3.5 h-3.5', isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400')} />
               <span>{tab.label}</span>
-              {typeof tab.count === 'number' && (
-                <span
-                  className={cn(
-                    'px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold leading-none',
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-100 text-slate-600 dark:bg-surface-muted dark:text-slate-300'
-                  )}
-                >
-                  {tab.count}
-                </span>
-              )}
             </button>
           );
         })}

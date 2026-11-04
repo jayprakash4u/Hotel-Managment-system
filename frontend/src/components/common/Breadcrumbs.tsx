@@ -13,12 +13,13 @@ export const Breadcrumbs: React.FC = () => {
     return (
       <div className="flex items-center gap-1.5 text-xs text-[#64736C] font-semibold">
         <Home className="w-3.5 h-3.5 text-[#0B3D32]" />
-        <span className="text-[#24352F] font-bold">Front Desk & Hotel Operations</span>
+        <span className="text-[#24352F] font-bold">Dashboard & Hotel Operations</span>
       </div>
     );
   }
 
   const formatSegment = (str: string) => {
+    if (str === 'front-desk' || str === 'room-board') return 'Room Board';
     return str
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());

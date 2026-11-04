@@ -119,22 +119,22 @@ export default function AdminLayout({
         return false;
       }
     }
-    return false;
+    return true;
   });
 
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       try {
         const token = localStorage.getItem('auth_token');
-        if (token || process.env.NODE_ENV !== 'production') return false;
+        return !Boolean(token);
       } catch {
         return false;
       }
     }
-    return true;
+    return false;
   });
 
-  // Safety watchdog: never allow the loading spinner to block the screen for more than 400ms
+  // Safety watchdog: fast resolution so user is never blocked by a spinner
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
       setIsCheckingAuth(false);
@@ -148,7 +148,7 @@ export default function AdminLayout({
           router.replace('/login');
         }
       }
-    }, 400);
+    }, 50);
 
     return () => clearTimeout(safetyTimer);
   }, [router]);

@@ -228,27 +228,8 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
         })}
       </div>
 
-      {/* 2. Classic DataTable Top Bar: "Show [10] entries" on Left, Search & Actions on Right */}
-      <div className="bg-white dark:bg-surface-card border border-slate-200 dark:border-border-default rounded-[4px] p-3 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        {/* Left: Show Entries Dropdown */}
-        <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-          <span>Show</span>
-          <select
-            value={entriesPerPage}
-            onChange={(e) => {
-              setEntriesPerPage(Number(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card px-2 py-1 text-xs font-bold focus:outline-none focus:border-brand cursor-pointer"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-          <span>entries</span>
-        </div>
-
+      {/* 2. Classic DataTable Top Bar: Search & Actions */}
+      <div className="bg-white dark:bg-surface-card border border-slate-200 dark:border-border-default rounded-[4px] p-3 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
         {/* Right: Search Box + Quick Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-end">
           <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
@@ -570,56 +551,86 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
 
         {/* 4. Bottom Pagination Bar */}
         <div className="p-3 border-t border-slate-200 dark:border-border-default flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 select-none">
-          <div>
-            Showing {totalEntries > 0 ? startIndex + 1 : 0} to{' '}
-            {Math.min(startIndex + entriesPerPage, totalEntries)} of {totalEntries} entries
+          {/* Left side: Show Entries per page + Entries summary */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+              <span className="text-slate-500 font-medium text-[11px]">Show</span>
+              <select
+                value={entriesPerPage}
+                onChange={(e) => {
+                  setEntriesPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="h-[28px] px-2 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-slate-500 font-medium text-[11px]">entries per page</span>
+            </div>
+
+            <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
+
+            <div>
+              Showing <strong className="text-slate-800 dark:text-slate-200">{totalEntries > 0 ? startIndex + 1 : 0}</strong> to{' '}
+              <strong className="text-slate-800 dark:text-slate-200">{Math.min(startIndex + entriesPerPage, totalEntries)}</strong> of{' '}
+              <strong className="text-slate-800 dark:text-slate-200">{totalEntries}</strong> entries
+            </div>
           </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-            >
-              Previous
-            </button>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
+              </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
-              .map((pageNum, idx, arr) => {
-                const prev = arr[idx - 1];
-                const showEllipsis = prev && pageNum - prev > 1;
-                const isActive = pageNum === currentPage;
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .map((pageNum, idx, arr) => {
+                  const prev = arr[idx - 1];
+                  const showEllipsis = prev && pageNum - prev > 1;
+                  const isActive = pageNum === currentPage;
 
-                return (
-                  <React.Fragment key={pageNum}>
-                    {showEllipsis && <span className="px-1 text-slate-400">...</span>}
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={cn(
-                        'min-w-[28px] h-7 px-2 rounded-[3px] font-bold text-xs transition-colors cursor-pointer',
-                        isActive
-                          ? 'bg-[#159A80] text-white shadow-2xs'
-                          : 'border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-300'
+                  return (
+                    <React.Fragment key={pageNum}>
+                      {showEllipsis && (
+                        <span className="px-1 text-slate-400 select-none font-bold">…</span>
                       )}
-                    >
-                      {pageNum}
-                    </button>
-                  </React.Fragment>
-                );
-              })}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={cn(
+                          'min-w-[28px] h-7 px-2 font-mono text-xs font-bold rounded-[3px] transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
+                          isActive
+                            ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-700 dark:border-emerald-700'
+                            : 'bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {pageNum}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
 
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-            >
-              Next
-            </button>
-          </div>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

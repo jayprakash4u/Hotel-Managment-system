@@ -33,6 +33,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { ReservationData } from '@/lib/types';
 
 export interface TapeChartRoom {
   id: string;
@@ -116,28 +118,21 @@ export interface RoomTapeChartProps {
 
 // Brand Hotel Room Setup categorized cleanly
 export const DEFAULT_TAPE_ROOMS: TapeChartRoom[] = [
-  // AC Room
-  { id: 'rm-101', number: '101', floor: 1, category: 'AC Room', type: 'Deluxe AC Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-108', number: '108', floor: 1, category: 'AC Room', type: 'Deluxe AC Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  // Deluxe Garden Suite
+  { id: '748e33547b6b42178a3a4d991591fd25', number: '101', floor: 1, category: 'Deluxe Room', type: 'Deluxe Garden Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '0b7a5291976f467092670071dcf3a6e5', number: '102', floor: 1, category: 'Deluxe Room', type: 'Deluxe Garden Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '639d7e4058aa42b8b162e2a61a2f8b54', number: '105', floor: 1, category: 'Deluxe Room', type: 'Deluxe Garden Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'MAINTENANCE', cleaningStatus: 'DIRTY' },
 
-  // Deluxe Room
-  { id: 'rm-102', number: '102', floor: 1, category: 'Deluxe Room', type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'OCCUPIED', cleaningStatus: 'CLEAN' },
-  { id: 'rm-104', number: '104', floor: 1, category: 'Deluxe Room', type: 'Deluxe Premium', bedType: 'King Bed', acType: 'AC', pricePerNight: 3800, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  // Standard Twin Room
+  { id: 'fcb2247532e248aa9d7544fca47856e8', number: '103', floor: 1, category: 'Non AC Room', type: 'Standard Twin Room', bedType: '2 Queen Beds', acType: 'Non-AC', pricePerNight: 2400, capacity: 4, operationalStatus: 'AVAILABLE', cleaningStatus: 'DIRTY' },
+  { id: '6835a95a55a94faab412da5f0afcf43f', number: '104', floor: 1, category: 'Non AC Room', type: 'Standard Twin Room', bedType: '2 Queen Beds', acType: 'Non-AC', pricePerNight: 2400, capacity: 4, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
 
-  // Non AC Room
-  { id: 'rm-105', number: '105', floor: 1, category: 'Non AC Room', type: 'Standard Non-AC', bedType: 'Queen Bed', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-106', number: '106', floor: 1, category: 'Non AC Room', type: 'Standard Non-AC', bedType: 'Queen Bed', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-109', number: '109', floor: 1, category: 'Non AC Room', type: 'Standard Non-AC', bedType: 'Twin Beds', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-
-  // Suite room
-  { id: 'rm-103', number: '103', floor: 1, category: 'Suite room', type: 'Junior Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 4800, capacity: 3, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-107', number: '107', floor: 1, category: 'Suite room', type: 'Executive Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 5500, capacity: 3, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-110', number: '110', floor: 1, category: 'Suite room', type: 'Executive Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 5500, capacity: 3, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-
-  // Super Deluxe
-  { id: 'rm-201', number: '201', floor: 2, category: 'Super Deluxe', type: 'Super Deluxe Ocean Suite', bedType: 'Emperor Bed', acType: 'AC', pricePerNight: 7500, capacity: 4, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-301', number: '301', floor: 3, category: 'Super Deluxe', type: 'Royal Club Penthouse', bedType: 'Emperor Bed', acType: 'AC', pricePerNight: 9500, capacity: 4, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-501', number: '501', floor: 5, category: 'Super Deluxe', type: 'Presidential Suite', bedType: 'Royal Emperor Bed', acType: 'AC', pricePerNight: 18500, capacity: 6, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  // Executive Ocean Suite
+  { id: 'e7f73a6dcffc4309bf743d331fa0fa87', number: '201', floor: 2, category: 'Suite room', type: 'Executive Ocean Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'OCCUPIED', cleaningStatus: 'CLEAN' },
+  { id: '18a4eeb348c44a5f81ad82facda7be34', number: '202', floor: 2, category: 'Suite room', type: 'Executive Ocean Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'ddeeb358d00d4433b6f0870e0da8bf80', number: '203', floor: 2, category: 'Suite room', type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '600ee80d872e4f8e87ff34f6a11fde47', number: '204', floor: 2, category: 'Suite room', type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '6ac773799a3747ff8f99363d3c813462', number: '205', floor: 2, category: 'Suite room', type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 3, operationalStatus: 'MAINTENANCE', cleaningStatus: 'DIRTY' },
 ];
 
 function getCategoryForRoom(room: any): string {
@@ -220,6 +215,75 @@ export function RoomTapeChart({
 
   // Existing booking inspection modal
   const [inspectedBooking, setInspectedBooking] = useState<RoomBooking | null>(null);
+
+  // API-fetched real reservations (takes precedence over local mock data)
+  const [apiBookings, setApiBookings] = useState<RoomBooking[]>([]);
+  const [apiLoaded, setApiLoaded] = useState(false);
+
+  // Convert backend ReservationData to frontend RoomBooking format
+  function toRoomBooking(res: ReservationData): RoomBooking {
+    const checkIn = res.checkIn;
+    const checkOut = res.checkOut;
+    const nights = Math.max(1, getDayDiff(checkIn, checkOut));
+
+    return {
+      id: res.id,
+      bookingCode: res.bookingCode,
+      status: (res.status as RoomBooking['status']) || 'RESERVED',
+      guest: {
+        id: res.guest.id,
+        firstName: res.guest.firstName,
+        lastName: res.guest.lastName,
+        phone: res.guest.phone,
+        email: res.guest.email,
+        address: '',
+        idType: res.guest.idNumber ? 'ID' : 'Citizenship',
+        idNumber: res.guest.idNumber || '',
+        country: 'Nepal',
+        vipTier: ((res.guest.vipTier as any) || 'STANDARD') as RoomBooking['guest']['vipTier'],
+      },
+      room: {
+        id: res.roomId,
+        number: res.room.number,
+        type: res.room.type,
+        acType: 'AC',
+        bedType: 'King Bed',
+        floorLevel: `${res.room.floor || 1}st Floor`,
+        pricePerNight: res.room.pricePerNight,
+      },
+      checkIn,
+      checkOut,
+      nights,
+      roomCharges: res.totalAmount,
+      cafeOrders: [],
+      payments: [],
+      bookingHistory: [],
+    };
+  }
+
+  // Fetch real reservations from backend API on mount
+  useEffect(() => {
+    let cancelled = false;
+    api.getReservations().then((reservations: ReservationData[]) => {
+      if (cancelled) return;
+      setApiBookings(reservations.map(toRoomBooking));
+      setApiLoaded(true);
+    }).catch((err) => {
+      console.warn('Failed to fetch reservations from API, using local data', err);
+      setApiLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Effective bookings: API data when available, otherwise fall back to local prop
+  const effectiveBookings = useMemo<RoomBooking[]>(() => {
+    if (apiLoaded && apiBookings.length > 0) {
+      const apiIds = new Set(apiBookings.map((b) => b.id));
+      const localOnly = bookings.filter((b) => !apiIds.has(b.id));
+      return [...apiBookings, ...localOnly];
+    }
+    return bookings;
+  }, [apiLoaded, apiBookings, bookings]);
 
   // Housekeeping Context Menu (Right Click / Right Button on room box)
   const [roomContextMenu, setRoomContextMenu] = useState<{ room: TapeChartRoom; x: number; y: number } | null>(null);
@@ -325,7 +389,7 @@ export function RoomTapeChart({
 
   // In-place instant Check In from Timeline (turns block Blue immediately without page reload)
   const handleDirectCheckIn = (booking: RoomBooking) => {
-    const updatedBookings = bookings.map((b) => {
+    const updatedBookings = effectiveBookings.map((b) => {
       if (b.id !== booking.id) return b;
       return {
         ...b,
@@ -378,7 +442,7 @@ export function RoomTapeChart({
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesRoom = rm.number.toLowerCase().includes(q) || rm.type.toLowerCase().includes(q);
-        const matchesBooking = bookings.some(
+        const matchesBooking = effectiveBookings.some(
           (b) =>
             b.room.number === rm.number &&
             (b.guest.firstName.toLowerCase().includes(q) ||
@@ -402,7 +466,7 @@ export function RoomTapeChart({
       }
     });
     return entries;
-  }, [roomsList, bookings, searchQuery]);
+  }, [roomsList, effectiveBookings, searchQuery]);
 
   // Generate Date Column Array (daysCount + 1 to include checkout day column)
   const timelineDates = useMemo(() => {
@@ -457,7 +521,7 @@ export function RoomTapeChart({
     };
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [dragState, timelineDates, bookings, roomsList]);
+  }, [dragState, timelineDates, effectiveBookings, roomsList]);
 
   // Handle Drag Selection Finish
   const finishDragSelection = () => {
@@ -482,7 +546,7 @@ export function RoomTapeChart({
     const nights = Math.max(1, maxIdx - minIdx + 1);
 
     // Conflict check
-    const hasConflict = bookings.some((b) => {
+    const hasConflict = effectiveBookings.some((b) => {
       if (b.status === 'CANCELLED' || b.status === 'NO_SHOW') return false;
       if (b.room.number !== dragState.roomNumber) return false;
       return !(b.checkOut <= checkIn || b.checkIn >= checkOut);
@@ -539,7 +603,7 @@ export function RoomTapeChart({
     if (e.button !== 0) return; // Only left click
 
     const colDate = timelineDates[colIdx]?.dateStr;
-    const isBooked = bookings.some((b) => {
+    const isBooked = effectiveBookings.some((b) => {
       if (b.status === 'CANCELLED' || b.status === 'NO_SHOW') return false;
       if (b.room.number !== room.number) return false;
       return b.checkIn <= colDate && colDate < b.checkOut;
@@ -672,7 +736,7 @@ export function RoomTapeChart({
       notes: `${actionTag} Quick Reservation • Plan: ${bookingModal.ratePlan} • Segment: ${bookingModal.segment}`,
     };
 
-    const nextBookings = [newBooking, ...bookings.filter((b) => b.id !== newBooking.id)];
+    const nextBookings = [newBooking, ...effectiveBookings.filter((b) => b.id !== newBooking.id)];
 
     // Persist to storage
     saveBookingsToStorage(nextBookings);
@@ -706,7 +770,7 @@ export function RoomTapeChart({
       group.rooms.forEach((r) => {
         const row = [r.number, r.category, `${r.floor}F`, `Rs. ${r.pricePerNight}`];
         timelineDates.forEach((col) => {
-          const b = bookings.find(
+          const b = effectiveBookings.find(
             (bk) =>
               bk.room.number === r.number &&
               bk.status !== 'CANCELLED' &&
@@ -737,7 +801,7 @@ export function RoomTapeChart({
     const bookedRow = ['Booked (Reserved)', '', '', ''];
     timelineDates.forEach((col) => {
       const count = roomsList.filter((r) =>
-        bookings.some(
+        effectiveBookings.some(
           (b) =>
             b.room.number === r.number &&
             b.status === 'RESERVED' &&
@@ -753,7 +817,7 @@ export function RoomTapeChart({
     const occupiedRow = ['Occupied (In-House)', '', '', ''];
     timelineDates.forEach((col) => {
       const count = roomsList.filter((r) =>
-        bookings.some(
+        effectiveBookings.some(
           (b) =>
             b.room.number === r.number &&
             b.status === 'CHECKED_IN' &&
@@ -769,7 +833,7 @@ export function RoomTapeChart({
     const vacantRow = ['Vacant (Available)', '', '', ''];
     timelineDates.forEach((col) => {
       const bookedCount = roomsList.filter((r) =>
-        bookings.some(
+        effectiveBookings.some(
           (b) =>
             b.room.number === r.number &&
             (b.status === 'RESERVED' || b.status === 'CHECKED_IN') &&
@@ -1017,7 +1081,7 @@ export function RoomTapeChart({
 
                 {/* Individual Room Rows under this category */}
                 {group.rooms.map((room) => {
-                  const roomBookings = bookings.filter((b) => {
+                  const roomBookings = effectiveBookings.filter((b) => {
                     if (b.status === 'CANCELLED' || b.status === 'NO_SHOW') return false;
                     if (b.room.number !== room.number) return false;
                     return b.checkIn <= rangeEndStr && b.checkOut > rangeStartStr;
@@ -1261,7 +1325,7 @@ export function RoomTapeChart({
             </div>
             {timelineDates.map((col) => {
               const bookedCount = roomsList.filter((r) =>
-                bookings.some(
+                effectiveBookings.some(
                   (b) =>
                     b.room.number === r.number &&
                     b.status === 'RESERVED' &&
@@ -1294,7 +1358,7 @@ export function RoomTapeChart({
             </div>
             {timelineDates.map((col) => {
               const occupiedCount = roomsList.filter((r) =>
-                bookings.some(
+                effectiveBookings.some(
                   (b) =>
                     b.room.number === r.number &&
                     b.status === 'CHECKED_IN' &&
@@ -1327,7 +1391,7 @@ export function RoomTapeChart({
             </div>
             {timelineDates.map((col) => {
               const occupiedOrBookedCount = roomsList.filter((r) =>
-                bookings.some(
+                effectiveBookings.some(
                   (b) =>
                     b.room.number === r.number &&
                     (b.status === 'RESERVED' || b.status === 'CHECKED_IN') &&

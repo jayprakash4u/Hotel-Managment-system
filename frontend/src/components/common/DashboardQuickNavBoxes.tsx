@@ -61,7 +61,7 @@ export const DASHBOARD_NAV_OPTIONS: QuickNavOptionItem[] = [
   },
   {
     id: 'front-desk',
-    name: 'Front Desk',
+    name: 'Room Board',
     href: '/front-desk',
     icon: Building2,
     iconColor: 'text-purple-600 dark:text-purple-400',

@@ -365,10 +365,12 @@ export const RestaurantReceiptModal: React.FC<ReceiptModalProps> = ({
                     className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${
                       paymentStatus === 'PAID'
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : paymentStatus === 'CREDIT'
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300'
                         : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                     }`}
                   >
-                    {paymentStatus}
+                    {paymentStatus === 'CREDIT' ? 'CREDIT / UNPAID' : paymentStatus}
                   </span>
                 </div>
                 <div className="flex justify-between">

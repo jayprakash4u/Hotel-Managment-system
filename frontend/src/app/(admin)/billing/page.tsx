@@ -22,6 +22,8 @@ import {
   Zap,
   ArrowUpDown,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { BillData, BillingType, BillPaymentStatus, BillingSummaryData } from '@/lib/types';
@@ -57,6 +59,23 @@ function BillingContent() {
   // Modals
   const [viewBill, setViewBill] = useState<BillData | null>(null);
   const [paymentBill, setPaymentBill] = useState<BillData | null>(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  // Pagination calculation
+  const totalEntries = bills.length;
+  const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const paginatedBills = useMemo(() => {
+    return bills.slice(startIndex, startIndex + pageSize);
+  }, [bills, startIndex, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedType, selectedStatus, dateFilter]);
 
   // Load Bills from API
   const loadBills = async () => {
@@ -178,6 +197,13 @@ function BillingContent() {
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
             <CheckCircle2 className="w-2.5 h-2.5" />
             <span>Paid</span>
+          </span>
+        );
+      case 'CREDIT':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300">
+            <CreditCard className="w-2.5 h-2.5" />
+            <span>Credit</span>
           </span>
         );
       case 'PARTIAL':
@@ -346,6 +372,7 @@ function BillingContent() {
               >
                 <option value="ALL">All Statuses</option>
                 <option value="PAID">Paid in Full</option>
+                <option value="CREDIT">Credit Bills</option>
                 <option value="PARTIAL">Partially Paid</option>
                 <option value="UNPAID">Unpaid / Due</option>
                 <option value="VOID">Voided</option>
@@ -419,7 +446,7 @@ function BillingContent() {
                   </td>
                 </tr>
               ) : (
-                bills.map((b) => {
+                paginatedBills.map((b) => {
                   const formattedDateTime = new Date(b.createdAt).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -544,16 +571,104 @@ function BillingContent() {
           </table>
         </div>
 
-        {/* Table Footer Strip */}
-        <div className="p-3 border-t border-[#F0F4F2] dark:border-[#103D33] flex items-center justify-between text-[11px] text-slate-500 bg-[#F8FAF9] dark:bg-[#07241E]">
-          <div>
-            Showing <strong>{bills.length}</strong> finalized bills
+        {/* Table Footer Strip: DataTables Pagination */}
+        <div className="p-3 border-t border-[#F0F4F2] dark:border-[#103D33] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 bg-[#F8FAF9] dark:bg-[#07241E] select-none">
+          {/* Left side: Show Entries per page + Entries summary */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+              <span className="text-slate-500 font-medium text-[11px]">Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="h-[28px] px-2 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-slate-500 font-medium text-[11px]">entries per page</span>
+            </div>
+
+            <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
+
+            <div>
+              Showing{' '}
+              <strong className="text-slate-800 dark:text-slate-200">
+                {totalEntries === 0 ? 0 : startIndex + 1}
+              </strong>{' '}
+              to{' '}
+              <strong className="text-slate-800 dark:text-slate-200">
+                {Math.min(startIndex + pageSize, totalEntries)}
+              </strong>{' '}
+              of{' '}
+              <strong className="text-slate-800 dark:text-slate-200">{totalEntries}</strong>{' '}
+              entries
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[10px]">
-              Concurrency Safe · Unique Database Constraint · Permanent Audit Record
-            </span>
-          </div>
+
+          {/* Right: DataTables Style Pagination Group */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => {
+                  return (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - safeCurrentPage) <= 1
+                  );
+                })
+                .map((page, idx, arr) => {
+                  const prev = arr[idx - 1];
+                  const isGap = prev && page - prev > 1;
+
+                  return (
+                    <React.Fragment key={page}>
+                      {isGap && (
+                        <span className="px-1 text-slate-400 select-none font-bold">
+                          …
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(page)}
+                        className={cn(
+                          'min-w-[28px] h-7 px-2 font-mono text-xs font-bold rounded-[3px] transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
+                          page === safeCurrentPage
+                            ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-700 dark:border-emerald-700'
+                            : 'bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

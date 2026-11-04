@@ -58,6 +58,9 @@ import {
   loadHotelRoomsFromStorage,
 } from '@/lib/hotelRoomsData';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { RoomWithDetails } from '@/lib/types';
+import { useToast } from '@/components/ui/Toast';
 import {
   DEFAULT_RELATIONSHIPS,
   DEFAULT_ID_DOCUMENT_TYPES,
@@ -254,8 +257,8 @@ function CategoryAutocomplete({
                       isSelected
                         ? 'bg-emerald-50 text-[#0B3D32] font-bold dark:bg-emerald-950/70 dark:text-emerald-300'
                         : isHighlighted
-                        ? 'bg-slate-50 text-[#24352F] dark:bg-[#0A2E26] dark:text-[#E5EEE9]'
-                        : 'text-[#24352F] hover:bg-[#FAFBF9] dark:text-[#E5EEE9] dark:hover:bg-[#0A2E26]'
+                          ? 'bg-slate-50 text-[#24352F] dark:bg-[#0A2E26] dark:text-[#E5EEE9]'
+                          : 'text-[#24352F] hover:bg-[#FAFBF9] dark:text-[#E5EEE9] dark:hover:bg-[#0A2E26]'
                     )}
                   >
                     <div className="flex items-center gap-2 truncate">
@@ -877,6 +880,7 @@ export default function HotelSetupContent({
   }, [initialCategory, initialSub]);
 
   // Search filter for options inside the secondary sub-sidebar (Level 2)
+  const toast = useToast();
   const [searchOptionsQuery, setSearchOptionsQuery] = useState<string>('');
 
   // Table-level search and filter states
@@ -901,6 +905,14 @@ export default function HotelSetupContent({
   const [roomFacilities, setRoomFacilities] = useState<string[]>([]);
   const [roomNotes, setRoomNotes] = useState<string>('');
 
+  // Hotel profile (synced with backend /api/hotel)
+  const [hotelProfile, setHotelProfile] = useState<any>(null);
+  const [hotelProfileLoaded, setHotelProfileLoaded] = useState(false);
+
+  // Rooms synced from backend /api/rooms
+  const [backendRooms, setBackendRooms] = useState<RoomWithDetails[]>([]);
+  const [backendRoomsLoaded, setBackendRoomsLoaded] = useState(false);
+
   // Hydrate custom rooms setup and relationships from localStorage in ONE single batched update
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -922,7 +934,7 @@ export default function HotelSetupContent({
               updates['add-room-setup'] = parsed;
               updates['room-list-setup'] = parsed;
             }
-          } catch {}
+          } catch { }
         }
 
         const storedMenu = localStorage.getItem('hotel_menu_items');
@@ -932,7 +944,7 @@ export default function HotelSetupContent({
             if (Array.isArray(parsed) && parsed.length > 0) {
               updates['menu-items-setup'] = parsed;
             }
-          } catch {}
+          } catch { }
         }
 
         const masterKeys = [
@@ -959,7 +971,7 @@ export default function HotelSetupContent({
               if (Array.isArray(parsedMaster) && parsedMaster.length > 0) {
                 updates[key] = parsedMaster;
               }
-            } catch {}
+            } catch { }
           }
         });
 
@@ -968,8 +980,97 @@ export default function HotelSetupContent({
           ...prev,
           ...updates,
         }));
-      } catch (err) {}
+      } catch (err) { }
     }
+
+    // Load dynamic inventory products from database for General Product Setup (product-setup & item-setup)
+    const fetchDbProducts = async () => {
+      try {
+        const res = await fetch('/api/inventory/items');
+        const json = await res.json();
+        if (json?.success && Array.isArray(json.data)) {
+          const mapped: MasterItemEntry[] = json.data.map((it: any, index: number) => ({
+            id: it.id,
+            code: it.sku || it.itemCode || `PRD-${index + 1}`,
+            name: it.name,
+            description: `${it.department || 'HOTEL'} Inventory · ${it.unit || 'pieces'}`,
+            category: it.category || 'General',
+            basePrice: it.costPerUnit || 0,
+            unit: it.unit || 'pieces',
+            stock: it.currentStock || 0,
+            trackStock: it.trackStock ?? true,
+            department: it.department || 'HOTEL',
+            order: index + 1,
+            isActive: true,
+          }));
+          setMasterItemsMap((prev) => ({
+            ...prev,
+            'product-setup': mapped,
+            'item-setup': mapped,
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch inventory items from DB:', err);
+      }
+    };
+    fetchDbProducts();
+
+    // Fetch hotel profile from backend
+    const fetchHotelProfile = async () => {
+      try {
+        const profile = await api.getHotelProfile();
+        setHotelProfile(profile);
+      } catch (err) {
+        console.warn('Failed to fetch hotel profile from backend:', err);
+      } finally {
+        setHotelProfileLoaded(true);
+      }
+    };
+    fetchHotelProfile();
+
+    // Fetch rooms from backend
+    const fetchBackendRooms = async () => {
+      try {
+        const rooms = await api.getRooms();
+        setBackendRooms(Array.isArray(rooms) ? rooms : []);
+      } catch (err) {
+        console.warn('Failed to fetch rooms from backend:', err);
+      } finally {
+        setBackendRoomsLoaded(true);
+      }
+    };
+    fetchBackendRooms();
+
+    // Fetch room types from backend
+    const fetchBackendRoomTypes = async () => {
+      try {
+        const types = await api.getRoomTypes();
+        if (Array.isArray(types)) {
+          const mapped = types.map((t: any) => ({
+            id: t.id,
+            code: t.code || `RT-${t.id?.slice(-4)}`,
+            name: t.name || t.type,
+            description: t.description || undefined,
+            basePrice: t.basePrice || t.pricePerNight || 0,
+            category: 'Room Type',
+            hasAC: t.hasAC ?? true,
+            bedType: t.bedType || 'King Bed',
+            maxCapacity: t.maxCapacity || t.capacity || 2,
+            amenities: t.amenities || [],
+            imageUrl: t.imageUrl || null,
+            order: types.indexOf(t) + 1,
+            isActive: true,
+          }));
+          setMasterItemsMap((prev) => ({
+            ...prev,
+            'room-type-master': mapped,
+          }));
+        }
+      } catch (err) {
+        console.warn('Failed to fetch room types from backend:', err);
+      }
+    };
+    fetchBackendRoomTypes();
 
     const handleMastersUpdate = (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -1012,7 +1113,7 @@ export default function HotelSetupContent({
 
   // Available categories for item & product setup (amenities, goods, products)
   const availableItemCategories = useMemo(() => {
-    const saved = masterItemsMap['item-categories-setup'];
+    const saved = masterItemsMap['item-categories-setup'] || masterItemsMap['product-categories-setup'];
     if (saved && saved.length > 0) return saved;
 
     const defaults = [
@@ -1022,11 +1123,14 @@ export default function HotelSetupContent({
       'Toiletries & Hygiene',
       'Minibar & Beverages',
       'Food & Snacks',
+      'Food Raw',
+      'Beverages',
+      'Kitchen Supplies',
       'Room Assets & Electronics',
       'Maintenance & Hardware',
     ];
     const set = new Set<string>(defaults);
-    (masterItemsMap['item-setup'] || INITIAL_MASTER_ITEMS['item-setup'] || []).forEach((item) => {
+    (masterItemsMap['product-setup'] || masterItemsMap['item-setup'] || []).forEach((item) => {
       if (item.category) set.add(item.category);
     });
     return Array.from(set).map((name, idx) => ({
@@ -1138,7 +1242,7 @@ export default function HotelSetupContent({
       return [restaurantCategory];
     }
     return MASTER_CATEGORIES.filter(
-      (cat) => cat.id === 'general' || cat.id === 'employee-setup'
+      (cat) => cat.id === 'general' || cat.id === 'employee-setup' || cat.id === 'general-product-setup'
     );
   }, [isHotelModule, isRestaurantModule, hotelCategory, restaurantCategory]);
 
@@ -1173,6 +1277,34 @@ export default function HotelSetupContent({
     setTableCategoryFilter('all');
     setShowAddForm(false);
     setEditingItemId(null);
+    if (catId === 'general-product-setup') {
+      fetch('/api/inventory/items')
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.success && Array.isArray(json.data)) {
+            const mapped: MasterItemEntry[] = json.data.map((it: any, index: number) => ({
+              id: it.id,
+              code: it.sku || it.itemCode || `PRD-${index + 1}`,
+              name: it.name,
+              description: `${it.department || 'HOTEL'} Inventory · ${it.unit || 'pieces'}`,
+              category: it.category || 'General',
+              basePrice: it.costPerUnit || 0,
+              unit: it.unit || 'pieces',
+              stock: it.currentStock || 0,
+              trackStock: it.trackStock ?? true,
+              department: it.department || 'HOTEL',
+              order: index + 1,
+              isActive: true,
+            }));
+            setMasterItemsMap((prev) => ({
+              ...prev,
+              'product-setup': mapped,
+              'item-setup': mapped,
+            }));
+          }
+        })
+        .catch(() => { });
+    }
   };
 
   // Handle clicking a sub-option box below the straight line -> opens Level 2 (sidebar + table)
@@ -1182,6 +1314,34 @@ export default function HotelSetupContent({
     setTableCategoryFilter('all');
     setShowAddForm(false);
     setEditingItemId(null);
+    if (subId === 'product-setup' || subId === 'item-setup') {
+      fetch('/api/inventory/items')
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.success && Array.isArray(json.data)) {
+            const mapped: MasterItemEntry[] = json.data.map((it: any, index: number) => ({
+              id: it.id,
+              code: it.sku || it.itemCode || `PRD-${index + 1}`,
+              name: it.name,
+              description: `${it.department || 'HOTEL'} Inventory · ${it.unit || 'pieces'}`,
+              category: it.category || 'General',
+              basePrice: it.costPerUnit || 0,
+              unit: it.unit || 'pieces',
+              stock: it.currentStock || 0,
+              trackStock: it.trackStock ?? true,
+              department: it.department || 'HOTEL',
+              order: index + 1,
+              isActive: true,
+            }));
+            setMasterItemsMap((prev) => ({
+              ...prev,
+              'product-setup': mapped,
+              'item-setup': mapped,
+            }));
+          }
+        })
+        .catch(() => { });
+    }
   };
 
   // Handle clicking the Back button on the secondary sidebar -> returns to Level 1 box grid
@@ -1206,6 +1366,9 @@ export default function HotelSetupContent({
     if (activeSubBox.id === 'room-list-setup') {
       return masterItemsMap['add-room-setup'] || INITIAL_MASTER_ITEMS['add-room-setup'] || [];
     }
+    if (activeSubBox.id === 'product-setup' || activeSubBox.id === 'item-setup') {
+      return masterItemsMap['product-setup'] || masterItemsMap['item-setup'] || [];
+    }
     if (masterItemsMap[activeSubBox.id]) {
       return masterItemsMap[activeSubBox.id];
     }
@@ -1213,7 +1376,7 @@ export default function HotelSetupContent({
   }, [activeSubBox, masterItemsMap]);
 
   const isRoomSetup = activeSubBox.id === 'add-room-setup' || activeSubBox.id === 'room-list-setup';
-  const isItemSetup = activeSubBox.id === 'item-setup';
+  const isItemSetup = activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup';
   const isMenuItem = activeSubBox.id === 'menu-items-setup';
   const isFacilityItem = activeSubBox.id === 'facility-master';
   const hasCategory = isMenuItem || isFacilityItem || isItemSetup;
@@ -1300,7 +1463,7 @@ export default function HotelSetupContent({
       return;
     }
 
-    if (activeSubBox.id === 'item-setup') {
+    if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') {
       setNewCode('');
       setNewName('');
       setNewDescription('');
@@ -1331,9 +1494,9 @@ export default function HotelSetupContent({
         defaultUnits.length > 0
           ? defaultUnits
           : [
-              { quantityName: 'Full Portion', price: '' },
-              { quantityName: 'Half Portion', price: '' },
-            ]
+            { quantityName: 'Full Portion', price: '' },
+            { quantityName: 'Half Portion', price: '' },
+          ]
       );
     } else {
       setNewQuantityPrices(
@@ -1420,7 +1583,7 @@ export default function HotelSetupContent({
       return;
     }
 
-    if (activeSubBox.id === 'item-setup') {
+    if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') {
       setNewCode(item.code);
       setNewName(item.name);
       setNewDescription(item.description || '');
@@ -1430,8 +1593,8 @@ export default function HotelSetupContent({
         item.basePrice !== undefined
           ? item.basePrice.toString()
           : item.quantityPrices?.[0]?.price !== undefined
-          ? item.quantityPrices[0].price.toString()
-          : ''
+            ? item.quantityPrices[0].price.toString()
+            : ''
       );
       setNewTrackStock(item.trackStock ?? true);
       setNewStock(item.stock !== undefined ? item.stock.toString() : '');
@@ -1477,7 +1640,7 @@ export default function HotelSetupContent({
     const trimmed = catName.trim();
     if (!trimmed) return;
 
-    if (activeSubBox.id === 'item-setup') {
+    if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') {
       const existing = availableItemCategories.find(
         (c) => c.name.toLowerCase() === trimmed.toLowerCase()
       );
@@ -1506,7 +1669,7 @@ export default function HotelSetupContent({
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem('hotel_master_item-categories-setup', JSON.stringify(updatedCats));
-          } catch {}
+          } catch { }
         }
         return {
           ...prev,
@@ -1619,7 +1782,7 @@ export default function HotelSetupContent({
   };
 
   // Save new item or update existing item
-  const handleSaveNewItem = (e: React.FormEvent) => {
+  const handleSaveNewItem = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (isRoomSetup) {
@@ -1632,30 +1795,32 @@ export default function HotelSetupContent({
       const order = !isNaN(parsedOrder) && parsedOrder > 0 ? parsedOrder : currentList.length + 1;
 
       let updatedRooms: MasterItemEntry[];
+      let newRoomFrontendId: string | null = null;
       if (editingItemId) {
         updatedRooms = currentList.map((item) =>
           item.id === editingItemId
             ? {
-                ...item,
-                code: roomNumber.trim(),
-                roomNumber: roomNumber.trim(),
-                name: `Room ${roomNumber.trim()} (${roomType})`,
-                floorLevel: roomFloor,
-                roomType,
-                acType: roomACType,
-                bedType: roomBedType,
-                basePrice: parsedPrice,
-                capacity: parsedCap,
-                status: item.status || 'AVAILABLE',
-                facilities: roomFacilities,
-                description: roomNotes.trim() || undefined,
-                order,
-              }
+              ...item,
+              code: roomNumber.trim(),
+              roomNumber: roomNumber.trim(),
+              name: `Room ${roomNumber.trim()} (${roomType})`,
+              floorLevel: roomFloor,
+              roomType,
+              acType: roomACType,
+              bedType: roomBedType,
+              basePrice: parsedPrice,
+              capacity: parsedCap,
+              status: item.status || 'AVAILABLE',
+              facilities: roomFacilities,
+              description: roomNotes.trim() || undefined,
+              order,
+            }
             : item
         );
       } else {
+        newRoomFrontendId = `rm-${Date.now()}`;
         const newRoom: MasterItemEntry = {
-          id: `rm-${Date.now()}`,
+          id: newRoomFrontendId,
           code: roomNumber.trim(),
           roomNumber: roomNumber.trim(),
           name: `Room ${roomNumber.trim()} (${roomType})`,
@@ -1684,7 +1849,66 @@ export default function HotelSetupContent({
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('hotel_rooms_setup', JSON.stringify(updatedRooms));
-        } catch (err) {}
+        } catch (err) { }
+      }
+
+      // Persist room to backend API
+      try {
+        const roomPayload = {
+          number: roomNumber.trim(),
+          floor: parseInt(roomFloor.replace(/\D/g, ''), 10) || 1,
+          type: roomType,
+          roomTypeId: undefined,
+          hasAC: roomACType.toLowerCase().includes('ac'),
+          bedType: roomBedType,
+          pricePerNight: parsedPrice,
+          capacity: parsedCap,
+          setupStatus: 'SETUP_COMPLETE',
+          status: 'AVAILABLE',
+          amenities: roomFacilities,
+          description: roomNotes.trim() || undefined,
+          imageUrl: '',
+        };
+
+        if (editingItemId) {
+          await api.updateRoom(editingItemId, roomPayload);
+        } else if (newRoomFrontendId) {
+          const created = await api.createRoom(roomPayload);
+          if (created?.id) {
+            const backendId = created.id;
+            const backendNumber = created.number || roomNumber.trim();
+            setMasterItemsMap((prev) => {
+              const remapped = (prev['add-room-setup'] || []).map((item) =>
+                item.id === newRoomFrontendId
+                  ? { ...item, id: backendId, code: backendNumber, roomNumber: backendNumber }
+                  : item
+              );
+              return {
+                ...prev,
+                'add-room-setup': remapped,
+                'room-list-setup': remapped,
+              };
+            });
+            if (typeof window !== 'undefined') {
+              try {
+                const stored = localStorage.getItem('hotel_rooms_setup');
+                if (stored) {
+                  const parsed = JSON.parse(stored);
+                  if (Array.isArray(parsed)) {
+                    const remappedStored = parsed.map((item: any) =>
+                      item.id === newRoomFrontendId
+                        ? { ...item, id: backendId, code: backendNumber, roomNumber: backendNumber }
+                        : item
+                    );
+                    localStorage.setItem('hotel_rooms_setup', JSON.stringify(remappedStored));
+                  }
+                }
+              } catch { }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to persist room to backend:', err);
       }
 
       setShowAddForm(false);
@@ -1694,13 +1918,13 @@ export default function HotelSetupContent({
 
     if (!newName.trim()) return;
 
-    const isItemSetup = activeSubBox.id === 'item-setup';
+    const isItemSetup = activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup';
     const isMenuItem = activeSubBox.id === 'menu-items-setup';
     const isFacilityItem = activeSubBox.id === 'facility-master';
     if (isMenuItem && !newCategory.trim() && availableCategories.length > 0) return;
     if (isItemSetup && !newCategory.trim() && availableItemCategories.length > 0) return;
 
-    const code = newCode.trim().toUpperCase() || newName.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    let code = newCode.trim().toUpperCase() || newName.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '');
     const currentList = masterItemsMap[activeSubBox.id] || currentItems;
     const parsedOrder = parseInt(newOrder, 10);
     const order = !isNaN(parsedOrder) && parsedOrder > 0 ? parsedOrder : currentList.length + 1;
@@ -1736,33 +1960,54 @@ export default function HotelSetupContent({
     }
 
     if (editingItemId) {
+      if (isItemSetup) {
+        try {
+          const payload = {
+            name: newName.trim(),
+            category: (newCategory || 'GENERAL').trim(),
+            minThreshold: 5,
+            unit: itemUnit || 'pieces',
+            costPerUnit: computedBasePrice || 0,
+            trackStock: newTrackStock,
+          };
+          await fetch(`/api/inventory/items/${editingItemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          toast.success('Product Updated', `Product "${newName.trim()}" updated in database.`);
+        } catch (err) {
+          console.error('Failed to update product in database:', err);
+        }
+      }
+
       setMasterItemsMap((prev) => {
         const updatedList = (prev[activeSubBox.id] || currentItems).map((item) =>
           item.id === editingItemId
             ? {
-                ...item,
-                code: code || item.code,
-                name: newName.trim(),
-                description: newDescription.trim() || undefined,
-                ...(isItemSetup || isMenuItem || isFacilityItem
-                  ? { category: newCategory.trim() || (isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General') }
-                  : {}),
-                basePrice: computedBasePrice ?? item.basePrice,
-                quantityPrices: parsedQuantityPrices ?? item.quantityPrices,
-                ...(isItemSetup
+              ...item,
+              code: code || item.code,
+              name: newName.trim(),
+              description: newDescription.trim() || undefined,
+              ...(isItemSetup || isMenuItem || isFacilityItem
+                ? { category: newCategory.trim() || (isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General') }
+                : {}),
+              basePrice: computedBasePrice ?? item.basePrice,
+              quantityPrices: parsedQuantityPrices ?? item.quantityPrices,
+              ...(isItemSetup
+                ? {
+                  unit: itemUnit,
+                  trackStock: newTrackStock,
+                  stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
+                }
+                : isMenuItem
                   ? {
-                      unit: itemUnit,
-                      trackStock: newTrackStock,
-                      stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
-                    }
-                  : isMenuItem
-                  ? {
-                      trackStock: newTrackStock,
-                      stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
-                    }
+                    trackStock: newTrackStock,
+                    stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
+                  }
                   : {}),
-                order,
-              }
+              order,
+            }
             : item
         );
         if (activeSubBox.id === 'relationships') saveMasterItems('relationships', updatedList as unknown as SimpleMasterItem[]);
@@ -1771,25 +2016,56 @@ export default function HotelSetupContent({
         if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
-        if (activeSubBox.id === 'item-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
           try {
             localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
-          } catch (err) {}
+          } catch (err) { }
         }
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem(`hotel_master_${activeSubBox.id}`, JSON.stringify(updatedList));
-          } catch (err) {}
+          } catch (err) { }
         }
         return {
           ...prev,
           [activeSubBox.id]: updatedList,
+          ...(isItemSetup ? { 'product-setup': updatedList, 'item-setup': updatedList } : {}),
         };
       });
     } else {
+      let dbItemId: string | undefined = undefined;
+      if (isItemSetup) {
+        try {
+          const payload = {
+            name: newName.trim(),
+            sku: code || undefined,
+            category: (newCategory || 'GENERAL').trim(),
+            unit: itemUnit || 'pieces',
+            costPerUnit: computedBasePrice || 0,
+            department: 'HOTEL',
+            trackStock: newTrackStock,
+            openingStock: newTrackStock ? (parseInt(newStock, 10) || 0) : 0,
+            minThreshold: 5,
+          };
+          const res = await fetch('/api/inventory/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const json = await res.json();
+          if (json?.success && json?.data?.id) {
+            dbItemId = json.data.id;
+            if (json.data.sku) code = json.data.sku;
+            toast.success('Product Saved', `Product "${newName.trim()}" saved to database.`);
+          }
+        } catch (err) {
+          console.error('Failed to create product in database:', err);
+        }
+      }
+
       const newItem: MasterItemEntry = {
-        id: `${activeSubBox.id}-${Date.now()}`,
+        id: dbItemId || `${activeSubBox.id}-${Date.now()}`,
         code: code || 'NEW',
         name: newName.trim(),
         description: newDescription.trim() || undefined,
@@ -1800,16 +2076,16 @@ export default function HotelSetupContent({
         quantityPrices: parsedQuantityPrices,
         ...(isItemSetup
           ? {
-              unit: itemUnit,
-              trackStock: newTrackStock,
-              stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
-            }
+            unit: itemUnit,
+            trackStock: newTrackStock,
+            stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
+          }
           : isMenuItem
-          ? {
+            ? {
               trackStock: newTrackStock,
               stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
             }
-          : {}),
+            : {}),
         order,
         isActive: true,
       };
@@ -1822,20 +2098,21 @@ export default function HotelSetupContent({
         if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
-        if (activeSubBox.id === 'item-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
           try {
             localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
-          } catch (err) {}
+          } catch (err) { }
         }
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem(`hotel_master_${activeSubBox.id}`, JSON.stringify(updatedList));
-          } catch (err) {}
+          } catch (err) { }
         }
         return {
           ...prev,
           [activeSubBox.id]: updatedList,
+          ...(isItemSetup ? { 'product-setup': updatedList, 'item-setup': updatedList } : {}),
         };
       });
     }
@@ -1977,7 +2254,7 @@ export default function HotelSetupContent({
   };
 
   // Delete item
-  const handleDeleteItem = (itemId: string) => {
+  const handleDeleteItem = async (itemId: string) => {
     setMasterItemsMap((prev) => {
       if (isRoomSetup) {
         const roomList = prev['add-room-setup'] || currentItems;
@@ -1999,11 +2276,8 @@ export default function HotelSetupContent({
                 cleaningStatus: 'CLEAN',
               }))
             );
-          } catch (err) {}
+          } catch (err) { }
         }
-        try {
-          fetch(`/api/rooms/${itemId}`, { method: 'DELETE' }).catch(() => {});
-        } catch {}
         return {
           ...prev,
           'add-room-setup': updatedRooms,
@@ -2011,12 +2285,24 @@ export default function HotelSetupContent({
         };
       }
 
+      if (isItemSetup) {
+        try {
+          fetch(`/api/inventory/items/${itemId}`, { method: 'DELETE' })
+            .then((res) => {
+              if (res.ok) {
+                toast.info('Product Removed', 'Product deleted from database.');
+              }
+            })
+            .catch(() => { });
+        } catch (err) { }
+      }
+
       const list = prev[activeSubBox.id] || currentItems;
       const updatedList = list.filter((item) => item.id !== itemId);
       if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
         try {
           localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
-        } catch (err) {}
+        } catch (err) { }
       }
       if (activeSubBox.id === 'relationships') saveMasterItems('relationships', updatedList as unknown as SimpleMasterItem[]);
       if (activeSubBox.id === 'id-document-types') saveMasterItems('idDocumentTypes', updatedList as unknown as SimpleMasterItem[]);
@@ -2024,507 +2310,508 @@ export default function HotelSetupContent({
       if (activeSubBox.id === 'purpose-of-visit') saveMasterItems('purposeOfVisit', updatedList as unknown as SimpleMasterItem[]);
       if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
       if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
-      if (activeSubBox.id === 'item-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem(`hotel_master_${activeSubBox.id}`, JSON.stringify(updatedList));
-        } catch (err) {}
+        } catch (err) { }
       }
       return {
         ...prev,
         [activeSubBox.id]: updatedList,
+        ...(isItemSetup ? { 'product-setup': updatedList, 'item-setup': updatedList } : {}),
       };
     });
   };
 
   const renderTableContent = () => (
     <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-[#F7F5F0] dark:bg-[#071512] overflow-hidden">
-            {/* Header Bar: Title, Count, Status Chips, Search & Filter Controls, Add Button */}
-            <div className="shrink-0 px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#E5EEE9] dark:border-[#145447]/60 bg-white/60 dark:bg-[#071F1A]/60 backdrop-blur-xs">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold text-[#24352F] dark:text-white font-heading tracking-tight">
-                  {activeSubBox.name}
-                </h2>
+      {/* Header Bar: Title, Count, Status Chips, Search & Filter Controls, Add Button */}
+      <div className="shrink-0 px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#E5EEE9] dark:border-[#145447]/60 bg-white/60 dark:bg-[#071F1A]/60 backdrop-blur-xs">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2 className="text-base sm:text-lg font-bold text-[#24352F] dark:text-white font-heading tracking-tight">
+            {activeSubBox.name}
+          </h2>
+          {isRoomSetup ? (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-[3px] text-[11px] font-bold bg-[#EEF4F1] text-[#0B3D32] border border-[#DCE3DF] dark:bg-[#0A2E26] dark:text-emerald-300 dark:border-[#145447]">
+              {filteredItems.length} {filteredItems.length === 1 ? 'Room' : 'Rooms'} Configured
+              {filteredItems.length !== currentItems.length && ` (of ${currentItems.length})`}
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-[3px] text-[11px] font-semibold bg-[#F0F4F2] text-[#4D6358] border border-[#DCE3DF] dark:bg-[#0A2E26] dark:text-emerald-300 dark:border-[#145447]">
+              {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
+              {filteredItems.length !== currentItems.length && ` (of ${currentItems.length})`}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Instant Search Bar */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#879B90]" />
+            <input
+              type="text"
+              value={tableSearchQuery}
+              onChange={(e) => setTableSearchQuery(e.target.value)}
+              placeholder={
+                isRoomSetup
+                  ? 'Search room no., type, floor...'
+                  : `Search ${activeSubBox.name.toLowerCase()}...`
+              }
+              className="w-40 sm:w-52 pl-8 pr-7 py-1.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] placeholder-[#879B90] focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500"
+            />
+            {tableSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setTableSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#879B90] hover:text-[#24352F] dark:hover:text-white"
+                title="Clear search"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Room Setup Type Filter */}
+          {isRoomSetup && availableRoomTypes.length > 0 && (
+            <select
+              value={roomTypeFilter}
+              onChange={(e) => setRoomTypeFilter(e.target.value)}
+              className="py-1.5 px-2.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-medium focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="all">All Room Types</option>
+              {availableRoomTypes.map((t) => (
+                <option key={t.id} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Room Setup Floor Filter */}
+          {isRoomSetup && availableFloors.length > 0 && (
+            <select
+              value={roomFloorFilter}
+              onChange={(e) => setRoomFloorFilter(e.target.value)}
+              className="py-1.5 px-2.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-medium focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="all">All Floors</option>
+              {availableFloors.map((f) => (
+                <option key={f.id} value={f.name}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Category Dropdown Filter (Menu Items Setup & Facility Master) */}
+          {!isRoomSetup && hasCategory && tableCategoryOptions.length > 0 && (
+            <select
+              value={tableCategoryFilter}
+              onChange={(e) => setTableCategoryFilter(e.target.value)}
+              className="py-1.5 px-2.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-medium focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="all">All Categories</option>
+              {tableCategoryOptions.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Clear filters button if filtering */}
+          {(tableSearchQuery ||
+            (isRoomSetup &&
+              (roomTypeFilter !== 'all' ||
+                roomFloorFilter !== 'all')) ||
+            (!isRoomSetup && hasCategory && tableCategoryFilter !== 'all')) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTableSearchQuery('');
+                  setRoomTypeFilter('all');
+                  setRoomFloorFilter('all');
+                  setTableCategoryFilter('all');
+                }}
+                className="text-xs text-[#0B3D32] hover:underline dark:text-emerald-400 font-semibold px-1 cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
+
+          {/* Add Button */}
+          <button
+            type="button"
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-[#093027] transition-all dark:bg-emerald-600 dark:hover:bg-emerald-500 shrink-0 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add {getSubBoxEntityName(activeSubBox)}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable Table Area: Divided grid table */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar">
+        <div className="overflow-hidden rounded-[3px] border border-[#DCE3DF] bg-white shadow-2xs dark:border-[#145447] dark:bg-[#07241E]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="sticky top-0 z-10 shadow-2xs">
                 {isRoomSetup ? (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-[3px] text-[11px] font-bold bg-[#EEF4F1] text-[#0B3D32] border border-[#DCE3DF] dark:bg-[#0A2E26] dark:text-emerald-300 dark:border-[#145447]">
-                    {filteredItems.length} {filteredItems.length === 1 ? 'Room' : 'Rooms'} Configured
-                    {filteredItems.length !== currentItems.length && ` (of ${currentItems.length})`}
-                  </span>
+                  <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
+                    <th className="py-2.5 px-3 w-12 text-center border-r border-[#E5EEE9] dark:border-[#145447]">#</th>
+                    <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">ROOM NO.</th>
+                    <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">ROOM TYPE</th>
+                    <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">FLOOR</th>
+                    <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">AC TYPE</th>
+                    <th className="py-2.5 px-3.5 w-32 border-r border-[#E5EEE9] dark:border-[#145447]">BED TYPE</th>
+                    <th className="py-2.5 px-3.5 w-24 border-r border-[#E5EEE9] dark:border-[#145447]">CAPACITY</th>
+                    <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">FARE</th>
+                    <th className="py-2.5 px-3.5 min-w-[220px] border-r border-[#E5EEE9] dark:border-[#145447]">FACILITIES</th>
+                    <th className="py-2.5 px-3 w-20 text-center">ACTION</th>
+                  </tr>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-[3px] text-[11px] font-semibold bg-[#F0F4F2] text-[#4D6358] border border-[#DCE3DF] dark:bg-[#0A2E26] dark:text-emerald-300 dark:border-[#145447]">
-                    {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
-                    {filteredItems.length !== currentItems.length && ` (of ${currentItems.length})`}
-                  </span>
+                  <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
+                    <th className="py-2.5 px-3 w-14 sm:w-16 text-center border-r border-[#E5EEE9] dark:border-[#145447]">#</th>
+                    <th className="py-2.5 px-3.5 w-24 sm:w-28 border-r border-[#E5EEE9] dark:border-[#145447]">CODE</th>
+                    <th className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
+                      {isMenuItem ? 'ITEM NAME' : isItemSetup ? 'ITEM / PRODUCT NAME' : isFacilityItem ? 'FACILITY NAME' : 'DISPLAY NAME'}
+                    </th>
+                    {hasCategory && (
+                      <th className="py-2.5 px-3.5 w-36 sm:w-44 border-r border-[#E5EEE9] dark:border-[#145447]">CATEGORY</th>
+                    )}
+                    {isItemSetup && (
+                      <>
+                        <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">UNIT</th>
+                        <th className="py-2.5 px-3.5 w-32 border-r border-[#E5EEE9] dark:border-[#145447]">BASE PRICE</th>
+                        <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">STOCK TRACKING</th>
+                      </>
+                    )}
+                    {isMenuItem && (
+                      <th className="py-2.5 px-3.5 min-w-[220px] border-r border-[#E5EEE9] dark:border-[#145447]">UNIT & PRICING</th>
+                    )}
+                    <th className="py-2.5 px-3 w-20 text-center">ACTION</th>
+                  </tr>
                 )}
-              </div>
+              </thead>
+              <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447] text-xs">
+                {isRoomSetup ? (
+                  filteredItems.map((item, index) => {
+                    const isAC =
+                      (item.acType || '').toLowerCase().includes('ac') &&
+                      !(item.acType || '').toLowerCase().includes('non');
 
-              <div className="flex items-center gap-2.5 flex-wrap">
-                {/* Instant Search Bar */}
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#879B90]" />
-                  <input
-                    type="text"
-                    value={tableSearchQuery}
-                    onChange={(e) => setTableSearchQuery(e.target.value)}
-                    placeholder={
-                      isRoomSetup
-                        ? 'Search room no., type, floor...'
-                        : `Search ${activeSubBox.name.toLowerCase()}...`
-                    }
-                    className="w-40 sm:w-52 pl-8 pr-7 py-1.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] placeholder-[#879B90] focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500"
-                  />
-                  {tableSearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setTableSearchQuery('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[#879B90] hover:text-[#24352F] dark:hover:text-white"
-                      title="Clear search"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
+                    return (
+                      <tr
+                        key={item.id}
+                        className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
+                      >
+                        {/* Index */}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
+                          <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
+                            {item.order ?? (index + 1)}
+                          </span>
+                        </td>
 
-                {/* Room Setup Type Filter */}
-                {isRoomSetup && availableRoomTypes.length > 0 && (
-                  <select
-                    value={roomTypeFilter}
-                    onChange={(e) => setRoomTypeFilter(e.target.value)}
-                    className="py-1.5 px-2.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-medium focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
-                  >
-                    <option value="all">All Room Types</option>
-                    {availableRoomTypes.map((t) => (
-                      <option key={t.id} value={t.name}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                        {/* Room Number */}
+                        <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#EEF4F1] dark:bg-[#0D362C] border border-[#D8E6DF] dark:border-[#145447]">
+                            <DoorOpen className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400 shrink-0" />
+                            <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
+                              {item.roomNumber || item.code}
+                            </span>
+                          </div>
+                        </td>
 
-                {/* Room Setup Floor Filter */}
-                {isRoomSetup && availableFloors.length > 0 && (
-                  <select
-                    value={roomFloorFilter}
-                    onChange={(e) => setRoomFloorFilter(e.target.value)}
-                    className="py-1.5 px-2.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-medium focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
-                  >
-                    <option value="all">All Floors</option>
-                    {availableFloors.map((f) => (
-                      <option key={f.id} value={f.name}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                        {/* Room Type */}
+                        <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <div className="font-semibold text-xs text-[#24352F] dark:text-white">
+                            {item.roomType || 'Standard Room'}
+                          </div>
+                        </td>
 
-                {/* Category Dropdown Filter (Menu Items Setup & Facility Master) */}
-                {!isRoomSetup && hasCategory && tableCategoryOptions.length > 0 && (
-                  <select
-                    value={tableCategoryFilter}
-                    onChange={(e) => setTableCategoryFilter(e.target.value)}
-                    className="py-1.5 px-2.5 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-medium focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
-                  >
-                    <option value="all">All Categories</option>
-                    {tableCategoryOptions.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                        {/* Floor Level */}
+                        <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <span className="inline-flex items-center rounded-[2px] bg-[#F4F7F5] dark:bg-[#0A2E26] px-2 py-0.5 text-[11px] font-medium text-[#33463E] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447]">
+                            {item.floorLevel || '1st Floor'}
+                          </span>
+                        </td>
 
-                {/* Clear filters button if filtering */}
-                {(tableSearchQuery ||
-                  (isRoomSetup &&
-                    (roomTypeFilter !== 'all' ||
-                      roomFloorFilter !== 'all')) ||
-                  (!isRoomSetup && hasCategory && tableCategoryFilter !== 'all')) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTableSearchQuery('');
-                      setRoomTypeFilter('all');
-                      setRoomFloorFilter('all');
-                      setTableCategoryFilter('all');
-                    }}
-                    className="text-xs text-[#0B3D32] hover:underline dark:text-emerald-400 font-semibold px-1 cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                )}
+                        {/* Climate / AC Type */}
+                        <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-[2px] px-2 py-0.5 text-[11px] font-medium border',
+                              isAC
+                                ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800'
+                                : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-700'
+                            )}
+                          >
+                            <Snowflake className="w-3 h-3" />
+                            <span>{item.acType || (isAC ? 'AC' : 'Non-AC')}</span>
+                          </span>
+                        </td>
 
-                {/* Add Button */}
-                <button
-                  type="button"
-                  onClick={handleOpenAddModal}
-                  className="flex items-center gap-1.5 rounded-[3px] bg-[#0B3D32] px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-[#093027] transition-all dark:bg-emerald-600 dark:hover:bg-emerald-500 shrink-0 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add {getSubBoxEntityName(activeSubBox)}</span>
-                </button>
-              </div>
-            </div>
+                        {/* Bed Type */}
+                        <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <span className="text-xs font-medium text-[#24352F] dark:text-slate-200">
+                            {item.bedType || 'King Bed'}
+                          </span>
+                        </td>
 
-            {/* Scrollable Table Area: Divided grid table */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar">
-              <div className="overflow-hidden rounded-[3px] border border-[#DCE3DF] bg-white shadow-2xs dark:border-[#145447] dark:bg-[#07241E]">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 z-10 shadow-2xs">
-                      {isRoomSetup ? (
-                        <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
-                          <th className="py-2.5 px-3 w-12 text-center border-r border-[#E5EEE9] dark:border-[#145447]">#</th>
-                          <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">ROOM NO.</th>
-                          <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">ROOM TYPE</th>
-                          <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">FLOOR</th>
-                          <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">AC TYPE</th>
-                          <th className="py-2.5 px-3.5 w-32 border-r border-[#E5EEE9] dark:border-[#145447]">BED TYPE</th>
-                          <th className="py-2.5 px-3.5 w-24 border-r border-[#E5EEE9] dark:border-[#145447]">CAPACITY</th>
-                          <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">FARE</th>
-                          <th className="py-2.5 px-3.5 min-w-[220px] border-r border-[#E5EEE9] dark:border-[#145447]">FACILITIES</th>
-                          <th className="py-2.5 px-3 w-20 text-center">ACTION</th>
-                        </tr>
-                      ) : (
-                        <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
-                          <th className="py-2.5 px-3 w-14 sm:w-16 text-center border-r border-[#E5EEE9] dark:border-[#145447]">#</th>
-                          <th className="py-2.5 px-3.5 w-24 sm:w-28 border-r border-[#E5EEE9] dark:border-[#145447]">CODE</th>
-                          <th className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
-                            {isMenuItem ? 'ITEM NAME' : isItemSetup ? 'ITEM / PRODUCT NAME' : isFacilityItem ? 'FACILITY NAME' : 'DISPLAY NAME'}
-                          </th>
-                          {hasCategory && (
-                            <th className="py-2.5 px-3.5 w-36 sm:w-44 border-r border-[#E5EEE9] dark:border-[#145447]">CATEGORY</th>
-                          )}
-                          {isItemSetup && (
-                            <>
-                              <th className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447]">UNIT</th>
-                              <th className="py-2.5 px-3.5 w-32 border-r border-[#E5EEE9] dark:border-[#145447]">BASE PRICE</th>
-                              <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">STOCK TRACKING</th>
-                            </>
-                          )}
-                          {isMenuItem && (
-                            <th className="py-2.5 px-3.5 min-w-[220px] border-r border-[#E5EEE9] dark:border-[#145447]">UNIT & PRICING</th>
-                          )}
-                          <th className="py-2.5 px-3 w-20 text-center">ACTION</th>
-                        </tr>
-                      )}
-                    </thead>
-                    <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447] text-xs">
-                      {isRoomSetup ? (
-                        filteredItems.map((item, index) => {
-                          const isAC =
-                            (item.acType || '').toLowerCase().includes('ac') &&
-                            !(item.acType || '').toLowerCase().includes('non');
+                        {/* Capacity */}
+                        <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <span className="font-mono text-xs font-semibold text-[#4D6358] dark:text-emerald-300">
+                            {item.capacity || 2} Guests
+                          </span>
+                        </td>
 
-                          return (
-                            <tr
-                              key={item.id}
-                              className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
-                            >
-                              {/* Index */}
-                              <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
-                                <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
-                                  {item.order ?? (index + 1)}
-                                </span>
-                              </td>
+                        {/* Fare */}
+                        <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <span className="inline-flex items-center rounded-[2px] bg-emerald-50/70 dark:bg-emerald-950/40 px-2 py-0.5 text-xs font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            रू {Number(item.basePrice ?? 200).toLocaleString()}
+                          </span>
+                        </td>
 
-                              {/* Room Number */}
-                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#EEF4F1] dark:bg-[#0D362C] border border-[#D8E6DF] dark:border-[#145447]">
-                                  <DoorOpen className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400 shrink-0" />
-                                  <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
-                                    {item.roomNumber || item.code}
-                                  </span>
-                                </div>
-                              </td>
-
-                              {/* Room Type */}
-                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <div className="font-semibold text-xs text-[#24352F] dark:text-white">
-                                  {item.roomType || 'Standard Room'}
-                                </div>
-                              </td>
-
-                              {/* Floor Level */}
-                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <span className="inline-flex items-center rounded-[2px] bg-[#F4F7F5] dark:bg-[#0A2E26] px-2 py-0.5 text-[11px] font-medium text-[#33463E] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447]">
-                                  {item.floorLevel || '1st Floor'}
-                                </span>
-                              </td>
-
-                              {/* Climate / AC Type */}
-                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                        {/* Facilities Tag Pills */}
+                        <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <div className="flex flex-wrap items-center gap-1 max-w-md">
+                            {item.facilities && item.facilities.length > 0 ? (
+                              item.facilities.map((fac, fIdx) => (
                                 <span
-                                  className={cn(
-                                    'inline-flex items-center gap-1 rounded-[2px] px-2 py-0.5 text-[11px] font-medium border',
-                                    isAC
-                                      ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800'
-                                      : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-700'
-                                  )}
+                                  key={fIdx}
+                                  className="inline-block rounded-[2px] bg-[#F7F9F8] dark:bg-[#082820] px-1.5 py-0.5 text-[10px] font-medium text-[#4A6458] dark:text-[#A4B8AE] border border-[#DEE6E2] dark:border-[#145447]"
                                 >
-                                  <Snowflake className="w-3 h-3" />
-                                  <span>{item.acType || (isAC ? 'AC' : 'Non-AC')}</span>
+                                  {fac}
                                 </span>
-                              </td>
-
-                              {/* Bed Type */}
-                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <span className="text-xs font-medium text-[#24352F] dark:text-slate-200">
-                                  {item.bedType || 'King Bed'}
-                                </span>
-                              </td>
-
-                              {/* Capacity */}
-                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <span className="font-mono text-xs font-semibold text-[#4D6358] dark:text-emerald-300">
-                                  {item.capacity || 2} Guests
-                                </span>
-                              </td>
-
-                              {/* Fare */}
-                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <span className="inline-flex items-center rounded-[2px] bg-emerald-50/70 dark:bg-emerald-950/40 px-2 py-0.5 text-xs font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                  रू {Number(item.basePrice ?? 200).toLocaleString()}
-                                </span>
-                              </td>
-
-                              {/* Facilities Tag Pills */}
-                              <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <div className="flex flex-wrap items-center gap-1 max-w-md">
-                                  {item.facilities && item.facilities.length > 0 ? (
-                                    item.facilities.map((fac, fIdx) => (
-                                      <span
-                                        key={fIdx}
-                                        className="inline-block rounded-[2px] bg-[#F7F9F8] dark:bg-[#082820] px-1.5 py-0.5 text-[10px] font-medium text-[#4A6458] dark:text-[#A4B8AE] border border-[#DEE6E2] dark:border-[#145447]"
-                                      >
-                                        {fac}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    <span className="text-[#879B90] text-xs">—</span>
-                                  )}
-                                </div>
-                              </td>
-
-                              {/* Action */}
-                              <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                                <div className="inline-flex items-center gap-1 justify-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenViewModal(item)}
-                                    title={`View Details for Room ${item.roomNumber || item.code}`}
-                                    className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors cursor-pointer"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEditModal(item)}
-                                    title={`Edit Room ${item.roomNumber || item.code}`}
-                                    className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors cursor-pointer"
-                                  >
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteItem(item.id)}
-                                    title={`Delete Room ${item.roomNumber || item.code}`}
-                                    className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        filteredItems.map((item, index) => (
-                          <tr
-                            key={item.id}
-                            className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
-                          >
-                            {/* Order / Index */}
-                            <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
-                              <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
-                                {item.order ?? (index + 1)}
-                              </span>
-                            </td>
-
-                            {/* Code */}
-                            <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                              <span className="inline-block rounded-[2px] bg-[#EEF4F1] dark:bg-[#0D362C] px-2 py-0.5 text-[11px] font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-[#D8E6DF] dark:border-[#145447]">
-                                {item.code}
-                              </span>
-                            </td>
-
-                            {/* Item / Display Name */}
-                            <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
-                              <div className="font-semibold text-xs text-[#24352F] dark:text-white">
-                                {item.name}
-                              </div>
-                              {item.description && (
-                                <div className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] font-normal truncate max-w-sm mt-0.5">
-                                  {item.description}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* Category (Menu Items Setup, Facility Master & Item Setup) */}
-                            {hasCategory && (
-                              <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <span className="inline-flex items-center rounded-[2px] bg-[#F4F7F5] dark:bg-[#0A2E26] px-2 py-0.5 text-[11px] font-medium text-[#33463E] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447]">
-                                  {item.category || (isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General')}
-                                </span>
-                              </td>
-                            )}
-
-                            {/* Item Setup Columns: Unit, Base Price, Stock Tracking */}
-                            {isItemSetup && (
-                              <>
-                                <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                  <span className="inline-flex items-center rounded-[2px] bg-white dark:bg-[#061B16] px-2 py-0.5 text-[11px] font-medium text-[#4D6358] dark:text-[#A4B8AE] border border-[#D5E0DB] dark:border-[#145447] capitalize">
-                                    {item.unit || item.quantityPrices?.[0]?.quantityName || 'pieces'}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                  <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
-                                    {item.basePrice !== undefined ? `रू ${Number(item.basePrice).toLocaleString()}` : '—'}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                                  {item.trackStock ? (
-                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
-                                      Tracked {item.stock !== undefined ? `(${item.stock} ${item.unit || 'pcs'})` : ''}
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
-                                      Untracked
-                                    </span>
-                                  )}
-                                </td>
-                              </>
-                            )}
-
-                            {/* Unit & Pricing (Menu Items Setup - divided table-like pill) */}
-                            {isMenuItem && (
-                              <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  {item.quantityPrices && item.quantityPrices.length > 0 ? (
-                                    item.quantityPrices.map((qp, qIdx) => (
-                                      <span
-                                        key={qIdx}
-                                        className="inline-flex items-stretch rounded-[2px] border border-[#D5E0DB] dark:border-[#145447] bg-white dark:bg-[#061B16] text-[11px] overflow-hidden shadow-2xs"
-                                        title={`${qp.quantityName}: रू ${qp.price.toLocaleString()}`}
-                                      >
-                                        <span className="px-2 py-0.5 font-medium text-[#4D6358] dark:text-[#A4B8AE] bg-[#F7F9F8] dark:bg-[#092B23]">
-                                          {qp.quantityName}
-                                        </span>
-                                        <span className="px-2 py-0.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border-l border-[#D5E0DB] dark:border-[#145447] bg-emerald-50/50 dark:bg-emerald-950/40">
-                                          रू {Number(qp.price).toLocaleString()}
-                                        </span>
-                                      </span>
-                                    ))
-                                  ) : item.basePrice !== undefined ? (
-                                    <span className="inline-flex items-stretch rounded-[2px] border border-[#D5E0DB] dark:border-[#145447] bg-white dark:bg-[#061B16] text-[11px] overflow-hidden shadow-2xs">
-                                      <span className="px-2 py-0.5 font-medium text-[#4D6358] dark:text-[#A4B8AE] bg-[#F7F9F8] dark:bg-[#092B23]">
-                                        Standard
-                                      </span>
-                                      <span className="px-2 py-0.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border-l border-[#D5E0DB] dark:border-[#145447] bg-emerald-50/50 dark:bg-emerald-950/40">
-                                        रू {Number(item.basePrice).toLocaleString()}
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-[#879B90] text-xs">—</span>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-
-                            {/* Action */}
-                            <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                              <div className="inline-flex items-center gap-1 justify-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditModal(item)}
-                                  title={`Edit ${item.name}`}
-                                  className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteItem(item.id)}
-                                  title={`Delete ${item.name}`}
-                                  className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                      {filteredItems.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={isRoomSetup ? 10 : isItemSetup ? 8 : isMenuItem ? 6 : hasCategory ? 5 : 4}
-                            className="py-12 text-center text-xs text-[#879B90]"
-                          >
-                            {tableSearchQuery ||
-                            (isRoomSetup &&
-                              (roomTypeFilter !== 'all' ||
-                                roomFloorFilter !== 'all')) ||
-                            (hasCategory && tableCategoryFilter !== 'all') ? (
-                              <div className="flex flex-col items-center justify-center gap-2">
-                                <span>No {activeSubBox.name.toLowerCase()} match your search / filter criteria</span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setTableSearchQuery('');
-                                    setRoomTypeFilter('all');
-                                    setRoomFloorFilter('all');
-                                    setTableCategoryFilter('all');
-                                  }}
-                                  className="text-xs font-semibold text-[#0B3D32] hover:underline dark:text-emerald-400"
-                                >
-                                  Clear filter
-                                </button>
-                              </div>
+                              ))
                             ) : (
-                              `No ${activeSubBox.name.toLowerCase()} added yet`
+                              <span className="text-[#879B90] text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1 justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenViewModal(item)}
+                              title={`View Details for Room ${item.roomNumber || item.code}`}
+                              className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(item)}
+                              title={`Edit Room ${item.roomNumber || item.code}`}
+                              className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItem(item.id)}
+                              title={`Delete Room ${item.roomNumber || item.code}`}
+                              className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  filteredItems.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
+                    >
+                      {/* Order / Index */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
+                        <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
+                          {item.order ?? (index + 1)}
+                        </span>
+                      </td>
+
+                      {/* Code */}
+                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                        <span className="inline-block rounded-[2px] bg-[#EEF4F1] dark:bg-[#0D362C] px-2 py-0.5 text-[11px] font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-[#D8E6DF] dark:border-[#145447]">
+                          {item.code}
+                        </span>
+                      </td>
+
+                      {/* Item / Display Name */}
+                      <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
+                        <div className="font-semibold text-xs text-[#24352F] dark:text-white">
+                          {item.name}
+                        </div>
+                        {item.description && (
+                          <div className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] font-normal truncate max-w-sm mt-0.5">
+                            {item.description}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Category (Menu Items Setup, Facility Master & Item Setup) */}
+                      {hasCategory && (
+                        <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <span className="inline-flex items-center rounded-[2px] bg-[#F4F7F5] dark:bg-[#0A2E26] px-2 py-0.5 text-[11px] font-medium text-[#33463E] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447]">
+                            {item.category || (isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General')}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Item Setup Columns: Unit, Base Price, Stock Tracking */}
+                      {isItemSetup && (
+                        <>
+                          <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                            <span className="inline-flex items-center rounded-[2px] bg-white dark:bg-[#061B16] px-2 py-0.5 text-[11px] font-medium text-[#4D6358] dark:text-[#A4B8AE] border border-[#D5E0DB] dark:border-[#145447] capitalize">
+                              {item.unit || item.quantityPrices?.[0]?.quantityName || 'pieces'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                            <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
+                              {item.basePrice !== undefined ? `रू ${Number(item.basePrice).toLocaleString()}` : '—'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
+                            {item.trackStock ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
+                                Tracked {item.stock !== undefined ? `(${item.stock} ${item.unit || 'pcs'})` : ''}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
+                                Untracked
+                              </span>
                             )}
                           </td>
-                        </tr>
+                        </>
                       )}
-                    </tbody>
-                  </table>
-                </div>
 
-                {/* Table Footer */}
-                <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
-                  <div className="flex items-center gap-2">
-                    <span>
-                      Showing <strong className="text-[#24352F] dark:text-white">{filteredItems.length}</strong> of{' '}
-                      <strong className="text-[#24352F] dark:text-white">{currentItems.length}</strong> {activeSubBox.name}
-                    </span>
-                    {(tableSearchQuery ||
-                      (isRoomSetup &&
-                        (roomTypeFilter !== 'all' ||
-                          roomFloorFilter !== 'all')) ||
-                      (hasCategory && tableCategoryFilter !== 'all')) && (
-                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-[2px] dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
-                        Filtered
-                      </span>
-                    )}
-                  </div>
-                  <span className="font-mono text-[10px]">
-                    {activeCategory.code} · {activeCategory.name}
-                  </span>
-                </div>
-              </div>
-            </div>
+                      {/* Unit & Pricing (Menu Items Setup - divided table-like pill) */}
+                      {isMenuItem && (
+                        <td className="py-2.5 px-3.5 border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {item.quantityPrices && item.quantityPrices.length > 0 ? (
+                              item.quantityPrices.map((qp, qIdx) => (
+                                <span
+                                  key={qIdx}
+                                  className="inline-flex items-stretch rounded-[2px] border border-[#D5E0DB] dark:border-[#145447] bg-white dark:bg-[#061B16] text-[11px] overflow-hidden shadow-2xs"
+                                  title={`${qp.quantityName}: रू ${qp.price.toLocaleString()}`}
+                                >
+                                  <span className="px-2 py-0.5 font-medium text-[#4D6358] dark:text-[#A4B8AE] bg-[#F7F9F8] dark:bg-[#092B23]">
+                                    {qp.quantityName}
+                                  </span>
+                                  <span className="px-2 py-0.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border-l border-[#D5E0DB] dark:border-[#145447] bg-emerald-50/50 dark:bg-emerald-950/40">
+                                    रू {Number(qp.price).toLocaleString()}
+                                  </span>
+                                </span>
+                              ))
+                            ) : item.basePrice !== undefined ? (
+                              <span className="inline-flex items-stretch rounded-[2px] border border-[#D5E0DB] dark:border-[#145447] bg-white dark:bg-[#061B16] text-[11px] overflow-hidden shadow-2xs">
+                                <span className="px-2 py-0.5 font-medium text-[#4D6358] dark:text-[#A4B8AE] bg-[#F7F9F8] dark:bg-[#092B23]">
+                                  Standard
+                                </span>
+                                <span className="px-2 py-0.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border-l border-[#D5E0DB] dark:border-[#145447] bg-emerald-50/50 dark:bg-emerald-950/40">
+                                  रू {Number(item.basePrice).toLocaleString()}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-[#879B90] text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+                      )}
+
+                      {/* Action */}
+                      <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1 justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(item)}
+                            title={`Edit ${item.name}`}
+                            className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(item.id)}
+                            title={`Delete ${item.name}`}
+                            className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+                {filteredItems.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={isRoomSetup ? 10 : isItemSetup ? 8 : isMenuItem ? 6 : hasCategory ? 5 : 4}
+                      className="py-12 text-center text-xs text-[#879B90]"
+                    >
+                      {tableSearchQuery ||
+                        (isRoomSetup &&
+                          (roomTypeFilter !== 'all' ||
+                            roomFloorFilter !== 'all')) ||
+                        (hasCategory && tableCategoryFilter !== 'all') ? (
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <span>No {activeSubBox.name.toLowerCase()} match your search / filter criteria</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTableSearchQuery('');
+                              setRoomTypeFilter('all');
+                              setRoomFloorFilter('all');
+                              setTableCategoryFilter('all');
+                            }}
+                            className="text-xs font-semibold text-[#0B3D32] hover:underline dark:text-emerald-400"
+                          >
+                            Clear filter
+                          </button>
+                        </div>
+                      ) : (
+                        `No ${activeSubBox.name.toLowerCase()} added yet`
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
+
+          {/* Table Footer */}
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16] text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
+            <div className="flex items-center gap-2">
+              <span>
+                Showing <strong className="text-[#24352F] dark:text-white">{filteredItems.length}</strong> of{' '}
+                <strong className="text-[#24352F] dark:text-white">{currentItems.length}</strong> {activeSubBox.name}
+              </span>
+              {(tableSearchQuery ||
+                (isRoomSetup &&
+                  (roomTypeFilter !== 'all' ||
+                    roomFloorFilter !== 'all')) ||
+                (hasCategory && tableCategoryFilter !== 'all')) && (
+                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-[2px] dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                    Filtered
+                  </span>
+                )}
+            </div>
+            <span className="font-mono text-[10px]">
+              {activeCategory.code} · {activeCategory.name}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 
 
@@ -2904,7 +3191,7 @@ export default function HotelSetupContent({
             {/* Modal Form Body */}
             <form onSubmit={handleSaveNewItem}>
               <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
-                {activeSubBox.id === 'item-setup' ? (
+                {activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup' ? (
                   <>
                     {/* Item Name */}
                     <div>
@@ -3635,8 +3922,8 @@ export default function HotelSetupContent({
                     isRoomSetup
                       ? !roomNumber.trim() || !roomPrice.trim() || !roomType.trim()
                       : isItemSetup
-                      ? !newName.trim()
-                      : !newName.trim() ||
+                        ? !newName.trim()
+                        : !newName.trim() ||
                         (isMenuItem &&
                           ((!newCategory.trim() && availableCategories.length > 0) ||
                             newQuantityPrices.length === 0 ||

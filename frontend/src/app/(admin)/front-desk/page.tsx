@@ -84,26 +84,20 @@ interface FrontDeskRoom {
 }
 
 const DEFAULT_FRONT_DESK_ROOMS: FrontDeskRoom[] = [
-  { id: 'rm-101', number: '101', floor: 1, type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-102', number: '102', floor: 1, type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'OCCUPIED', cleaningStatus: 'CLEAN' },
-  { id: 'rm-103', number: '103', floor: 1, type: 'Standard Room', bedType: 'Twin Beds', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-104', number: '104', floor: 1, type: 'Standard Room', bedType: 'Twin Beds', acType: 'Non-AC', pricePerNight: 2000, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-105', number: '105', floor: 1, type: 'Deluxe Room', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'MAINTENANCE', cleaningStatus: 'DIRTY', maintenanceReason: 'AC Servicing & Plumbing' },
-  { id: 'rm-201', number: '201', floor: 2, type: 'Executive Ocean Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 5500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-202', number: '202', floor: 2, type: 'Executive Ocean Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 5500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-203', number: '203', floor: 2, type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-204', number: '204', floor: 2, type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-205', number: '205', floor: 2, type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 3, operationalStatus: 'MAINTENANCE', cleaningStatus: 'DIRTY', maintenanceReason: 'Painting & Touchup' },
-  { id: 'rm-301', number: '301', floor: 3, type: 'Royal Club Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 6200, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-302', number: '302', floor: 3, type: 'Royal Club Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 6200, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-303', number: '303', floor: 3, type: 'Royal Club Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 6200, capacity: 2, operationalStatus: 'MAINTENANCE', cleaningStatus: 'DIRTY', maintenanceReason: 'Electrical Inspection' },
-  { id: 'rm-401', number: '401', floor: 4, type: 'Horizon Penthouse Suite', bedType: 'Emperor King Bed', acType: 'AC', pricePerNight: 9500, capacity: 4, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'rm-501', number: '501', floor: 5, type: 'Presidential Suite', bedType: 'Royal Emperor Bed', acType: 'AC', pricePerNight: 18500, capacity: 6, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '748e33547b6b42178a3a4d991591fd25', number: '101', floor: 1, type: 'Deluxe Garden Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '0b7a5291976f467092670071dcf3a6e5', number: '102', floor: 1, type: 'Deluxe Garden Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'fcb2247532e248aa9d7544fca47856e8', number: '103', floor: 1, type: 'Standard Twin Room', bedType: '2 Queen Beds', acType: 'Non-AC', pricePerNight: 2400, capacity: 4, operationalStatus: 'AVAILABLE', cleaningStatus: 'DIRTY' },
+  { id: '6835a95a55a94faab412da5f0afcf43f', number: '104', floor: 1, type: 'Standard Twin Room', bedType: '2 Queen Beds', acType: 'Non-AC', pricePerNight: 2400, capacity: 4, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '639d7e4058aa42b8b162e2a61a2f8b54', number: '105', floor: 1, type: 'Deluxe Garden Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 3500, capacity: 2, operationalStatus: 'MAINTENANCE', cleaningStatus: 'DIRTY', maintenanceReason: 'AC Servicing & Plumbing' },
+  { id: 'e7f73a6dcffc4309bf743d331fa0fa87', number: '201', floor: 2, type: 'Executive Ocean Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'OCCUPIED', cleaningStatus: 'CLEAN' },
+  { id: '18a4eeb348c44a5f81ad82facda7be34', number: '202', floor: 2, type: 'Executive Ocean Suite', bedType: 'Super King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'ddeeb358d00d4433b6f0870e0da8bf80', number: '203', floor: 2, type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '600ee80d872e4f8e87ff34f6a11fde47', number: '204', floor: 2, type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 2, operationalStatus: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '6ac773799a3747ff8f99363d3c813462', number: '205', floor: 2, type: 'Executive Ocean Suite', bedType: 'King Bed', acType: 'AC', pricePerNight: 4900, capacity: 3, operationalStatus: 'MAINTENANCE', cleaningStatus: 'DIRTY', maintenanceReason: 'Smart Climate Control Calibration' },
 ];
 
 function getDateWindow(centerDateStr: string, totalDays = 10) {
-  const [y, m, d] = centerDateStr.split('-').map(Number);
-  const centerDate = new Date(y, m - 1, d);
+  const [y, m, d] = (centerDateStr || getRelativeDate(0)).split('-').map(Number);
   const result: { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean }[] = [];
   const todayStr = getRelativeDate(0);
 
@@ -127,8 +121,11 @@ function getDateWindow(centerDateStr: string, totalDays = 10) {
   const daysAfter = totalDays - 1 - daysBefore;
 
   for (let i = -daysBefore; i <= daysAfter; i++) {
-    const target = new Date(centerDate.getTime() + i * 86400000);
-    const dateStr = target.toISOString().split('T')[0];
+    const target = new Date(y, m - 1, d + i);
+    const yr = target.getFullYear();
+    const mo = String(target.getMonth() + 1).padStart(2, '0');
+    const da = String(target.getDate()).padStart(2, '0');
+    const dateStr = `${yr}-${mo}-${da}`;
     const dayName = target.toLocaleDateString('en-US', { weekday: 'short' });
     const dayNum = target.getDate();
     const monthName = target.toLocaleDateString('en-US', { month: 'short' });
@@ -148,35 +145,28 @@ type RoomDeskStatus = 'AVAILABLE' | 'ARRIVING' | 'OCCUPIED' | 'DEPARTING' | 'MAI
 function getRoomStatusForDate(
   room: FrontDeskRoom,
   bookings: RoomBooking[],
-  targetDate: string
+  targetDate: string,
+  todayStr: string = getRelativeDate(0)
 ): { status: RoomDeskStatus; booking: RoomBooking | null; isDeparting: boolean } {
   if (room.operationalStatus === 'MAINTENANCE') {
     return { status: 'MAINTENANCE', booking: null, isDeparting: false };
   }
 
-  // 1. Arriving on targetDate
+  // 1. Arriving / Checking in on targetDate (Reservation starts on targetDate)
   const arriving = bookings.find(
     (b) =>
       b.room.number === room.number &&
       b.checkIn === targetDate &&
-      b.status === 'RESERVED'
+      (b.status === 'RESERVED' || b.status === 'CHECKED_IN')
   );
-  if (arriving) {
+  if (arriving && arriving.status === 'CHECKED_IN') {
+    return { status: 'OCCUPIED', booking: arriving, isDeparting: false };
+  }
+  if (arriving && arriving.status === 'RESERVED') {
     return { status: 'ARRIVING', booking: arriving, isDeparting: false };
   }
 
-  // 2. Departing on targetDate (checked in and checking out on targetDate)
-  const departing = bookings.find(
-    (b) =>
-      b.room.number === room.number &&
-      b.status === 'CHECKED_IN' &&
-      b.checkOut === targetDate
-  );
-  if (departing) {
-    return { status: 'DEPARTING', booking: departing, isDeparting: true };
-  }
-
-  // 3. In-House on targetDate (checked in on/before targetDate and checking out after targetDate)
+  // 2. In-House staying the NIGHT of targetDate (checkIn <= targetDate AND targetDate < checkOut)
   const inHouse = bookings.find(
     (b) =>
       b.room.number === room.number &&
@@ -188,7 +178,7 @@ function getRoomStatusForDate(
     return { status: 'OCCUPIED', booking: inHouse, isDeparting: false };
   }
 
-  // 4. Reserved stay covering targetDate
+  // 3. Reserved stay covering the NIGHT of targetDate
   const reservedCovering = bookings.find(
     (b) =>
       b.room.number === room.number &&
@@ -200,8 +190,21 @@ function getRoomStatusForDate(
     return { status: 'ARRIVING', booking: reservedCovering, isDeparting: false };
   }
 
-  // 5. Direct operationalStatus fallback
-  if (room.operationalStatus === 'OCCUPIED') {
+  // 4. Departing on targetDate (checkout date): If targetDate === todayStr, flag as departing
+  if (targetDate === todayStr) {
+    const departing = bookings.find(
+      (b) =>
+        b.room.number === room.number &&
+        b.status === 'CHECKED_IN' &&
+        b.checkOut === targetDate
+    );
+    if (departing) {
+      return { status: 'DEPARTING', booking: departing, isDeparting: true };
+    }
+  }
+
+  // 5. Fallback operationalStatus ONLY if targetDate === todayStr
+  if (targetDate === todayStr && room.operationalStatus === 'OCCUPIED') {
     return { status: 'OCCUPIED', booking: inHouse || null, isDeparting: false };
   }
 
@@ -270,7 +273,11 @@ function FrontDeskContent() {
         const stored = localStorage.getItem('hotel_rooms_setup_v2');
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (
+            Array.isArray(parsed) &&
+            parsed.length === 10 &&
+            !parsed.some((r: any) => ['301', '302', '303', '401', '501'].includes(String(r.number)))
+          ) {
             return parsed as FrontDeskRoom[];
           }
         }
@@ -278,6 +285,69 @@ function FrontDeskContent() {
     }
     return DEFAULT_FRONT_DESK_ROOMS;
   });
+
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+
+  // Dynamic Room Fetching from Backend Database
+  const fetchRoomsFromDb = async () => {
+    setIsLoadingRooms(true);
+    try {
+      const res = await fetch('/api/rooms');
+      const json = await res.json();
+      const list = json?.data || (Array.isArray(json) ? json : null);
+      if (Array.isArray(list) && list.length > 0) {
+        const mapped: FrontDeskRoom[] = list.map((r: any) => {
+          const numStr = String(r.number || r.Number);
+          const floorNum = Number(r.floor || r.Floor || (numStr.startsWith('2') ? 2 : 1));
+          const roomStatus = String(r.status || r.Status || 'AVAILABLE').toUpperCase();
+          const setupStatus = String(r.setupStatus || r.SetupStatus || 'OPERATIONAL').toUpperCase();
+
+          let opStatus: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE' = 'AVAILABLE';
+          if (roomStatus === 'MAINTENANCE' || setupStatus === 'UNDER_CONSTRUCTION' || setupStatus === 'OUT_OF_SERVICE') {
+            opStatus = 'MAINTENANCE';
+          } else if (roomStatus === 'OCCUPIED') {
+            opStatus = 'OCCUPIED';
+          }
+
+          let clStatus: 'CLEAN' | 'DIRTY' | 'IN_CLEANING' = 'CLEAN';
+          if (roomStatus === 'DIRTY') {
+            clStatus = 'DIRTY';
+          } else if (roomStatus === 'CLEANING') {
+            clStatus = 'IN_CLEANING';
+          }
+
+          return {
+            id: r.id || r.Id || `rm-${numStr}`,
+            number: numStr,
+            floor: floorNum,
+            type: r.type || r.Type || r.roomType?.name || 'Deluxe Room',
+            bedType: r.bedType || r.BedType || 'King Bed',
+            acType: (r.hasAC ?? r.HasAC ?? true) ? 'AC' : 'Non-AC',
+            pricePerNight: Number(r.pricePerNight || r.PricePerNight || 3500),
+            capacity: Number(r.capacity || r.Capacity || 2),
+            operationalStatus: opStatus,
+            cleaningStatus: clStatus,
+            maintenanceReason: opStatus === 'MAINTENANCE' ? (r.description || 'Under Maintenance') : undefined,
+          };
+        });
+
+        mapped.sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
+
+        setRooms(mapped);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('hotel_rooms_setup_v2', JSON.stringify(mapped));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch rooms from backend database:', err);
+    } finally {
+      setIsLoadingRooms(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRoomsFromDb();
+  }, []);
 
   // Sync rooms to localStorage whenever modified
   useEffect(() => {
@@ -289,7 +359,7 @@ function FrontDeskContent() {
   // Option Menu state: which room's option box is open
   const [openOptionMenuId, setOpenOptionMenuId] = useState<string | null>(null);
 
-  const handleSetCleaningStatus = (roomId: string, cleaningStatus: 'CLEAN' | 'DIRTY') => {
+  const handleSetCleaningStatus = async (roomId: string, cleaningStatus: 'CLEAN' | 'DIRTY') => {
     setRooms((prev) =>
       prev.map((r) => {
         if (r.id !== roomId && String(r.number) !== String(roomId) && r.id !== `rm-${roomId}`) return r;
@@ -300,20 +370,34 @@ function FrontDeskContent() {
       'Housekeeping Updated',
       `Room marked as ${cleaningStatus === 'CLEAN' ? 'Clean' : 'Dirty'}.`
     );
+
+    // Persist to backend database
+    try {
+      const target = rooms.find((r) => r.id === roomId || String(r.number) === String(roomId));
+      const targetId = target?.id || roomId;
+      await fetch(`/api/rooms/${targetId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: cleaningStatus === 'DIRTY' ? 'DIRTY' : 'AVAILABLE',
+          setupStatus: 'OPERATIONAL',
+        }),
+      });
+    } catch (err) {
+      console.warn('Backend room status update error:', err);
+    }
   };
 
-  const handleToggleMaintenance = (roomId: string) => {
+  const handleToggleMaintenance = async (roomId: string) => {
+    const targetRoom = rooms.find((r) => r.id === roomId || String(r.number) === String(roomId));
+    if (!targetRoom) return;
+
+    const isMaint = targetRoom.operationalStatus === 'MAINTENANCE';
+    const nextStatus = isMaint ? 'AVAILABLE' : 'MAINTENANCE';
+
     setRooms((prev) =>
       prev.map((r) => {
-        if (r.id !== roomId) return r;
-        const isMaint = r.operationalStatus === 'MAINTENANCE';
-        const nextStatus = isMaint ? 'AVAILABLE' : 'MAINTENANCE';
-        toast.info(
-          'Room Maintenance',
-          isMaint
-            ? `Room ${r.number} is now Available.`
-            : `Room ${r.number} is placed under Maintenance.`
-        );
+        if (r.id !== roomId && String(r.number) !== String(roomId)) return r;
         return {
           ...r,
           operationalStatus: nextStatus,
@@ -321,6 +405,27 @@ function FrontDeskContent() {
         };
       })
     );
+
+    toast.info(
+      'Room Maintenance',
+      isMaint
+        ? `Room ${targetRoom.number} is now Available.`
+        : `Room ${targetRoom.number} is placed under Maintenance.`
+    );
+
+    // Persist to backend database
+    try {
+      await fetch(`/api/rooms/${targetRoom.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: nextStatus,
+          setupStatus: isMaint ? 'OPERATIONAL' : 'OUT_OF_SERVICE',
+        }),
+      });
+    } catch (err) {
+      console.warn('Backend room maintenance status update error:', err);
+    }
   };
 
   const distinctFloors = useMemo(() => {
@@ -346,7 +451,7 @@ function FrontDeskContent() {
     let maintenance = 0;
 
     rooms.forEach((r) => {
-      const st = getRoomStatusForDate(r, bookings, selectedDate);
+      const st = getRoomStatusForDate(r, bookings, selectedDate, todayDateStr);
       if (st.status === 'AVAILABLE') available++;
       else if (st.status === 'ARRIVING') arriving++;
       else if (st.status === 'OCCUPIED' || st.status === 'DEPARTING') occupied++;
@@ -360,11 +465,11 @@ function FrontDeskContent() {
       arriving,
       maintenance,
     };
-  }, [rooms, bookings, selectedDate]);
+  }, [rooms, bookings, selectedDate, todayDateStr]);
 
   const filteredBoxRooms = useMemo(() => {
     return rooms.filter((room) => {
-      const roomStatus = getRoomStatusForDate(room, bookings, selectedDate);
+      const roomStatus = getRoomStatusForDate(room, bookings, selectedDate, todayDateStr);
 
       // 1. Status Filter
       if (boxStatusFilter !== 'ALL') {
@@ -405,9 +510,11 @@ function FrontDeskContent() {
 
   const handleShiftDate = (days: number) => {
     const [y, m, d] = selectedDate.split('-').map(Number);
-    const dt = new Date(y, m - 1, d);
-    dt.setDate(dt.getDate() + days);
-    setSelectedDate(dt.toISOString().split('T')[0]);
+    const dt = new Date(y, m - 1, d + days);
+    const yr = dt.getFullYear();
+    const mo = String(dt.getMonth() + 1).padStart(2, '0');
+    const da = String(dt.getDate()).padStart(2, '0');
+    setSelectedDate(`${yr}-${mo}-${da}`);
   };
 
   // Guided Booking Flow (Walk-in / Guided New Reservation)
@@ -603,12 +710,12 @@ function FrontDeskContent() {
       foodCatalog.length > 0
         ? foodCatalog
         : CAFE_MENU_ITEMS.map((m) => ({
-            id: m.id,
-            name: m.name,
-            price: m.price,
-            category: 'Cafe',
-            code: m.id,
-          }));
+          id: m.id,
+          name: m.name,
+          price: m.price,
+          category: 'Cafe',
+          code: m.id,
+        }));
     const q = foodMenuSearch.toLowerCase().trim();
     if (!q) return list;
     return list.filter(
@@ -706,6 +813,15 @@ function FrontDeskContent() {
             >
               <Layers className="w-3.5 h-3.5 text-muted dark:text-slate-300" />
               <span>Timeline Matrix</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => fetchRoomsFromDb()}
+              disabled={isLoadingRooms}
+              className="px-2 py-1.5 text-xs text-muted hover:text-body dark:text-muted dark:hover:text-white transition-all flex items-center gap-1 cursor-pointer border-l border-border-default/60"
+              title="Refresh rooms from database"
+            >
+              <RefreshCw className={cn('w-3.5 h-3.5', isLoadingRooms && 'animate-spin text-[#0B3D32] dark:text-emerald-400')} />
             </button>
           </div>
         </div>
@@ -964,7 +1080,7 @@ function FrontDeskContent() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4">
               {filteredBoxRooms.map((room) => {
-                const roomStatus = getRoomStatusForDate(room, bookings, selectedDate);
+                const roomStatus = getRoomStatusForDate(room, bookings, selectedDate, todayDateStr);
                 const status = roomStatus.status;
                 const activeBooking = roomStatus.booking;
 
@@ -990,9 +1106,11 @@ function FrontDeskContent() {
                 // - ONLY clickable when guest is currently staying in the room
                 const canCheckOut = (isOccupied || isDeparting) && !!activeBooking;
 
-                // Housekeeping Status
-                const isClean = room.cleaningStatus === 'CLEAN';
-                const isDirty = room.cleaningStatus === 'DIRTY';
+                // Housekeeping Status: Physical cleaning status applies to current day (today).
+                // On future dates, room is available for future guests.
+                const isViewingToday = selectedDate === todayDateStr;
+                const isClean = !isViewingToday || room.cleaningStatus === 'CLEAN';
+                const isDirty = isViewingToday && room.cleaningStatus === 'DIRTY';
 
                 // Maintenance toggle: cannot place room in maintenance while guest is in-house
                 const canToggleMaintenance = !isOccupied && !isDeparting;
@@ -1167,7 +1285,11 @@ function FrontDeskContent() {
                             <span className="truncate">Arrival: {formatDate(activeBooking.checkIn)}</span>
                           </span>
                           <span className="text-[10px] font-mono font-bold text-sky-700 dark:text-sky-400 shrink-0">
-                            Today
+                            {activeBooking.checkIn === todayDateStr
+                              ? 'Today'
+                              : activeBooking.checkIn === selectedDate
+                              ? 'On Date'
+                              : formatDate(activeBooking.checkIn)}
                           </span>
                         </div>
                       )}

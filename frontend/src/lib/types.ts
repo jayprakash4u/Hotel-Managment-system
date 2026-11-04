@@ -451,6 +451,9 @@ export interface QuickSalePayload {
   notes?: string;
   sendToKitchen?: boolean;
   outlet?: string;
+  customerId?: string;
+  overrideLimit?: boolean;
+  overrideReason?: string;
 }
 
 export interface QuickSaleReceipt {
@@ -561,7 +564,7 @@ export interface ActiveRestaurantOrderData {
 }
 
 export type BillingType = 'QUICK_BILL' | 'WALK_IN' | 'TABLE_ORDER' | 'ROOM_SERVICE' | 'HOTEL_CHECKOUT';
-export type BillPaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'VOID' | 'REFUNDED';
+export type BillPaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'CREDIT' | 'VOID' | 'REFUNDED';
 
 export interface BillLineItem {
   productId?: string;
@@ -689,6 +692,9 @@ export interface SupplierRecord {
   category?: string;
   notes?: string;
   isActive?: boolean;
+  creditLimit?: number;
+  paymentTermsDays?: number;
+  openingBalance?: number;
   purchasesCount?: number;
   itemsCount?: number;
   purchases?: any[];
@@ -746,3 +752,87 @@ export interface PurchaseRecord {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type CustomerType = 'CASH' | 'CREDIT';
+export type CreditStatus = 'ACTIVE' | 'BLOCKED';
+
+export interface CustomerData {
+  id: string;
+  hotelId?: string | null;
+  name: string;
+  phone: string;
+  address?: string | null;
+  customerType: CustomerType;
+  creditLimit: number;
+  creditStatus: CreditStatus;
+  openingBalance: number;
+  currentOutstanding: number;
+  availableCredit: number;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomerLedgerEntryData {
+  id: string;
+  customerId: string;
+  customerName?: string;
+  billId?: string | null;
+  date: string;
+  referenceNumber?: string | null;
+  billNumber?: string | null;
+  description: string;
+  entryType: 'DEBIT' | 'CREDIT';
+  debit: number;
+  credit: number;
+  balance: number;
+  paymentMode?: string | null;
+  paymentStatus?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface CustomerUnpaidBillData {
+  id: string;
+  billNumber: string;
+  date: string;
+  totalAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  paymentStatus: string;
+  itemsSummary?: string;
+}
+
+export interface ReceiveCreditPaymentPayload {
+  customerId: string;
+  billIds: string[];
+  amount: number;
+  paymentMode: 'CASH' | 'ONLINE' | 'WALLET';
+  paymentDate?: string;
+  referenceNumber?: string;
+  notes?: string;
+}
+
+export interface CreditOverridePayload {
+  customerId: string;
+  billNumber?: string;
+  billAmount: number;
+  creditLimit: number;
+  currentOutstanding: number;
+  overrideAmount: number;
+  reason: string;
+}
+
+export interface CreditCustomerSummaryReport {
+  customerId: string;
+  customerName: string;
+  phone: string;
+  customerType: string;
+  creditLimit: number;
+  outstandingBalance: number;
+  availableCredit: number;
+  creditStatus: string;
+  oldestUnpaidBillDate?: string | null;
+  unpaidBillsCount: number;
+}
+

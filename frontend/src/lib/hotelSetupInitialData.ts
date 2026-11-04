@@ -212,7 +212,7 @@ export const MASTER_CATEGORIES: MasterCategory[] = [
       },
       {
         id: 'menu-items-setup',
-        name: 'Products Setup',
+        name: 'Menu Setup',
         icon: UtensilsCrossed,
         description: 'Manage dishes, beverages, item codes, orders, portion rates, and menu products',
       },
@@ -315,6 +315,38 @@ export const MASTER_CATEGORIES: MasterCategory[] = [
         name: 'Departments',
         icon: Building2,
         description: 'Manage hotel departments: Food & Beverage, Front Office, Housekeeping, Accounts',
+      },
+    ],
+  },
+  {
+    id: 'general-product-setup',
+    code: '05',
+    name: 'General Product Setup',
+    icon: Package,
+    subBoxes: [
+      {
+        id: 'product-categories-setup',
+        name: 'Product Categories',
+        icon: Layers,
+        description: 'Manage product categories for general inventory and supplies',
+      },
+      {
+        id: 'product-setup',
+        name: 'Products',
+        icon: UtensilsCrossed,
+        description: 'Manage general products, SKUs, pricing, and stock details',
+      },
+      {
+        id: 'product-units-setup',
+        name: 'Units of Measurement',
+        icon: Scale,
+        description: 'Manage measurement units for products and inventory',
+      },
+      {
+        id: 'suppliers-setup',
+        name: 'Suppliers',
+        icon: Users,
+        description: 'Manage supplier directory, contact details, and credit terms',
       },
     ],
   },
@@ -988,118 +1020,18 @@ export const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
     { id: 'dept-4', code: 'ACC', name: 'Accounts, Finance & Stores', description: 'Inventory, procurement, night audit, settlements & ledgers', order: 4, isActive: true },
     { id: 'dept-5', code: 'MGT', name: 'Executive Management', description: 'General administration, HR, marketing & revenue strategy', order: 5, isActive: true },
   ],
-  'item-setup': [
-    {
-      id: 'itm-1',
-      code: 'WAT-1L',
-      name: 'Mineral Water (1 Ltr)',
-      category: 'Guest Amenities',
-      unit: 'bottle',
-      basePrice: 50,
-      trackStock: true,
-      stock: 120,
-      order: 1,
-      isDefault: true,
-      isActive: true,
-      description: 'Packaged premium drinking water for guest rooms & minibar',
-    },
-    {
-      id: 'itm-2',
-      code: 'TWL-BATH',
-      name: 'Bath Towel (White Cotton)',
-      category: 'Linen & Bedding',
-      unit: 'pieces',
-      basePrice: 450,
-      trackStock: true,
-      stock: 80,
-      order: 2,
-      isActive: true,
-      description: 'Standard 70x140cm cotton absorbent bathroom towel',
-    },
-    {
-      id: 'itm-3',
-      code: 'KIT-SHMP',
-      name: 'Shampoo & Conditioner (30ml)',
-      category: 'Toiletries & Hygiene',
-      unit: 'pieces',
-      basePrice: 35,
-      trackStock: true,
-      stock: 200,
-      order: 3,
-      isActive: true,
-      description: 'Herbal guest amenity shampoo bottle',
-    },
-    {
-      id: 'itm-4',
-      code: 'KIT-DENT',
-      name: 'Dental Kit (Toothbrush + Paste)',
-      category: 'Toiletries & Hygiene',
-      unit: 'set',
-      basePrice: 25,
-      trackStock: true,
-      stock: 150,
-      order: 4,
-      isActive: true,
-      description: 'Eco-friendly biodegradable toothbrush and mini paste',
-    },
-    {
-      id: 'itm-5',
-      code: 'LIN-BED',
-      name: 'Bed Sheet King Size (White)',
-      category: 'Linen & Bedding',
-      unit: 'pieces',
-      basePrice: 950,
-      trackStock: true,
-      stock: 60,
-      order: 5,
-      isActive: true,
-      description: '300-thread count cotton double bed sheet',
-    },
-    {
-      id: 'itm-6',
-      code: 'TEA-COFF',
-      name: 'Tea Bags & Coffee Sachets (Assorted)',
-      category: 'Minibar & Beverages',
-      unit: 'pack',
-      basePrice: 20,
-      trackStock: true,
-      stock: 300,
-      order: 6,
-      isActive: true,
-      description: 'In-room complimentary beverage replenishment set',
-    },
-    {
-      id: 'itm-7',
-      code: 'SLP-DISP',
-      name: 'Room Slippers (Disposable)',
-      category: 'Guest Amenities',
-      unit: 'pair',
-      basePrice: 65,
-      trackStock: true,
-      stock: 90,
-      order: 7,
-      isActive: true,
-      description: 'Comfortable non-woven disposable guest slippers',
-    },
-    {
-      id: 'itm-8',
-      code: 'HK-CLEAN',
-      name: 'Multi-Surface Disinfectant Cleaner (5L)',
-      category: 'Housekeeping & Supplies',
-      unit: 'can',
-      basePrice: 650,
-      trackStock: true,
-      stock: 15,
-      order: 8,
-      isActive: true,
-      description: 'Hospitality-grade surface sanitizing fluid',
-    },
-  ],
+  'item-setup': [],
+  'product-setup': [],
 };
 
 export function getFallbackItemsForSubBox(subId: string, subName: string): MasterItemEntry[] {
-  if (subId === 'item-setup') {
-    return INITIAL_MASTER_ITEMS['item-setup'] || [];
+  if (
+    subId === 'item-setup' ||
+    subId === 'product-setup' ||
+    subId === 'product-categories-setup' ||
+    subId === 'suppliers-setup'
+  ) {
+    return [];
   }
   return [
     { id: `${subId}-1`, code: '01', name: `Standard ${subName.replace(/s$/, '')}`, description: 'Default standard property tier', isDefault: true, isActive: true },
@@ -1114,9 +1046,11 @@ export function getFallbackItemsForSubBox(subId: string, subName: string): Maste
 }
 
 export function getSubBoxEntityName(box: { id: string; name: string }): string {
-  if (box.id === 'item-setup') return 'Item / Product';
+  if (box.id === 'item-setup' || box.id === 'product-setup') return 'Item / Product';
+  if (box.id === 'product-categories-setup') return 'Product Category';
+  if (box.id === 'suppliers-setup') return 'Supplier';
   if (box.id === 'add-room-setup' || box.id === 'room-list-setup') return 'Room';
-  if (box.id === 'menu-items-setup') return 'Menu Item / Product';
+  if (box.id === 'menu-items-setup') return 'Menu Item';
   if (box.id === 'categories-setup') return 'Food Category';
   if (box.id === 'quantity-setup') return 'Portion / Unit';
   if (box.id === 'table-setup') return 'Dining Table';

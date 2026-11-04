@@ -95,6 +95,9 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
     category: SupplierCategory;
     notes: string;
     isActive: boolean;
+    creditLimit: number;
+    paymentTermsDays: number;
+    openingBalance: number;
   }>({
     code: '',
     name: '',
@@ -106,6 +109,9 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
     category: 'General',
     notes: '',
     isActive: true,
+    creditLimit: 0,
+    paymentTermsDays: 0,
+    openingBalance: 0,
   });
 
   // Calculate Next Auto Code
@@ -134,6 +140,9 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
       category: 'General',
       notes: '',
       isActive: true,
+      creditLimit: 0,
+      paymentTermsDays: 0,
+      openingBalance: 0,
     });
     setIsAddEditOpen(true);
   };
@@ -153,6 +162,9 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
       category: (sup.category as SupplierCategory) || 'General',
       notes: sup.notes || '',
       isActive: sup.isActive !== false,
+      creditLimit: sup.creditLimit ?? 0,
+      paymentTermsDays: sup.paymentTermsDays ?? 0,
+      openingBalance: sup.openingBalance ?? 0,
     });
     setIsAddEditOpen(true);
   };
@@ -190,6 +202,9 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
         category: formState.category || 'General',
         notes: formState.notes.trim() || null,
         isActive: formState.isActive,
+        creditLimit: formState.creditLimit > 0 ? formState.creditLimit : null,
+        paymentTermsDays: formState.paymentTermsDays > 0 ? formState.paymentTermsDays : null,
+        openingBalance: formState.openingBalance > 0 ? formState.openingBalance : null,
       };
 
       const res = await fetch(url, {
@@ -350,9 +365,9 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
          ========================================================================= */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
         {[
-          { id: 'ALL' as StatusFilter, label: 'All Suppliers', count: metrics.total },
-          { id: 'ACTIVE' as StatusFilter, label: 'Active', count: metrics.active },
-          { id: 'INACTIVE' as StatusFilter, label: 'Inactive / Deactivated', count: metrics.inactive },
+          { id: 'ALL' as StatusFilter, label: 'All Suppliers' },
+          { id: 'ACTIVE' as StatusFilter, label: 'Active' },
+          { id: 'INACTIVE' as StatusFilter, label: 'Inactive / Deactivated' },
         ].map((tab) => {
           const isSelected = statusFilter === tab.id;
           return (
@@ -371,16 +386,6 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
               )}
             >
               <span>{tab.label}</span>
-              <span
-                className={cn(
-                  'px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold',
-                  isSelected
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 dark:bg-surface-elevated text-slate-600 dark:text-slate-400'
-                )}
-              >
-                {tab.count}
-              </span>
             </button>
           );
         })}
@@ -955,6 +960,75 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
                   />
                 </div>
 
+                {/* Credit Settings Section */}
+                <div className="sm:col-span-2 bg-[#f0fdf4] dark:bg-[#072e26]/50 p-3 rounded-[3px] border border-[#bbf7d0]/30 dark:border-emerald-500/30 mb-2">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Tag className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-[11px] font-bold text-[#065f46] dark:text-emerald-300 uppercase tracking-wider">
+                      Credit Settings
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        Credit Limit (Rs.)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0"
+                        value={formState.creditLimit}
+                        onChange={(e) =>
+                          setFormState({ ...formState, creditLimit: parseFloat(e.target.value) || 0 })
+                        }
+                        className="w-full px-2 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
+                      />
+                      <span className="text-[9px] text-slate-400 italic mt-0.5">
+                        0 = no limit
+                      </span>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        Payment Terms (Days)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="30"
+                        value={formState.paymentTermsDays}
+                        onChange={(e) =>
+                          setFormState({ ...formState, paymentTermsDays: parseInt(e.target.value) || 0 })
+                        }
+                        className="w-full px-2 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
+                      />
+                      <span className="text-[9px] text-slate-400 italic mt-0.5">
+                        Days until due
+                      </span>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        Opening Balance (Rs.)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0"
+                        value={formState.openingBalance}
+                        onChange={(e) =>
+                          setFormState({ ...formState, openingBalance: parseFloat(e.target.value) || 0 })
+                        }
+                        className="w-full px-2 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
+                      />
+                      <span className="text-[9px] text-slate-400 italic mt-0.5">
+                        Migrated dues
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Status Toggle */}
                 <div className="sm:col-span-2 flex items-center gap-2 pt-1">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -1068,6 +1142,26 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
                   <span className="text-[10px] uppercase text-slate-400 font-bold block">Total Purchases</span>
                   <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-400 text-xs mt-0.5 block">
                     {selectedSupplier.purchasesCount || selectedSupplier.purchases?.length || 0} orders recorded
+                  </span>
+                </div>
+
+                {/* Credit Settings */}
+                <div>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold block">Credit Limit</span>
+                  <span className={`font-mono font-bold text-xs mt-0.5 block ${selectedSupplier.creditLimit && selectedSupplier.creditLimit > 0 ? 'text-[#0B3D32]' : 'text-slate-400'}`}>
+                    {selectedSupplier.creditLimit && selectedSupplier.creditLimit > 0 ? `Rs. ${selectedSupplier.creditLimit}` : 'No Limit'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold block">Payment Terms</span>
+                  <span className="font-mono font-bold text-xs mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {selectedSupplier.paymentTermsDays && selectedSupplier.paymentTermsDays > 0 ? `${selectedSupplier.paymentTermsDays} days` : 'Standard'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold block">Opening Balance</span>
+                  <span className={`font-mono font-bold text-xs mt-0.5 block ${selectedSupplier.openingBalance && selectedSupplier.openingBalance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                    {selectedSupplier.openingBalance && selectedSupplier.openingBalance > 0 ? `Rs. ${selectedSupplier.openingBalance}` : '—'}
                   </span>
                 </div>
               </div>
