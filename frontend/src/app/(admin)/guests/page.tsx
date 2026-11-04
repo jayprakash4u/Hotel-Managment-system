@@ -525,7 +525,7 @@ function GuestDirectoryContent() {
       {/* -----------------------------------------------------------------------
           FILTER TOOLBAR: Box-type Status Buttons (No numbers) & Search Bar
           ----------------------------------------------------------------------- */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 pt-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
         {/* Left Side: Box-type Status Buttons */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {tabs.map((tab) => {
@@ -548,15 +548,15 @@ function GuestDirectoryContent() {
           })}
         </div>
 
-        {/* Right Side: Search Box */}
-        <div className="relative flex-1 sm:w-64 min-w-[200px] self-start xl:self-auto w-full xl:w-auto">
+        {/* Right Side: Search Box (compact, aligned to right) */}
+        <div className="relative w-full sm:w-52 shrink-0 sm:ml-auto">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search guest, phone, room, ID..."
-            className="w-full h-[30px] rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card pl-8 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
+            placeholder="Search guest, phone, room..."
+            className="w-full h-[28px] rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card pl-8 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
           />
           {searchQuery && (
             <button
