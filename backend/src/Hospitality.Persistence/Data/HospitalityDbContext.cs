@@ -41,6 +41,7 @@ public class HospitalityDbContext : DbContext
     public DbSet<PackingMaterial> PackingMaterials => Set<PackingMaterial>();
     public DbSet<PackingTransaction> PackingTransactions => Set<PackingTransaction>();
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<AccountMapping> AccountMappings => Set<AccountMapping>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
 
@@ -234,6 +235,19 @@ public class HospitalityDbContext : DbContext
 
         modelBuilder.Entity<Account>()
             .HasIndex(a => a.AccountType);
+
+        modelBuilder.Entity<Account>()
+            .HasOne(a => a.Parent)
+            .WithMany(p => p.Children)
+            .HasForeignKey(a => a.ParentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Account>()
+            .HasIndex(a => a.ParentId);
+
+        modelBuilder.Entity<AccountMapping>()
+            .HasIndex(m => new { m.HotelId, m.TransactionType })
+            .IsUnique();
 
         modelBuilder.Entity<JournalEntry>()
             .HasMany(j => j.Lines)

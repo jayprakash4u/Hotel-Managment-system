@@ -883,7 +883,7 @@ export interface CreditCustomerSummaryReport {
 // ACCOUNTING: CHART OF ACCOUNTS & JOURNAL ENTRIES & GENERAL LEDGER
 // ==========================================
 
-export type AccountCategoryType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+export type AccountCategoryType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'REVENUE' | 'EXPENSE';
 
 export interface AccountItem {
   id: string;
@@ -893,7 +893,13 @@ export interface AccountItem {
   accountType: AccountCategoryType;
   subCategory: string;
   normalBalance: 'DEBIT' | 'CREDIT';
+  parentId?: string | null;
+  accountLevel: number;
+  isGroup: boolean;
+  isControlAccount: boolean;
+  allowManualEntries: boolean;
   openingBalance: number;
+  openingBalanceDate?: string | null;
   currentBalance: number;
   description?: string | null;
   isActive: boolean;
@@ -904,10 +910,13 @@ export interface AccountItem {
 
 export interface ChartOfAccountsSummary {
   totalAccounts: number;
+  postingAccountsCount?: number;
+  groupAccountsCount?: number;
   totalAssets: number;
   totalLiabilities: number;
   totalEquity: number;
-  totalRevenue: number;
+  totalIncome: number;
+  totalRevenue?: number;
   totalExpenses: number;
   netProfitLoss: number;
 }
@@ -915,6 +924,27 @@ export interface ChartOfAccountsSummary {
 export interface ChartOfAccountsResponse {
   accounts: AccountItem[];
   summary: ChartOfAccountsSummary;
+}
+
+export interface AccountMappingItem {
+  id: string;
+  hotelId: string;
+  transactionType: string;
+  transactionCategory: string;
+  debitAccountId: string;
+  debitAccount?: AccountItem;
+  creditAccountId: string;
+  creditAccount?: AccountItem;
+  taxAccountId?: string | null;
+  taxAccount?: AccountItem;
+  serviceChargeAccountId?: string | null;
+  serviceChargeAccount?: AccountItem;
+  discountAccountId?: string | null;
+  discountAccount?: AccountItem;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface JournalEntryLineItem {
@@ -933,15 +963,29 @@ export interface JournalEntryItem {
   hotelId: string;
   entryNumber: string;
   entryDate: string;
+  entryType: 'GENERAL' | 'ADJUSTMENT' | 'OPENING' | 'CLOSING' | string;
   reference?: string | null;
   description: string;
   totalDebit: number;
   totalCredit: number;
-  status: 'POSTED' | 'DRAFT' | 'VOID';
+  status: 'POSTED' | 'DRAFT' | 'REVERSED' | 'VOID' | string;
   sourceModule: string;
   createdBy: string;
+  postedBy?: string | null;
+  postedAt?: string | null;
+  reversedFromId?: string | null;
   createdAt: string;
+  updatedAt?: string | null;
   lines: JournalEntryLineItem[];
+}
+
+export interface JournalEntriesSummary {
+  totalEntries: number;
+  postedEntries: number;
+  draftEntries: number;
+  reversedEntries: number;
+  periodDebit: number;
+  periodCredit: number;
 }
 
 export interface JournalEntriesResponse {
@@ -950,6 +994,23 @@ export interface JournalEntriesResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+  summary?: JournalEntriesSummary;
+}
+
+export interface CreateJournalEntryPayload {
+  entryNumber?: string;
+  entryDate?: string;
+  entryType?: string;
+  reference?: string;
+  description: string;
+  status?: 'DRAFT' | 'POSTED' | string;
+  sourceModule?: string;
+  lines: Array<{
+    accountId: string;
+    lineDescription?: string;
+    debit: number;
+    credit: number;
+  }>;
 }
 
 export interface GeneralLedgerTransaction {
@@ -957,10 +1018,17 @@ export interface GeneralLedgerTransaction {
   journalEntryId: string;
   entryNumber: string;
   entryDate: string;
+  entryType?: string;
   reference?: string | null;
   description: string;
   lineDescription?: string | null;
   sourceModule: string;
+  sourceTransactionId?: string | null;
+  status?: string;
+  createdBy?: string;
+  postedBy?: string | null;
+  postedAt?: string | null;
+  reversedFromId?: string | null;
   debit: number;
   credit: number;
   runningBalance: number;
@@ -977,4 +1045,75 @@ export interface GeneralLedgerReport {
   netChange: number;
   transactionCount: number;
   transactions: GeneralLedgerTransaction[];
+}
+
+export interface AllAccountsLedgerItem {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  subCategory?: string;
+  normalBalance: string;
+  openingBalance: number;
+  openingDebit: number;
+  openingCredit: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingBalance: number;
+  closingDebit: number;
+  closingCredit: number;
+}
+
+export interface AllAccountsLedgerReport {
+  fromDate: string;
+  toDate: string;
+  accountType: string;
+  totalAccounts: number;
+  totals: {
+    openingDebit: number;
+    openingCredit: number;
+    periodDebit: number;
+    periodCredit: number;
+    closingDebit: number;
+    closingCredit: number;
+  };
+  accounts: AllAccountsLedgerItem[];
+}
+
+export interface TrialBalanceItem {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  subCategory?: string;
+  normalBalance: string;
+  openingBalance: number;
+  openingDebit: number;
+  openingCredit: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingBalance: number;
+  closingDebit: number;
+  closingCredit: number;
+}
+
+export interface TrialBalanceTotals {
+  openingDebit: number;
+  openingCredit: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingDebit: number;
+  closingCredit: number;
+}
+
+export interface TrialBalanceReport {
+  fromDate: string;
+  toDate: string;
+  accountType: string;
+  showZeroBalances: boolean;
+  totalAccounts: number;
+  isBalanced: boolean;
+  difference: number;
+  totals: TrialBalanceTotals;
+  accounts: TrialBalanceItem[];
 }

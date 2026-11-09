@@ -466,7 +466,13 @@ using (var scope = app.Services.CreateScope())
                 ""accountType"" text NOT NULL DEFAULT 'ASSET',
                 ""subCategory"" text NOT NULL DEFAULT 'Current Asset',
                 ""normalBalance"" text NOT NULL DEFAULT 'DEBIT',
+                ""parentId"" text,
+                ""accountLevel"" integer NOT NULL DEFAULT 3,
+                ""isGroup"" boolean NOT NULL DEFAULT false,
+                ""isControlAccount"" boolean NOT NULL DEFAULT false,
+                ""allowManualEntries"" boolean NOT NULL DEFAULT true,
                 ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone,
                 ""currentBalance"" double precision NOT NULL DEFAULT 0,
                 ""description"" text,
                 ""isActive"" boolean NOT NULL DEFAULT true,
@@ -474,25 +480,62 @@ using (var scope = app.Services.CreateScope())
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""parentId"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""accountLevel"" integer NOT NULL DEFAULT 3;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""isGroup"" boolean NOT NULL DEFAULT false;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""isControlAccount"" boolean NOT NULL DEFAULT false;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""allowManualEntries"" boolean NOT NULL DEFAULT true;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""openingBalanceDate"" timestamp with time zone;
             CREATE UNIQUE INDEX IF NOT EXISTS ""ix_account_hotel_code"" ON ""Account"" (""hotelId"", ""accountCode"");
             CREATE INDEX IF NOT EXISTS ""ix_account_type"" ON ""Account"" (""accountType"");
+            CREATE INDEX IF NOT EXISTS ""ix_account_parent"" ON ""Account"" (""parentId"");
+
+            CREATE TABLE IF NOT EXISTS ""AccountMapping"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""transactionType"" text NOT NULL,
+                ""transactionCategory"" text NOT NULL DEFAULT 'OPERATIONAL',
+                ""debitAccountId"" text NOT NULL,
+                ""creditAccountId"" text NOT NULL,
+                ""taxAccountId"" text,
+                ""serviceChargeAccountId"" text,
+                ""discountAccountId"" text,
+                ""description"" text,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ""ix_accountmapping_hotel_type"" ON ""AccountMapping"" (""hotelId"", ""transactionType"");
 
             CREATE TABLE IF NOT EXISTS ""JournalEntry"" (
                 ""id"" text PRIMARY KEY,
                 ""hotelId"" text NOT NULL,
                 ""entryNumber"" text NOT NULL,
                 ""entryDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""entryType"" text NOT NULL DEFAULT 'GENERAL',
                 ""reference"" text,
                 ""description"" text NOT NULL DEFAULT '',
                 ""totalDebit"" double precision NOT NULL DEFAULT 0,
                 ""totalCredit"" double precision NOT NULL DEFAULT 0,
                 ""status"" text NOT NULL DEFAULT 'POSTED',
                 ""sourceModule"" text NOT NULL DEFAULT 'MANUAL',
+                ""sourceTransactionId"" text,
                 ""createdBy"" text NOT NULL DEFAULT 'Admin',
-                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now()
+                ""postedBy"" text,
+                ""postedAt"" timestamp with time zone,
+                ""reversedFromId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone
             );
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""entryType"" text NOT NULL DEFAULT 'GENERAL';
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""sourceTransactionId"" text;
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""postedBy"" text;
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""postedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""reversedFromId"" text;
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""updatedAt"" timestamp with time zone;
             CREATE INDEX IF NOT EXISTS ""ix_journalentry_hotel_date"" ON ""JournalEntry"" (""hotelId"", ""entryDate"");
             CREATE INDEX IF NOT EXISTS ""ix_journalentry_number"" ON ""JournalEntry"" (""entryNumber"");
+            CREATE INDEX IF NOT EXISTS ""ix_journalentry_status"" ON ""JournalEntry"" (""status"");
 
             CREATE TABLE IF NOT EXISTS ""JournalEntryLine"" (
                 ""id"" text PRIMARY KEY,

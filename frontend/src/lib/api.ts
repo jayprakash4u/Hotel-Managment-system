@@ -1197,23 +1197,37 @@ export const api = {
   },
 
   // Accounts (Chart of Accounts, Journal Entries, General Ledger)
-  getChartOfAccounts: (params?: { type?: string; search?: string; activeOnly?: boolean }) => {
+  getChartOfAccounts: (params?: { type?: string; search?: string; activeOnly?: boolean; parentId?: string }) => {
     const q = new URLSearchParams();
     if (params?.type) q.append('type', params.type);
     if (params?.search) q.append('search', params.search);
     if (params?.activeOnly) q.append('activeOnly', 'true');
+    if (params?.parentId) q.append('parentId', params.parentId);
     const qs = q.toString() ? `?${q.toString()}` : '';
     return fetcher<import('./types').ChartOfAccountsResponse>(`/api/accounts/chart${qs}`);
+  },
+
+  suggestAccountCode: (params?: { parentId?: string; type?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.parentId) q.append('parentId', params.parentId);
+    if (params?.type) q.append('type', params.type);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{ suggestedCode: string }>(`/api/accounts/chart/suggest-code${qs}`);
   },
 
   createAccount: (data: {
     accountCode: string;
     accountName: string;
     accountType: string;
+    parentId?: string;
     subCategory?: string;
     normalBalance?: string;
+    isGroup?: boolean;
+    isControlAccount?: boolean;
+    allowManualEntries?: boolean;
     openingBalance: number;
     description?: string;
+    isActive?: boolean;
   }) => {
     return fetcher<import('./types').AccountItem>('/api/accounts/chart', {
       method: 'POST',
@@ -1223,9 +1237,12 @@ export const api = {
 
   updateAccount: (id: string, data: {
     accountName?: string;
+    parentId?: string;
     subCategory?: string;
     description?: string;
     isActive?: boolean;
+    allowManualEntries?: boolean;
+    isControlAccount?: boolean;
   }) => {
     return fetcher<import('./types').AccountItem>(`/api/accounts/chart/${id}`, {
       method: 'PUT',
@@ -1245,11 +1262,32 @@ export const api = {
     });
   },
 
-  getJournalEntries: (params?: { fromDate?: string; toDate?: string; status?: string; search?: string; page?: number; pageSize?: number }) => {
+  getAccountMappings: () => {
+    return fetcher<import('./types').AccountMappingItem[]>('/api/accounts/mappings');
+  },
+
+  saveAccountMapping: (data: {
+    transactionType: string;
+    transactionCategory: string;
+    debitAccountId: string;
+    creditAccountId: string;
+    taxAccountId?: string;
+    serviceChargeAccountId?: string;
+    discountAccountId?: string;
+    description?: string;
+  }) => {
+    return fetcher<import('./types').AccountMappingItem>('/api/accounts/mappings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getJournalEntries: (params?: { fromDate?: string; toDate?: string; status?: string; entryType?: string; search?: string; page?: number; pageSize?: number }) => {
     const q = new URLSearchParams();
     if (params?.fromDate) q.append('fromDate', params.fromDate);
     if (params?.toDate) q.append('toDate', params.toDate);
     if (params?.status) q.append('status', params.status);
+    if (params?.entryType) q.append('entryType', params.entryType);
     if (params?.search) q.append('search', params.search);
     if (params?.page) q.append('page', params.page.toString());
     if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
@@ -1257,25 +1295,44 @@ export const api = {
     return fetcher<import('./types').JournalEntriesResponse>(`/api/accounts/journal-entries${qs}`);
   },
 
+  getNextJournalNumber: () => {
+    return fetcher<{ nextNumber: string }>('/api/accounts/journal-entries/next-number');
+  },
+
   getJournalEntryById: (id: string) => {
     return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}`);
   },
 
-  createJournalEntry: (data: {
-    entryDate?: string;
-    reference?: string;
-    description: string;
-    sourceModule?: string;
-    lines: Array<{
-      accountId: string;
-      lineDescription?: string;
-      debit: number;
-      credit: number;
-    }>;
-  }) => {
+  createJournalEntry: (data: import('./types').CreateJournalEntryPayload) => {
     return fetcher<import('./types').JournalEntryItem>('/api/accounts/journal-entries', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  updateJournalEntry: (id: string, data: import('./types').CreateJournalEntryPayload) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteJournalEntry: (id: string) => {
+    return fetcher<{ id: string }>(`/api/accounts/journal-entries/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  postJournalEntry: (id: string) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}/post`, {
+      method: 'POST',
+    });
+  },
+
+  reverseJournalEntry: (id: string, data?: { reason?: string }) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
     });
   },
 
@@ -1285,13 +1342,35 @@ export const api = {
     });
   },
 
-  getGeneralLedger: (params?: { accountId?: string; fromDate?: string; toDate?: string }) => {
+  getGeneralLedger: (params?: { accountId?: string; fromDate?: string; toDate?: string; sourceModule?: string; search?: string }) => {
     const q = new URLSearchParams();
     if (params?.accountId) q.append('accountId', params.accountId);
     if (params?.fromDate) q.append('fromDate', params.fromDate);
     if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.sourceModule) q.append('sourceModule', params.sourceModule);
+    if (params?.search) q.append('search', params.search);
     const qs = q.toString() ? `?${q.toString()}` : '';
     return fetcher<import('./types').GeneralLedgerReport>(`/api/accounts/general-ledger${qs}`);
+  },
+
+  getAllAccountsLedger: (params?: { fromDate?: string; toDate?: string; accountType?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.accountType) q.append('accountType', params.accountType);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').AllAccountsLedgerReport>(`/api/accounts/general-ledger/all-accounts${qs}`);
+  },
+
+  getTrialBalance: (params?: { fromDate?: string; toDate?: string; accountType?: string; showZeroBalances?: boolean; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.accountType) q.append('accountType', params.accountType);
+    if (params?.showZeroBalances !== undefined) q.append('showZeroBalances', params.showZeroBalances.toString());
+    if (params?.search) q.append('search', params.search);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').TrialBalanceReport>(`/api/accounts/trial-balance${qs}`);
   },
 };
 

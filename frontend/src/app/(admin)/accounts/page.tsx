@@ -8,10 +8,30 @@ import Link from 'next/link';
 import { ArrowLeft, Users } from 'lucide-react';
 import { AccountsNavBoxes } from '@/components/common/AccountsNavBoxes';
 import CustomerLedgerAccountsTab from '@/components/accounts/CustomerLedgerAccountsTab';
+import ChartOfAccountsTab from '@/components/accounts/ChartOfAccountsTab';
+import JournalEntriesTab from '@/components/accounts/JournalEntriesTab';
+import GeneralLedgerTab from '@/components/accounts/GeneralLedgerTab';
+import TrialBalanceTab from '@/components/accounts/TrialBalanceTab';
 
 function AccountsContent() {
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab');
+
+  if (currentTab === 'chart-of-accounts') {
+    return <ChartOfAccountsTab />;
+  }
+
+  if (currentTab === 'journal-entries') {
+    return <JournalEntriesTab />;
+  }
+
+  if (currentTab === 'general-ledger') {
+    return <GeneralLedgerTab />;
+  }
+
+  if (currentTab === 'trial-balance') {
+    return <TrialBalanceTab />;
+  }
 
   if (currentTab === 'customer-ledger') {
     return (
