@@ -1105,6 +1105,7 @@ export default function HotelSetupContent({
   const [newStock, setNewStock] = useState<string>('');
   const [newUnit, setNewUnit] = useState<string>('pieces');
   const [newBasePrice, setNewBasePrice] = useState<string>('');
+  const [newCapacity, setNewCapacity] = useState<string>('4');
 
   // Available categories for menu items setup
   const availableCategories = useMemo(() => {
@@ -1147,6 +1148,30 @@ export default function HotelSetupContent({
       INITIAL_MASTER_ITEMS['facility-category-master'] ||
       []
     );
+  }, [masterItemsMap]);
+
+  // Available categories for table setup (Dining Hall, Corridor Side, Main Area, etc.)
+  const availableTableCategories = useMemo(() => {
+    const saved =
+      masterItemsMap['table-categories-setup'] ||
+      INITIAL_MASTER_ITEMS['table-categories-setup'];
+    if (saved && saved.length > 0) return saved;
+
+    const defaults = [
+      'Dining Hall',
+      'Corridor Side',
+      'Main Area',
+      'Indoor Fine Dining',
+      'Skyline Rooftop Terrace',
+      'Poolside Lounge & Bar',
+      'Private Executive Dining',
+      'Garden Patio & Lawn',
+    ];
+    return defaults.map((name, idx) => ({
+      id: `table-cat-${idx + 1}`,
+      code: `TC${idx + 1}`,
+      name,
+    }));
   }, [masterItemsMap]);
 
   // Available quantities for quantity-based pricing & unit selection
@@ -1379,13 +1404,15 @@ export default function HotelSetupContent({
   const isItemSetup = activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup';
   const isMenuItem = activeSubBox.id === 'menu-items-setup';
   const isFacilityItem = activeSubBox.id === 'facility-master';
-  const hasCategory = isMenuItem || isFacilityItem || isItemSetup;
+  const isTableSetup = activeSubBox.id === 'table-setup';
+  const hasCategory = isMenuItem || isFacilityItem || isItemSetup || isTableSetup;
 
   const currentCategoryList = useMemo(() => {
     if (isItemSetup) return availableItemCategories;
     if (isFacilityItem) return availableFacilityCategories;
+    if (isTableSetup) return availableTableCategories;
     return availableCategories;
-  }, [isItemSetup, isFacilityItem, availableItemCategories, availableFacilityCategories, availableCategories]);
+  }, [isItemSetup, isFacilityItem, isTableSetup, availableItemCategories, availableFacilityCategories, availableTableCategories, availableCategories]);
 
   // Available unique categories for the table filter dropdown
   const tableCategoryOptions = useMemo(() => {
@@ -1473,6 +1500,19 @@ export default function HotelSetupContent({
       setNewTrackStock(true);
       setNewStock('50');
       setNewOrder(((masterItemsMap[activeSubBox.id] || currentItems).length + 1).toString());
+      setShowAddForm(true);
+      return;
+    }
+
+    if (activeSubBox.id === 'table-setup') {
+      const defaultTableCat = tableCategoryFilter !== 'all' ? tableCategoryFilter : (availableTableCategories[0]?.name || 'Dining Hall');
+      const nextNum = (masterItemsMap['table-setup'] || currentItems).length + 1;
+      setNewCode(`T-${nextNum < 10 ? '0' : ''}${nextNum}`);
+      setNewName(`Table ${nextNum}`);
+      setNewDescription('');
+      setNewCategory(defaultTableCat);
+      setNewCapacity('4');
+      setNewOrder(nextNum.toString());
       setShowAddForm(true);
       return;
     }
@@ -1603,6 +1643,17 @@ export default function HotelSetupContent({
       return;
     }
 
+    if (activeSubBox.id === 'table-setup') {
+      setNewCode(item.code);
+      setNewName(item.name);
+      setNewDescription(item.description || '');
+      setNewCategory(item.category || availableTableCategories[0]?.name || 'Dining Hall');
+      setNewCapacity((item.capacity || 4).toString());
+      setNewOrder((item.order || 1).toString());
+      setShowAddForm(true);
+      return;
+    }
+
     setNewCode(item.code);
     setNewName(item.name);
     setNewDescription(item.description || '');
@@ -1709,6 +1760,39 @@ export default function HotelSetupContent({
         ],
       }));
       setNewCategory(trimmed);
+      return;
+    }
+
+    if (isTableSetup) {
+      const existing = availableTableCategories.find(
+        (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (existing) {
+        setNewCategory(existing.name);
+        return;
+      }
+
+      const code =
+        trimmed.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '') ||
+        `TC${availableTableCategories.length + 1}`;
+
+      const newCatEntry: MasterItemEntry = {
+        id: `table-cat-${Date.now()}`,
+        code,
+        name: trimmed,
+        order: availableTableCategories.length + 1,
+        isActive: true,
+      };
+
+      setMasterItemsMap((prev) => ({
+        ...prev,
+        'table-categories-setup': [
+          ...(prev['table-categories-setup'] || availableTableCategories),
+          newCatEntry,
+        ],
+      }));
+      setNewCategory(trimmed);
+      toast.celebrate('Table Category Added', `"${trimmed}" added as a new dining area.`);
       return;
     }
 
@@ -1981,6 +2065,18 @@ export default function HotelSetupContent({
         }
       }
 
+      if (isTableSetup) {
+        try {
+          await api.updateTable(editingItemId, {
+            tableNumber: code || newName.trim(),
+            capacity: parseInt(newCapacity, 10) || 4,
+            section: newCategory.trim() || 'Dining Hall',
+          });
+        } catch (err) {
+          console.warn('Could not sync table update to backend:', err);
+        }
+      }
+
       setMasterItemsMap((prev) => {
         const updatedList = (prev[activeSubBox.id] || currentItems).map((item) =>
           item.id === editingItemId
@@ -1989,8 +2085,11 @@ export default function HotelSetupContent({
               code: code || item.code,
               name: newName.trim(),
               description: newDescription.trim() || undefined,
-              ...(isItemSetup || isMenuItem || isFacilityItem
-                ? { category: newCategory.trim() || (isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General') }
+              ...(isItemSetup || isMenuItem || isFacilityItem || isTableSetup
+                ? {
+                    category: newCategory.trim() || (isTableSetup ? 'Dining Hall' : isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General'),
+                    ...(isTableSetup ? { capacity: parseInt(newCapacity, 10) || 4 } : {}),
+                  }
                 : {}),
               basePrice: computedBasePrice ?? item.basePrice,
               quantityPrices: parsedQuantityPrices ?? item.quantityPrices,
@@ -2064,13 +2163,28 @@ export default function HotelSetupContent({
         }
       }
 
+      if (isTableSetup) {
+        try {
+          await api.createTable({
+            tableNumber: code || newName.trim(),
+            capacity: parseInt(newCapacity, 10) || 4,
+            section: newCategory.trim() || 'Dining Hall',
+          });
+        } catch (err) {
+          console.warn('Could not sync table create to backend:', err);
+        }
+      }
+
       const newItem: MasterItemEntry = {
         id: dbItemId || `${activeSubBox.id}-${Date.now()}`,
         code: code || 'NEW',
         name: newName.trim(),
         description: newDescription.trim() || undefined,
-        ...(isItemSetup || isMenuItem || isFacilityItem
-          ? { category: newCategory.trim() || (isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General') }
+        ...(isItemSetup || isMenuItem || isFacilityItem || isTableSetup
+          ? {
+              category: newCategory.trim() || (isTableSetup ? 'Dining Hall' : isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General'),
+              ...(isTableSetup ? { capacity: parseInt(newCapacity, 10) || 4 } : {}),
+            }
           : {}),
         basePrice: computedBasePrice,
         quantityPrices: parsedQuantityPrices,
@@ -2661,6 +2775,22 @@ export default function HotelSetupContent({
                         <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
                           <span className="inline-flex items-center rounded-[2px] bg-[#F4F7F5] dark:bg-[#0A2E26] px-2 py-0.5 text-[11px] font-medium text-[#33463E] dark:text-emerald-200 border border-[#DCE3DF] dark:border-[#145447]">
                             {item.category || (isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General')}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Table Setup Capacity Column */}
+                      {isTableSetup && (
+                        <th className="py-2.5 px-3.5 text-center font-bold tracking-wider text-[11px] uppercase border-r border-[#E5EEE9] dark:border-[#145447] w-28">
+                          CAPACITY
+                        </th>
+                      )}
+
+                      {/* Table Setup Capacity Value */}
+                      {isTableSetup && (
+                        <td className="py-2.5 px-3.5 whitespace-nowrap text-center border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-[#FAFBF9] dark:bg-[#061B16] text-[#0B3D32] dark:text-emerald-300 border border-[#DCE3DF] dark:border-[#145447]">
+                            {item.capacity || 4} Guests
                           </span>
                         </td>
                       )}
@@ -3663,6 +3793,107 @@ export default function HotelSetupContent({
                         value={newDescription}
                         onChange={(e) => setNewDescription(e.target.value)}
                         placeholder="Description (optional)"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
+                      />
+                    </div>
+                  </>
+                ) : isTableSetup ? (
+                  <>
+                    {/* Table Name */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                        Table Name / Label <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        placeholder="e.g. Table T-101, Window Table 1, Booth 2"
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
+                      />
+                    </div>
+
+                    {/* Table Category / Dining Area */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                          Table Category / Dining Area <span className="text-rose-500">*</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          Dining Hall, Corridor Side, Main Area, etc.
+                        </span>
+                      </div>
+                      <CategoryAutocomplete
+                        value={newCategory}
+                        onChange={(name) => setNewCategory(name)}
+                        onAddNewCategory={handleAddNewCategory}
+                        availableCategories={availableTableCategories}
+                        placeholder="Select or enter dining category (e.g. Dining Hall, Corridor Side, Main Area)..."
+                      />
+                    </div>
+
+                    {/* Code, Capacity & Order Grid */}
+                    <div className="grid grid-cols-12 gap-3">
+                      {/* Table Code / Number */}
+                      <div className="col-span-12 sm:col-span-5">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                          Table Number / Code <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newCode}
+                          onChange={(e) => setNewCode(e.target.value)}
+                          placeholder="e.g. T-101, C-01"
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs placeholder:normal-case"
+                        />
+                      </div>
+
+                      {/* Seating Capacity */}
+                      <div className="col-span-6 sm:col-span-4">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                          Capacity (Guests) <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          required
+                          value={newCapacity}
+                          onChange={(e) => setNewCapacity(e.target.value)}
+                          placeholder="4"
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                        />
+                      </div>
+
+                      {/* Display Order */}
+                      <div className="col-span-6 sm:col-span-3">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                          Order
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={newOrder}
+                          onChange={(e) => setNewOrder(e.target.value)}
+                          placeholder="1"
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Description / Features */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                        Description / Location Notes (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                        placeholder="e.g. Window side booth, power outlet nearby..."
                         className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                       />
                     </div>

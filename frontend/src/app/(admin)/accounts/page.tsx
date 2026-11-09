@@ -52,7 +52,7 @@ function AccountsContent() {
             Accounts &amp; Financial Management Hub
           </span>
         </div>
-        <AccountsNavBoxes activeId={currentTab || 'overview'} />
+        <AccountsNavBoxes activeId={currentTab || ''} />
       </div>
     </div>
   );

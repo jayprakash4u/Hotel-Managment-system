@@ -1122,50 +1122,40 @@ function FrontDeskContent() {
                       setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
                     }}
                     className={cn(
-                      'group relative flex flex-col justify-between p-3.5 sm:p-4 rounded-[6px] border transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer select-none min-h-[210px]',
-                      openOptionMenuId === room.id ? (isDarkCard ? 'z-50 shadow-md ring-2 ring-white/60' : 'z-50 shadow-md ring-2 ring-[#0B3D32]') : 'z-10',
-                      // 1. Occupied (Checked In): Solid Dark Pine Emerald (#0B3D32)
-                      isOccupied && 'bg-brand border-brand text-white hover:bg-brand-hover dark:bg-surface-hover dark:border-brand shadow-sm',
-                      // 2. Booked (Arriving / Reserved): Clean card with sky accent
-                      isBooked && 'bg-sky-50/50 dark:bg-sky-950/30 border-sky-300 dark:border-sky-800 text-body dark:text-white',
-                      // 3. Departing: Clean card with rose accent
-                      isDeparting && 'bg-rose-50/50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-body dark:text-white',
-                      // 4. Dirty: Clean card with amber accent
-                      isDirty && !isOccupied && 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-body dark:text-white',
-                      // 5. Out of Service / Maintenance: Muted slate card
-                      isMaintenance && 'bg-surface-muted dark:bg-surface-card border-border-default dark:border-border-default text-muted opacity-75',
-                      // 6. Available: Crisp light card with emerald hover
-                      isAvailable && !isDirty && 'bg-white dark:bg-surface-card border-border-default dark:border-border-default hover:border-emerald-400 dark:hover:border-emerald-600/70 text-body dark:text-white'
+                      'group relative flex flex-col justify-between p-4 rounded-[8px] border transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer select-none min-h-[162px] sm:min-h-[170px]',
+                      openOptionMenuId === room.id
+                        ? (isDarkCard ? 'z-50 shadow-md ring-2 ring-white/60' : 'z-50 shadow-md ring-2 ring-[#0B3D32]')
+                        : 'z-10',
+                      // 1. Occupied: Brand Emerald (#0B3D32)
+                      isOccupied && 'bg-[#0B3D32] border-[#0B3D32] text-white hover:bg-[#093229]',
+                      // 2. Booked: Clean sky accent
+                      isBooked && 'bg-sky-50/40 dark:bg-sky-950/20 border-sky-200 dark:border-sky-800 text-body dark:text-white',
+                      // 3. Departing: Clean rose accent
+                      isDeparting && 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-body dark:text-white',
+                      // 4. Dirty: Clean amber accent
+                      isDirty && !isOccupied && 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-body dark:text-white',
+                      // 5. Out of Service / Maintenance: Muted slate
+                      isMaintenance && 'bg-surface-muted/60 dark:bg-surface-card border-border-default text-muted opacity-80',
+                      // 6. Available: Crisp white card with subtle border
+                      isAvailable && !isDirty && 'bg-white dark:bg-surface-card border-border-default hover:border-emerald-500/50 text-body dark:text-white'
                     )}
                   >
-                    {/* Top Row: Room Number + Floor + Bed Type + Dirty Tag (Left) | Status Badge & 3-Dots Trigger (Right) */}
-                    <div className="flex items-center justify-between gap-1.5 mb-2">
-                      <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
-                        <span className="text-lg sm:text-xl font-black font-mono tracking-tight leading-tight">
+                    {/* Top Row: Room # + Type + Dirty Tag (Left) | Status Badge & 3-Dots Trigger (Right) */}
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="min-w-0 flex items-center gap-2 truncate">
+                        <span className="text-lg sm:text-xl font-extrabold font-mono tracking-tight leading-none">
                           {room.number}
                         </span>
                         <span
                           className={cn(
-                            'px-1.5 py-0.5 rounded-[3px] text-[9px] font-mono font-bold border',
-                            isDarkCard
-                              ? 'bg-white/15 text-white/90 border-white/20'
-                              : 'bg-surface-muted dark:bg-slate-800 text-muted dark:text-slate-300 border-border-default dark:border-border-default'
+                            'text-[10.5px] font-semibold uppercase tracking-wider truncate',
+                            isDarkCard ? 'text-white/70' : 'text-muted'
                           )}
                         >
-                          Fl {room.floor}
-                        </span>
-                        <span
-                          className={cn(
-                            'px-1.5 py-0.5 rounded-[3px] text-[9px] font-mono font-bold border',
-                            isDarkCard
-                              ? 'bg-white/15 text-white/90 border-white/20'
-                              : 'bg-surface-muted dark:bg-slate-800 text-muted dark:text-slate-300 border-border-default dark:border-border-default'
-                          )}
-                        >
-                          {room.bedType || 'Room'}
+                          {room.type}
                         </span>
                         {isDirty && !isOccupied && (
-                          <span className="px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                          <span className="shrink-0 px-1.5 py-0.5 rounded-[4px] text-[8.5px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-400/40">
                             Dirty
                           </span>
                         )}
@@ -1173,38 +1163,36 @@ function FrontDeskContent() {
 
                       {/* Right side: Status Badge + 3-Dots Trigger */}
                       <div className="shrink-0 flex items-center gap-1.5">
-                        <div>
-                          {isOccupied && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-white/15 text-emerald-300 border border-white/20 backdrop-blur-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              <span>Occupied</span>
-                            </span>
-                          )}
-                          {isBooked && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-info-subtle text-info border border-info dark:border-info">
-                              <span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />
-                              <span>Reserved</span>
-                            </span>
-                          )}
-                          {isDeparting && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-danger-subtle text-danger border border-danger dark:border-danger">
-                              <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
-                              <span>Departing</span>
-                            </span>
-                          )}
-                          {isMaintenance && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-slate-200 text-muted dark:bg-slate-700 dark:text-muted border border-border-default">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                              <span>Out of Service</span>
-                            </span>
-                          )}
-                          {isAvailable && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider bg-success-subtle text-success border border-success/40 dark:bg-emerald-900/60 dark:text-success">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              <span>Available</span>
-                            </span>
-                          )}
-                        </div>
+                        {isOccupied && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[9px] font-bold uppercase tracking-wider bg-white/15 text-emerald-300 border border-white/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>Occupied</span>
+                          </span>
+                        )}
+                        {isBooked && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[9px] font-bold uppercase tracking-wider bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-800">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                            <span>Reserved</span>
+                          </span>
+                        )}
+                        {isDeparting && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[9px] font-bold uppercase tracking-wider bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-300/60 dark:border-rose-800">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                            <span>Departing</span>
+                          </span>
+                        )}
+                        {isMaintenance && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[9px] font-bold uppercase tracking-wider bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            <span>Service</span>
+                          </span>
+                        )}
+                        {isAvailable && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[9px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300/60 dark:border-emerald-800">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>Available</span>
+                          </span>
+                        )}
 
                         {/* 3-DOTS OPTION TRIGGER BUTTON & Attached Contextual Dropdown */}
                         <div className="relative">
@@ -1215,15 +1203,15 @@ function FrontDeskContent() {
                               setOpenOptionMenuId(openOptionMenuId === room.id ? null : room.id);
                             }}
                             className={cn(
-                              'p-1 rounded-[4px] transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer',
+                              'p-1 rounded-[5px] transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer',
                               isDarkCard
-                                ? 'text-white/80 hover:text-white hover:bg-white/20'
-                                : 'text-muted hover:text-body dark:text-muted dark:hover:text-white hover:bg-surface-muted dark:hover:bg-slate-800'
+                                ? 'text-white/70 hover:text-white hover:bg-white/20'
+                                : 'text-muted hover:text-body dark:text-muted dark:hover:text-white hover:bg-surface-muted'
                             )}
                             title={`Room ${room.number} Contextual Options`}
                             aria-label={`Room ${room.number} Options`}
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            <MoreVertical className="w-3.5 h-3.5" />
                           </button>
 
                           {openOptionMenuId === room.id && (
@@ -1250,102 +1238,62 @@ function FrontDeskContent() {
                       </div>
                     </div>
 
-                    {/* Middle: Room Type & Context Info (Guest Name, Dates, Rates) */}
-                    <div className="flex-1 flex flex-col gap-1.5 py-1.5">
-                      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                        <span
-                          className={cn(
-                            isDarkCard ? 'text-white/80' : 'text-muted dark:text-muted'
-                          )}
-                        >
-                          {room.type}
-                        </span>
-                        <span
-                          className={cn(
-                            'font-mono font-bold text-xs',
-                            isDarkCard ? 'text-emerald-300' : 'text-brand dark:text-success'
-                          )}
-                        >
-                          Rs. {room.pricePerNight.toLocaleString()}
-                        </span>
-                      </div>
-
-                      {/* Next Booking / Arrival indicator chip (matching Table Board) */}
-                      {isBooked && activeBooking && (
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/check-in?bookingId=${activeBooking.id}`);
-                          }}
-                          className="inline-flex items-center justify-between gap-1.5 px-2 py-1 rounded-[4px] bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/80 text-[11px] font-semibold text-sky-800 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors cursor-pointer"
-                          title={`Reserved for ${activeBooking.guest.firstName} ${activeBooking.guest.lastName}. Click to check in.`}
-                        >
-                          <span className="flex items-center gap-1 truncate">
-                            <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
-                            <span className="truncate">Arrival: {formatDate(activeBooking.checkIn)}</span>
-                          </span>
-                          <span className="text-[10px] font-mono font-bold text-sky-700 dark:text-sky-400 shrink-0">
-                            {activeBooking.checkIn === todayDateStr
-                              ? 'Today'
-                              : activeBooking.checkIn === selectedDate
-                              ? 'On Date'
-                              : formatDate(activeBooking.checkIn)}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Detailed state description in body */}
-                      {isMaintenance ? (
-                        <div className="rounded-[4px] bg-slate-100 dark:bg-slate-800/40 p-2 text-center text-xs text-muted my-auto border border-border-default/60">
-                          <p className="font-semibold flex items-center justify-center gap-1">
-                            <Wrench className="w-3.5 h-3.5" />
-                            <span>Room Out of Service</span>
-                          </p>
-                          <p className="text-[11px] mt-0.5 italic">{room.maintenanceReason || 'Maintenance in progress'}</p>
-                        </div>
-                      ) : isOccupied && activeBooking ? (
-                        <div className="space-y-1 my-auto">
-                          <div className="text-xs flex items-center gap-1.5 text-white/90">
-                            <span className="font-normal opacity-75">Guest:</span>
-                            <strong className="font-semibold text-white">
-                              {activeBooking.guest.firstName} {activeBooking.guest.lastName}
-                            </strong>
+                    {/* Middle: Clean Context Info */}
+                    <div className="py-2.5 flex flex-col justify-center min-h-[46px]">
+                      {isOccupied && activeBooking ? (
+                        <div className="space-y-0.5">
+                          <div className="text-xs sm:text-[13px] font-semibold text-white truncate">
+                            {activeBooking.guest.firstName} {activeBooking.guest.lastName}
                           </div>
-                          <div className="text-[11px] text-white/75 flex items-center justify-between">
-                            <span>Check-out: {formatDate(activeBooking.checkOut)}</span>
-                            <span className="font-mono text-emerald-300 font-semibold">In-House</span>
+                          <div className="text-[11px] text-emerald-200/80 font-mono">
+                            Out: {formatDate(activeBooking.checkOut)}
+                          </div>
+                        </div>
+                      ) : isBooked && activeBooking ? (
+                        <div className="space-y-0.5">
+                          <div className="text-xs sm:text-[13px] font-semibold text-slate-800 dark:text-white truncate">
+                            {activeBooking.guest.firstName} {activeBooking.guest.lastName}
+                          </div>
+                          <div className="text-[11px] text-sky-700 dark:text-sky-300 font-medium font-mono">
+                            Arriving: {activeBooking.checkIn === todayDateStr
+                              ? 'Today'
+                              : formatDate(activeBooking.checkIn)}
                           </div>
                         </div>
                       ) : isDeparting && activeBooking ? (
-                        <div className="space-y-1 my-auto">
-                          <div className="text-xs flex items-center gap-1.5 text-danger font-bold">
-                            <span>Due Checkout Today (11:00 AM)</span>
+                        <div className="space-y-0.5">
+                          <div className="text-xs sm:text-[13px] font-semibold text-rose-950 dark:text-rose-200 truncate">
+                            {activeBooking.guest.firstName} {activeBooking.guest.lastName}
                           </div>
-                          <div className="text-[11px] text-body dark:text-slate-200">
-                            Guest: <strong>{activeBooking.guest.firstName} {activeBooking.guest.lastName}</strong>
+                          <div className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">
+                            Due Today for Check-Out
                           </div>
                         </div>
+                      ) : isMaintenance ? (
+                        <div className="flex items-center gap-1.5 text-xs text-muted">
+                          <Wrench className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{room.maintenanceReason || 'Service In Progress'}</span>
+                        </div>
                       ) : isDirty ? (
-                        <div className="text-xs flex items-center gap-1.5 text-amber-700 dark:text-amber-400 my-auto">
+                        <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
                           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                          <span>Room dirty · Sanitizing needed</span>
+                          <span className="truncate">Sanitization Required</span>
                         </div>
                       ) : (
                         /* Available Room */
-                        <div className="my-auto space-y-1">
-                          <div className="text-xs flex items-center gap-1 text-success dark:text-brand">
-                            <Sparkles className="w-3 h-3 shrink-0" />
-                            <span>Room Clean & Ready for Guest</span>
-                          </div>
-                          <div className="text-[11px] text-muted dark:text-muted">
-                            {room.bedType} · {room.acType || 'AC'}
-                          </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted dark:text-slate-400 text-xs truncate">
+                            {room.bedType || 'Standard'} {room.acType ? `· ${room.acType}` : ''}
+                          </span>
+                          <span className="font-mono font-bold text-[13px] text-brand dark:text-emerald-400 shrink-0">
+                            Rs. {room.pricePerNight.toLocaleString()}
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Card Footer: Dual Action Buttons matching Restaurant Table Board */}
-                    <div className="mt-auto pt-2 border-t border-t-border-default dark:border-t-border-default/60 flex items-center justify-between text-xs">
+                    {/* Card Footer: Premium Action Buttons */}
+                    <div className="mt-auto pt-2.5 border-t border-black/5 dark:border-white/10 flex items-center gap-2">
                       {isMaintenance ? (
                         <button
                           type="button"
@@ -1353,7 +1301,7 @@ function FrontDeskContent() {
                             e.stopPropagation();
                             handleToggleMaintenance(room.id);
                           }}
-                          className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-slate-100 hover:bg-slate-200 text-body border border-border-default dark:bg-slate-800 dark:text-slate-300 font-bold text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                          className="w-full h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-3 rounded-[6px] bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 font-semibold text-xs shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                         >
                           <Wrench className="w-3.5 h-3.5 shrink-0" />
                           <span>End Service</span>
@@ -1365,21 +1313,21 @@ function FrontDeskContent() {
                             e.stopPropagation();
                             handleSetCleaningStatus(room.id, 'CLEAN');
                           }}
-                          className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          className="w-full h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-3 rounded-[6px] bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs active:scale-[0.98] transition-all cursor-pointer"
                           title="Sanitize room and mark clean"
                         >
                           <Sparkles className="w-3.5 h-3.5 shrink-0" />
                           <span>Mark Cleaned</span>
                         </button>
                       ) : isOccupied ? (
-                        <div className="flex items-center gap-1.5 w-full">
+                        <>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (activeBooking) handleOpenAddFoodModal(activeBooking);
                             }}
-                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white/20 hover:bg-white/30 text-white font-bold text-[10.5px] sm:text-[11px] transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            className="flex-1 min-w-0 h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-[6px] bg-white/15 hover:bg-white/25 active:bg-white/30 text-white font-semibold text-xs border border-white/20 shadow-2xs transition-all cursor-pointer"
                           >
                             <Utensils className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">Add Order</span>
@@ -1390,21 +1338,21 @@ function FrontDeskContent() {
                               e.stopPropagation();
                               if (activeBooking) handleOpenCheckOutModal(activeBooking);
                             }}
-                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white text-[#0B3D32] hover:bg-emerald-50 font-bold text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            className="flex-1 min-w-0 h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-[6px] bg-white hover:bg-emerald-50 active:scale-[0.98] text-[#0B3D32] font-bold text-xs shadow-xs transition-all cursor-pointer"
                           >
                             <LogOut className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">Check Out</span>
                           </button>
-                        </div>
+                        </>
                       ) : isBooked ? (
-                        <div className="flex items-center gap-1.5 w-full">
+                        <>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (activeBooking) router.push(`/check-in?bookingId=${activeBooking.id}`);
                             }}
-                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-brand hover:bg-[#093027] text-white font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                            className="flex-1 min-w-0 h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-[6px] bg-brand hover:bg-[#083027] active:scale-[0.98] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
                           >
                             <UserCheck className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">Check In</span>
@@ -1415,21 +1363,21 @@ function FrontDeskContent() {
                               e.stopPropagation();
                               if (activeBooking) handleOpenFolioDrawer(activeBooking);
                             }}
-                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            className="flex-1 min-w-0 h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-[6px] bg-white dark:bg-surface-card border border-border-default hover:bg-surface-muted text-body dark:text-white font-medium text-xs shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                           >
                             <Receipt className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">View Folio</span>
+                            <span className="truncate">Folio</span>
                           </button>
-                        </div>
+                        </>
                       ) : isDeparting ? (
-                        <div className="flex items-center gap-1.5 w-full">
+                        <>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (activeBooking) handleOpenFolioDrawer(activeBooking);
                             }}
-                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-slate-100 hover:bg-slate-200 text-body border border-border-default dark:bg-slate-800 dark:text-slate-300 font-bold text-[10.5px] sm:text-[11px] transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            className="flex-1 min-w-0 h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-[6px] bg-white dark:bg-surface-card border border-border-default hover:bg-surface-muted text-body dark:text-white font-medium text-xs shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                           >
                             <Receipt className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">Folio</span>
@@ -1440,22 +1388,22 @@ function FrontDeskContent() {
                               e.stopPropagation();
                               if (activeBooking) handleOpenCheckOutModal(activeBooking);
                             }}
-                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            className="flex-1 min-w-0 h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-[6px] bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
                           >
                             <LogOut className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">Check Out</span>
                           </button>
-                        </div>
+                        </>
                       ) : (
-                        /* Available Room - Dual Button: Walk in + Book Now */
-                        <div className="flex items-center gap-1.5 w-full">
+                        /* Available Room */
+                        <>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               router.push(`/check-in?roomId=${room.id}&mode=walk-in`);
                             }}
-                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            className="flex-1 min-w-0 h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-[6px] bg-brand hover:bg-[#083027] active:scale-[0.98] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
                             title="Walk-in guest check in"
                           >
                             <UserPlus className="w-3.5 h-3.5 shrink-0" />
@@ -1467,13 +1415,13 @@ function FrontDeskContent() {
                               e.stopPropagation();
                               handleQuickBookRoom(room);
                             }}
-                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            className="flex-1 min-w-0 h-8 sm:h-8.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-[6px] bg-white dark:bg-surface-card border border-border-default hover:border-[#0B3D32]/40 hover:bg-[#E8F2EE]/40 dark:hover:bg-emerald-950/20 text-[#0B3D32] dark:text-emerald-400 font-semibold text-xs shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                             title={`Book Room ${room.number}`}
                           >
                             <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">Book Now</span>
+                            <span className="truncate">Book</span>
                           </button>
-                        </div>
+                        </>
                       )}
                     </div>
                   </div>

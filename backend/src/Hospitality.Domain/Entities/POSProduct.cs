@@ -20,6 +20,7 @@ public class POSProduct : BaseEntity
     public string? InventoryItemId { get; set; }
     public InventoryItem? InventoryItem { get; set; }
     public string? VariantsJson { get; set; } = "[]";
+    public string? PackingConfigJson { get; set; } = "[]"; // e.g. [{"materialId":"...","materialName":"Food Box","quantity":1}]
 
     [NotMapped]
     public bool IsActive

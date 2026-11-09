@@ -394,6 +394,32 @@ export interface DashboardMetrics {
   }>;
 }
 
+export interface TableCategoryData {
+  id: string;
+  hotelId?: string;
+  name: string;
+  description?: string | null;
+  floor?: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  tableCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RestaurantTableData {
+  id: string;
+  hotelId?: string;
+  tableNumber: string;
+  section: string;
+  categoryId?: string | null;
+  category?: TableCategoryData | null;
+  capacity: number;
+  status: 'FREE' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'BILLED' | 'CLEANING' | 'OUT_OF_SERVICE';
+  cleaningStatus?: 'CLEAN' | 'DIRTY' | 'CLEANING';
+  maintenanceNotes?: string | null;
+}
+
 export interface TableReservationData {
   id: string;
   hotelId: string;
@@ -445,6 +471,8 @@ export interface QuickSalePayload {
   discountAmount?: number;
   tax?: number;
   serviceCharge?: number;
+  packingCharge?: number;
+  orderType?: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY' | string;
   serverName?: string;
   customerName?: string;
   customerPhone?: string;
@@ -454,6 +482,8 @@ export interface QuickSalePayload {
   customerId?: string;
   overrideLimit?: boolean;
   overrideReason?: string;
+  tableId?: string;
+  tableNumber?: string;
 }
 
 export interface QuickSaleReceipt {
@@ -478,6 +508,9 @@ export interface QuickSaleReceipt {
   discountPercent: number;
   tax: number;
   serviceCharge: number;
+  packingCharge?: number;
+  packingStatus?: string;
+  packingDetailsJson?: string;
   total: number;
   paymentMethod: string;
   paidAmount: number;
@@ -546,6 +579,8 @@ export interface ActiveRestaurantOrderData {
   room?: { id: string; number: string };
   guestId?: string | null;
   guest?: { id: string; firstName: string; lastName: string; phone?: string };
+  customerName?: string | null;
+  customerPhone?: string | null;
   status: 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'BILLED' | 'COMPLETED' | 'CANCELLED';
   orderType: 'DINE_IN' | 'NO_TABLE' | 'TAKEAWAY' | 'ROOM_SERVICE' | 'COUNTER_SALE' | 'ONLINE' | 'DELIVERY';
   serverName: string;
@@ -554,6 +589,9 @@ export interface ActiveRestaurantOrderData {
   discountPercent: number;
   tax: number;
   serviceCharge: number;
+  packingCharge?: number;
+  packingStatus?: string;
+  packingDetailsJson?: string;
   total: number;
   paymentMethod?: string | null;
   isPaid: boolean;
@@ -606,6 +644,9 @@ export interface BillData {
   discountPercent: number;
   taxAmount: number;
   serviceCharge: number;
+  packingCharge?: number;
+  packingStatus?: string;
+  packingDetailsJson?: string;
   roundOff: number;
   grandTotal: number;
   amountPaid: number;
@@ -836,3 +877,104 @@ export interface CreditCustomerSummaryReport {
   unpaidBillsCount: number;
 }
 
+
+
+// ==========================================
+// ACCOUNTING: CHART OF ACCOUNTS & JOURNAL ENTRIES & GENERAL LEDGER
+// ==========================================
+
+export type AccountCategoryType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+
+export interface AccountItem {
+  id: string;
+  hotelId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: AccountCategoryType;
+  subCategory: string;
+  normalBalance: 'DEBIT' | 'CREDIT';
+  openingBalance: number;
+  currentBalance: number;
+  description?: string | null;
+  isActive: boolean;
+  isSystemAccount: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChartOfAccountsSummary {
+  totalAccounts: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfitLoss: number;
+}
+
+export interface ChartOfAccountsResponse {
+  accounts: AccountItem[];
+  summary: ChartOfAccountsSummary;
+}
+
+export interface JournalEntryLineItem {
+  id?: string;
+  journalEntryId?: string;
+  accountId: string;
+  accountCode?: string;
+  accountName?: string;
+  lineDescription?: string;
+  debit: number;
+  credit: number;
+}
+
+export interface JournalEntryItem {
+  id: string;
+  hotelId: string;
+  entryNumber: string;
+  entryDate: string;
+  reference?: string | null;
+  description: string;
+  totalDebit: number;
+  totalCredit: number;
+  status: 'POSTED' | 'DRAFT' | 'VOID';
+  sourceModule: string;
+  createdBy: string;
+  createdAt: string;
+  lines: JournalEntryLineItem[];
+}
+
+export interface JournalEntriesResponse {
+  items: JournalEntryItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface GeneralLedgerTransaction {
+  id: string;
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  reference?: string | null;
+  description: string;
+  lineDescription?: string | null;
+  sourceModule: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+}
+
+export interface GeneralLedgerReport {
+  account: AccountItem | null;
+  fromDate: string;
+  toDate: string;
+  openingBalance: number;
+  closingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  netChange: number;
+  transactionCount: number;
+  transactions: GeneralLedgerTransaction[];
+}

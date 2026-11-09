@@ -173,7 +173,9 @@ public class SeedController : ControllerBase
         var r204 = new Room { HotelId = hotelId, RoomTypeId = rtOcean.Id, Number = "204", Floor = 2, Type = rtOcean.Name, HasAC = true, BedType = rtOcean.BedType, PricePerNight = 490, Capacity = 2, SetupStatus = "OPERATIONAL", Status = "INSPECTED", Amenities = rtOcean.Amenities, ImageUrl = "https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&auto=format&fit=crop&q=80", Description = "Fully inspected and prepared for immediate VIP arrival." };
         var r205 = new Room { HotelId = hotelId, RoomTypeId = rtOcean.Id, Number = "205", Floor = 2, Type = rtOcean.Name, HasAC = true, BedType = rtOcean.BedType, PricePerNight = 490, Capacity = 3, SetupStatus = "OPERATIONAL", Status = "MAINTENANCE", Amenities = rtOcean.Amenities, ImageUrl = "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&auto=format&fit=crop&q=80", Description = "Undergoing scheduled smart climate control system calibration." };
 
-        _db.Rooms.AddRange(r101, r102, r103, r104, r105, r201, r202, r203, r204, r205);
+        var r501 = new Room { HotelId = hotelId, RoomTypeId = rtPresidential.Id, Number = "501", Floor = 5, Type = rtPresidential.Name, HasAC = true, BedType = rtPresidential.BedType, PricePerNight = 1850, Capacity = 6, SetupStatus = "OPERATIONAL", Status = "OCCUPIED", Amenities = rtPresidential.Amenities, ImageUrl = "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&auto=format&fit=crop&q=80", Description = "The Grand Imperial Presidential Suite - full floor residence with private infinity pool and dedicated butler." };
+
+        _db.Rooms.AddRange(r101, r102, r103, r104, r105, r201, r202, r203, r204, r205, r501);
         await _db.SaveChangesAsync();
 
         // 8 & 9. Seed Complete Restaurant Tables, Products, Active Table Orders, Quick Bills, and Reservations

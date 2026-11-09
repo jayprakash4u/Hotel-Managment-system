@@ -4,6 +4,7 @@ using Hospitality.Application.Common.Models;
 using Hospitality.Domain.Entities;
 using Hospitality.Persistence.Data;
 using Hospitality.Api.Services;
+using System.Text.Json;
 
 namespace Hospitality.Api.Controllers;
 
@@ -221,7 +222,9 @@ public class RestaurantController : ControllerBase
         string? ServerName,
         string? PaymentMethod,
         string? Notes,
-        List<RestaurantOrderItemDto>? Items
+        List<RestaurantOrderItemDto>? Items,
+        string? CustomerName = null,
+        string? CustomerPhone = null
     );
 
     public record RestaurantOrderItemDto(
@@ -375,6 +378,15 @@ public class RestaurantController : ControllerBase
                     existingOrder.Total = newSubtotal + newTax + newService;
                     existingOrder.UpdatedAt = DateTime.UtcNow;
 
+                    if (!string.IsNullOrWhiteSpace(req.CustomerName) && string.IsNullOrWhiteSpace(existingOrder.CustomerName))
+                    {
+                        existingOrder.CustomerName = req.CustomerName.Trim();
+                    }
+                    if (!string.IsNullOrWhiteSpace(req.CustomerPhone) && string.IsNullOrWhiteSpace(existingOrder.CustomerPhone))
+                    {
+                        existingOrder.CustomerPhone = req.CustomerPhone.Trim();
+                    }
+
                     if (!string.IsNullOrWhiteSpace(req.Notes))
                     {
                         existingOrder.Notes = string.IsNullOrWhiteSpace(existingOrder.Notes) 
@@ -393,6 +405,25 @@ public class RestaurantController : ControllerBase
                     await transaction.CommitAsync();
 
                     return Ok(ApiResponse.Ok(existingOrder, $"Items added to active Order {existingOrder.OrderNumber} ({supplementaryKot})."));
+                }
+            }
+
+            var resolvedCustomerName = req.CustomerName?.Trim();
+            var resolvedCustomerPhone = req.CustomerPhone?.Trim();
+            if (string.IsNullOrWhiteSpace(resolvedCustomerName) && !string.IsNullOrWhiteSpace(req.Notes))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(req.Notes, @"(?:Guest|Customer)\s*:\s*([^|\n,]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    resolvedCustomerName = match.Groups[1].Value.Trim();
+                }
+            }
+            if (string.IsNullOrWhiteSpace(resolvedCustomerPhone) && !string.IsNullOrWhiteSpace(req.Notes))
+            {
+                var phoneMatch = System.Text.RegularExpressions.Regex.Match(req.Notes, @"(?:Phone)\s*:\s*([^|\n,]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (phoneMatch.Success)
+                {
+                    resolvedCustomerPhone = phoneMatch.Groups[1].Value.Trim();
                 }
             }
 
@@ -417,6 +448,8 @@ public class RestaurantController : ControllerBase
                 TableId = req.TableId,
                 RoomId = req.RoomId,
                 GuestId = req.GuestId,
+                CustomerName = resolvedCustomerName,
+                CustomerPhone = resolvedCustomerPhone,
                 Status = "RECEIVED",
                 OrderType = req.OrderType ?? defaultOrderType,
                 ServerName = req.ServerName ?? "Waiter",
@@ -430,6 +463,73 @@ public class RestaurantController : ControllerBase
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
+
+            // -------------------------------------------------------------
+            // Packing Management: Auto calculate for TAKEAWAY and DELIVERY
+            // -------------------------------------------------------------
+            var isPackingRequired = order.OrderType == "TAKEAWAY" || order.OrderType == "DELIVERY";
+            if (isPackingRequired)
+            {
+                var prodIds = items.Where(i => !string.IsNullOrEmpty(i.ProductId)).Select(i => i.ProductId!).Distinct().ToList();
+                var dbProds = await _db.POSProducts.Where(p => prodIds.Contains(p.Id)).ToListAsync();
+                var allMats = await _db.PackingMaterials.Where(m => m.HotelId == hotelId && m.Status == "ACTIVE").ToDictionaryAsync(m => m.Id);
+
+                var aggregated = new Dictionary<string, (string name, int qty, double cost, double charge)>();
+                foreach (var itm in items)
+                {
+                    var p = dbProds.FirstOrDefault(x => x.Id == itm.ProductId);
+                    if (p != null && !string.IsNullOrWhiteSpace(p.PackingConfigJson))
+                    {
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(p.PackingConfigJson);
+                            foreach (var elem in doc.RootElement.EnumerateArray())
+                            {
+                                var mId = elem.TryGetProperty("materialId", out var mp) ? mp.GetString() : null;
+                                int mQty = 1;
+                                if (elem.TryGetProperty("quantity", out var qp) && qp.ValueKind == JsonValueKind.Number)
+                                {
+                                    mQty = qp.GetInt32();
+                                }
+                                if (!string.IsNullOrEmpty(mId) && allMats.TryGetValue(mId, out var mat))
+                                {
+                                    int totalQ = mQty * itm.Quantity;
+                                    if (aggregated.ContainsKey(mat.Id))
+                                    {
+                                        var ex = aggregated[mat.Id];
+                                        aggregated[mat.Id] = (ex.name, ex.qty + totalQ, mat.PurchaseCost, mat.PackingCharge);
+                                    }
+                                    else
+                                    {
+                                        aggregated[mat.Id] = (mat.Name, totalQ, mat.PurchaseCost, mat.PackingCharge);
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                var snapshot = aggregated.Select(kvp => new
+                {
+                    materialId = kvp.Key,
+                    materialName = kvp.Value.name,
+                    quantity = kvp.Value.qty,
+                    unitCost = kvp.Value.cost,
+                    packingCharge = kvp.Value.charge
+                }).ToList();
+
+                var packCharge = Math.Round(snapshot.Sum(s => s.quantity * s.packingCharge), 2);
+                order.PackingStatus = "PENDING";
+                order.PackingCharge = packCharge;
+                order.PackingDetailsJson = JsonSerializer.Serialize(snapshot);
+                order.Total += packCharge;
+            }
+            else
+            {
+                order.PackingStatus = "NONE";
+                order.PackingCharge = 0;
+            }
 
             foreach (var item in items)
             {
@@ -933,6 +1033,7 @@ public class RestaurantController : ControllerBase
                 DiscountPercent = order.DiscountPercent,
                 TaxAmount = order.Tax,
                 ServiceCharge = order.ServiceCharge,
+                PackingCharge = order.PackingCharge,
                 GrandTotal = order.Total,
                 AmountPaid = 0,
                 BalanceDue = order.Total,
@@ -1556,25 +1657,371 @@ public class RestaurantController : ControllerBase
         return Ok(ApiResponse.Ok(table, $"Table {table.TableNumber} released and is now Available."));
     }
 
+    // =========================================================================
+    // TABLE CATEGORY / SECTION SETUP & MANAGEMENT
+    // Allows setting up table categories (Dining Hall, Corridor Side, Main Area...)
+    // then adding and grouping dining tables according to category.
+    // =========================================================================
+
+    public record CreateTableCategoryRequest(
+        string Name,
+        string? Description,
+        string? Floor,
+        int? DisplayOrder
+    );
+
+    public record UpdateTableCategoryRequest(
+        string? Name,
+        string? Description,
+        string? Floor,
+        int? DisplayOrder,
+        bool? IsActive
+    );
+
+    public record CreateTableRequest(
+        string TableNumber,
+        int? Capacity,
+        string? Section,
+        string? CategoryId
+    );
+
+    public record UpdateTableDetailsRequest(
+        string? TableNumber,
+        int? Capacity,
+        string? Section,
+        string? CategoryId
+    );
+
+    public record BulkCreateTablesRequest(
+        string Prefix,
+        int StartNumber,
+        int Count,
+        int Capacity,
+        string? CategoryId,
+        string? Section
+    );
+
+    [HttpGet("api/restaurant/table-categories")]
+    [HttpGet("api/table-categories")]
+    public async Task<IActionResult> GetTableCategories()
+    {
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelId = hotel?.Id ?? "hotel-default";
+
+        // Seed default if empty
+        if (!await _db.TableCategories.AnyAsync())
+        {
+            var defaultCategories = new List<TableCategory>
+            {
+                new TableCategory { HotelId = hotelId, Name = "Dining Hall", Description = "Spacious indoor main dining hall", Floor = "Ground Floor", DisplayOrder = 1 },
+                new TableCategory { HotelId = hotelId, Name = "Corridor Side", Description = "Window & corridor aisle seating", Floor = "Ground Floor", DisplayOrder = 2 },
+                new TableCategory { HotelId = hotelId, Name = "Main Area", Description = "Central restaurant dining zone", Floor = "Ground Floor", DisplayOrder = 3 },
+                new TableCategory { HotelId = hotelId, Name = "Skyline Rooftop Terrace", Description = "Panoramic rooftop outdoor view", Floor = "Rooftop", DisplayOrder = 4 },
+                new TableCategory { HotelId = hotelId, Name = "Poolside Lounge & Bar", Description = "Relaxed open-air dining by the pool", Floor = "Ground Floor", DisplayOrder = 5 },
+            };
+            _db.TableCategories.AddRange(defaultCategories);
+            await _db.SaveChangesAsync();
+        }
+
+        var categories = await _db.TableCategories
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.Name)
+            .Select(c => new
+            {
+                id = c.Id,
+                name = c.Name,
+                description = c.Description,
+                floor = c.Floor,
+                displayOrder = c.DisplayOrder,
+                isActive = c.IsActive,
+                tableCount = _db.RestaurantTables.Count(t => t.CategoryId == c.Id || (t.CategoryId == null && t.Section.ToLower() == c.Name.ToLower())),
+                createdAt = c.CreatedAt,
+                updatedAt = c.UpdatedAt
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse.Ok(categories));
+    }
+
+    [HttpPost("api/restaurant/table-categories")]
+    [HttpPost("api/table-categories")]
+    public async Task<IActionResult> CreateTableCategory([FromBody] CreateTableCategoryRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Name))
+        {
+            return BadRequest(ApiResponse.Fail("Category name is required."));
+        }
+
+        var cleanName = req.Name.Trim();
+        var exists = await _db.TableCategories.AnyAsync(c => c.Name.ToLower() == cleanName.ToLower() && c.IsActive);
+        if (exists)
+        {
+            return BadRequest(ApiResponse.Fail($"Table category '{cleanName}' already exists."));
+        }
+
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var cat = new TableCategory
+        {
+            HotelId = hotel?.Id ?? "hotel-default",
+            Name = cleanName,
+            Description = req.Description?.Trim(),
+            Floor = req.Floor?.Trim() ?? "Ground Floor",
+            DisplayOrder = req.DisplayOrder ?? 0,
+            IsActive = true
+        };
+
+        _db.TableCategories.Add(cat);
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(cat, "Table category created successfully."));
+    }
+
+    [HttpPut("api/restaurant/table-categories/{id}")]
+    [HttpPut("api/table-categories/{id}")]
+    public async Task<IActionResult> UpdateTableCategory(string id, [FromBody] UpdateTableCategoryRequest req)
+    {
+        var cat = await _db.TableCategories.FindAsync(id);
+        if (cat == null) return NotFound(ApiResponse.Fail("Table category not found."));
+
+        var oldName = cat.Name;
+        if (!string.IsNullOrWhiteSpace(req.Name))
+        {
+            cat.Name = req.Name.Trim();
+        }
+        if (req.Description != null) cat.Description = req.Description.Trim();
+        if (req.Floor != null) cat.Floor = req.Floor.Trim();
+        if (req.DisplayOrder.HasValue) cat.DisplayOrder = req.DisplayOrder.Value;
+        if (req.IsActive.HasValue) cat.IsActive = req.IsActive.Value;
+        cat.UpdatedAt = DateTime.UtcNow;
+
+        // Sync table Section string if category name changed
+        if (oldName != cat.Name)
+        {
+            var tables = await _db.RestaurantTables.Where(t => t.CategoryId == id || t.Section == oldName).ToListAsync();
+            foreach (var t in tables)
+            {
+                t.Section = cat.Name;
+                t.CategoryId = id;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(cat, "Table category updated successfully."));
+    }
+
+    [HttpDelete("api/restaurant/table-categories/{id}")]
+    [HttpDelete("api/table-categories/{id}")]
+    public async Task<IActionResult> DeleteTableCategory(string id)
+    {
+        var cat = await _db.TableCategories.FindAsync(id);
+        if (cat == null) return NotFound(ApiResponse.Fail("Table category not found."));
+
+        // Check if active tables are in this category
+        var tables = await _db.RestaurantTables.Where(t => t.CategoryId == id || t.Section.ToLower() == cat.Name.ToLower()).ToListAsync();
+        if (tables.Any(t => t.Status == "OCCUPIED"))
+        {
+            return BadRequest(ApiResponse.Fail("Cannot delete category while it has occupied dining tables."));
+        }
+
+        // If tables exist, reassign them to "Main Area"
+        var mainArea = await _db.TableCategories.FirstOrDefaultAsync(c => c.Name.ToLower() == "main area" && c.Id != id);
+        foreach (var t in tables)
+        {
+            t.CategoryId = mainArea?.Id;
+            t.Section = mainArea?.Name ?? "Main Area";
+        }
+
+        _db.TableCategories.Remove(cat);
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(new { success = true }, $"Table category '{cat.Name}' deleted. {tables.Count} tables reassigned to Main Area."));
+    }
+
     [HttpPost("api/restaurant/tables")]
     [HttpPost("api/tables")]
-    public async Task<IActionResult> CreateTable([FromBody] RestaurantTable table)
+    public async Task<IActionResult> CreateTable([FromBody] CreateTableRequest req)
     {
-        if (string.IsNullOrWhiteSpace(table.TableNumber))
+        if (string.IsNullOrWhiteSpace(req.TableNumber))
         {
             return BadRequest(ApiResponse.Fail("Table number is required."));
         }
 
-        if (string.IsNullOrEmpty(table.HotelId))
+        var cleanNumber = req.TableNumber.Trim().ToUpper();
+        if (await _db.RestaurantTables.AnyAsync(t => t.TableNumber.ToUpper() == cleanNumber))
         {
-            var hotel = await _db.Hotels.FirstOrDefaultAsync();
-            table.HotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
+            return BadRequest(ApiResponse.Fail($"Table '{cleanNumber}' already exists."));
         }
+
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelId = hotel?.Id ?? Guid.NewGuid().ToString("N");
+
+        string? categoryId = req.CategoryId;
+        string sectionName = req.Section?.Trim() ?? "Main Area";
+
+        if (!string.IsNullOrEmpty(categoryId))
+        {
+            var cat = await _db.TableCategories.FindAsync(categoryId);
+            if (cat != null) sectionName = cat.Name;
+        }
+        else if (!string.IsNullOrEmpty(sectionName))
+        {
+            var cat = await _db.TableCategories.FirstOrDefaultAsync(c => c.Name.ToLower() == sectionName.ToLower());
+            if (cat != null)
+            {
+                categoryId = cat.Id;
+                sectionName = cat.Name;
+            }
+            else
+            {
+                // Auto create category if not present
+                var newCat = new TableCategory
+                {
+                    HotelId = hotelId,
+                    Name = sectionName,
+                    Floor = "Ground Floor",
+                    DisplayOrder = await _db.TableCategories.CountAsync() + 1
+                };
+                _db.TableCategories.Add(newCat);
+                await _db.SaveChangesAsync();
+                categoryId = newCat.Id;
+            }
+        }
+
+        var table = new RestaurantTable
+        {
+            HotelId = hotelId,
+            TableNumber = cleanNumber,
+            Section = sectionName,
+            CategoryId = categoryId,
+            Capacity = req.Capacity ?? 4,
+            Status = "FREE",
+            CleaningStatus = "CLEAN"
+        };
 
         _db.RestaurantTables.Add(table);
         await _db.SaveChangesAsync();
 
-        return Ok(ApiResponse.Ok(table, "Table created successfully."));
+        return Ok(ApiResponse.Ok(table, $"Table {table.TableNumber} created successfully in {table.Section}."));
+    }
+
+    [HttpPut("api/restaurant/tables/{id}")]
+    [HttpPut("api/tables/{id}")]
+    public async Task<IActionResult> UpdateTableDetails(string id, [FromBody] UpdateTableDetailsRequest req)
+    {
+        var table = await _db.RestaurantTables.FindAsync(id);
+        if (table == null) return NotFound(ApiResponse.Fail("Table not found."));
+
+        if (!string.IsNullOrWhiteSpace(req.TableNumber))
+        {
+            var cleanNum = req.TableNumber.Trim().ToUpper();
+            if (cleanNum != table.TableNumber && await _db.RestaurantTables.AnyAsync(t => t.TableNumber.ToUpper() == cleanNum && t.Id != id))
+            {
+                return BadRequest(ApiResponse.Fail($"Table number '{cleanNum}' is already in use."));
+            }
+            table.TableNumber = cleanNum;
+        }
+
+        if (req.Capacity.HasValue && req.Capacity.Value > 0)
+        {
+            table.Capacity = req.Capacity.Value;
+        }
+
+        if (!string.IsNullOrEmpty(req.CategoryId))
+        {
+            var cat = await _db.TableCategories.FindAsync(req.CategoryId);
+            if (cat != null)
+            {
+                table.CategoryId = cat.Id;
+                table.Section = cat.Name;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(req.Section))
+        {
+            table.Section = req.Section.Trim();
+            var cat = await _db.TableCategories.FirstOrDefaultAsync(c => c.Name.ToLower() == table.Section.ToLower());
+            if (cat != null) table.CategoryId = cat.Id;
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(table, "Table updated successfully."));
+    }
+
+    [HttpDelete("api/restaurant/tables/{id}")]
+    [HttpDelete("api/tables/{id}")]
+    public async Task<IActionResult> DeleteTable(string id)
+    {
+        var table = await _db.RestaurantTables.Include(t => t.Orders).FirstOrDefaultAsync(t => t.Id == id);
+        if (table == null) return NotFound(ApiResponse.Fail("Table not found."));
+
+        if (table.Status == "OCCUPIED" || table.Orders.Any(o => o.Status != "COMPLETED" && o.Status != "CANCELLED"))
+        {
+            return BadRequest(ApiResponse.Fail("Cannot delete table while it has active or unpaid dining orders. Please release or settle the table first."));
+        }
+
+        _db.RestaurantTables.Remove(table);
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(new { success = true }, $"Table {table.TableNumber} deleted successfully."));
+    }
+
+    [HttpPost("api/restaurant/tables/bulk")]
+    public async Task<IActionResult> BulkCreateTables([FromBody] BulkCreateTablesRequest req)
+    {
+        if (req.Count <= 0 || req.Count > 100)
+        {
+            return BadRequest(ApiResponse.Fail("Count must be between 1 and 100."));
+        }
+
+        var hotel = await _db.Hotels.FirstOrDefaultAsync();
+        var hotelId = hotel?.Id ?? "hotel-default";
+
+        string? categoryId = req.CategoryId;
+        string sectionName = req.Section?.Trim() ?? "Main Area";
+
+        if (!string.IsNullOrEmpty(categoryId))
+        {
+            var cat = await _db.TableCategories.FindAsync(categoryId);
+            if (cat != null) sectionName = cat.Name;
+        }
+        else if (!string.IsNullOrEmpty(sectionName))
+        {
+            var cat = await _db.TableCategories.FirstOrDefaultAsync(c => c.Name.ToLower() == sectionName.ToLower());
+            if (cat != null) categoryId = cat.Id;
+        }
+
+        var prefix = string.IsNullOrWhiteSpace(req.Prefix) ? "T-" : req.Prefix.Trim();
+        var start = req.StartNumber > 0 ? req.StartNumber : 1;
+        var created = new List<RestaurantTable>();
+
+        for (int i = 0; i < req.Count; i++)
+        {
+            var num = start + i;
+            var tableNum = $"{prefix}{num:D2}";
+
+            while (await _db.RestaurantTables.AnyAsync(t => t.TableNumber.ToUpper() == tableNum.ToUpper()))
+            {
+                num++;
+                tableNum = $"{prefix}{num:D2}";
+            }
+
+            var tbl = new RestaurantTable
+            {
+                HotelId = hotelId,
+                TableNumber = tableNum,
+                Section = sectionName,
+                CategoryId = categoryId,
+                Capacity = req.Capacity > 0 ? req.Capacity : 4,
+                Status = "FREE",
+                CleaningStatus = "CLEAN"
+            };
+            _db.RestaurantTables.Add(tbl);
+            created.Add(tbl);
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(created, $"Successfully created {created.Count} tables in {sectionName}."));
     }
 
     public record UpdateTableStatusRequest(
@@ -2697,6 +3144,8 @@ public class RestaurantController : ControllerBase
         double? DiscountAmount,
         double? Tax,
         double? ServiceCharge,
+        double? PackingCharge,
+        string? OrderType, // DINE_IN, TAKEAWAY, DELIVERY
         string? ServerName,
         string? CustomerName,
         string? CustomerPhone,
@@ -2706,7 +3155,8 @@ public class RestaurantController : ControllerBase
         string? CustomerId = null,
         bool? ManagerOverride = false,
         string? OverrideReason = null,
-        string? OverrideApprovedBy = null
+        string? OverrideApprovedBy = null,
+        string? TableId = null
     );
 
     [HttpPost("api/restaurant/quick-sale")]
@@ -2812,7 +3262,72 @@ public class RestaurantController : ControllerBase
             var netAfterDiscount = Math.Max(0, subtotal - discAmt);
             var tax = req.Tax ?? Math.Round(netAfterDiscount * 0.10, 2);
             var service = req.ServiceCharge ?? 0.0;
-            var total = Math.Round(netAfterDiscount + tax + service, 2);
+
+            // Packing calculation
+            var effectiveOrderType = !string.IsNullOrWhiteSpace(req.OrderType) ? req.OrderType.ToUpper() : "TAKEAWAY";
+            var isPacking = effectiveOrderType == "TAKEAWAY" || effectiveOrderType == "DELIVERY";
+            double packingCharge = req.PackingCharge ?? 0;
+            string? packingDetails = null;
+
+            if (isPacking)
+            {
+                var pIds = req.Items.Where(i => !string.IsNullOrEmpty(i.ProductId)).Select(i => i.ProductId!).Distinct().ToList();
+                var pDb = await _db.POSProducts.Where(p => pIds.Contains(p.Id)).ToListAsync();
+                var allMats = await _db.PackingMaterials.Where(m => m.HotelId == hotelId && m.Status == "ACTIVE").ToDictionaryAsync(m => m.Id);
+
+                var agg = new Dictionary<string, (string name, int qty, double cost, double charge)>();
+                foreach (var itm in req.Items)
+                {
+                    var p = pDb.FirstOrDefault(x => x.Id == itm.ProductId);
+                    if (p != null && !string.IsNullOrWhiteSpace(p.PackingConfigJson))
+                    {
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(p.PackingConfigJson);
+                            foreach (var elem in doc.RootElement.EnumerateArray())
+                            {
+                                var mId = elem.TryGetProperty("materialId", out var mp) ? mp.GetString() : null;
+                                int mQty = 1;
+                                if (elem.TryGetProperty("quantity", out var qp) && qp.ValueKind == JsonValueKind.Number)
+                                {
+                                    mQty = qp.GetInt32();
+                                }
+                                if (!string.IsNullOrEmpty(mId) && allMats.TryGetValue(mId, out var mat))
+                                {
+                                    int totalQ = mQty * itm.Quantity;
+                                    if (agg.ContainsKey(mat.Id))
+                                    {
+                                        var ex = agg[mat.Id];
+                                        agg[mat.Id] = (ex.name, ex.qty + totalQ, mat.PurchaseCost, mat.PackingCharge);
+                                    }
+                                    else
+                                    {
+                                        agg[mat.Id] = (mat.Name, totalQ, mat.PurchaseCost, mat.PackingCharge);
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                var snapshot = agg.Select(kvp => new
+                {
+                    materialId = kvp.Key,
+                    materialName = kvp.Value.name,
+                    quantity = kvp.Value.qty,
+                    unitCost = kvp.Value.cost,
+                    packingCharge = kvp.Value.charge
+                }).ToList();
+
+                if (packingCharge <= 0 && snapshot.Count > 0)
+                {
+                    packingCharge = Math.Round(snapshot.Sum(s => s.quantity * s.packingCharge), 2);
+                }
+                packingDetails = JsonSerializer.Serialize(snapshot);
+            }
+
+            var total = Math.Round(netAfterDiscount + tax + service + (isPacking ? packingCharge : 0), 2);
 
             var pMethod = string.IsNullOrWhiteSpace(req.PaymentMethod) ? "CASH" : req.PaymentMethod.Trim().ToUpper();
             if (pMethod == "QR") pMethod = "UPI";
@@ -2849,26 +3364,41 @@ public class RestaurantController : ControllerBase
                 notesBuilder.Add(req.Notes.Trim());
             }
 
+            RestaurantTable? linkedTable = null;
+            if (!string.IsNullOrWhiteSpace(req.TableId))
+            {
+                linkedTable = await _db.RestaurantTables.FirstOrDefaultAsync(t => t.Id == req.TableId && t.HotelId == hotelId);
+                if (linkedTable != null && sendToKitchen && linkedTable.Status != "OCCUPIED")
+                {
+                    linkedTable.Status = "OCCUPIED";
+                }
+            }
+
             var order = new RestaurantOrder
             {
                 HotelId = hotelId,
-                TableId = null, // Counter sale is separate from tables
+                TableId = linkedTable?.Id,
                 RoomId = null,
                 GuestId = guestId,
+                CustomerName = req.CustomerName?.Trim(),
+                CustomerPhone = req.CustomerPhone?.Trim(),
                 OrderNumber = orderNumber,
                 KotNumber = kotNumber,
                 Outlet = req.Outlet ?? "RESTAURANT",
                 Status = status,
-                OrderType = "COUNTER_SALE",
+                OrderType = effectiveOrderType,
                 ServerName = req.ServerName ?? "Cashier",
                 Subtotal = subtotal,
                 DiscountAmount = discAmt,
                 DiscountPercent = req.DiscountPercent ?? (subtotal > 0 ? Math.Round((discAmt / subtotal) * 100, 1) : 0),
                 Tax = tax,
                 ServiceCharge = service,
+                PackingCharge = isPacking ? packingCharge : 0,
+                PackingStatus = isPacking ? "PENDING" : "NONE",
+                PackingDetailsJson = packingDetails,
                 Total = total,
                 PaymentMethod = pMethod,
-                IsPaid = true,
+                IsPaid = !sendToKitchen,
                 Notes = notesBuilder.Count > 0 ? string.Join(" | ", notesBuilder) : null,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -2998,6 +3528,7 @@ public class RestaurantController : ControllerBase
                 BillingType = "QUICK_BILL",
                 OrderId = order.Id,
                 OrderNumber = order.OrderNumber,
+                TableNumber = linkedTable?.TableNumber,
                 CustomerId = creditCustomer?.Id,
                 CustomerName = customerDisplayName,
                 CustomerPhone = customerDisplayPhone,
@@ -3007,6 +3538,7 @@ public class RestaurantController : ControllerBase
                 DiscountPercent = req.DiscountPercent ?? (subtotal > 0 ? Math.Round((discAmt / subtotal) * 100, 1) : 0),
                 TaxAmount = tax,
                 ServiceCharge = service,
+                PackingCharge = isPacking ? packingCharge : 0,
                 RoundOff = 0,
                 GrandTotal = total,
                 AmountPaid = isCredit ? 0 : total,
@@ -3110,6 +3642,49 @@ public class RestaurantController : ControllerBase
             return StatusCode(500, ApiResponse.Fail($"Failed to process quick sale: {ex.Message}"));
         }
     }
+
+    [HttpGet("api/restaurant/open-orders")]
+    public async Task<IActionResult> GetOpenOrders()
+    {
+        var orders = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .Include(o => o.Guest)
+            .Where(o => !o.IsPaid && o.Status != "COMPLETED" && o.Status != "CANCELLED")
+            .OrderByDescending(o => o.CreatedAt)
+            .Select(o => new
+            {
+                id = o.Id,
+                orderNumber = o.OrderNumber,
+                kotNumber = o.KotNumber,
+                tableNumber = o.Table != null ? o.Table.TableNumber : null,
+                tableId = o.TableId,
+                orderType = o.OrderType,
+                customerName = o.CustomerName ?? (o.Guest != null ? (o.Guest.FirstName + " " + o.Guest.LastName).Trim() : null),
+                customerPhone = o.CustomerPhone ?? (o.Guest != null ? o.Guest.Phone : null),
+                status = o.Status,
+                isPaid = o.IsPaid,
+                subtotal = o.Subtotal,
+                tax = o.Tax,
+                total = o.Total,
+                notes = o.Notes,
+                createdAt = o.CreatedAt,
+                items = o.Items.Select(i => new
+                {
+                    id = i.Id,
+                    productId = i.ProductId,
+                    productName = i.ProductName,
+                    unitPrice = i.UnitPrice,
+                    quantity = i.Quantity,
+                    total = i.Total,
+                    notes = i.Notes
+                }).ToList()
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse.Ok(orders));
+    }
+
 
     [HttpGet("api/restaurant/daily-sales")]
     public async Task<IActionResult> GetDailySales([FromQuery] string? date)

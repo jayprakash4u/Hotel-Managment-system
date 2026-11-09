@@ -40,6 +40,7 @@ public class Bill : BaseEntity
     public double DiscountPercent { get; set; } = 0;
     public double TaxAmount { get; set; } = 0;
     public double ServiceCharge { get; set; } = 0;
+    public double PackingCharge { get; set; } = 0;
     public double RoundOff { get; set; } = 0;
     public double GrandTotal { get; set; } = 0;
     public double AmountPaid { get; set; } = 0;

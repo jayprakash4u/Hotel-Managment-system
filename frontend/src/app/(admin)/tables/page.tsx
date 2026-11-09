@@ -25,6 +25,9 @@ import {
   Wine,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  LayoutGrid,
   Clock,
   Sparkles,
   CalendarCheck,
@@ -51,6 +54,8 @@ import {
   ClipboardList,
   UserPlus,
   Sliders,
+  Package,
+  Bike,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -59,6 +64,7 @@ import { TableReservationData, ActiveRestaurantOrderData, ReservationAlertData }
 import { ActiveOrdersView } from '@/components/common/ActiveOrdersView';
 import { RestaurantReceiptModal, ReceiptModalProps } from '@/components/common/RestaurantReceiptModal';
 import { TableActionsDropdown } from '@/components/restaurant/TableActionsModal';
+import { DiningTableGraphic } from '@/components/restaurant/DiningTableGraphic';
 import { TableHistoryModal, TableHistoryOrder } from '@/components/restaurant/TableHistoryModal';
 import { TableBookingDetailsModal } from '@/components/restaurant/TableBookingDetailsModal';
 import { ViewBookingModal } from '@/components/restaurant/ViewBookingModal';
@@ -168,6 +174,16 @@ function TablesContent() {
   const [noTableSeatingNote, setNoTableSeatingNote] = useState('');
   const [noTableCustomerName, setNoTableCustomerName] = useState('');
   const [noTableCustomerPhone, setNoTableCustomerPhone] = useState('');
+  const [selectedDineInTableId, setSelectedDineInTableId] = useState<string>('');
+
+  const availableTables = useMemo(
+    () => tables.filter((t) => t.status === 'AVAILABLE' || t.status === 'CLEANING' || (t as any).status === 'FREE'),
+    [tables]
+  );
+  const occupiedTables = useMemo(
+    () => tables.filter((t) => t.status === 'OCCUPIED'),
+    [tables]
+  );
 
   // Assign Table Modal State (Requirement 8)
   const [isAssignTableModalOpen, setIsAssignTableModalOpen] = useState(false);
@@ -196,6 +212,20 @@ function TablesContent() {
   // Search & Status filters (for Grid view)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('ALL');
+  const [tableCategories, setTableCategories] = useState<any[]>([]);
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState<boolean>(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
+
+  useEffect(() => {
+    api.getTableCategories()
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          setTableCategories(res);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Date & Time Availability Filter
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -330,6 +360,8 @@ function TablesContent() {
   const [billPaidAmt, setBillPaidAmt] = useState<string>('');
   const [billMode, setBillMode] = useState<string>('Cash');
   const [billRemarks, setBillRemarks] = useState<string>('');
+  const [billPackingCharge, setBillPackingCharge] = useState<string>('0');
+  const [autoOrderPackingCharge, setAutoOrderPackingCharge] = useState<number>(0);
 
   // Dynamic in-table draft rows for the "Add New" button feature
   const [draftRows, setDraftRows] = useState<
@@ -436,6 +468,7 @@ function TablesContent() {
   // Auto-open booking modal when navigated with ?action=book or activate tabs
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const filterParam = searchParams.get('filter');
   const hasAutoOpenedRef = React.useRef(false);
 
   useEffect(() => {
@@ -1249,20 +1282,23 @@ function TablesContent() {
         matchesStatus = table.status === selectedStatus;
       }
 
+      const matchesSection =
+        selectedSectionFilter === 'ALL' ||
+        (table.section && table.section.toLowerCase() === selectedSectionFilter.toLowerCase());
+
       const matchesSearch =
-        !searchQuery.trim() ||
+        matchesSection && (!searchQuery.trim() ||
         table.tableNumber.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        table.section.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+        (table.section && table.section.toLowerCase().includes(searchQuery.toLowerCase().trim())) ||
         (isSelectedToday && table.currentGuest && table.currentGuest.toLowerCase().includes(searchQuery.toLowerCase().trim())) ||
         selectedDateReservations.some((r: any) =>
           r.customerName?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
           r.phoneNumber?.includes(searchQuery.trim()) ||
-          r.reservationCode?.toLowerCase().includes(searchQuery.toLowerCase().trim())
-        );
+          r.reservationCode?.toLowerCase().includes(searchQuery.toLowerCase().trim())));
 
       return matchesStatus && matchesSearch;
     });
-  }, [tables, selectedStatus, searchQuery, selectedDate, isSelectedToday]);
+  }, [tables, selectedStatus, searchQuery, selectedSectionFilter, selectedDate, isSelectedToday]);
 
   // Filtered reservations for the reservations tab
   const filteredReservations = useMemo(() => {
@@ -1305,6 +1341,47 @@ function TablesContent() {
     const rDate = normalizeDateStr(r.reservationDate);
     return !selectedDate || rDate === selectedDate;
   }).length;
+
+  // Unique dining areas / categories across table categories and tables
+  const allUniqueSections = useMemo(() => {
+    const set = new Set<string>();
+    tableCategories.forEach((c) => {
+      if (c.name) set.add(c.name);
+    });
+    tables.forEach((t) => {
+      if (t.section) set.add(t.section);
+    });
+    return Array.from(set);
+  }, [tableCategories, tables]);
+
+  // Group filtered tables by Area / Section so multiple areas are clearly organized
+  const groupedTablesByArea = useMemo(() => {
+    const groups: Record<string, TableItem[]> = {};
+
+    if (selectedSectionFilter !== 'ALL') {
+      const matching = filteredTables.filter(
+        (t) => (t.section || 'General Area').toLowerCase() === selectedSectionFilter.toLowerCase()
+      );
+      groups[selectedSectionFilter] = matching;
+      return groups;
+    }
+
+    filteredTables.forEach((table) => {
+      const sec = table.section || 'General Area';
+      if (!groups[sec]) groups[sec] = [];
+      groups[sec].push(table);
+    });
+
+    return groups;
+  }, [filteredTables, selectedSectionFilter]);
+
+  const [collapsedAreas, setCollapsedAreas] = useState<Record<string, boolean>>({});
+  const toggleCollapseArea = (areaName: string) => {
+    setCollapsedAreas((prev) => ({
+      ...prev,
+      [areaName]: !prev[areaName],
+    }));
+  };
 
   // ---------------------------------------------------------------------------
   // 1. Walk-In Customer Seating & Turnaround Conflict Validation (Req 3, 4, 5, 6)
@@ -1754,6 +1831,7 @@ function TablesContent() {
           outlet: 'RESTAURANT',
           tableId: activeTable.isNoTable ? undefined : activeTable.id,
           orderType: activeTable.orderType || (activeTable.isNoTable ? 'NO_TABLE' : 'DINE_IN'),
+          packingCharge: parsedPackingCharge > 0 ? parsedPackingCharge : undefined,
           serverName: 'Waiter',
           notes: activeTable.notes || activeTable.seatingNote || (activeTable.currentGuest && activeTable.currentGuest !== 'Dine-In Guest' && activeTable.currentGuest !== 'Walk-in Customer'
             ? `Guest: ${activeTable.currentGuest}${activeTable.guestPhone ? ` (${activeTable.guestPhone})` : ''}` 
@@ -1943,6 +2021,7 @@ function TablesContent() {
           discountPercent: parsedDisPercent,
           discountAmount: effectiveDisAmt,
           roundOff: parsedRoundOff,
+          packingCharge: parsedPackingCharge > 0 ? parsedPackingCharge : undefined,
           remarks: billRemarks,
         });
       }
@@ -2056,6 +2135,7 @@ function TablesContent() {
         subtotal: basicTotal,
         discountAmount: effectiveDisAmt,
         discountPercent: parsedDisPercent,
+        packingCharge: parsedPackingCharge > 0 ? parsedPackingCharge : undefined,
         tax: Math.round(basicTotal * 0.10 * 100) / 100,
         serviceCharge: Math.round(basicTotal * 0.05 * 100) / 100,
         total: netAmount,
@@ -2140,11 +2220,53 @@ function TablesContent() {
   // ---------------------------------------------------------------------------
   // Quick Order & Takeaway Handlers
   // ---------------------------------------------------------------------------
+  const handleConfirmQuickOrder = () => {
+    if (noTableOrderType === 'NO_TABLE') {
+      if (selectedDineInTableId) {
+        const targetTable = tables.find((t) => t.id === selectedDineInTableId);
+        if (targetTable) {
+          if (noTableCustomerName || noTableCustomerPhone || noTableSeatingNote) {
+            setTables((prev) =>
+              prev.map((t) =>
+                t.id === selectedDineInTableId
+                  ? {
+                      ...t,
+                      currentGuest: noTableCustomerName || t.currentGuest || 'Dine-In Guest',
+                      guestPhone: noTableCustomerPhone || t.guestPhone,
+                      seatingNote: noTableSeatingNote || t.seatingNote,
+                      status: 'OCCUPIED',
+                    }
+                  : t
+              )
+            );
+          }
+          setIsNoTableModalOpen(false);
+          setActiveCustomOrder(null);
+          handleOpenOrderPage(selectedDineInTableId);
+          toast.success(
+            `Table ${targetTable.tableNumber} Selected`,
+            targetTable.status === 'OCCUPIED'
+              ? 'Opened active order to add more items.'
+              : 'Seated at table. Add items from catalogue.'
+          );
+          return;
+        }
+      }
+      handleStartNoTableOrder('NO_TABLE');
+      return;
+    }
+    handleStartNoTableOrder(noTableOrderType);
+  };
+
   const handleStartNoTableOrder = (orderType: 'TAKEAWAY' | 'NO_TABLE' | 'ONLINE' = 'TAKEAWAY') => {
     const isOnline = orderType === 'ONLINE';
     const isTakeaway = orderType === 'TAKEAWAY';
     const label = isOnline ? 'Online Order' : isTakeaway ? 'Takeaway' : 'Quick Order';
     const orderNum = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const customCustomer = noTableCustomerName.trim();
+    const customPhone = noTableCustomerPhone.trim();
+    const customNote = noTableSeatingNote.trim();
 
     const customItem: TableItem = {
       id: `notable-${Date.now()}`,
@@ -2155,10 +2277,10 @@ function TablesContent() {
       orders: [],
       activeOrderId: undefined,
       orderNumber: orderNum,
-      currentGuest: isOnline ? 'Online Customer' : isTakeaway ? 'Takeaway Customer' : 'Walk-in Customer',
-      guestPhone: '',
-      notes: isOnline ? 'Online Order' : undefined,
-      seatingNote: undefined,
+      currentGuest: customCustomer || (isOnline ? 'Delivery Customer' : isTakeaway ? 'Takeaway Customer' : 'Walk-in Customer'),
+      guestPhone: customPhone,
+      notes: customNote || (isOnline ? 'Online Order' : undefined),
+      seatingNote: customNote || undefined,
       isNoTable: true,
       orderType: orderType,
     };
@@ -2508,19 +2630,17 @@ function TablesContent() {
           });
         } else if (!isCustom) {
           // Table doesn't have an order in DB yet; create it!
+          const isGenericTableGuest = ['Dine-In Guest', 'Walk-in Customer', 'Takeaway Customer', 'Online Customer'].includes(currentTarget.currentGuest || '');
+          const custName = !isGenericTableGuest && currentTarget.currentGuest ? currentTarget.currentGuest : undefined;
+
           const newOrder = await api.createRestaurantOrder({
             outlet: 'RESTAURANT',
             tableId: currentTarget.id,
             orderType: currentTarget.orderType || 'DINE_IN',
+            customerName: custName,
+            customerPhone: currentTarget.guestPhone || undefined,
             serverName: 'Waiter',
-            notes:
-              currentTarget.notes ||
-              currentTarget.seatingNote ||
-              (currentTarget.currentGuest &&
-              currentTarget.currentGuest !== 'Dine-In Guest' &&
-              currentTarget.currentGuest !== 'Walk-in Customer'
-                ? `Guest: ${currentTarget.currentGuest}`
-                : undefined),
+            notes: currentTarget.notes || currentTarget.seatingNote || undefined,
             items: formattedItems,
           });
 
@@ -2541,11 +2661,17 @@ function TablesContent() {
           }
         } else {
           // Custom order (Takeaway / No Table)
+          const isGenericCustomGuest = ['Takeaway Customer', 'Online Customer', 'Walk-in Customer', 'Delivery Customer'].includes(currentTarget.currentGuest || '');
+          const custName = !isGenericCustomGuest && currentTarget.currentGuest ? currentTarget.currentGuest : undefined;
+
           const newOrder = await api.createRestaurantOrder({
             outlet: 'RESTAURANT',
             orderType: currentTarget.orderType || 'TAKEAWAY',
+            customerName: custName,
+            customerPhone: currentTarget.guestPhone || undefined,
+            packingCharge: parsedPackingCharge > 0 ? parsedPackingCharge : undefined,
             serverName: 'Waiter',
-            notes: currentTarget.currentGuest || currentTarget.notes || 'Takeaway Order',
+            notes: currentTarget.notes || currentTarget.seatingNote || undefined,
             items: formattedItems,
           });
 
@@ -2967,23 +3093,40 @@ function TablesContent() {
   };
 
   // Add new table
-  const handleAddTable = (e: React.FormEvent) => {
+  const handleAddTable = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTableNumber.trim()) return;
 
-    const newTable: TableItem = {
-      id: `tbl-${Date.now()}`,
-      tableNumber: newTableNumber.trim().toUpperCase(),
-      section: newSection,
-      capacity: parseInt(newCapacity, 10) || 4,
-      status: 'AVAILABLE',
-      orders: [],
-    };
+    const effectiveSection = isAddingNewCategory && customCategoryInput.trim()
+      ? customCategoryInput.trim()
+      : (newSection.trim() || 'Dining Hall');
 
-    setTables((prev) => [...prev, newTable]);
-    toast.celebrate('Table Added', `Table ${newTable.tableNumber} is now active.`);
-    setNewTableNumber('');
-    setIsAddModalOpen(false);
+    try {
+      const created = await api.createTable({
+        tableNumber: newTableNumber.trim().toUpperCase(),
+        section: effectiveSection,
+        capacity: parseInt(newCapacity, 10) || 4,
+      });
+
+      const newTable: TableItem = {
+        id: created?.data?.id || `tbl-${Date.now()}`,
+        tableNumber: newTableNumber.trim().toUpperCase(),
+        section: effectiveSection,
+        capacity: parseInt(newCapacity, 10) || 4,
+        status: 'AVAILABLE',
+        orders: [],
+      };
+
+      setTables((prev) => [...prev, newTable]);
+      toast.celebrate('Table Added', `Table ${newTable.tableNumber} added to ${effectiveSection}.`);
+      setNewTableNumber('');
+      setIsAddingNewCategory(false);
+      setCustomCategoryInput('');
+      setIsAddModalOpen(false);
+      fetchTables();
+    } catch (err: any) {
+      toast.error('Add Table Failed', err?.message || 'Could not create table');
+    }
   };
 
   // Toggle table status (cycle through all statuses)
@@ -3017,10 +3160,49 @@ function TablesContent() {
       : 0;
 
   const parsedRoundOff = parseFloat(billRoundOff) || 0;
-  const netAmount = Math.max(0, basicTotal - effectiveDisAmt + parsedRoundOff);
+  const isTakeawayOrDelivery =
+    activeTable?.orderType === 'TAKEAWAY' ||
+    activeTable?.orderType === 'DELIVERY' ||
+    activeTable?.orderType === 'ONLINE';
+
+  const parsedPackingCharge = isTakeawayOrDelivery ? (parseFloat(billPackingCharge) || 0) : 0;
+  const netAmount = Math.max(0, basicTotal - effectiveDisAmt + parsedPackingCharge + parsedRoundOff);
   const parsedPaidAmt = billPaidAmt === '' ? netAmount : parseFloat(billPaidAmt) || 0;
   const refDue = Math.max(0, netAmount - parsedPaidAmt);
   const activeTableOrderCount = activeTableOrders.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Auto-calculate packing charges when order items change
+  useEffect(() => {
+    if (!isTakeawayOrDelivery || activeTableOrders.length === 0) {
+      setAutoOrderPackingCharge(0);
+      setBillPackingCharge('0');
+      return;
+    }
+
+    const validItems = activeTableOrders
+      .filter((i) => i.productId && i.quantity > 0)
+      .map((i) => ({ productId: i.productId!, quantity: i.quantity }));
+
+    if (validItems.length === 0) {
+      setAutoOrderPackingCharge(0);
+      setBillPackingCharge('0');
+      return;
+    }
+
+    let isMounted = true;
+    api.calculatePacking(validItems)
+      .then((res) => {
+        if (!isMounted) return;
+        const total = res.totalPackingCharge || 0;
+        setAutoOrderPackingCharge(total);
+        setBillPackingCharge(total.toString());
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTableOrders, isTakeawayOrDelivery]);
 
   // Discount percentage and amount sync handlers
   const handleDisPercentChange = (val: string) => {
@@ -3879,7 +4061,7 @@ function TablesContent() {
              =================================================================== */}
           <div className="border border-border-default dark:border-border-default rounded-md p-3.5 bg-white dark:bg-surface-card shadow-2xs space-y-3">
             {/* Row 1: Basic Total | Dis % | Dis Amt | Round off | Net Amount | Paid Amt. */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
               <div>
                 <label className="block text-[11px] font-semibold text-muted dark:text-muted mb-1">
                   Basic Total
@@ -3921,6 +4103,38 @@ function TablesContent() {
                   value={billDisAmt}
                   onChange={(e) => handleDisAmtChange(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-surface-card border border-border-default dark:border-border-default rounded-[3px] text-body dark:text-body focus:outline-none focus:border-[#0B3D32]"
+                />
+              </div>
+
+              {/* Packing Charge (Takeaway/Delivery only; Dine-in requires no packing) */}
+              <div>
+                <label className="block text-[11px] font-semibold text-muted dark:text-muted mb-1 flex items-center justify-between">
+                  <span>Packing</span>
+                  {isTakeawayOrDelivery && autoOrderPackingCharge > 0 && parseFloat(billPackingCharge) !== autoOrderPackingCharge && (
+                    <button
+                      type="button"
+                      onClick={() => setBillPackingCharge(autoOrderPackingCharge.toString())}
+                      className="text-[9px] text-[#0B3D32] dark:text-emerald-400 hover:underline cursor-pointer"
+                      title="Reset to auto-calculated packing charge"
+                    >
+                      Auto: {autoOrderPackingCharge}
+                    </button>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="1"
+                  disabled={!isTakeawayOrDelivery}
+                  placeholder={!isTakeawayOrDelivery ? "N/A" : "0"}
+                  value={!isTakeawayOrDelivery ? "0" : billPackingCharge}
+                  onChange={(e) => setBillPackingCharge(e.target.value)}
+                  className={cn(
+                    "w-full px-2.5 py-1.5 text-xs font-mono rounded-[3px] focus:outline-none",
+                    !isTakeawayOrDelivery
+                      ? "bg-surface-muted dark:bg-surface-card/80 border border-border-default dark:border-border-default text-muted cursor-not-allowed"
+                      : "bg-white dark:bg-surface-card border border-border-default dark:border-border-default text-body dark:text-body focus:border-[#0B3D32]"
+                  )}
                 />
               </div>
 
@@ -4300,43 +4514,31 @@ function TablesContent() {
   // ===========================================================================
   return (
     <div className="space-y-4 pb-12 select-none animate-in fade-in duration-150">
-      {/* =====================================================================
-          RESTAURANT MANAGEMENT SUB-OPTIONS NAVIGATION (LINKED TO TABLES)
-          ===================================================================== */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs">
-            <Link
-              href="/restaurant-management"
-              className="font-bold text-brand dark:text-brand hover:underline flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Restaurant Management
-            </Link>
-            <span className="text-slate-300 dark:text-muted">/</span>
-            <span className="font-semibold text-body dark:text-slate-200">
-              Tables & Seating Floor Plan
-            </span>
-          </div>
-
-          <span className="rounded bg-success-subtle dark:bg-success-subtle border border-success dark:border-success px-2 py-0.5 text-[10px] font-bold text-success dark:text-success uppercase tracking-wider">
-            Restaurant Module · Tables
-          </span>
-        </div>
-      </div>
-
-      {/* Clean Header Bar: Tables, Active Orders & Reservations Segmented Switcher + Action Buttons */}
+      {/* -----------------------------------------------------------------------
+          TOP HEADER: Clean Title with Icon, Segmented Tabs & ONE Primary Button
+          ----------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-border-default dark:border-border-default">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl sm:text-2xl font-bold font-heading text-body dark:text-body tracking-tight">
-            {activeTab === 'FLOOR_PLAN'
-              ? 'Tables'
-              : activeTab === 'ACTIVE_ORDERS'
-              ? 'Active Restaurant Orders'
-              : 'Table Reservations'}
+          <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+            {activeTab === 'FLOOR_PLAN' ? (
+              <>
+                <Table2 className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
+                <span>Table Board</span>
+              </>
+            ) : activeTab === 'ACTIVE_ORDERS' ? (
+              <>
+                <ShoppingBag className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
+                <span>Orders</span>
+              </>
+            ) : (
+              <>
+                <CalendarCheck className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
+                <span>Table Reservations</span>
+              </>
+            )}
           </h1>
 
-          {/* View Mode Segmented Switcher */}
+          {/* Clean Segmented Switcher */}
           <div className="inline-flex items-center p-0.5 rounded-[4px] bg-[#EAEFEA] dark:bg-surface-card border border-border-default dark:border-border-default">
             <button
               type="button"
@@ -4350,7 +4552,6 @@ function TablesContent() {
             >
               <Table2 className="w-3.5 h-3.5" />
               <span>Table Board</span>
-              <span className="text-[10px] font-mono opacity-80">({tables.length})</span>
             </button>
 
             <button
@@ -4368,11 +4569,6 @@ function TablesContent() {
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Orders</span>
-              {activeOrders.length > 0 && (
-                <span className="rounded-full bg-[#0B3D32] text-white dark:bg-brand px-1.5 py-0.2 text-[9px] font-mono font-bold">
-                  {activeOrders.length}
-                </span>
-              )}
             </button>
 
             <button
@@ -4386,128 +4582,246 @@ function TablesContent() {
               )}
             >
               <CalendarCheck className="w-3.5 h-3.5" />
-              <span>Table Reservations</span>
-              {activeReservationsCount > 0 && (
-                <span className="rounded-full bg-brand text-white px-1.5 py-0.2 text-[9px] font-mono font-bold">
-                  {activeReservationsCount}
-                </span>
-              )}
+              <span>Reservations</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Primary Action 1: Table Order */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('FLOOR_PLAN');
-              toast.info('Select Dining Table', 'Click any available table card to start a Table Order.');
-            }}
-            className="inline-flex items-center gap-1.5 rounded-[3px] border border-[#0B3D32] dark:border-brand bg-white dark:bg-surface-card text-brand dark:text-success hover:bg-surface-muted dark:hover:bg-[#093027] px-3 py-1.5 text-xs font-bold shadow-2xs transition-all cursor-pointer"
-            title="Start an order linked to a dining table"
-          >
-            <Table2 className="w-3.5 h-3.5" />
-            <span>Table Order</span>
-          </button>
-
-          {/* Primary Action 2: Quick Order */}
-          <button
-            type="button"
-            onClick={() => handleStartNoTableOrder('TAKEAWAY')}
-            className="inline-flex items-center gap-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white px-3.5 py-1.5 text-xs font-bold shadow-2xs transition-all dark:bg-brand dark:hover:bg-success-subtle0 cursor-pointer"
-            title="Start a quick order without a table (walk-in, takeaway, counter pickup)"
-          >
-            <Armchair className="w-3.5 h-3.5" />
-            <span>Quick Order</span>
-          </button>
-
-          {/* Action 3: Book Now */}
-          <button
-            type="button"
-            onClick={() => handleOpenNewReservation()}
-            className="inline-flex items-center gap-1.5 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-body dark:text-body hover:bg-surface-muted dark:hover:bg-[#093027] px-2.5 py-1.5 text-xs font-bold shadow-2xs transition-all cursor-pointer"
-            title="Book Table Now / New Reservation"
-          >
-            <CalendarCheck className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Book Now</span>
-          </button>
-
-          {/* Action 4: Add Table */}
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-body dark:text-body hover:bg-surface-muted dark:hover:bg-[#093027] px-2.5 py-1.5 text-xs font-bold shadow-2xs transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Add Table</span>
-          </button>
-
-          {/* Action 5: Turnaround Settings */}
-          <button
-            type="button"
-            onClick={() => setIsSettingsModalOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-body dark:text-body hover:bg-surface-muted dark:hover:bg-[#093027] px-2.5 py-1.5 text-xs font-bold shadow-2xs transition-all cursor-pointer"
-            title="Configure Dining Duration & Cleaning Buffer Settings"
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Settings</span>
-          </button>
+        {/* ONE Very Important Primary Action Button Only */}
+        <div className="flex items-center gap-2">
+          {activeTab === 'ACTIVE_ORDERS' ? (
+            <button
+              type="button"
+              onClick={() => {
+                setNoTableOrderType('TAKEAWAY');
+                setNoTableSeatingNote('');
+                setNoTableCustomerName('');
+                setNoTableCustomerPhone('');
+                setIsNoTableModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Order</span>
+            </button>
+          ) : activeTab === 'FLOOR_PLAN' ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setNoTableOrderType('TAKEAWAY');
+                  setNoTableSeatingNote('');
+                  setNoTableCustomerName('');
+                  setNoTableCustomerPhone('');
+                  setIsNoTableModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Quick Order</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 transition-all cursor-pointer"
+                title="Add Dining Table"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Add Table</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleOpenNewReservation()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-all shadow-2xs dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Reservation</span>
+            </button>
+          )}
         </div>
       </div>
 
       {activeTab === 'FLOOR_PLAN' ? (
         <>
-          {/* Unified Single-Row Toolbar: Status Filter Pills + Search + Date Stepper */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-            {/* Left: Status Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 custom-scrollbar">
-              {[
-                { id: 'ALL', label: 'All', count: tables.length },
-                { id: 'AVAILABLE', label: 'Available', count: availableCount },
-                { id: 'OCCUPIED', label: 'Occupied', count: occupiedCount },
-                { id: 'RESERVED', label: 'Reserved', count: reservedCount },
-                { id: 'CLEANING', label: 'Cleaning', count: cleaningCount },
-                { id: 'OUT_OF_SERVICE', label: 'Out of Service', count: outOfServiceCount },
-              ].map((pill) => {
-                const isSelected = selectedStatus === pill.id;
+          {/* =========================================================================
+              DYNAMIC DINING AREA SWITCHER (Quick Jump & Status for Every Area)
+             ========================================================================= */}
+          <div className="flex items-center justify-between gap-2 bg-white dark:bg-surface-card p-2 rounded-[8px] border border-border-default dark:border-border-default shadow-xs mb-3 overflow-x-auto custom-scrollbar">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedSectionFilter('ALL')}
+                className={cn(
+                  'h-8 inline-flex items-center gap-2 whitespace-nowrap rounded-[5px] px-3 text-xs font-bold transition-all shrink-0 cursor-pointer',
+                  selectedSectionFilter === 'ALL'
+                    ? 'bg-[#0B3D32] text-white shadow-2xs'
+                    : 'bg-surface-muted text-slate-700 hover:bg-slate-200/70 dark:bg-slate-800 dark:text-[#A4B8AE]'
+                )}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>All Areas</span>
+                <span className={cn('rounded-[3px] px-1.5 py-0.2 text-[10px] font-mono', selectedSectionFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300')}>
+                  {tables.length}
+                </span>
+              </button>
+
+              {allUniqueSections.map((catName) => {
+                const areaTables = tables.filter((t) => t.section?.toLowerCase() === catName.toLowerCase());
+                const count = areaTables.length;
+                const occupiedInArea = isSelectedToday ? areaTables.filter((t) => t.status === 'OCCUPIED').length : 0;
+                const isSelected = selectedSectionFilter.toLowerCase() === catName.toLowerCase();
+
                 return (
                   <button
-                    key={pill.id}
+                    key={catName}
                     type="button"
-                    onClick={() => setSelectedStatus(pill.id)}
+                    onClick={() => setSelectedSectionFilter(catName)}
                     className={cn(
-                      'h-8 inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] px-3 text-xs font-bold transition-all shrink-0 cursor-pointer',
+                      'h-8 inline-flex items-center gap-2 whitespace-nowrap rounded-[5px] px-3 text-xs font-bold transition-all shrink-0 cursor-pointer',
                       isSelected
-                        ? 'bg-[#0B3D32] text-white shadow-2xs border border-[#0B3D32] dark:bg-brand dark:border-brand'
-                        : 'bg-white border border-border-default text-[#4A6B5D] hover:bg-surface-muted dark:bg-surface-card dark:border-border-default dark:text-[#A4B8AE]'
+                        ? 'bg-[#0B3D32] text-white shadow-2xs'
+                        : 'bg-surface-muted text-slate-700 hover:bg-slate-200/70 dark:bg-slate-800 dark:text-[#A4B8AE]'
                     )}
                   >
-                    <span>{pill.label}</span>
-                    <span
-                      className={cn(
-                        'rounded-[3px] px-1.5 py-0.2 text-[10px] font-mono',
-                        isSelected ? 'bg-white/20 text-white' : 'bg-surface-muted dark:bg-[#0E362C] text-muted dark:text-success'
-                      )}
-                    >
-                      {pill.count}
+                    <span>{catName}</span>
+                    <span className={cn('rounded-[3px] px-1.5 py-0.2 text-[10px] font-mono', isSelected ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300')}>
+                      {count}
                     </span>
+                    {occupiedInArea > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 animate-pulse" title={`${occupiedInArea} occupied`} />
+                    )}
                   </button>
                 );
               })}
             </div>
 
-            {/* Right: Search & Date Controls (Same Row) */}
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
-              {/* Quick Search */}
-              <div className="relative w-full sm:w-48 md:w-56 shrink-0">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
+            {/* Area Setup Quick Action */}
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(true)}
+              className="h-8 inline-flex items-center gap-1.5 px-3 rounded-[5px] bg-[#E5EEE9] dark:bg-[#0E362C] hover:bg-[#D5E5DE] text-[#0B3D32] dark:text-emerald-300 text-xs font-bold transition-all shrink-0 cursor-pointer whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Table</span>
+            </button>
+          </div>
+
+          {/* =========================================================================
+              CLEAN & PREMIUM CONTROLS BAR (Date Navigation & Status Filters)
+             ========================================================================= */}
+          <div className="bg-white dark:bg-surface-card p-3 sm:p-3.5 rounded-[6px] border border-border-default dark:border-border-default shadow-xs space-y-2.5 mb-3.5">
+            {/* Row 1: Unified Date Navigation (Left) & Search Bar (Right) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              {/* Left: Date Stepper, Direct Date Input & Weekday Chip */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Stepper with Previous Day, Today, Next Day */}
+                <div className="flex items-center rounded-md border border-border-default dark:border-border-default bg-surface-muted dark:bg-[#0E362C] p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const parts = selectedDate.split('-').map(Number);
+                      const d = new Date(parts[0], parts[1] - 1, parts[2] - 1);
+                      const y = d.getFullYear();
+                      const m = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      setSelectedDate(`${y}-${m}-${day}`);
+                    }}
+                    className="p-1.5 rounded hover:bg-white dark:hover:bg-surface-hover text-muted dark:text-slate-300 transition-colors cursor-pointer"
+                    title="Previous Day"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate(normalizeDateStr(new Date()))}
+                    className={cn(
+                      'px-3 py-1 text-xs font-bold rounded transition-all cursor-pointer',
+                      selectedDate === normalizeDateStr(new Date())
+                        ? 'bg-white text-brand shadow-2xs font-extrabold dark:bg-surface-hover dark:text-success'
+                        : 'text-muted hover:text-body dark:text-slate-300 hover:bg-white/60'
+                    )}
+                  >
+                    Today
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const parts = selectedDate.split('-').map(Number);
+                      const d = new Date(parts[0], parts[1] - 1, parts[2] + 1);
+                      const y = d.getFullYear();
+                      const m = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      setSelectedDate(`${y}-${m}-${day}`);
+                    }}
+                    className="p-1.5 rounded hover:bg-white dark:hover:bg-surface-hover text-muted dark:text-slate-300 transition-colors cursor-pointer"
+                    title="Next Day"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Direct Date Picker */}
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border border-border-default dark:border-border-default bg-surface-muted dark:bg-[#0E362C]">
+                  <span className="text-[11px] font-semibold text-muted dark:text-[#A4B8AE]">Date:</span>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      if (e.target.value) setSelectedDate(e.target.value);
+                    }}
+                    className="text-xs font-mono font-bold text-body dark:text-white bg-transparent outline-none cursor-pointer"
+                  />
+                </div>
+
+                {/* Weekday & Date Label Pill */}
+                <span className="h-7.5 inline-flex items-center px-2.5 rounded-[4px] bg-brand/10 dark:bg-brand/20 border border-brand/20 dark:border-brand/30 text-brand dark:text-success text-xs font-bold tracking-tight whitespace-nowrap shrink-0">
+                  {(() => {
+                    try {
+                      const [y, m, day] = selectedDate.split('-').map(Number);
+                      const dt = new Date(y, m - 1, day);
+                      return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                    } catch {
+                      return '';
+                    }
+                  })()}
+                </span>
+
+                {/* Reset to Today button if date differs */}
+                {selectedDate !== normalizeDateStr(new Date()) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDate(normalizeDateStr(new Date()));
+                    }}
+                    className="h-7.5 inline-flex items-center gap-1 px-2 rounded-[4px] bg-surface-muted dark:bg-[#0E362C] hover:bg-brand/10 text-brand dark:text-success border border-brand/20 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs shrink-0"
+                    title="Reset to today"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Today</span>
+                  </button>
+                )}
+
+                {/* Future Availability indicator */}
+                {isCheckingFutureAvailability && (
+                  <div className="inline-flex items-center gap-1.5 h-7.5 px-2 text-xs font-medium text-brand dark:text-success animate-pulse shrink-0">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <span className="text-[11px] font-semibold">Checking...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Clean Search Bar without placeholder */}
+              <div className="relative w-full sm:w-64 md:w-72 shrink-0">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search table number..."
-                  className="w-full h-8 rounded-[4px] border border-border-default bg-white dark:bg-surface-card pl-8 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:text-body transition-colors"
+                  className="w-full h-8 rounded-[4px] border border-border-default bg-surface-muted dark:bg-[#0E362C]/60 pl-8.5 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:text-body transition-colors"
                 />
                 {searchQuery && (
                   <button
@@ -4520,566 +4834,410 @@ function TablesContent() {
                   </button>
                 )}
               </div>
+            </div>
 
-              {/* Stepper with Previous Day, Date Input, Next Day */}
-              <div className="inline-flex items-center h-8 rounded-[4px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card shadow-2xs overflow-hidden shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const parts = selectedDate.split('-').map(Number);
-                    const d = new Date(parts[0], parts[1] - 1, parts[2] - 1);
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    setSelectedDate(`${y}-${m}-${day}`);
-                  }}
-                  className="h-full px-2 text-muted hover:text-body hover:bg-surface-muted dark:hover:bg-[#0E362C] transition-colors border-r border-border-default dark:border-border-default cursor-pointer flex items-center justify-center"
-                  title="Previous Day"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="h-full bg-transparent px-2 text-xs font-semibold text-body focus:outline-none cursor-pointer flex items-center"
-                  title="Select Date"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const parts = selectedDate.split('-').map(Number);
-                    const d = new Date(parts[0], parts[1] - 1, parts[2] + 1);
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    setSelectedDate(`${y}-${m}-${day}`);
-                  }}
-                  className="h-full px-2 text-muted hover:text-body hover:bg-surface-muted dark:hover:bg-[#0E362C] transition-colors border-l border-border-default dark:border-border-default cursor-pointer flex items-center justify-center"
-                  title="Next Day"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+            {/* Row 2: Status Summary Chips (All, Available, Occupied, Reserved, Cleaning, Out of Service) */}
+            <div className="pt-2 border-t border-border-default/80 dark:border-border-default/80 flex items-center justify-between gap-2.5 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { id: 'ALL', label: 'All', count: tables.length, dot: null },
+                  { id: 'AVAILABLE', label: 'Available', count: availableCount, dot: 'bg-emerald-500' },
+                  { id: 'OCCUPIED', label: 'Occupied', count: occupiedCount, dot: 'bg-[#0B3D32]' },
+                  { id: 'RESERVED', label: 'Reserved', count: reservedCount, dot: 'bg-blue-500' },
+                  { id: 'CLEANING', label: 'Cleaning', count: cleaningCount, dot: 'bg-amber-500' },
+                  { id: 'OUT_OF_SERVICE', label: 'Out of Service', count: outOfServiceCount, dot: 'bg-slate-400' },
+                ].map((pill) => {
+                  const isSelected = selectedStatus === pill.id;
+                  return (
+                    <button
+                      key={pill.id}
+                      type="button"
+                      onClick={() => setSelectedStatus(pill.id)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] px-2.5 py-1 text-xs font-bold transition-all shrink-0 cursor-pointer',
+                        isSelected
+                          ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-brand'
+                          : 'bg-surface-muted dark:bg-surface-card text-[#4A6B5D] hover:bg-surface-hover dark:text-[#A4B8AE]'
+                      )}
+                    >
+                      {pill.dot && <span className={cn('w-2 h-2 rounded-full shrink-0', isSelected ? 'bg-white' : pill.dot)} />}
+                      <span>{pill.label}</span>
+                      <span
+                        className={cn(
+                          'rounded-[2px] px-1.5 py-0.2 text-[10px] font-mono',
+                          isSelected
+                            ? 'bg-white/20 text-white'
+                            : 'bg-white dark:bg-[#0E362C] text-[#4A6B5D] dark:text-[#A4B8AE] border border-border-default/50 dark:border-border-default/50'
+                        )}
+                      >
+                        {pill.count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Weekday & Date Label Pill */}
-              <span className="h-8 inline-flex items-center px-2.5 rounded-[4px] bg-brand/10 dark:bg-brand/20 border border-brand/20 dark:border-brand/30 text-brand dark:text-success text-xs font-bold tracking-tight whitespace-nowrap shrink-0">
-                {(() => {
-                  try {
-                    const [y, m, day] = selectedDate.split('-').map(Number);
-                    const dt = new Date(y, m - 1, day);
-                    return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                  } catch {
-                    return '';
-                  }
-                })()}
-              </span>
 
-              {/* Reset to Today button if date differs */}
-              {selectedDate !== normalizeDateStr(new Date()) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedDate(normalizeDateStr(new Date()));
-                  }}
-                  className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-[4px] bg-surface-muted dark:bg-[#0E362C] hover:bg-brand/10 text-brand dark:text-success border border-brand/20 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs shrink-0"
-                  title="Reset to today"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Today</span>
-                </button>
-              )}
-
-              {/* Checking Future Availability Pulse */}
-              {isCheckingFutureAvailability && (
-                <div className="inline-flex items-center gap-1.5 h-8 px-2 text-xs font-medium text-brand dark:text-success animate-pulse shrink-0">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  <span className="text-[11px] font-semibold">Checking...</span>
-                </div>
-              )}
             </div>
           </div>
 
+          {/* =========================================================================
+              GROUPED DINING ZONES / FLOORS (Organized & Uncluttered Layout)
+             ========================================================================= */}
+          {isTablesLoading && tables.length === 0 ? (
+            <div className="rounded-[4px] border border-border-default bg-white p-12 text-center shadow-2xs dark:border-border-default dark:bg-surface-card">
+              <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto mb-2" />
+              <h3 className="text-sm font-bold text-body dark:text-body">Connecting to database...</h3>
+              <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
+                Loading real tables and live orders from the database.
+              </p>
+            </div>
+          ) : filteredTables.length === 0 ? (
+            <div className="rounded-[8px] border border-border-default bg-white p-12 text-center shadow-xs dark:border-border-default dark:bg-surface-card">
+              <Table2 className="w-10 h-10 text-slate-300 dark:text-muted mx-auto mb-2" />
+              <h3 className="text-sm font-bold text-body dark:text-body">No tables found</h3>
+              <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
+                Try adjusting your search query, area selection, or status filter.
+              </p>
+            </div>
+          ) : (
+            <div className="relative rounded-[16px] bg-[#F8FAFC] dark:bg-[#071F1A] border border-border-default dark:border-border-default p-5 sm:p-7 min-h-[520px] shadow-xs overflow-visible">
+              <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-7 sm:gap-9 justify-items-center">
+                {filteredTables.map((table) => {
+                            const statusMeta = STATUS_CONFIG[table.status] || STATUS_CONFIG.AVAILABLE;
+                            const orderTotal = (table.orders || []).reduce(
+                              (sum, item) => sum + calculateOrderItemTotal(item).total,
+                              0
+                            );
 
+                            const selectedDateReservations = (table.upcomingReservations || []).filter((r: any) => {
+                              const matchesDate = normalizeDateStr(r.reservationDate) === selectedDate;
+                              const matchesStatus = r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED';
+                              return matchesDate && matchesStatus;
+                            });
 
-      {/* =========================================================================
-          CLEAN TABLE CARDS GRID
-          - Today: Shows live operational floor plan (Occupied, Alert, Billed, Available)
-          - Tomorrow & Future Dates: Shows Booking Cards for reserved tables, Available Cards for ready tables
-         ========================================================================= */}
-      {isTablesLoading && tables.length === 0 ? (
-        <div className="rounded-[4px] border border-border-default bg-white p-12 text-center shadow-2xs dark:border-border-default dark:bg-surface-card">
-          <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto mb-2" />
-          <h3 className="text-sm font-bold text-body dark:text-body">Connecting to database...</h3>
-          <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
-            Loading real tables and live orders from the database.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5 lg:gap-4">
-        {filteredTables.map((table) => {
-          const statusMeta = STATUS_CONFIG[table.status] || STATUS_CONFIG.AVAILABLE;
-          const orderTotal = (table.orders || []).reduce(
-            (sum, item) => sum + calculateOrderItemTotal(item).total,
-            0
-          );
+                            const activeRes = selectedDateReservations[0] || null;
 
-          // Get all confirmed/pending reservations for this table strictly matching selectedDate
-          const selectedDateReservations = (table.upcomingReservations || []).filter((r: any) => {
-            const matchesDate = normalizeDateStr(r.reservationDate) === selectedDate;
-            const matchesStatus = r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED';
-            return matchesDate && matchesStatus;
-          });
+                            const isOccupied = isSelectedToday && table.status === 'OCCUPIED';
+                            const isBilled = isSelectedToday && table.status === 'BILLED';
+                            const isCleaning = isSelectedToday && (table.status === 'CLEANING' || table.cleaningStatus === 'DIRTY');
+                            const isOutOfService = table.status === 'OUT_OF_SERVICE';
+                            const isAvailable = !isOccupied && !isBilled && !isCleaning && !isOutOfService;
 
-          // Next upcoming reservation on selectedDate ordered by start time
-          const activeRes = selectedDateReservations[0] || null;
+                            const tableAlert = isSelectedToday
+                              ? alerts.find((a) => a.tableId === table.id && a.status === 'ACTIVE')
+                              : null;
 
-          // Operational states (Occupied, Billed, Cleaning strictly apply to Today only)
-          const isOccupied = isSelectedToday && table.status === 'OCCUPIED';
-          const isBilled = isSelectedToday && table.status === 'BILLED';
-          const isCleaning = isSelectedToday && (table.status === 'CLEANING' || table.cleaningStatus === 'DIRTY');
-          const isOutOfService = table.status === 'OUT_OF_SERVICE';
-          const isAvailable = !isOccupied && !isBilled && !isCleaning && !isOutOfService;
+                            return (
+                              <div
+                                key={table.id}
+                                className="relative flex flex-col items-center select-none group w-full max-w-[210px]"
+                              >
+                                {/* THE TABLE ITSELF */}
+                                <div
+                                  onClick={() => {
+                                    setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
+                                  }}
+                                  className={cn(
+                                    'relative cursor-pointer transition-all duration-200 transform group-hover:scale-[1.05] active:scale-[0.98] drop-shadow-sm group-hover:drop-shadow-md rounded-full',
+                                    openTableMenuId === table.id ? 'ring-4 ring-emerald-500/70 ring-offset-2 z-30' : 'z-10',
+                                    tableAlert && 'animate-pulse'
+                                  )}
+                                  title={`Table ${table.tableNumber} · ${table.section || 'General Area'}`}
+                                >
+                                  <DiningTableGraphic
+                                    tableNumber={table.tableNumber}
+                                    capacity={table.capacity}
+                                    status={table.status as any}
+                                    cleaningStatus={table.cleaningStatus}
+                                    hasAlert={!!tableAlert}
+                                    alertSeverity={tableAlert?.severity}
+                                    className="w-[172px] h-[172px]"
+                                  />
 
-          // Active 15-Minute Advance or Overdue Alert for this table (relevant for today only)
-          const tableAlert = isSelectedToday
-            ? alerts.find((a) => a.tableId === table.id && a.status === 'ACTIVE')
-            : null;
+                                  {/* 3-Dots Contextual Menu button */}
+                                  <div className="absolute top-1 right-1 z-30">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
+                                      }}
+                                      className={cn(
+                                        'w-7 h-7 rounded-full bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all cursor-pointer focus:outline-none hover:bg-slate-50 dark:hover:bg-slate-700',
+                                        openTableMenuId === table.id ? 'opacity-100 ring-2 ring-emerald-500 scale-105' : 'opacity-0 group-hover:opacity-100'
+                                      )}
+                                      title={`Table ${table.tableNumber} Actions`}
+                                      aria-label={`Table ${table.tableNumber} Actions`}
+                                    >
+                                      <MoreVertical className="w-3.5 h-3.5 text-slate-700 dark:text-slate-200" />
+                                    </button>
 
-          return (
-            <div
-              key={table.id}
-              onClick={() => {
-                setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
-              }}
-              className={cn(
-                'group relative flex flex-col justify-between p-3.5 sm:p-4 rounded-[6px] border transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer select-none min-h-[210px]',
-                openTableMenuId === table.id ? 'z-30 ring-2 ring-emerald-500 shadow-lg' : 'z-10',
-                tableAlert
-                  ? tableAlert.severity === 'DANGER'
-                    ? 'bg-gradient-to-br from-[#881337] via-[#9F1239] to-[#4C0519] border-rose-500 text-white shadow-xl shadow-rose-950/40 ring-2 ring-rose-500 animate-pulse'
-                    : tableAlert.alertType === 'TABLE_DIRTY'
-                    ? 'bg-gradient-to-br from-[#713F12] via-[#854D0E] to-[#422006] border-amber-400 text-white shadow-lg ring-2 ring-amber-400'
-                    : 'bg-gradient-to-br from-[#78350F] via-[#92400E] to-[#451A03] border-amber-400 text-white shadow-xl shadow-amber-950/40 ring-2 ring-amber-400 ring-offset-1 ring-offset-amber-900 animate-pulse'
-                  : isOccupied
-                  ? 'bg-[#0B3D32] border-[#082C24] text-white shadow-sm'
-                  : isBilled
-                  ? 'bg-amber-50 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-100'
-                  : isCleaning
-                  ? 'bg-amber-50 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-100'
-                  : isOutOfService
-                  ? 'bg-surface-muted dark:bg-surface-card border-border-default dark:border-border-default text-muted dark:text-muted opacity-70'
-                  : 'bg-white dark:bg-surface-card border-border-default dark:border-border-default text-body dark:text-body hover:border-emerald-400 dark:hover:border-emerald-600/70'
-              )}
-              title={table.tableNumber}
-            >
-              {/* Top Header: Table Number + Capacity + Status Badge + 3-Dot More Actions Menu */}
-              <div className="flex items-center justify-between gap-1.5 mb-2">
-                <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
-                  <span className="text-lg sm:text-xl font-black font-mono tracking-tight leading-tight">
-                    {table.tableNumber}
-                  </span>
-                  <span
-                    className={cn(
-                      'px-1.5 py-0.5 rounded-[3px] text-[9px] font-mono font-bold border',
-                      isOccupied || tableAlert
-                        ? 'bg-white/15 text-white/90 border-white/20'
-                        : 'bg-surface-muted dark:bg-[#0E362C] text-muted dark:text-[#A4B8AE] border-border-default dark:border-border-default'
-                    )}
-                  >
-                    {table.capacity} Seats
-                  </span>
-                  {isSelectedToday && table.cleaningStatus === 'DIRTY' && !isOccupied && !tableAlert && (
-                    <span className="px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                      Dirty
-                    </span>
-                  )}
-                </div>
+                                    {openTableMenuId === table.id && (
+                                      <TableActionsDropdown
+                                        table={table}
+                                        isFutureDate={!isSelectedToday}
+                                        selectedReservation={activeRes}
+                                        onClose={() => setOpenTableMenuId(null)}
+                                        onStartOrder={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleSelectSeatCustomer(t);
+                                        }}
+                                        onSeatWalkIn={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleSelectSeatCustomer(t);
+                                        }}
+                                        onAddItems={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleOpenOrderPage(t.id);
+                                        }}
+                                        onViewOrder={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleOpenOrderPage(t.id);
+                                        }}
+                                        onMarkServed={(t) => {
+                                          handleMarkTableServed(t);
+                                        }}
+                                        onViewOrderHistory={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleViewTableHistory(t);
+                                        }}
+                                        onBookTable={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleOpenNewReservation(t);
+                                        }}
+                                        onViewReservation={(t) => {
+                                          setOpenTableMenuId(null);
+                                          setBookingDetailsModalTable(t);
+                                          setIsBookingDetailsModalOpen(true);
+                                        }}
+                                        onViewBooking={(t) => {
+                                          setOpenTableMenuId(null);
+                                          setBookingDetailsModalTable(t);
+                                          setIsBookingDetailsModalOpen(true);
+                                        }}
+                                        onEditReservation={(t, res) => {
+                                          setOpenTableMenuId(null);
+                                          if (res) handleOpenEditReservation(res);
+                                          else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
+                                        }}
+                                        onCancelReservation={(t, res) => {
+                                          setOpenTableMenuId(null);
+                                          handleCancelReservationFromTable(t, res);
+                                        }}
+                                        onSeatGuests={(t, res) => {
+                                          setOpenTableMenuId(null);
+                                          if (res) handleSeatReservation(res, t.id);
+                                          else if (t.upcomingReservations?.[0]) handleSeatReservation(t.upcomingReservations[0], t.id);
+                                        }}
+                                        onViewBill={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleOpenOrderPage(t.id);
+                                          setIsBillPanelOpen(true);
+                                        }}
+                                        onSettleBill={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleOpenOrderPage(t.id);
+                                          setIsBillPanelOpen(true);
+                                        }}
+                                        onPrintBill={(t) => {
+                                          handlePrintBillForTable(t);
+                                        }}
+                                        onViewPaymentHistory={(t) => {
+                                          setOpenTableMenuId(null);
+                                          handleViewTableHistory(t);
+                                        }}
+                                        onUpdateCleaningStatus={handleUpdateCleaningStatus}
+                                        onUpdateServiceStatus={handleUpdateServiceStatus}
+                                        onViewBookingDetails={(t) => {
+                                          setOpenTableMenuId(null);
+                                          setBookingDetailsModalTable(t);
+                                          setIsBookingDetailsModalOpen(true);
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {tableAlert ? (
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm',
-                        tableAlert.severity === 'DANGER'
-                          ? 'bg-rose-500 text-white animate-pulse'
-                          : 'bg-amber-400 text-amber-950 animate-pulse'
-                      )}
-                    >
-                      <Bell className="w-3 h-3 animate-bounce shrink-0" />
-                      <span>
-                        {tableAlert.severity === 'DANGER'
-                          ? `Overdue · ${formatTime12h(tableAlert.reservationTime)}`
-                          : tableAlert.alertType === 'TABLE_DIRTY'
-                          ? `Clean & Prep · ${formatTime12h(tableAlert.reservationTime)}`
-                          : `Turnover · ${formatTime12h(tableAlert.reservationTime)}`}
-                      </span>
-                    </span>
-                  ) : (
-                    /* Physical Status Badge (Requirement 1) */
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider shadow-xs',
-                        isOccupied
-                          ? 'bg-white/15 text-emerald-300 border border-white/20 backdrop-blur-xs'
-                          : isBilled
-                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border border-amber-200/40'
-                          : isCleaning
-                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border border-amber-200/40'
-                          : isOutOfService
-                          ? 'bg-slate-200 text-muted dark:bg-slate-700 dark:text-muted border border-border-default/40'
-                          : 'bg-success-subtle text-success dark:bg-emerald-900 dark:text-success border border-success/40'
-                      )}
-                    >
-                      {isOutOfService
-                        ? 'Out of Service'
-                        : isOccupied
-                        ? 'Occupied'
-                        : isBilled
-                        ? 'Billed'
-                        : isCleaning
-                        ? 'Needs Cleaning'
-                        : 'Available'}
-                    </span>
-                  )}
-                  
-                  {/* 3-Dots Button Container with attached Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
-                      }}
-                      className={cn(
-                        'p-1 rounded-[4px] transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer',
-                        isOccupied || tableAlert
-                          ? 'text-white/80 hover:text-white hover:bg-white/20'
-                          : 'text-muted hover:text-body dark:text-muted dark:hover:text-white hover:bg-surface-muted dark:hover:bg-slate-800'
-                      )}
-                      title={`Table ${table.tableNumber} Contextual Actions`}
-                      aria-label={`Table ${table.tableNumber} Contextual Actions`}
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
+                                {/* FLOATING STATUS PILL & QUICK ACTIONS BENEATH TABLE */}
+                                <div className="mt-1 flex flex-col items-center gap-1 w-full max-w-[195px] z-10">
+                                  {/* Status / Active Guest Capsule Badge */}
+                                  <div
+                                    onClick={() => {
+                                      setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
+                                    }}
+                                    className={cn(
+                                      'px-2.5 py-1 rounded-full text-[11px] font-semibold border shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1.5 w-full text-center truncate',
+                                      tableAlert
+                                        ? tableAlert.severity === 'DANGER'
+                                          ? 'bg-rose-500 text-white border-rose-600 animate-pulse'
+                                          : 'bg-amber-400 text-amber-950 border-amber-500 animate-pulse'
+                                        : isOccupied
+                                        ? 'bg-[#0B3D32] text-white border-[#082C24] dark:bg-[#0E362C] dark:border-emerald-700 shadow-2xs'
+                                        : isBilled
+                                        ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700'
+                                        : isCleaning
+                                        ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                                        : isOutOfService
+                                        ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-400'
+                                        : 'bg-white text-emerald-800 border-emerald-300/80 dark:bg-surface-card dark:text-emerald-300 dark:border-emerald-800'
+                                    )}
+                                  >
+                                    {tableAlert ? (
+                                      <span className="flex items-center gap-1 font-bold truncate">
+                                        <Bell className="w-3 h-3 shrink-0 animate-bounce" />
+                                        <span>{tableAlert.severity === 'DANGER' ? 'Overdue Alert' : 'Turnover Alert'}</span>
+                                      </span>
+                                    ) : isOccupied ? (
+                                      <span className="truncate flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                                        <span className="truncate font-medium">{table.currentGuest || 'Occupied'}</span>
+                                      </span>
+                                    ) : isBilled ? (
+                                      <span className="truncate flex items-center gap-1 font-bold">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                                        <span>Billed</span>
+                                      </span>
+                                    ) : isCleaning ? (
+                                      <span className="truncate flex items-center gap-1 font-medium">
+                                        <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                                        <span>Needs Sanitizing</span>
+                                      </span>
+                                    ) : isOutOfService ? (
+                                      <span className="truncate text-muted">Out of Service</span>
+                                    ) : (
+                                      <span className="truncate flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-300">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                        <span>Available</span>
+                                      </span>
+                                    )}
+                                  </div>
 
-                    {openTableMenuId === table.id && (
-                      <TableActionsDropdown
-                        table={table}
-                        isFutureDate={!isSelectedToday}
-                        selectedReservation={activeRes}
-                        onClose={() => setOpenTableMenuId(null)}
-                        onStartOrder={(t) => {
-                          setOpenTableMenuId(null);
-                          handleSelectSeatCustomer(t);
-                        }}
-                        onSeatWalkIn={(t) => {
-                          setOpenTableMenuId(null);
-                          handleSelectSeatCustomer(t);
-                        }}
-                        onAddItems={(t) => {
-                          setOpenTableMenuId(null);
-                          handleOpenOrderPage(t.id);
-                        }}
-                        onViewOrder={(t) => {
-                          setOpenTableMenuId(null);
-                          handleOpenOrderPage(t.id);
-                        }}
-                        onMarkServed={(t) => {
-                          handleMarkTableServed(t);
-                        }}
-                        onViewOrderHistory={(t) => {
-                          setOpenTableMenuId(null);
-                          handleViewTableHistory(t);
-                        }}
-                        onBookTable={(t) => {
-                          setOpenTableMenuId(null);
-                          handleOpenNewReservation(t);
-                        }}
-                        onViewReservation={(t) => {
-                          setOpenTableMenuId(null);
-                          setBookingDetailsModalTable(t);
-                          setIsBookingDetailsModalOpen(true);
-                        }}
-                        onViewBooking={(t) => {
-                          setOpenTableMenuId(null);
-                          setBookingDetailsModalTable(t);
-                          setIsBookingDetailsModalOpen(true);
-                        }}
-                        onEditReservation={(t, res) => {
-                          setOpenTableMenuId(null);
-                          if (res) handleOpenEditReservation(res);
-                          else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
-                        }}
-                        onCancelReservation={(t, res) => {
-                          setOpenTableMenuId(null);
-                          handleCancelReservationFromTable(t, res);
-                        }}
-                        onSeatGuests={(t, res) => {
-                          setOpenTableMenuId(null);
-                          if (res) handleSeatReservation(res, t.id);
-                          else if (t.upcomingReservations?.[0]) handleSeatReservation(t.upcomingReservations[0], t.id);
-                        }}
-                        onViewBill={(t) => {
-                          setOpenTableMenuId(null);
-                          handleOpenOrderPage(t.id);
-                          setIsBillPanelOpen(true);
-                        }}
-                        onSettleBill={(t) => {
-                          setOpenTableMenuId(null);
-                          handleOpenOrderPage(t.id);
-                          setIsBillPanelOpen(true);
-                        }}
-                        onPrintBill={(t) => {
-                          handlePrintBillForTable(t);
-                        }}
-                        onViewPaymentHistory={(t) => {
-                          setOpenTableMenuId(null);
-                          handleViewTableHistory(t);
-                        }}
-                        onUpdateCleaningStatus={handleUpdateCleaningStatus}
-                        onUpdateServiceStatus={handleUpdateServiceStatus}
-                        onViewBookingDetails={(t) => {
-                          setOpenTableMenuId(null);
-                          setBookingDetailsModalTable(t);
-                          setIsBookingDetailsModalOpen(true);
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
+                                  {/* Next Booking Note if any */}
+                                  {activeRes && !isOccupied && (
+                                    <div className="flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 font-semibold truncate">
+                                      <span>Next: {formatTime12h(activeRes.reservationTime)} ({activeRes.partySize}p)</span>
+                                    </div>
+                                  )}
 
-              {/* Card Body */}
-              <div className="flex-1 flex flex-col gap-1.5 py-1.5">
-                <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                  <span
-                    className={cn(
-                      isOccupied || tableAlert
-                        ? 'text-white/80'
-                        : 'text-muted dark:text-muted'
-                    )}
-                  >
-                    {table.section}
-                  </span>
-                  {isSelectedToday && orderTotal > 0 && (
-                    <span className={cn(
-                      "font-mono font-bold",
-                      tableAlert ? "text-amber-300" : isOccupied ? "text-emerald-300" : "text-success dark:text-brand"
-                    )}>
-                      Rs. {orderTotal.toFixed(2)}
-                    </span>
-                  )}
-                </div>
+                                  {/* Quick Action Button Bar */}
+                                  <div className="flex items-center gap-1 w-full mt-0.5">
+                                    {tableAlert ? (
+                                      <div className="flex items-center gap-1 w-full">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenOrderPage(table.id);
+                                          }}
+                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-[4px] bg-slate-900 text-white font-bold text-[10px] shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                                        >
+                                          <Receipt className="w-3 h-3 shrink-0" />
+                                          <span className="truncate">Wrap Up</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => handleAcknowledgeAlert(tableAlert.id, e)}
+                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-[4px] bg-amber-400 text-amber-950 font-bold text-[10px] shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                                        >
+                                          <Check className="w-3 h-3 shrink-0" />
+                                          <span className="truncate">Ack</span>
+                                        </button>
+                                      </div>
+                                    ) : isOccupied ? (
+                                      <div className="flex items-center gap-1 w-full">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenOrderPage(table.id);
+                                          }}
+                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold text-[10px] hover:bg-slate-50 shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                                        >
+                                          <Plus className="w-3 h-3 shrink-0" />
+                                          <span className="truncate">Add Items</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenOrderPage(table.id);
+                                            setIsBillPanelOpen(true);
+                                          }}
+                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-[#0B3D32] hover:bg-[#07241E] text-white font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                                        >
+                                          <Receipt className="w-3 h-3 shrink-0" />
+                                          <span className="truncate">Bill</span>
+                                        </button>
+                                      </div>
+                                    ) : isBilled ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenOrderPage(table.id);
+                                          setIsBillPanelOpen(true);
+                                        }}
+                                        className="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10.5px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                                      >
+                                        <DollarSign className="w-3 h-3 shrink-0" />
+                                        <span>Settle Payment</span>
+                                      </button>
+                                    ) : isCleaning || table.cleaningStatus === 'DIRTY' ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleUpdateCleaningStatus(table, 'CLEAN');
+                                        }}
+                                        className="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10.5px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                                      >
+                                        <Sparkles className="w-3 h-3 shrink-0" />
+                                        <span>Mark Cleaned</span>
+                                      </button>
+                                    ) : isOutOfService ? (
+                                      <div className="w-full text-center text-[10px] text-muted py-0.5">Out of Service</div>
+                                    ) : (
+                                      /* Available Table */
+                                      <div className="flex items-center gap-1 w-full">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => handleSelectSeatCustomer(table, e)}
+                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-[#0B3D32] hover:bg-[#07241E] text-white font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                                          title="Walk-in seating"
+                                        >
+                                          <UserPlus className="w-3 h-3 shrink-0" />
+                                          <span className="truncate">Walk in</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenNewReservation(table);
+                                          }}
+                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                                          title={`Book Table ${table.tableNumber}`}
+                                        >
+                                          <CalendarCheck className="w-3 h-3 shrink-0" />
+                                          <span className="truncate">Book</span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
 
-                {/* Requirement 2: Next Booking Indicator (Compact chip without marking table occupied) */}
-                {activeRes && (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setBookingDetailsModalTable(table);
-                      setIsBookingDetailsModalOpen(true);
-                    }}
-                    className="inline-flex items-center justify-between gap-1.5 px-2 py-1 rounded-[4px] bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/80 text-[11px] font-semibold text-sky-800 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors cursor-pointer"
-                    title={`Next booking: ${formatTime12h(activeRes.reservationTime)} (${activeRes.partySize} guests). Click to view all bookings.`}
-                  >
-                    <span className="flex items-center gap-1 truncate">
-                      <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
-                      <span className="truncate">Next booking: {formatTime12h(activeRes.reservationTime)}</span>
-                    </span>
-                    {activeRes.partySize && (
-                      <span className="text-[10px] font-mono font-bold text-sky-700 dark:text-sky-400 shrink-0">
-                        {activeRes.partySize}p
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Status description in body */}
-                {isOutOfService ? (
-                  <div className="rounded-[4px] bg-slate-100 dark:bg-slate-800/40 p-2 text-center text-xs text-muted my-auto border border-border-default/60">
-                    <p className="font-semibold">Table Out of Service</p>
-                    <p className="text-[11px] mt-0.5">{table.maintenanceNotes || 'Maintenance scheduled'}</p>
-                  </div>
-                ) : isOccupied ? (
-                  <div className="space-y-1 my-auto">
-                    <div className="text-xs flex items-center gap-1.5 text-white/90">
-                      <span className="font-normal opacity-75">Guest:</span>
-                      <strong className="font-semibold">{table.currentGuest || 'Dine-In Guest'}</strong>
-                    </div>
-                    {orderTotal > 0 && (
-                      <div className="text-[11px] text-white/70">
-                        Order active · {table.orders?.length || 0} items
-                      </div>
-                    )}
-                  </div>
-                ) : isCleaning ? (
-                  <div className="text-xs flex items-center gap-1 text-amber-700 dark:text-amber-400 my-auto">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>Needs sanitizing & table prep</span>
-                  </div>
-                ) : (
-                  /* Available Table */
-                  <div className="my-auto space-y-1">
-                    <div className="text-xs flex items-center gap-1 text-success dark:text-brand">
-                      <Sparkles className="w-3 h-3 shrink-0" />
-                      <span>Table Ready for Walk-in</span>
-                    </div>
-                    {isSelectedToday && activeRes && (() => {
-                      const now = new Date();
-                      const currentMins = now.getHours() * 60 + now.getMinutes();
-                      const resMins = parseTimeToMinutes(activeRes.reservationTime);
-                      const diff = resMins - currentMins;
-                      if (diff > 0) {
-                        const hours = Math.floor(diff / 60);
-                        const mins = diff % 60;
-                        const timeStr = hours > 0 ? `${hours}h ${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
-                        return (
-                          <div className="text-[11px] text-muted dark:text-muted">
-                            ~{timeStr.trim()} window before booking
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                )}
-              </div>
-
-              {/* Card Footer: Actions */}
-              <div className="mt-auto pt-2 border-t border-t-border-default dark:border-t-border-default/60 flex items-center justify-between text-xs">
-                {tableAlert ? (
-                  <div className="flex items-center justify-between gap-1.5 w-full">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenOrderPage(table.id);
-                      }}
-                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white text-slate-950 hover:bg-white/90 font-bold text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                      title="Wrap up active order"
-                    >
-                      <Receipt className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">Wrap Up</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => handleAcknowledgeAlert(tableAlert.id, e)}
-                      className={cn(
-                        "flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] font-black text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap",
-                        tableAlert.severity === 'DANGER'
-                          ? "bg-rose-500 hover:bg-rose-600 text-white"
-                          : "bg-amber-400 hover:bg-amber-300 text-amber-950"
-                      )}
-                      title="Acknowledge 15-minute alarm"
-                    >
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">Ack Alarm</span>
-                    </button>
-                  </div>
-                ) : isOutOfService ? (
-                  <span className="text-[11px] font-semibold text-muted py-1 whitespace-nowrap">Out of Service</span>
-                ) : isOccupied ? (
-                  <div className="flex items-center gap-1.5 w-full">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenOrderPage(table.id);
-                      }}
-                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white/20 hover:bg-white/30 text-white font-bold text-[10.5px] sm:text-[11px] transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                    >
-                      <Plus className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">Add Items</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenOrderPage(table.id);
-                        setIsBillPanelOpen(true);
-                      }}
-                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10.5px] sm:text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                    >
-                      <Receipt className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">Bill</span>
-                    </button>
-                  </div>
-                ) : isCleaning || table.cleaningStatus === 'DIRTY' ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleUpdateCleaningStatus(table, 'CLEAN');
-                    }}
-                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                    title="Sanitize table and return to service"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                    <span>Mark Cleaned</span>
-                  </button>
-                ) : isBilled ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenOrderPage(table.id);
-                      setIsBillPanelOpen(true);
-                    }}
-                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                  >
-                    <DollarSign className="w-3.5 h-3.5 shrink-0" />
-                    <span>Settle Payment</span>
-                  </button>
-                ) : (
-                  /* Available Table - Walk-In Seating + Bookings */
-                  <div className="flex items-center gap-1.5 w-full">
-                    <button
-                      type="button"
-                      onClick={(e) => handleSelectSeatCustomer(table, e)}
-                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-brand hover:bg-brand-hover text-white font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                      title="Walk-in customer"
-                    >
-                      <UserPlus className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">Walk in</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenNewReservation(table);
-                      }}
-                      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-1.5 rounded-[3px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success dark:hover:bg-emerald-950/40 font-bold text-[10.5px] sm:text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                      title={`Book Table ${table.tableNumber}`}
-                    >
-                      <CalendarCheck className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">Book Now</span>
-                    </button>
-                  </div>
-                )}
+                })}
               </div>
             </div>
-          );
-        })}
-        </div>
-      )}
-
-      {!isTablesLoading && filteredTables.length === 0 && (
-        <div className="rounded-[3px] border border-border-default bg-white p-12 text-center shadow-2xs dark:border-border-default dark:bg-surface-card">
-          <Table2 className="w-10 h-10 text-slate-300 dark:text-muted mx-auto mb-2" />
-          <h3 className="text-sm font-bold text-body dark:text-body">No tables found</h3>
-          <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
-            Try adjusting your search or status filter.
-          </p>
-        </div>
-      )}
+          )}
         </>
       ) : activeTab === 'ACTIVE_ORDERS' ? (
         <ActiveOrdersView
           orders={activeOrders}
           isLoading={isActiveOrdersLoading}
+          initialFilter={filterParam === 'OPEN_ORDERS' ? 'OPEN_ORDERS' : undefined}
           onRefresh={fetchActiveOrders}
           onOpenOrder={handleOpenOrderFromActiveList}
           onGenerateBill={handleGenerateBillFromActiveOrders}
@@ -5175,19 +5333,65 @@ function TablesContent() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE] mb-1">
-                  DINING SECTION *
-                </label>
-                <select
-                  value={newSection}
-                  onChange={(e) => setNewSection(e.target.value)}
-                  className="w-full rounded-[3px] border border-border-default bg-white px-3 py-2 text-xs font-semibold text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:bg-surface-card dark:text-body"
-                >
-                  <option value="Indoor Fine Dining">Indoor Fine Dining</option>
-                  <option value="Skyline Rooftop Terrace">Skyline Rooftop Terrace</option>
-                  <option value="Poolside Lounge & Bar">Poolside Lounge & Bar</option>
-                  <option value="Private Executive Dining">Private Executive Dining</option>
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE]">
+                    TABLE CATEGORY / AREA *
+                  </label>
+                  {!isAddingNewCategory ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingNewCategory(true)}
+                      className="text-[11px] text-amber-600 hover:text-amber-700 font-bold cursor-pointer"
+                    >
+                      + New Area
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingNewCategory(false)}
+                      className="text-[11px] text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
+                    >
+                      Cancel New Area
+                    </button>
+                  )}
+                </div>
+
+                {!isAddingNewCategory ? (
+                  <select
+                    value={newSection}
+                    onChange={(e) => {
+                      if (e.target.value === '__NEW__') {
+                        setIsAddingNewCategory(true);
+                      } else {
+                        setNewSection(e.target.value);
+                      }
+                    }}
+                    className="w-full rounded-[3px] border border-border-default bg-white px-3 py-2 text-xs font-semibold text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:bg-surface-card dark:text-body"
+                  >
+                    {Array.from(new Set([
+                      'Dining Hall',
+                      'Corridor Side',
+                      'Main Area',
+                      ...tableCategories.map((c) => c.name),
+                      ...tables.map((t) => t.section).filter(Boolean)
+                    ])).map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="__NEW__">+ Add New Area / Category...</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    required={isAddingNewCategory}
+                    autoFocus
+                    value={customCategoryInput}
+                    onChange={(e) => setCustomCategoryInput(e.target.value)}
+                    placeholder="e.g. Corridor Side, Dining Hall, Main Area..."
+                    className="w-full rounded-[3px] border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-amber-600 dark:bg-surface-card dark:text-body"
+                  />
+                )}
               </div>
 
               <div>
@@ -5644,8 +5848,7 @@ function TablesContent() {
       )}
 
       {/* =========================================================================
-          NEW NO-TABLE / TAKEAWAY ORDER MODAL (Requirement 2)
-          Allows waiter/cashier to start an order immediately without a table.
+          QUICK ORDER MODAL (Dine-in with Table Selection / Takeaway / Delivery)
          ========================================================================= */}
       {isNoTableModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-100">
@@ -5655,7 +5858,7 @@ function TablesContent() {
               <div className="flex items-center gap-2">
                 <Armchair className="w-4 h-4 text-brand dark:text-brand" />
                 <h3 className="text-sm font-bold font-heading text-body dark:text-body">
-                  Quick Order (Takeaway / Walk-in)
+                  Quick Order
                 </h3>
               </div>
               <button
@@ -5669,35 +5872,31 @@ function TablesContent() {
 
             {/* Modal Body */}
             <div className="p-5 space-y-4 text-xs">
-              <p className="text-muted dark:text-[#A4B8AE] leading-relaxed">
-                Start an independent restaurant order without binding to a registered table. An independent order number (e.g. <span className="font-mono font-bold text-brand dark:text-brand">ORD-XXXX</span>) is generated. Customer registration is not required.
-              </p>
-
               {/* Order Service Type Toggle */}
               <div>
                 <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE] mb-1.5 uppercase">
                   Service Type *
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setNoTableOrderType('NO_TABLE')}
                     className={cn(
-                      'flex items-center justify-center gap-2 py-2 px-3 rounded-[3px] border text-xs font-bold transition-all cursor-pointer',
+                      'flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-[3px] border text-xs font-bold transition-all cursor-pointer',
                       noTableOrderType === 'NO_TABLE'
                         ? 'bg-[#0B3D32] text-white border-[#0B3D32] dark:bg-brand dark:border-brand shadow-xs'
                         : 'bg-white dark:bg-surface-card border-border-default dark:border-border-default text-body dark:text-body hover:bg-surface-muted dark:hover:bg-[#093027]'
                     )}
                   >
                     <Armchair className="w-3.5 h-3.5" />
-                    <span>No Table</span>
+                    <span>Dine-in</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setNoTableOrderType('TAKEAWAY')}
                     className={cn(
-                      'flex items-center justify-center gap-2 py-2 px-3 rounded-[3px] border text-xs font-bold transition-all cursor-pointer',
+                      'flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-[3px] border text-xs font-bold transition-all cursor-pointer',
                       noTableOrderType === 'TAKEAWAY'
                         ? 'bg-[#0B3D32] text-white border-[#0B3D32] dark:bg-brand dark:border-brand shadow-xs'
                         : 'bg-white dark:bg-surface-card border-border-default dark:border-border-default text-body dark:text-body hover:bg-surface-muted dark:hover:bg-[#093027]'
@@ -5711,33 +5910,103 @@ function TablesContent() {
                     type="button"
                     onClick={() => setNoTableOrderType('ONLINE')}
                     className={cn(
-                      'flex items-center justify-center gap-2 py-2 px-3 rounded-[3px] border text-xs font-bold transition-all cursor-pointer',
+                      'flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-[3px] border text-xs font-bold transition-all cursor-pointer',
                       noTableOrderType === 'ONLINE'
                         ? 'bg-[#0B3D32] text-white border-[#0B3D32] dark:bg-brand dark:border-brand shadow-xs'
                         : 'bg-white dark:bg-surface-card border-border-default dark:border-border-default text-body dark:text-body hover:bg-surface-muted dark:hover:bg-[#093027]'
                     )}
                   >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>Online Order</span>
+                    <Bike className="w-3.5 h-3.5" />
+                    <span>Delivery</span>
                   </button>
                 </div>
               </div>
 
-              {/* Seating Note (Optional) */}
+              {/* Table Suggestion Dropdown (Only for Dine-In) */}
+              {noTableOrderType === 'NO_TABLE' && (
+                <div className="space-y-1.5 animate-in fade-in duration-100">
+                  <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE] uppercase flex items-center justify-between">
+                    <span>Dining Table</span>
+                    <span className="text-[10px] text-muted normal-case font-normal">
+                      Available &amp; Dined-in tables
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <Table2 className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={selectedDineInTableId}
+                      onChange={(e) => setSelectedDineInTableId(e.target.value)}
+                      className="w-full rounded-[3px] border border-border-default bg-white dark:bg-surface-card pl-8 pr-3 py-1.5 text-xs text-body dark:text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none cursor-pointer"
+                    >
+                      <option value="">-- Dine-in without Table (Bar / Counter / Walk-in) --</option>
+
+                      {availableTables.length > 0 && (
+                        <optgroup label="Available Tables (Open New Table Order)">
+                          {availableTables.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              Table {t.tableNumber} · Available ({t.capacity} Seats · {t.section})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+
+                      {occupiedTables.length > 0 && (
+                        <optgroup label="Currently Dined-In (Add Items to Table)">
+                          {occupiedTables.map((t) => {
+                            const count = (t.orders || []).reduce((sum, o) => sum + o.quantity, 0);
+                            return (
+                              <option key={t.id} value={t.id}>
+                                Table {t.tableNumber} · Occupied {t.orderNumber ? `(${t.orderNumber})` : ''} {t.currentGuest ? `· ${t.currentGuest}` : ''} {count > 0 ? `· ${count} items` : ''}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+
+                  {selectedDineInTableId ? (
+                    occupiedTables.some((t) => t.id === selectedDineInTableId) ? (
+                      <div className="p-2 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 flex items-center gap-1.5 text-[11px]">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 inline-block shrink-0 animate-pulse"></span>
+                        <span>Table is occupied. Submitting will open active order to add more items.</span>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 text-[11px]">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+                        <span>Available table selected. Submitting will seat guests &amp; start new order.</span>
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-[10px] text-muted italic">
+                      No table selected. Starts an independent walk-in order without occupying floor tables.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Seating / Location Note */}
               <div>
                 <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE] mb-1 uppercase">
-                  Seating / Location Note (Optional)
+                  {noTableOrderType === 'ONLINE'
+                    ? 'Delivery Address / Order Ref (Optional)'
+                    : noTableOrderType === 'TAKEAWAY'
+                    ? 'Pickup Note / Token (Optional)'
+                    : 'Seating Note (Optional)'}
                 </label>
                 <input
                   type="text"
-                  placeholder={noTableOrderType === 'ONLINE' ? "e.g. Swiggy, Zomato, Web App order #..." : noTableOrderType === 'NO_TABLE' ? "e.g. Window side, Spare chair by bar, Outside terrace..." : "e.g. Counter pickup, Delivery pack..."}
+                  placeholder={
+                    noTableOrderType === 'ONLINE'
+                      ? 'e.g. Delivery Address, Apartment #, Rider Ref...'
+                      : noTableOrderType === 'NO_TABLE'
+                      ? 'e.g. Window side, Spare chair by bar, Outside terrace...'
+                      : 'e.g. Counter pickup, 15 mins...'
+                  }
                   value={noTableSeatingNote}
                   onChange={(e) => setNoTableSeatingNote(e.target.value)}
                   className="w-full rounded-[3px] border border-border-default bg-white px-3 py-1.5 text-xs text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none dark:border-border-default dark:bg-surface-card dark:text-body"
                 />
-                <span className="text-[10px] text-muted mt-1 block">
-                  Informational note only. Does not mark any registered table as occupied.
-                </span>
               </div>
 
               {/* Optional Guest Details */}
@@ -5748,7 +6017,7 @@ function TablesContent() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Walk-in Customer"
+                    placeholder="e.g. Guest Name"
                     value={noTableCustomerName}
                     onChange={(e) => setNoTableCustomerName(e.target.value)}
                     className="w-full rounded-[3px] border border-border-default bg-white px-3 py-1.5 text-xs text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none dark:border-border-default dark:bg-surface-card dark:text-body"
@@ -5780,11 +6049,17 @@ function TablesContent() {
 
                 <button
                   type="button"
-                  onClick={() => handleStartNoTableOrder(noTableOrderType)}
+                  onClick={handleConfirmQuickOrder}
                   className="inline-flex items-center gap-1.5 rounded-[3px] bg-brand hover:bg-brand-active text-white px-4 py-1.5 text-xs font-bold shadow-xs transition-all dark:bg-brand dark:hover:bg-success-subtle0 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Start Order</span>
+                  <span>
+                    {noTableOrderType === 'NO_TABLE' && selectedDineInTableId
+                      ? occupiedTables.some((t) => t.id === selectedDineInTableId)
+                        ? 'Add Items to Table'
+                        : 'Seat & Start Order'
+                      : 'Start Order'}
+                  </span>
                 </button>
               </div>
             </div>

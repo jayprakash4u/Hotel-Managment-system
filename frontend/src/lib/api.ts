@@ -300,10 +300,54 @@ export const api = {
     return fetcher<any[]>(`/api/restaurant/tables${query}`);
   },
 
-  createTable: (data: any) => {
+  createTable: (data: { tableNumber: string; capacity?: number; section?: string; categoryId?: string; status?: string; cleaningStatus?: string; maintenanceNotes?: string; [key: string]: any }) => {
     return fetcher<any>('/api/restaurant/tables', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  updateTable: (id: string, data: { tableNumber?: string; capacity?: number; section?: string; categoryId?: string; status?: string; cleaningStatus?: string; maintenanceNotes?: string; [key: string]: any }) => {
+    return fetcher<any>(`/api/restaurant/tables/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteTable: (id: string) => {
+    return fetcher<any>(`/api/restaurant/tables/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  bulkCreateTables: (data: { prefix?: string; startNumber?: number; count: number; capacity?: number; categoryId?: string; section?: string }) => {
+    return fetcher<any[]>('/api/restaurant/tables/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getTableCategories: () => {
+    return fetcher<any[]>('/api/restaurant/table-categories');
+  },
+
+  createTableCategory: (data: { name: string; description?: string; floor?: string; displayOrder?: number }) => {
+    return fetcher<any>('/api/restaurant/table-categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateTableCategory: (id: string, data: { name?: string; description?: string; floor?: string; displayOrder?: number; isActive?: boolean }) => {
+    return fetcher<any>(`/api/restaurant/table-categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteTableCategory: (id: string) => {
+    return fetcher<any>(`/api/restaurant/table-categories/${id}`, {
+      method: 'DELETE',
     });
   },
 
@@ -408,8 +452,12 @@ export const api = {
     });
   },
 
+  getRestaurantOpenOrders: () => {
+    return fetcher<any[]>('/api/restaurant/open-orders');
+  },
+
   settleRestaurantOrder: (orderId: string, data: {
-    paymentMethod: string;
+    paymentMethod?: string;
     roomNumber?: string;
     roomId?: string;
     reservationId?: string;
@@ -419,6 +467,7 @@ export const api = {
     discountAmount?: number;
     roundOff?: number;
     remarks?: string;
+    notes?: string;
   }) => {
     return fetcher<any>(`/api/restaurant/orders/${orderId}/settle`, {
       method: 'POST',
@@ -608,6 +657,141 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data || {}),
     });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Restaurant Packing Management
+  // ---------------------------------------------------------------------------
+  getPackingMaterials: (params?: { status?: string; search?: string; lowStockOnly?: boolean }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<any[]>(`/api/restaurant/packing/materials?${query}`);
+  },
+
+  createPackingMaterial: (data: {
+    name: string;
+    unit: string;
+    purchaseCost: number;
+    packingCharge: number;
+    availableStock: number;
+    minStockThreshold?: number;
+    status?: string;
+  }) => {
+    return fetcher<any>('/api/restaurant/packing/materials', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updatePackingMaterial: (id: string, data: any) => {
+    return fetcher<any>(`/api/restaurant/packing/materials/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deletePackingMaterial: (id: string) => {
+    return fetcher<any>(`/api/restaurant/packing/materials/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  adjustPackingMaterialStock: (id: string, data: { quantity: number; notes?: string; type?: string }) => {
+    return fetcher<any>(`/api/restaurant/packing/materials/${encodeURIComponent(id)}/adjust-stock`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getPackingDashboard: (params?: { status?: string; orderType?: string; search?: string; date?: string }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<{
+      orders: any[];
+      counts: { all: number; pending: number; inProgress: number; completed: number };
+    }>(`/api/restaurant/packing/dashboard?${query}`);
+  },
+
+  updateOrderPackingStatus: (orderId: string, data: { status: string; staffName?: string }) => {
+    return fetcher<any>(`/api/restaurant/packing/orders/${encodeURIComponent(orderId)}/status`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  adjustOrderPackingMaterials: (orderId: string, data: { materials: any[] }) => {
+    return fetcher<any>(`/api/restaurant/packing/orders/${encodeURIComponent(orderId)}/adjust-materials`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  completeOrderPacking: (orderId: string, data?: { staffName?: string; modifiedMaterials?: any[] }) => {
+    return fetcher<any>(`/api/restaurant/packing/orders/${encodeURIComponent(orderId)}/complete`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  },
+
+  getMenuPackingConfig: (params?: { search?: string }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<any[]>(`/api/restaurant/packing/menu-config?${query}`);
+  },
+
+  updateMenuPackingConfig: (productId: string, data: { materials: any[] }) => {
+    return fetcher<any>(`/api/restaurant/packing/menu-config/${encodeURIComponent(productId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  calculatePacking: (items: { productId: string; quantity: number }[]) => {
+    return fetcher<{
+      materials: any[];
+      totalPackingCharge: number;
+      totalMaterialCost: number;
+      totalItemsCount: number;
+    }>('/api/restaurant/packing/calculate', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    });
+  },
+
+  getPackingReportsSummary: (params?: { startDate?: string; endDate?: string }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<any>(`/api/restaurant/packing/reports/summary?${query}`);
+  },
+
+  getPackingConsumptionReport: (params?: { startDate?: string; endDate?: string }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<any>(`/api/restaurant/packing/reports/consumption?${query}`);
+  },
+
+  getPackingStockReport: () => {
+    return fetcher<any[]>('/api/restaurant/packing/reports/stock');
   },
 
   // Inventory
@@ -1010,6 +1194,104 @@ export const api = {
 
   getCreditSummaryReport: () => {
     return fetcher<any>('/api/billing/reports/credit-summary');
+  },
+
+  // Accounts (Chart of Accounts, Journal Entries, General Ledger)
+  getChartOfAccounts: (params?: { type?: string; search?: string; activeOnly?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.type) q.append('type', params.type);
+    if (params?.search) q.append('search', params.search);
+    if (params?.activeOnly) q.append('activeOnly', 'true');
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').ChartOfAccountsResponse>(`/api/accounts/chart${qs}`);
+  },
+
+  createAccount: (data: {
+    accountCode: string;
+    accountName: string;
+    accountType: string;
+    subCategory?: string;
+    normalBalance?: string;
+    openingBalance: number;
+    description?: string;
+  }) => {
+    return fetcher<import('./types').AccountItem>('/api/accounts/chart', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateAccount: (id: string, data: {
+    accountName?: string;
+    subCategory?: string;
+    description?: string;
+    isActive?: boolean;
+  }) => {
+    return fetcher<import('./types').AccountItem>(`/api/accounts/chart/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteAccount: (id: string) => {
+    return fetcher<{ id: string }>(`/api/accounts/chart/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  seedDefaultAccounts: () => {
+    return fetcher<{ added: number }>('/api/accounts/chart/seed-default', {
+      method: 'POST',
+    });
+  },
+
+  getJournalEntries: (params?: { fromDate?: string; toDate?: string; status?: string; search?: string; page?: number; pageSize?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.status) q.append('status', params.status);
+    if (params?.search) q.append('search', params.search);
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').JournalEntriesResponse>(`/api/accounts/journal-entries${qs}`);
+  },
+
+  getJournalEntryById: (id: string) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}`);
+  },
+
+  createJournalEntry: (data: {
+    entryDate?: string;
+    reference?: string;
+    description: string;
+    sourceModule?: string;
+    lines: Array<{
+      accountId: string;
+      lineDescription?: string;
+      debit: number;
+      credit: number;
+    }>;
+  }) => {
+    return fetcher<import('./types').JournalEntryItem>('/api/accounts/journal-entries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  voidJournalEntry: (id: string) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}/void`, {
+      method: 'POST',
+    });
+  },
+
+  getGeneralLedger: (params?: { accountId?: string; fromDate?: string; toDate?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.accountId) q.append('accountId', params.accountId);
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').GeneralLedgerReport>(`/api/accounts/general-ledger${qs}`);
   },
 };
 

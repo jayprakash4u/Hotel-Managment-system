@@ -322,18 +322,19 @@ public class SuppliersController : ControllerBase
             );
         });
 
+        var lastEntry = entries.LastOrDefault();
         var summary = new
         {
             supplierId = supplier.Id,
             supplierName = supplier.Name,
             totalCredit = entries.Sum(e => e.CreditAmount),
             totalDebit = entries.Sum(e => e.DebitAmount),
-            outstandingBalance = entries.LastOrDefault()?.Balance ?? 0,
+            outstandingBalance = lastEntry?.Balance ?? 0,
             creditLimit = supplier.CreditLimit,
             paymentTermsDays = supplier.PaymentTermsDays,
-            isOverdue = entries.LastOrDefault()?.Balance > 0 &&
-                        entries.LastOrDefault()?.DueDate.HasValue == true &&
-                        now > entries.LastOrDefault()!.DueDate.Value
+            isOverdue = lastEntry?.Balance > 0 &&
+                        lastEntry.DueDate.HasValue &&
+                        now > lastEntry.DueDate.Value
         };
 
         return Ok(ApiResponse.Ok(new { entries = dtos, summary }));

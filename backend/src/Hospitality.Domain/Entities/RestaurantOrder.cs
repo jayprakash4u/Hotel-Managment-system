@@ -18,19 +18,29 @@ public class RestaurantOrder : BaseEntity
     public string? GuestId { get; set; }
     public Guest? Guest { get; set; }
 
+    public string? CustomerName { get; set; }
+    public string? CustomerPhone { get; set; }
+
     public string Status { get; set; } = "RECEIVED"; // RECEIVED, PREPARING, READY, SERVED, BILLED, CANCELLED
-    public string OrderType { get; set; } = "DINE_IN"; // DINE_IN, ROOM_SERVICE, TAKEAWAY
+    public string OrderType { get; set; } = "DINE_IN"; // DINE_IN, TAKEAWAY, DELIVERY, ROOM_SERVICE, COUNTER_SALE
     public string ServerName { get; set; } = "David Kim";
     public double Subtotal { get; set; } = 0;
     public double DiscountAmount { get; set; } = 0;
     public double DiscountPercent { get; set; } = 0;
     public double Tax { get; set; } = 0;
     public double ServiceCharge { get; set; } = 0;
+    public double PackingCharge { get; set; } = 0;
     public double Total { get; set; } = 0;
     public string? PaymentMethod { get; set; } // ROOM_FOLIO, CASH, CARD, UPI
     public bool IsPaid { get; set; } = false;
     public string? ReservationId { get; set; }
     public string? Notes { get; set; }
+
+    // Packing Lifecycle
+    public string PackingStatus { get; set; } = "NONE"; // NONE, PENDING, IN_PROGRESS, COMPLETED
+    public string? PackingDetailsJson { get; set; } // JSON array of required materials snapshot
+    public DateTime? PackedAt { get; set; }
+    public string? PackedBy { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
