@@ -369,13 +369,9 @@ export default function JournalEntriesTab() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Journal Entries
             </h1>
-            <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
-              Double-Entry ERP
-            </span>
+            
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Create and manage accounting journal transactions, adjustments, and operational postings.
-          </p>
+          
         </div>
 
         <div className="flex items-center gap-2">
@@ -401,9 +397,7 @@ export default function JournalEntriesTab() {
           <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
             {summary.totalEntries}
           </div>
-          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-            All fiscal journal records
-          </div>
+          
         </div>
 
         {/* Card 2: Posted Entries */}
@@ -415,9 +409,7 @@ export default function JournalEntriesTab() {
           <div className="text-2xl font-black font-mono text-emerald-900 dark:text-emerald-300 mt-1">
             {summary.postedEntries}
           </div>
-          <div className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-            Committed to General Ledger
-          </div>
+          
         </div>
 
         {/* Card 3: Draft Entries */}
@@ -429,9 +421,7 @@ export default function JournalEntriesTab() {
           <div className="text-2xl font-black font-mono text-amber-900 dark:text-amber-300 mt-1">
             {summary.draftEntries}
           </div>
-          <div className="text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-0.5">
-            Pending review &amp; posting
-          </div>
+          
         </div>
 
         {/* Card 4: Total Period Debit / Credit */}
@@ -443,9 +433,7 @@ export default function JournalEntriesTab() {
           <div className="text-xl font-black font-mono text-blue-950 dark:text-blue-300 mt-1 truncate">
             Rs. {formatCurrency(summary.periodDebit)}
           </div>
-          <div className="text-[10px] text-blue-700/80 dark:text-blue-400/80 mt-0.5">
-            Total posted debits / credits
-          </div>
+          
         </div>
       </div>
 
@@ -471,7 +459,7 @@ export default function JournalEntriesTab() {
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-750'
                   )}
                 >
-                  {st === 'ALL' ? 'All Vouchers' : st}
+                  {st === 'ALL' ? 'All' : st === 'POSTED' ? 'Posted' : st === 'DRAFT' ? 'Draft' : 'Reversed'}
                 </button>
               );
             })}
@@ -490,10 +478,10 @@ export default function JournalEntriesTab() {
               title="Filter by Entry Type"
             >
               <option value="ALL">All Types</option>
-              <option value="GENERAL">General Journal</option>
-              <option value="ADJUSTMENT">Adjustment Entry</option>
-              <option value="OPENING">Opening Entry</option>
-              <option value="CLOSING">Closing Entry</option>
+              <option value="GENERAL">General</option>
+              <option value="ADJUSTMENT">Adjustment</option>
+              <option value="OPENING">Opening</option>
+              <option value="CLOSING">Closing</option>
             </select>
 
             {/* Inline Date Filter */}
@@ -600,7 +588,7 @@ export default function JournalEntriesTab() {
                   <td colSpan={11} className="py-12 text-center text-slate-400">
                     <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
                     <p className="font-semibold text-slate-700 dark:text-slate-300">No journal vouchers found</p>
-                    <p className="text-[11px] mt-1 text-slate-400">Click &quot;Create Journal Entry&quot; to record your first transaction.</p>
+                    
                   </td>
                 </tr>
               ) : (

@@ -6,11 +6,14 @@ public class Customer : BaseEntity
     public Hotel? Hotel { get; set; }
 
     public string Name { get; set; } = string.Empty;
+    public string? CustomerCode { get; set; }
     public string Phone { get; set; } = string.Empty;
+    public string? Email { get; set; }
     public string? Address { get; set; }
+    public string? PanVatNumber { get; set; }
 
     /// <summary>
-    /// Customer type: "CASH" or "CREDIT"
+    /// Customer type: "CASH", "CREDIT", "CORPORATE", "REGULAR"
     /// </summary>
     public string CustomerType { get; set; } = "CASH";
 
@@ -20,7 +23,12 @@ public class Customer : BaseEntity
     public double CreditLimit { get; set; } = 0;
 
     /// <summary>
-    /// Status: "ACTIVE" or "BLOCKED"
+    /// Credit terms in days (e.g. 15, 30 days)
+    /// </summary>
+    public int CreditTerms { get; set; } = 30;
+
+    /// <summary>
+    /// Status: "ACTIVE", "BLOCKED", "ON_HOLD"
     /// </summary>
     public string CreditStatus { get; set; } = "ACTIVE";
 
@@ -34,6 +42,12 @@ public class Customer : BaseEntity
     /// </summary>
     public double CurrentOutstanding { get; set; } = 0;
 
+    /// <summary>
+    /// Advance payment balance held for this customer
+    /// </summary>
+    public double AdvanceBalance { get; set; } = 0;
+
+    public string BranchOrOutlet { get; set; } = "RESTAURANT";
     public string? Notes { get; set; }
     public string? CreatedBy { get; set; }
     public string? UpdatedBy { get; set; }

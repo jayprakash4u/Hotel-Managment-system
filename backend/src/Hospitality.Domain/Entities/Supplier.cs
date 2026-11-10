@@ -41,6 +41,14 @@ public class Supplier : BaseEntity
     /// </summary>
     public double OpeningBalance { get; set; } = 0;
 
+    /// <summary>
+    /// Current unallocated advance payments paid to this supplier.
+    /// </summary>
+    public double AdvanceBalance { get; set; } = 0;
+
+    public string SupplierType { get; set; } = "Vendor";
+    public string? BranchOrOutlet { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<InventoryItem> Items { get; set; } = new List<InventoryItem>();

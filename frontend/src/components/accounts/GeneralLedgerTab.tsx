@@ -387,13 +387,9 @@ export default function GeneralLedgerTab() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               General Ledger
             </h1>
-            <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-800 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
-              Account-Wise Audit Trail
-            </span>
+            
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            View detailed chronological transactions, running balances, and opening/closing reconciliations.
-          </p>
+          
         </div>
 
         {/* Top Actions: Mode Switcher & Export */}
@@ -490,11 +486,11 @@ export default function GeneralLedgerTab() {
               title="Filter by Account Type"
             >
               <option value="ALL">All Account Types</option>
-              <option value="ASSET">Assets (1000)</option>
-              <option value="LIABILITY">Liabilities (2000)</option>
-              <option value="EQUITY">Equity (3000)</option>
-              <option value="INCOME">Income / Revenue (4000)</option>
-              <option value="EXPENSE">Expenses (5000)</option>
+              <option value="ASSET">Assets</option>
+              <option value="LIABILITY">Liabilities</option>
+              <option value="EQUITY">Equity</option>
+              <option value="INCOME">Income</option>
+              <option value="EXPENSE">Expenses</option>
             </select>
 
             {/* Source Module Filter (Single view) */}

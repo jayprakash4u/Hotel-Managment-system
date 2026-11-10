@@ -219,13 +219,9 @@ export default function TrialBalanceTab() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Trial Balance
             </h1>
-            <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-bold uppercase tracking-wider bg-violet-50 text-violet-800 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800">
-              Double-Entry Verification
-            </span>
+            
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Review account balances and verify debit and credit totals across all ledger accounts.
-          </p>
+          
         </div>
 
         {/* Export & Print Actions */}
@@ -266,9 +262,7 @@ export default function TrialBalanceTab() {
             <div className="text-2xl font-black font-mono text-sky-950 dark:text-sky-200 mt-1">
               Rs. {formatCurrency(report.totals.closingDebit)}
             </div>
-            <div className="text-[10px] text-sky-700/80 dark:text-sky-400 mt-0.5">
-              Opening Dr: Rs. {formatCurrency(report.totals.openingDebit)}
-            </div>
+            
           </div>
 
           {/* Card 2: Total Credit Balance */}
@@ -282,9 +276,7 @@ export default function TrialBalanceTab() {
             <div className="text-2xl font-black font-mono text-amber-950 dark:text-amber-200 mt-1">
               Rs. {formatCurrency(report.totals.closingCredit)}
             </div>
-            <div className="text-[10px] text-amber-700/80 dark:text-amber-400 mt-0.5">
-              Opening Cr: Rs. {formatCurrency(report.totals.openingCredit)}
-            </div>
+            
           </div>
 
           {/* Card 3: Total Accounts Evaluated */}
@@ -296,9 +288,7 @@ export default function TrialBalanceTab() {
             <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
               {report.totalAccounts}
             </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">
-              Period Turnover: Rs. {formatCurrency(report.totals.periodDebit)}
-            </div>
+            
           </div>
 
           {/* Card 4: Accounting Equilibrium Status */}
@@ -346,11 +336,11 @@ export default function TrialBalanceTab() {
               title="Filter by Account Category"
             >
               <option value="ALL">All Account Types</option>
-              <option value="ASSET">1000 – Assets</option>
-              <option value="LIABILITY">2000 – Liabilities</option>
-              <option value="EQUITY">3000 – Equity</option>
-              <option value="INCOME">4000 – Income</option>
-              <option value="EXPENSE">5000 – Expenses</option>
+              <option value="ASSET">Assets</option>
+              <option value="LIABILITY">Liabilities</option>
+              <option value="EQUITY">Equity</option>
+              <option value="INCOME">Income</option>
+              <option value="EXPENSE">Expenses</option>
             </select>
 
             {/* Zero balance toggle */}

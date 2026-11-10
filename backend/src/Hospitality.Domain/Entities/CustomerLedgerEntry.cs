@@ -14,8 +14,13 @@ public class CustomerLedgerEntry : BaseEntity
     public string? PaymentId { get; set; }
 
     public DateTime EntryDate { get; set; } = DateTime.UtcNow;
+    public DateTime? DueDate { get; set; }
 
     public string Description { get; set; } = string.Empty;
+    public string? InvoiceNumber { get; set; }
+    public string? PaymentStatus { get; set; }
+    public string Outlet { get; set; } = "RESTAURANT";
+    public string? JournalEntryId { get; set; }
 
     /// <summary>
     /// Debit amount: increases customer outstanding (e.g. credit sales, opening debit)

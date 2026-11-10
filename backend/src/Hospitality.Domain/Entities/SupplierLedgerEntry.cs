@@ -47,6 +47,13 @@ public class SupplierLedgerEntry : BaseEntity
     /// </summary>
     public string? PaymentMode { get; set; }
 
+    public string? TransactionNumber { get; set; }
+    public string? PurchaseInvoiceNumber { get; set; }
+    public string? BranchOrOutlet { get; set; }
+    public string? JournalEntryId { get; set; }
+    public string? AllocationsJson { get; set; }
+    public string? Notes { get; set; }
+
     public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

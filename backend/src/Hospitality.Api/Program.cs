@@ -176,7 +176,32 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""attachmentUrl"" text;
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""createdBy"" text DEFAULT 'Admin';
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""dueDate"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""paidAmount"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""dueAmount"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""freightCharges"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""roundOff"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""receivingStatus"" text DEFAULT 'FULLY_RECEIVED';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""approvedBy"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text DEFAULT 'Restaurant Main';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""warehouse"" text DEFAULT 'Central Store';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""purchaseOrderRef"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""grnNumber"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""journalEntryId"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""paymentsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""returnsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""invoiceDate"" timestamp with time zone;
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ALTER COLUMN ""supplierId"" DROP NOT NULL;
+
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""advanceBalance"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""supplierType"" text DEFAULT 'Vendor';
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text;
+
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""transactionNumber"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""purchaseInvoiceNumber"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""journalEntryId"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""allocationsJson"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""notes"" text;
 
             ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""purchaseUnit"" text;
             ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""conversionFactor"" double precision DEFAULT 1.0;
@@ -330,6 +355,13 @@ using (var scope = app.Services.CreateScope())
             CREATE UNIQUE INDEX IF NOT EXISTS ""ix_customer_hotel_phone"" ON ""Customer"" (""hotelId"", ""phone"");
             CREATE INDEX IF NOT EXISTS ""ix_customer_type"" ON ""Customer"" (""customerType"");
             CREATE INDEX IF NOT EXISTS ""ix_customer_status"" ON ""Customer"" (""creditStatus"");
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""customerCode"" text;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""email"" text;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""panVatNumber"" text;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""creditTerms"" integer NOT NULL DEFAULT 30;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""advanceBalance"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text NOT NULL DEFAULT 'RESTAURANT';
+            CREATE INDEX IF NOT EXISTS ""ix_customer_code"" ON ""Customer"" (""customerCode"");
 
             -- Customer Ledger Entry table
             CREATE TABLE IF NOT EXISTS ""CustomerLedgerEntry"" (
@@ -349,6 +381,11 @@ using (var scope = app.Services.CreateScope())
                 ""createdBy"" text,
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""dueDate"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""invoiceNumber"" text;
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""paymentStatus"" text;
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""outlet"" text NOT NULL DEFAULT 'RESTAURANT';
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""journalEntryId"" text;
             CREATE INDEX IF NOT EXISTS ""ix_customer_ledger_customer"" ON ""CustomerLedgerEntry"" (""customerId"", ""entryDate"");
             CREATE INDEX IF NOT EXISTS ""ix_customer_ledger_bill"" ON ""CustomerLedgerEntry"" (""billId"");
 
@@ -394,6 +431,20 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""outstandingAmount"" double precision NOT NULL DEFAULT 0;
             ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""paidAt"" timestamp with time zone;
             ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""packingCharge"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""transactionStatus"" text NOT NULL DEFAULT 'COMPLETED';
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""salesChannel"" text NOT NULL DEFAULT 'POS';
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""outlet"" text NOT NULL DEFAULT 'RESTAURANT';
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""deliveryCharge"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""refundAmount"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""returnsJson"" text NOT NULL DEFAULT '[]';
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""cancellationReason"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""cancelledBy"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""cancelledAt"" timestamp with time zone;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""returnReason"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""returnedBy"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""returnedAt"" timestamp with time zone;
+            CREATE INDEX IF NOT EXISTS ""ix_bill_sales_channel"" ON ""Bill"" (""salesChannel"");
+            CREATE INDEX IF NOT EXISTS ""ix_bill_transaction_status"" ON ""Bill"" (""transactionStatus"");
 
             -- Packing Management Schema
             ALTER TABLE ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packingStatus"" text NOT NULL DEFAULT 'NONE';

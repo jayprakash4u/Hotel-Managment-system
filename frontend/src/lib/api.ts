@@ -1372,5 +1372,461 @@ export const api = {
     const qs = q.toString() ? `?${q.toString()}` : '';
     return fetcher<import('./types').TrialBalanceReport>(`/api/accounts/trial-balance${qs}`);
   },
+
+  // Sales Transactions Management Module (Shared / Accounts)
+  getSalesTransactions: (params?: {
+    search?: string;
+    salesChannel?: string;
+    outlet?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    transactionStatus?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.append('search', params.search);
+    if (params?.salesChannel) q.append('salesChannel', params.salesChannel);
+    if (params?.outlet) q.append('outlet', params.outlet);
+    if (params?.paymentMethod) q.append('paymentMethod', params.paymentMethod);
+    if (params?.paymentStatus) q.append('paymentStatus', params.paymentStatus);
+    if (params?.transactionStatus) q.append('transactionStatus', params.transactionStatus);
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    if (params?.sortBy) q.append('sortBy', params.sortBy);
+    if (params?.sortOrder) q.append('sortOrder', params.sortOrder);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').GetSalesTransactionsResponse>(`/api/sales-transactions${qs}`);
+  },
+
+  getSalesTransactionById: (id: string) => {
+    return fetcher<import('./types').SalesTransactionDetail>(`/api/sales-transactions/${id}`);
+  },
+
+  createSalesTransaction: (data: import('./types').CreateSalesTransactionRequest) => {
+    return fetcher<{
+      id: string;
+      billNumber: string;
+      grandTotal: number;
+      amountPaid: number;
+      balanceDue: number;
+      paymentStatus: string;
+      transactionStatus: string;
+    }>('/api/sales-transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordSalesPayment: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMethod: string;
+      transactionRef?: string;
+      receivedBy?: string;
+      notes?: string;
+      idempotencyKey?: string;
+    }
+  ) => {
+    return fetcher<{
+      id: string;
+      billNumber: string;
+      amountPaid: number;
+      balanceDue: number;
+      paymentStatus: string;
+    }>(`/api/sales-transactions/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  processSalesReturn: (
+    id: string,
+    data: {
+      returnItems: {
+        name: string;
+        quantity: number;
+        unitPrice: number;
+        reason?: string;
+        restockInventory: boolean;
+      }[];
+      reason: string;
+      authorizedBy?: string;
+      refundPaymentMethod?: string;
+    }
+  ) => {
+    return fetcher<{
+      id: string;
+      billNumber: string;
+      refundAmount: number;
+      transactionStatus: string;
+      paymentStatus: string;
+    }>(`/api/sales-transactions/${id}/return`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  cancelSalesTransaction: (id: string, data: { reason: string; authorizedBy?: string }) => {
+    return fetcher<{
+      id: string;
+      billNumber: string;
+      transactionStatus: string;
+      paymentStatus: string;
+    }>(`/api/sales-transactions/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getSalesMenuItems: (search?: string) => {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return fetcher<any[]>(`/api/sales-transactions/menu-items${qs}`);
+  },
+
+  getSalesCustomers: (search?: string) => {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return fetcher<any[]>(`/api/sales-transactions/customers${qs}`);
+  },
+
+  // Enhanced Customer Ledger Endpoints
+  recordCustomerPaymentV2: (
+    customerId: string,
+    data: {
+      amount: number;
+      paymentMode: string;
+      allocations?: { billId: string; amount: number }[];
+      billIds?: string[];
+      paymentDate?: string;
+      referenceNumber?: string;
+      notes?: string;
+      receivedBy?: string;
+      outlet?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/customers/${customerId}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  allocateCustomerAdvance: (
+    customerId: string,
+    data: {
+      allocations: { billId: string; amount: number }[];
+      notes?: string;
+      authorizedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/customers/${customerId}/advances/allocate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  createCustomerAdjustment: (
+    customerId: string,
+    data: {
+      adjustmentType: 'DEBIT' | 'CREDIT';
+      amount: number;
+      reason: string;
+      referenceNumber?: string;
+      approvedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/customers/${customerId}/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getCustomerAgingReport: (customerId: string) => {
+    return fetcher<import('./types').CustomerAgingReport>(`/api/customers/${customerId}/aging`);
+  },
+
+  getCustomerStatementReport: (customerId: string, params?: { startDate?: string; endDate?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').CustomerStatementReport>(`/api/customers/${customerId}/statement${qs}`);
+  },
+
+  // Purchase Transactions Module
+  getPurchaseTransactions: (params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    supplierId?: string;
+    startDate?: string;
+    endDate?: string;
+    branch?: string;
+    purchaseType?: string;
+    paymentStatus?: string;
+    receivingStatus?: string;
+    status?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    if (params?.search) q.append('search', params.search);
+    if (params?.supplierId) q.append('supplierId', params.supplierId);
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.branch) q.append('branch', params.branch);
+    if (params?.purchaseType) q.append('purchaseType', params.purchaseType);
+    if (params?.paymentStatus) q.append('paymentStatus', params.paymentStatus);
+    if (params?.receivingStatus) q.append('receivingStatus', params.receivingStatus);
+    if (params?.status) q.append('status', params.status);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{
+      items: import('./types').PurchaseTransactionListItem[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      summary: import('./types').PurchaseTransactionsSummary;
+    }>(`/api/purchase-transactions${qs}`);
+  },
+
+  getNextPurchaseNumber: () => {
+    return fetcher<{ purchaseNumber: string }>('/api/purchase-transactions/next-number');
+  },
+
+  getPurchaseTransactionById: (id: string) => {
+    return fetcher<import('./types').PurchaseTransactionListItem>(`/api/purchase-transactions/${id}`);
+  },
+
+  createPurchaseTransaction: (data: {
+    supplierId: string;
+    supplierInvoiceNumber?: string;
+    supplierInvoiceDate?: string;
+    branchOrOutlet?: string;
+    warehouse?: string;
+    purchaseType: string;
+    purchaseOrderRef?: string;
+    items: {
+      inventoryItemId?: string | null;
+      itemCode?: string | null;
+      description: string;
+      category?: string;
+      quantity: number;
+      unit: string;
+      unitCost: number;
+      discountAmount?: number;
+      taxPercent?: number;
+      warehouse?: string;
+    }[];
+    discountAmount?: number;
+    freightCharges?: number;
+    roundOff?: number;
+    paidAmount?: number;
+    paymentMode?: string;
+    paymentReference?: string;
+    notes?: string;
+    receivingStatus?: string;
+    createdBy?: string;
+  }) => {
+    return fetcher<import('./types').PurchaseTransactionListItem>('/api/purchase-transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordPurchasePayment: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMode: string;
+      paymentDate?: string;
+      paymentReference?: string;
+      notes?: string;
+      paidBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/purchase-transactions/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  processPurchaseReturn: (
+    id: string,
+    data: {
+      items: {
+        itemDescription: string;
+        inventoryItemId?: string | null;
+        quantity: number;
+        unit: string;
+        unitCost: number;
+        reason?: string;
+      }[];
+      reason: string;
+      notes?: string;
+      processedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/purchase-transactions/${id}/returns`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  receivePurchaseGoods: (
+    id: string,
+    data: {
+      grnNumber?: string;
+      warehouse?: string;
+      receivedBy?: string;
+      notes?: string;
+      receivingStatus?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/purchase-transactions/${id}/receive`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  cancelPurchaseTransaction: (
+    id: string,
+    data: {
+      reason: string;
+      notes?: string;
+      cancelledBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/purchase-transactions/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getPendingPurchaseOrders: () => {
+    return fetcher<any[]>('/api/purchase-transactions/purchase-orders');
+  },
+
+  // Enhanced Supplier Ledger Endpoints
+  getSupplierLedgerV2: (
+    id: string,
+    params?: {
+      startDate?: string;
+      endDate?: string;
+      transactionType?: string;
+      outlet?: string;
+      outstandingOnly?: boolean;
+      overdueOnly?: boolean;
+      invoiceNumber?: string;
+    }
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.transactionType && params.transactionType !== 'ALL') q.append('transactionType', params.transactionType);
+    if (params?.outlet && params.outlet !== 'ALL') q.append('outlet', params.outlet);
+    if (params?.outstandingOnly) q.append('outstandingOnly', 'true');
+    if (params?.overdueOnly) q.append('overdueOnly', 'true');
+    if (params?.invoiceNumber) q.append('invoiceNumber', params.invoiceNumber);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{
+      supplier: import('./types').SupplierRecord;
+      periodOpeningBalance: number;
+      closingBalance: number;
+      summary: import('./types').SupplierLedgerSummary;
+      entries: import('./types').SupplierLedgerEntryData[];
+    }>(`/api/suppliers/${id}/ledger${qs}`);
+  },
+
+  getSupplierUnpaidPurchases: (id: string) => {
+    return fetcher<import('./types').SupplierUnpaidPurchaseData[]>(`/api/suppliers/${id}/unpaid-purchases`);
+  },
+
+  recordSupplierPaymentMulti: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMode: string;
+      paymentDate?: string;
+      referenceNumber?: string;
+      notes?: string;
+      voucherNumber?: string;
+      branchOrOutlet?: string;
+      paidBy?: string;
+      allocations?: { purchaseOrderId: string; amount: number }[];
+    }
+  ) => {
+    return fetcher<any>(`/api/suppliers/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordSupplierAdvance: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMode: string;
+      paymentDate?: string;
+      referenceNumber?: string;
+      notes?: string;
+      branchOrOutlet?: string;
+      paidBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/suppliers/${id}/advances`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  allocateSupplierAdvance: (
+    id: string,
+    data: {
+      allocations: { purchaseOrderId: string; amount: number }[];
+      notes?: string;
+      authorizedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/suppliers/${id}/advances/allocate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  createSupplierAdjustment: (
+    id: string,
+    data: {
+      adjustmentType: 'DEBIT' | 'CREDIT';
+      amount: number;
+      reason: string;
+      referenceNumber?: string;
+      approvedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/suppliers/${id}/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getSupplierAgingReport: (id: string) => {
+    return fetcher<import('./types').SupplierAgingReport>(`/api/suppliers/${id}/aging`);
+  },
+
+  getSupplierStatementReport: (id: string, params?: { startDate?: string; endDate?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').SupplierStatementReport>(`/api/suppliers/${id}/statement${qs}`);
+  },
 };
+
+
 

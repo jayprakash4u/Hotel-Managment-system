@@ -12,6 +12,9 @@ import ChartOfAccountsTab from '@/components/accounts/ChartOfAccountsTab';
 import JournalEntriesTab from '@/components/accounts/JournalEntriesTab';
 import GeneralLedgerTab from '@/components/accounts/GeneralLedgerTab';
 import TrialBalanceTab from '@/components/accounts/TrialBalanceTab';
+import SalesTransactionsTab from '@/components/accounts/SalesTransactionsTab';
+import PurchaseTransactionsTab from '@/components/accounts/PurchaseTransactionsTab';
+import SupplierLedgerAccountsTab from '@/components/accounts/SupplierLedgerAccountsTab';
 
 function AccountsContent() {
   const searchParams = useSearchParams();
@@ -31,6 +34,18 @@ function AccountsContent() {
 
   if (currentTab === 'trial-balance') {
     return <TrialBalanceTab />;
+  }
+
+  if (currentTab === 'sales-transactions') {
+    return <SalesTransactionsTab />;
+  }
+
+  if (currentTab === 'purchase-transactions') {
+    return <PurchaseTransactionsTab />;
+  }
+
+  if (currentTab === 'supplier-ledger') {
+    return <SupplierLedgerAccountsTab />;
   }
 
   if (currentTab === 'customer-ledger') {
@@ -53,9 +68,7 @@ function AccountsContent() {
             </span>
           </div>
 
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300">
-            Accounts · Shared Module
-          </span>
+          
         </div>
 
         {/* Customer Ledger Tab */}

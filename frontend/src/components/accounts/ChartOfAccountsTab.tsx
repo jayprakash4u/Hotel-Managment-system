@@ -385,13 +385,9 @@ export default function ChartOfAccountsTab() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Chart of Accounts
             </h1>
-            <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
-              General Ledger
-            </span>
+            
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Manage your organization&apos;s financial accounts, categories, and ledger balances.
-          </p>
+          
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -442,61 +438,61 @@ export default function ChartOfAccountsTab() {
           {/* Assets */}
           <div className="p-3.5 rounded-[3px] border border-emerald-200/90 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-2xs">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
-              <span>Total Assets (1000)</span>
+              <span>Total Assets</span>
               <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
             </div>
             <div className="text-xl font-extrabold font-mono text-emerald-950 dark:text-emerald-300 mt-1 truncate">
               Rs. {formatCurrency(summary.totalAssets)}
             </div>
-            <div className="text-[10px] text-emerald-700/80 dark:text-emerald-400/70 mt-0.5">Cash, Bank &amp; Stock</div>
+            
           </div>
 
           {/* Liabilities */}
           <div className="p-3.5 rounded-[3px] border border-amber-200/90 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 shadow-2xs">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
-              <span>Total Liabilities (2000)</span>
+              <span>Total Liabilities</span>
               <TrendingDown className="w-3.5 h-3.5 text-amber-600" />
             </div>
             <div className="text-xl font-extrabold font-mono text-amber-900 dark:text-amber-300 mt-1 truncate">
               Rs. {formatCurrency(summary.totalLiabilities)}
             </div>
-            <div className="text-[10px] text-amber-700/80 dark:text-amber-400/70 mt-0.5">Payables &amp; Taxes</div>
+            
           </div>
 
           {/* Equity */}
           <div className="p-3.5 rounded-[3px] border border-purple-200/90 dark:border-purple-900/60 bg-purple-50/40 dark:bg-purple-950/20 shadow-2xs">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-purple-800 dark:text-purple-400">
-              <span>Total Equity (3000)</span>
+              <span>Total Equity</span>
               <Building2 className="w-3.5 h-3.5 text-purple-600" />
             </div>
             <div className="text-xl font-extrabold font-mono text-purple-900 dark:text-purple-300 mt-1 truncate">
               Rs. {formatCurrency(summary.totalEquity)}
             </div>
-            <div className="text-[10px] text-purple-700/80 dark:text-purple-400/70 mt-0.5">Capital &amp; Reserves</div>
+            
           </div>
 
           {/* Income */}
           <div className="p-3.5 rounded-[3px] border border-blue-200/90 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20 shadow-2xs">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-400">
-              <span>Total Income (4000)</span>
+              <span>Total Income</span>
               <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
             </div>
             <div className="text-xl font-extrabold font-mono text-blue-900 dark:text-blue-300 mt-1 truncate">
               Rs. {formatCurrency(summary.totalIncome ?? (summary as any).totalRevenue)}
             </div>
-            <div className="text-[10px] text-blue-700/80 dark:text-blue-400/70 mt-0.5">Sales &amp; Revenue</div>
+            
           </div>
 
           {/* Expenses */}
           <div className="p-3.5 rounded-[3px] border border-rose-200/90 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 shadow-2xs">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-400">
-              <span>Total Expenses (5000)</span>
+              <span>Total Expenses</span>
               <TrendingDown className="w-3.5 h-3.5 text-rose-600" />
             </div>
             <div className="text-xl font-extrabold font-mono text-rose-900 dark:text-rose-300 mt-1 truncate">
               Rs. {formatCurrency(summary.totalExpenses)}
             </div>
-            <div className="text-[10px] text-rose-700/80 dark:text-rose-400/70 mt-0.5">COGS, Salaries &amp; Utilities</div>
+            
           </div>
         </div>
       )}
@@ -523,7 +519,7 @@ export default function ChartOfAccountsTab() {
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-750'
                   )}
                 >
-                  {cat === 'ALL' ? 'All Accounts' : cat}
+                  {cat === 'ALL' ? 'All Accounts' : cat === 'ASSET' ? 'Assets' : cat === 'LIABILITY' ? 'Liabilities' : cat === 'EQUITY' ? 'Equity' : cat === 'INCOME' ? 'Income' : 'Expenses'}
                 </button>
               );
             })}
@@ -611,7 +607,7 @@ export default function ChartOfAccountsTab() {
                   <td colSpan={9} className="py-12 text-center text-slate-400">
                     <BookOpen className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
                     <p className="font-semibold text-slate-700 dark:text-slate-300">No accounts found</p>
-                    <p className="text-[11px] mt-1 text-slate-400">Click &quot;Initialize Defaults&quot; or &quot;Add New Account&quot; to get started.</p>
+                    <p className="text-xs text-slate-400 mt-1">No accounts match your filter or search.</p>
                   </td>
                 </tr>
               ) : (
@@ -637,17 +633,9 @@ export default function ChartOfAccountsTab() {
                             Group
                           </span>
                         )}
-                        {acc.isControlAccount && (
-                          <span className="px-1.5 py-0.2 rounded-[2px] text-[8.5px] font-bold uppercase bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200">
-                            Control
-                          </span>
-                        )}
+                        
                       </div>
-                      {acc.description && (
-                        <div className="text-[10px] text-slate-400 truncate max-w-sm mt-0.5">
-                          {acc.description}
-                        </div>
-                      )}
+                      
                     </td>
                     <td className="py-3 px-4 border-r border-slate-100 dark:border-slate-800/60">
                       <span className={cn('px-2 py-0.5 rounded-[3px] text-[9.5px] font-bold uppercase tracking-wider border', getTypeBadgeStyle(acc.accountType))}>
@@ -827,7 +815,7 @@ export default function ChartOfAccountsTab() {
                 onChange={(e) => handleParentSelectChange(e.target.value)}
                 className="w-full px-3 py-2 rounded-[3px] text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
               >
-                <option value="">(None - Top Level Category)</option>
+                <option value="">None (Top-Level)</option>
                 {groupAccounts.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.accountCode} — {g.accountName} ({g.accountType})
@@ -885,26 +873,26 @@ export default function ChartOfAccountsTab() {
                 }}
                 className="w-full px-3 py-2 rounded-[3px] text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
               >
-                <option value="ASSET">ASSET (1000)</option>
-                <option value="LIABILITY">LIABILITY (2000)</option>
-                <option value="EQUITY">EQUITY (3000)</option>
-                <option value="INCOME">INCOME (4000)</option>
-                <option value="EXPENSE">EXPENSE (5000)</option>
+                <option value="ASSET">Asset</option>
+                <option value="LIABILITY">Liability</option>
+                <option value="EQUITY">Equity</option>
+                <option value="INCOME">Income</option>
+                <option value="EXPENSE">Expense</option>
               </select>
             </div>
 
             {/* Normal Balance */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Normal Balance Nature <span className="text-rose-500">*</span>
+                Normal Balance <span className="text-rose-500">*</span>
               </label>
               <select
                 value={formData.normalBalance}
                 onChange={(e) => setFormData({ ...formData, normalBalance: e.target.value as any })}
                 className="w-full px-3 py-2 rounded-[3px] text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
               >
-                <option value="DEBIT">DEBIT (Normal for Assets &amp; Expenses)</option>
-                <option value="CREDIT">CREDIT (Normal for Liabilities, Equity &amp; Income)</option>
+                <option value="DEBIT">Debit</option>
+                <option value="CREDIT">Credit</option>
               </select>
             </div>
 
@@ -941,13 +929,13 @@ export default function ChartOfAccountsTab() {
             {/* Description */}
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Description / Purpose
+                Description (Optional)
               </label>
               <textarea
                 rows={2}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Optional description of account..."
+                placeholder="Optional notes..."
                 className="w-full px-3 py-2 text-xs rounded-[3px] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
               />
             </div>
@@ -961,7 +949,7 @@ export default function ChartOfAccountsTab() {
                   onChange={(e) => setFormData({ ...formData, isGroup: e.target.checked })}
                   className="rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32]"
                 />
-                <span className="font-semibold">Is Group Header (For grouping, cannot receive journal postings directly)</span>
+                <span className="font-semibold">Group Header (For grouping child accounts)</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
@@ -971,7 +959,7 @@ export default function ChartOfAccountsTab() {
                   onChange={(e) => setFormData({ ...formData, allowManualEntries: e.target.checked })}
                   className="rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32]"
                 />
-                <span className="font-semibold">Allow Manual Journal Vouchers</span>
+                <span className="font-semibold">Allow Manual Journal Entries</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
@@ -981,7 +969,7 @@ export default function ChartOfAccountsTab() {
                   onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                   className="rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32]"
                 />
-                <span className="font-semibold">Active Status</span>
+                <span className="font-semibold">Active</span>
               </label>
             </div>
           </div>
@@ -1051,7 +1039,7 @@ export default function ChartOfAccountsTab() {
                 onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
                 className="w-full px-3 py-2 rounded-[3px] text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
               >
-                <option value="">(None - Top Level Group)</option>
+                <option value="">None (Top-Level)</option>
                 {groupAccounts
                   .filter((g) => g.id !== editingAccount?.id)
                   .map((g) => (
@@ -1104,7 +1092,7 @@ export default function ChartOfAccountsTab() {
                   onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                   className="rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32]"
                 />
-                <span className="font-semibold">Account Active</span>
+                <span className="font-semibold">Active</span>
               </label>
             </div>
           </div>
@@ -1256,9 +1244,7 @@ export default function ChartOfAccountsTab() {
         className="max-w-3xl"
       >
         <div className="space-y-4 pt-1">
-          <p className="text-xs text-slate-500">
-            Configure how operational events across POS, Room Reservations, Inventory, and Supplier Billing automatically post to the Chart of Accounts.
-          </p>
+          <p className="text-xs text-slate-500">Map transactions to Chart of Accounts ledgers.</p>
 
           <div className="rounded-[3px] border border-slate-200 dark:border-slate-800 overflow-hidden">
             <table className="w-full text-left border-collapse text-xs">
