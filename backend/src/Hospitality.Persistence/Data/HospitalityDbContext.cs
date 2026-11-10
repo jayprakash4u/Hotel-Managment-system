@@ -20,6 +20,7 @@ public class HospitalityDbContext : DbContext
     public DbSet<HousekeepingTask> HousekeepingTasks => Set<HousekeepingTask>();
     public DbSet<MaintenanceTicket> MaintenanceTickets => Set<MaintenanceTicket>();
     public DbSet<RestaurantTable> RestaurantTables => Set<RestaurantTable>();
+    public DbSet<TableCategory> TableCategories => Set<TableCategory>();
     public DbSet<TableReservation> TableReservations => Set<TableReservation>();
     public DbSet<RestaurantOrder> RestaurantOrders => Set<RestaurantOrder>();
     public DbSet<RestaurantOrderItem> RestaurantOrderItems => Set<RestaurantOrderItem>();
@@ -37,6 +38,12 @@ public class HospitalityDbContext : DbContext
     public DbSet<CustomerLedgerEntry> CustomerLedgers => Set<CustomerLedgerEntry>();
     public DbSet<SupplierLedgerEntry> SupplierLedgers => Set<SupplierLedgerEntry>();
     public DbSet<CreditOverrideAudit> CreditOverrideAudits => Set<CreditOverrideAudit>();
+    public DbSet<PackingMaterial> PackingMaterials => Set<PackingMaterial>();
+    public DbSet<PackingTransaction> PackingTransactions => Set<PackingTransaction>();
+    public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<AccountMapping> AccountMappings => Set<AccountMapping>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -220,5 +227,41 @@ public class HospitalityDbContext : DbContext
 
         modelBuilder.Entity<ReservationAlert>()
             .HasIndex(a => new { a.ReservationId, a.AlertType });
+
+        // Accounting: Chart of Accounts, Journal Entries, Ledger Lines
+        modelBuilder.Entity<Account>()
+            .HasIndex(a => new { a.HotelId, a.AccountCode })
+            .IsUnique();
+
+        modelBuilder.Entity<Account>()
+            .HasIndex(a => a.AccountType);
+
+        modelBuilder.Entity<Account>()
+            .HasOne(a => a.Parent)
+            .WithMany(p => p.Children)
+            .HasForeignKey(a => a.ParentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Account>()
+            .HasIndex(a => a.ParentId);
+
+        modelBuilder.Entity<AccountMapping>()
+            .HasIndex(m => new { m.HotelId, m.TransactionType })
+            .IsUnique();
+
+        modelBuilder.Entity<JournalEntry>()
+            .HasMany(j => j.Lines)
+            .WithOne(l => l.JournalEntry)
+            .HasForeignKey(l => l.JournalEntryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<JournalEntry>()
+            .HasIndex(j => new { j.HotelId, j.EntryDate });
+
+        modelBuilder.Entity<JournalEntry>()
+            .HasIndex(j => j.EntryNumber);
+
+        modelBuilder.Entity<JournalEntryLine>()
+            .HasIndex(l => l.AccountId);
     }
 }

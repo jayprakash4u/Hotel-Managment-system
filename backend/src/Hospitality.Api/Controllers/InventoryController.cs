@@ -1257,7 +1257,7 @@ public class InventoryController : ControllerBase
                         .OrderByDescending(p => p.OrderedAt)
                         .FirstOrDefaultAsync();
 
-                    return Ok(ApiResponse.Ok(existingPo, "Duplicate submission prevented. Purchase record was already saved."));
+                    return Ok(ApiResponse.Ok(existingPo ?? (object)new { }, "Duplicate submission prevented. Purchase record was already saved."));
                 }
             }
         }
@@ -2043,7 +2043,7 @@ public class InventoryController : ControllerBase
                     var s = search.Trim().ToLower();
                     var match = po.PoNumber.ToLower().Contains(s) ||
                                 (po.InvoiceNumber != null && po.InvoiceNumber.ToLower().Contains(s)) ||
-                                line.ItemName.ToLower().Contains(s) ||
+                                (line.ItemName != null && line.ItemName.ToLower().Contains(s)) ||
                                 (line.ItemCode != null && line.ItemCode.ToLower().Contains(s)) ||
                                 (po.SupplierName != null && po.SupplierName.ToLower().Contains(s));
                     if (!match) continue;

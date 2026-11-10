@@ -40,6 +40,7 @@ public class Bill : BaseEntity
     public double DiscountPercent { get; set; } = 0;
     public double TaxAmount { get; set; } = 0;
     public double ServiceCharge { get; set; } = 0;
+    public double PackingCharge { get; set; } = 0;
     public double RoundOff { get; set; } = 0;
     public double GrandTotal { get; set; } = 0;
     public double AmountPaid { get; set; } = 0;
@@ -50,6 +51,22 @@ public class Bill : BaseEntity
     public string PaymentStatus { get; set; } = "PAID";
     public string PaymentMethod { get; set; } = "CASH"; // CASH, ONLINE, WALLET, CREDIT, CARD, UPI, ROOM_FOLIO
     public DateTime? PaidAt { get; set; }
+
+    // Transaction status & channel
+    public string TransactionStatus { get; set; } = "COMPLETED"; // DRAFT, COMPLETED, CANCELLED, RETURNED, PARTIALLY_RETURNED
+    public string SalesChannel { get; set; } = "POS"; // POS, DINE_IN, TAKEAWAY, DELIVERY, ONLINE, ROOM_SERVICE
+    public string Outlet { get; set; } = "RESTAURANT"; // RESTAURANT, ROOFTOP_BAR, ZENITH_SPA, ROOM_SERVICE
+    public double DeliveryCharge { get; set; } = 0;
+    public double RefundAmount { get; set; } = 0;
+
+    // Cancellation & Return audit trails
+    public string ReturnsJson { get; set; } = "[]";
+    public string? CancellationReason { get; set; }
+    public string? CancelledBy { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public string? ReturnReason { get; set; }
+    public string? ReturnedBy { get; set; }
+    public DateTime? ReturnedAt { get; set; }
 
     // Immutable JSON snapshots of line items and payment ledger for audit safety & reprints
     public string ItemsJson { get; set; } = "[]";

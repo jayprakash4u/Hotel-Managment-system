@@ -394,6 +394,32 @@ export interface DashboardMetrics {
   }>;
 }
 
+export interface TableCategoryData {
+  id: string;
+  hotelId?: string;
+  name: string;
+  description?: string | null;
+  floor?: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  tableCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RestaurantTableData {
+  id: string;
+  hotelId?: string;
+  tableNumber: string;
+  section: string;
+  categoryId?: string | null;
+  category?: TableCategoryData | null;
+  capacity: number;
+  status: 'FREE' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'BILLED' | 'CLEANING' | 'OUT_OF_SERVICE';
+  cleaningStatus?: 'CLEAN' | 'DIRTY' | 'CLEANING';
+  maintenanceNotes?: string | null;
+}
+
 export interface TableReservationData {
   id: string;
   hotelId: string;
@@ -445,6 +471,8 @@ export interface QuickSalePayload {
   discountAmount?: number;
   tax?: number;
   serviceCharge?: number;
+  packingCharge?: number;
+  orderType?: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY' | string;
   serverName?: string;
   customerName?: string;
   customerPhone?: string;
@@ -454,6 +482,8 @@ export interface QuickSalePayload {
   customerId?: string;
   overrideLimit?: boolean;
   overrideReason?: string;
+  tableId?: string;
+  tableNumber?: string;
 }
 
 export interface QuickSaleReceipt {
@@ -478,6 +508,9 @@ export interface QuickSaleReceipt {
   discountPercent: number;
   tax: number;
   serviceCharge: number;
+  packingCharge?: number;
+  packingStatus?: string;
+  packingDetailsJson?: string;
   total: number;
   paymentMethod: string;
   paidAmount: number;
@@ -546,6 +579,8 @@ export interface ActiveRestaurantOrderData {
   room?: { id: string; number: string };
   guestId?: string | null;
   guest?: { id: string; firstName: string; lastName: string; phone?: string };
+  customerName?: string | null;
+  customerPhone?: string | null;
   status: 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'BILLED' | 'COMPLETED' | 'CANCELLED';
   orderType: 'DINE_IN' | 'NO_TABLE' | 'TAKEAWAY' | 'ROOM_SERVICE' | 'COUNTER_SALE' | 'ONLINE' | 'DELIVERY';
   serverName: string;
@@ -554,6 +589,9 @@ export interface ActiveRestaurantOrderData {
   discountPercent: number;
   tax: number;
   serviceCharge: number;
+  packingCharge?: number;
+  packingStatus?: string;
+  packingDetailsJson?: string;
   total: number;
   paymentMethod?: string | null;
   isPaid: boolean;
@@ -606,6 +644,9 @@ export interface BillData {
   discountPercent: number;
   taxAmount: number;
   serviceCharge: number;
+  packingCharge?: number;
+  packingStatus?: string;
+  packingDetailsJson?: string;
   roundOff: number;
   grandTotal: number;
   amountPaid: number;
@@ -695,6 +736,10 @@ export interface SupplierRecord {
   creditLimit?: number;
   paymentTermsDays?: number;
   openingBalance?: number;
+  advanceBalance?: number;
+  currentBalance?: number;
+  supplierType?: string;
+  branchOrOutlet?: string;
   purchasesCount?: number;
   itemsCount?: number;
   purchases?: any[];
@@ -753,18 +798,24 @@ export interface PurchaseRecord {
   updatedAt?: string;
 }
 
-export type CustomerType = 'CASH' | 'CREDIT';
+export type CustomerType = 'CASH' | 'CREDIT' | 'CORPORATE';
 export type CreditStatus = 'ACTIVE' | 'BLOCKED';
 
 export interface CustomerData {
   id: string;
   hotelId?: string | null;
+  customerCode?: string;
   name: string;
   phone: string;
+  email?: string | null;
+  panVatNumber?: string | null;
   address?: string | null;
-  customerType: CustomerType;
+  customerType: CustomerType | string;
   creditLimit: number;
   creditStatus: CreditStatus;
+  creditTerms?: number;
+  advanceBalance?: number;
+  branchOrOutlet?: string;
   openingBalance: number;
   currentOutstanding: number;
   availableCredit: number;
@@ -799,6 +850,9 @@ export interface CustomerUnpaidBillData {
   totalAmount: number;
   paidAmount: number;
   outstandingAmount: number;
+  balanceDue?: number;
+  dueDate?: string;
+  outlet?: string;
   paymentStatus: string;
   itemsSummary?: string;
 }
@@ -836,3 +890,1112 @@ export interface CreditCustomerSummaryReport {
   unpaidBillsCount: number;
 }
 
+
+
+// ==========================================
+// ACCOUNTING: CHART OF ACCOUNTS & JOURNAL ENTRIES & GENERAL LEDGER
+// ==========================================
+
+export type AccountCategoryType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'REVENUE' | 'EXPENSE';
+
+export interface AccountItem {
+  id: string;
+  hotelId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: AccountCategoryType;
+  subCategory: string;
+  normalBalance: 'DEBIT' | 'CREDIT';
+  parentId?: string | null;
+  accountLevel: number;
+  isGroup: boolean;
+  isControlAccount: boolean;
+  allowManualEntries: boolean;
+  openingBalance: number;
+  openingBalanceDate?: string | null;
+  currentBalance: number;
+  description?: string | null;
+  isActive: boolean;
+  isSystemAccount: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChartOfAccountsSummary {
+  totalAccounts: number;
+  postingAccountsCount?: number;
+  groupAccountsCount?: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  totalIncome: number;
+  totalRevenue?: number;
+  totalExpenses: number;
+  netProfitLoss: number;
+}
+
+export interface ChartOfAccountsResponse {
+  accounts: AccountItem[];
+  summary: ChartOfAccountsSummary;
+}
+
+export interface AccountMappingItem {
+  id: string;
+  hotelId: string;
+  transactionType: string;
+  transactionCategory: string;
+  debitAccountId: string;
+  debitAccount?: AccountItem;
+  creditAccountId: string;
+  creditAccount?: AccountItem;
+  taxAccountId?: string | null;
+  taxAccount?: AccountItem;
+  serviceChargeAccountId?: string | null;
+  serviceChargeAccount?: AccountItem;
+  discountAccountId?: string | null;
+  discountAccount?: AccountItem;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JournalEntryLineItem {
+  id?: string;
+  journalEntryId?: string;
+  accountId: string;
+  accountCode?: string;
+  accountName?: string;
+  lineDescription?: string;
+  debit: number;
+  credit: number;
+}
+
+export interface JournalEntryItem {
+  id: string;
+  hotelId: string;
+  entryNumber: string;
+  entryDate: string;
+  entryType: 'GENERAL' | 'ADJUSTMENT' | 'OPENING' | 'CLOSING' | string;
+  reference?: string | null;
+  description: string;
+  totalDebit: number;
+  totalCredit: number;
+  status: 'POSTED' | 'DRAFT' | 'REVERSED' | 'VOID' | string;
+  sourceModule: string;
+  createdBy: string;
+  postedBy?: string | null;
+  postedAt?: string | null;
+  reversedFromId?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+  lines: JournalEntryLineItem[];
+}
+
+export interface JournalEntriesSummary {
+  totalEntries: number;
+  postedEntries: number;
+  draftEntries: number;
+  reversedEntries: number;
+  periodDebit: number;
+  periodCredit: number;
+}
+
+export interface JournalEntriesResponse {
+  items: JournalEntryItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  summary?: JournalEntriesSummary;
+}
+
+export interface CreateJournalEntryPayload {
+  entryNumber?: string;
+  entryDate?: string;
+  entryType?: string;
+  reference?: string;
+  description: string;
+  status?: 'DRAFT' | 'POSTED' | string;
+  sourceModule?: string;
+  lines: Array<{
+    accountId: string;
+    lineDescription?: string;
+    debit: number;
+    credit: number;
+  }>;
+}
+
+export interface GeneralLedgerTransaction {
+  id: string;
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  entryType?: string;
+  reference?: string | null;
+  description: string;
+  lineDescription?: string | null;
+  sourceModule: string;
+  sourceTransactionId?: string | null;
+  status?: string;
+  createdBy?: string;
+  postedBy?: string | null;
+  postedAt?: string | null;
+  reversedFromId?: string | null;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+}
+
+export interface GeneralLedgerReport {
+  account: AccountItem | null;
+  fromDate: string;
+  toDate: string;
+  openingBalance: number;
+  closingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  netChange: number;
+  transactionCount: number;
+  transactions: GeneralLedgerTransaction[];
+}
+
+export interface AllAccountsLedgerItem {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  subCategory?: string;
+  normalBalance: string;
+  openingBalance: number;
+  openingDebit: number;
+  openingCredit: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingBalance: number;
+  closingDebit: number;
+  closingCredit: number;
+}
+
+export interface AllAccountsLedgerReport {
+  fromDate: string;
+  toDate: string;
+  accountType: string;
+  totalAccounts: number;
+  totals: {
+    openingDebit: number;
+    openingCredit: number;
+    periodDebit: number;
+    periodCredit: number;
+    closingDebit: number;
+    closingCredit: number;
+  };
+  accounts: AllAccountsLedgerItem[];
+}
+
+export interface TrialBalanceItem {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  subCategory?: string;
+  normalBalance: string;
+  openingBalance: number;
+  openingDebit: number;
+  openingCredit: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingBalance: number;
+  closingDebit: number;
+  closingCredit: number;
+}
+
+export interface TrialBalanceTotals {
+  openingDebit: number;
+  openingCredit: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingDebit: number;
+  closingCredit: number;
+}
+
+export interface TrialBalanceReport {
+  fromDate: string;
+  toDate: string;
+  accountType: string;
+  showZeroBalances: boolean;
+  totalAccounts: number;
+  isBalanced: boolean;
+  difference: number;
+  totals: TrialBalanceTotals;
+  accounts: TrialBalanceItem[];
+}
+
+// ==========================================
+// Sales Transactions Module Types
+// ==========================================
+export interface SalesTransactionListItem {
+  id: string;
+  hotelId: string;
+  billNumber: string;
+  billingType: string;
+  salesChannel: string;
+  outlet: string;
+  orderId?: string | null;
+  orderNumber?: string | null;
+  tableNumber?: string | null;
+  roomNumber?: string | null;
+  serverOrStaff: string;
+  customerId?: string | null;
+  customerName: string;
+  customerPhone?: string | null;
+  subtotal: number;
+  discountAmount: number;
+  discountPercent: number;
+  taxAmount: number;
+  serviceCharge: number;
+  deliveryCharge: number;
+  packingCharge: number;
+  roundOff: number;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  refundAmount: number;
+  paymentStatus: string;
+  paymentMethod: string;
+  transactionStatus: string;
+  paidAt?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  itemsCount: number;
+}
+
+export interface SalesTransactionsSummary {
+  totalSales: number;
+  totalInvoices: number;
+  paidSales: number;
+  unpaidSales: number;
+  partiallyPaidCount: number;
+  salesReturnsCount: number;
+  refundAmount: number;
+  netSales: number;
+}
+
+export interface GetSalesTransactionsResponse {
+  items: SalesTransactionListItem[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  summary: SalesTransactionsSummary;
+}
+
+export interface SalesTransactionItemDetail {
+  productId?: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+  total: number;
+  notes?: string;
+}
+
+// ==========================================
+// Customer Ledger & Receivables Module Types
+// ==========================================
+export interface CustomerLedgerRecord {
+  id: string;
+  customerId: string;
+  billId?: string | null;
+  invoiceNumber?: string | null;
+  paymentId?: string | null;
+  entryDate: string;
+  dueDate?: string | null;
+  description: string;
+  debitAmount: number;
+  creditAmount: number;
+  balance: number;
+  referenceType: string;
+  referenceId?: string | null;
+  paymentMode?: string | null;
+  outlet: string;
+  paymentStatus?: string | null;
+  createdBy?: string | null;
+  journalEntryId?: string | null;
+}
+
+export interface CustomerAgingBucket {
+  billId: string;
+  billNumber: string;
+  orderNumber?: string;
+  invoiceDate: string;
+  dueDate: string;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  daysOverdue: number;
+  agingBucket: string;
+}
+
+export interface CustomerAgingReport {
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+    creditLimit: number;
+    creditTerms: number;
+    currentOutstanding: number;
+    advanceBalance: number;
+  };
+  agingSummary: {
+    currentNotDue: number;
+    days1To30: number;
+    days31To60: number;
+    days61To90: number;
+    above90Days: number;
+    totalOverdue: number;
+    totalReceivable: number;
+  };
+  invoices: CustomerAgingBucket[];
+}
+
+export interface CustomerStatementReport {
+  hotel: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    panVat: string;
+    currency: string;
+    currencySymbol: string;
+  };
+  statementPeriod: {
+    startDate: string;
+    endDate: string;
+  };
+  ledger: any;
+}
+
+
+export interface SalesTransactionPaymentDetail {
+  id: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  transactionRef?: string;
+  receivedBy?: string;
+  notes?: string;
+}
+
+// ==========================================
+// Customer Ledger & Receivables Module Types
+// ==========================================
+export interface CustomerLedgerRecord {
+  id: string;
+  customerId: string;
+  billId?: string | null;
+  invoiceNumber?: string | null;
+  paymentId?: string | null;
+  entryDate: string;
+  dueDate?: string | null;
+  description: string;
+  debitAmount: number;
+  creditAmount: number;
+  balance: number;
+  referenceType: string;
+  referenceId?: string | null;
+  paymentMode?: string | null;
+  outlet: string;
+  paymentStatus?: string | null;
+  createdBy?: string | null;
+  journalEntryId?: string | null;
+}
+
+export interface CustomerAgingBucket {
+  billId: string;
+  billNumber: string;
+  orderNumber?: string;
+  invoiceDate: string;
+  dueDate: string;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  daysOverdue: number;
+  agingBucket: string;
+}
+
+export interface CustomerAgingReport {
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+    creditLimit: number;
+    creditTerms: number;
+    currentOutstanding: number;
+    advanceBalance: number;
+  };
+  agingSummary: {
+    currentNotDue: number;
+    days1To30: number;
+    days31To60: number;
+    days61To90: number;
+    above90Days: number;
+    totalOverdue: number;
+    totalReceivable: number;
+  };
+  invoices: CustomerAgingBucket[];
+}
+
+export interface CustomerStatementReport {
+  hotel: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    panVat: string;
+    currency: string;
+    currencySymbol: string;
+  };
+  statementPeriod: {
+    startDate: string;
+    endDate: string;
+  };
+  ledger: any;
+}
+
+
+export interface SalesTransactionReturnDetail {
+  returnId: string;
+  returnDate: string;
+  returnedBy: string;
+  reason: string;
+  returnSubtotal: number;
+  returnTax: number;
+  totalRefundAmount: number;
+  items: {
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    reason?: string;
+    restockInventory: boolean;
+  }[];
+}
+
+export interface SalesTransactionDetail {
+  transaction: {
+    id: string;
+    hotelId: string;
+    billNumber: string;
+    billingType: string;
+    salesChannel: string;
+    outlet: string;
+    orderId?: string | null;
+    orderNumber?: string | null;
+    tableNumber?: string | null;
+    roomNumber?: string | null;
+    serverOrStaff: string;
+    customerId?: string | null;
+    customerName: string;
+    customerPhone?: string | null;
+    customer?: {
+      id: string;
+      name: string;
+      phone: string;
+      address?: string;
+      customerType?: string;
+      currentOutstanding: number;
+      creditLimit: number;
+    } | null;
+    subtotal: number;
+    discountAmount: number;
+    discountPercent: number;
+    taxableAmount: number;
+    taxAmount: number;
+    serviceCharge: number;
+    deliveryCharge: number;
+    packingCharge: number;
+    roundOff: number;
+    grandTotal: number;
+    amountPaid: number;
+    balanceDue: number;
+    refundAmount: number;
+    paymentStatus: string;
+    paymentMethod: string;
+    transactionStatus: string;
+    cancellationReason?: string | null;
+    cancelledBy?: string | null;
+    cancelledAt?: string | null;
+    returnReason?: string | null;
+    returnedBy?: string | null;
+    returnedAt?: string | null;
+    notes?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    paidAt?: string | null;
+    items: SalesTransactionItemDetail[];
+    payments: SalesTransactionPaymentDetail[];
+    returns: SalesTransactionReturnDetail[];
+  };
+  accounting?: {
+    id: string;
+    entryNumber: string;
+    entryDate: string;
+    reference: string;
+    description: string;
+    totalDebit: number;
+    totalCredit: number;
+    status: string;
+    lines: {
+      id: string;
+      accountId: string;
+      accountCode: string;
+      accountName: string;
+      lineDescription?: string;
+      debit: number;
+      credit: number;
+    }[];
+  } | null;
+  hotel: {
+    name: string;
+    slug: string;
+    address: string;
+    city: string;
+    country: string;
+    phone: string;
+    email: string;
+    panVat: string;
+    currency: string;
+    currencySymbol: string;
+  };
+}
+
+export interface CreateSalesTransactionRequest {
+  customerId?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  salesChannel: string;
+  outlet?: string;
+  tableNumber?: string;
+  roomNumber?: string;
+  cashierOrStaff?: string;
+  items: {
+    productId?: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    discountAmount: number;
+    notes?: string;
+  }[];
+  invoiceDiscountAmount?: number;
+  taxRatePercent?: number;
+  serviceChargePercent?: number;
+  deliveryCharge?: number;
+  packingCharge?: number;
+  payments?: {
+    id: string;
+    amount: number;
+    paymentMethod: string;
+    paymentDate: string;
+    transactionRef?: string;
+    receivedBy?: string;
+    notes?: string;
+  }[];
+  notes?: string;
+}
+
+// ==========================================
+// Customer Ledger & Receivables Module Types
+// ==========================================
+export interface CustomerLedgerRecord {
+  id: string;
+  customerId: string;
+  billId?: string | null;
+  invoiceNumber?: string | null;
+  paymentId?: string | null;
+  entryDate: string;
+  dueDate?: string | null;
+  description: string;
+  debitAmount: number;
+  creditAmount: number;
+  balance: number;
+  referenceType: string;
+  referenceId?: string | null;
+  paymentMode?: string | null;
+  outlet: string;
+  paymentStatus?: string | null;
+  createdBy?: string | null;
+  journalEntryId?: string | null;
+}
+
+export interface CustomerAgingBucket {
+  billId: string;
+  billNumber: string;
+  orderNumber?: string;
+  invoiceDate: string;
+  dueDate: string;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  daysOverdue: number;
+  agingBucket: string;
+}
+
+export interface CustomerAgingReport {
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+    creditLimit: number;
+    creditTerms: number;
+    currentOutstanding: number;
+    advanceBalance: number;
+  };
+  agingSummary: {
+    currentNotDue: number;
+    days1To30: number;
+    days31To60: number;
+    days61To90: number;
+    above90Days: number;
+    totalOverdue: number;
+    totalReceivable: number;
+  };
+  invoices: CustomerAgingBucket[];
+}
+
+export interface CustomerStatementReport {
+  hotel: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    panVat: string;
+    currency: string;
+    currencySymbol: string;
+  };
+  statementPeriod: {
+    startDate: string;
+    endDate: string;
+  };
+  ledger: any;
+}
+
+
+
+
+export interface CustomerAgingBucket {
+  billId: string;
+  billNumber: string;
+  orderNumber?: string;
+  invoiceDate: string;
+  dueDate: string;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  daysOverdue: number;
+  agingBucket: string;
+}
+
+export interface CustomerAgingReport {
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+    creditLimit: number;
+    creditTerms: number;
+    currentOutstanding: number;
+    advanceBalance: number;
+  };
+  agingSummary: {
+    currentNotDue: number;
+    days1To30: number;
+    days31To60: number;
+    days61To90: number;
+    above90Days: number;
+    totalOverdue: number;
+    totalReceivable: number;
+  };
+  invoices: CustomerAgingBucket[];
+}
+
+export interface CustomerStatementReport {
+  hotel: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    panVat: string;
+    currency: string;
+    currencySymbol: string;
+  };
+  statementPeriod: {
+    startDate: string;
+    endDate: string;
+  };
+  ledger: any;
+}
+
+
+
+export interface PurchaseItem {
+  itemId?: string;
+  itemName: string;
+  itemCode?: string;
+  category?: string;
+  unit?: string;
+  purchaseUnit?: string;
+  conversionFactor: number;
+  quantity: number;
+  receivedQuantity: number;
+  unitCost: number;
+  discountAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  totalCost: number;
+  department?: string;
+  warehouse?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  notes?: string;
+}
+
+export interface PurchasePaymentRecord {
+  paymentId: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  referenceNumber?: string;
+  paidBy?: string;
+  cashOrBankAccount?: string;
+  notes?: string;
+}
+
+export interface PurchaseReturnItem {
+  itemName: string;
+  itemId?: string;
+  returnQuantity: number;
+  unitCost: number;
+  returnSubtotal: number;
+  taxAmount: number;
+  totalRefundAmount: number;
+  reason?: string;
+  deductStock: boolean;
+}
+
+export interface PurchaseReturnRecord {
+  returnId: string;
+  returnNumber: string;
+  returnDate: string;
+  returnedBy: string;
+  reason: string;
+  returnSubtotal: number;
+  returnTax: number;
+  totalRefundAmount: number;
+  debitNoteNumber?: string;
+  items: PurchaseReturnItem[];
+}
+
+export interface PurchaseTransactionListItem {
+  id: string;
+  purchaseNumber: string;
+  supplierInvoiceNumber: string;
+  purchaseDate: string;
+  invoiceDate: string;
+  dueDate?: string;
+  supplierId?: string;
+  supplierName: string;
+  supplierCode?: string;
+  panVatNumber?: string;
+  purchaseType: string;
+  branchOrOutlet: string;
+  warehouse: string;
+  purchaseOrderRef?: string;
+  grnNumber?: string;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  freightCharges: number;
+  additionalCharges: number;
+  roundOff: number;
+  grandTotal: number;
+  paidAmount: number;
+  dueAmount: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  receivingStatus: string;
+  transactionStatus: string;
+  createdBy: string;
+  approvedBy?: string;
+  journalEntryId?: string;
+  notes?: string;
+  itemsCount: number;
+  itemsSummary: string;
+  items?: PurchaseItem[];
+  payments?: PurchasePaymentRecord[];
+  returns?: PurchaseReturnRecord[];
+}
+
+export interface PurchaseTransactionsSummary {
+  totalPurchases: number;
+  totalPurchaseInvoices: number;
+  paidPurchases: number;
+  unpaidPurchases: number;
+  partiallyPaidPurchases: number;
+  purchaseReturns: number;
+  outstandingPayables: number;
+}
+
+
+// ============================================================================
+// SUPPLIER LEDGER TYPES
+// ============================================================================
+
+export interface SupplierLedgerEntryData {
+  id: string;
+  entryDate: string;
+  transactionNumber?: string;
+  purchaseOrderId?: string;
+  purchaseOrderNumber?: string;
+  purchaseInvoiceNumber?: string;
+  description: string;
+  creditAmount: number;
+  debitAmount: number;
+  balance: number;
+  dueDate?: string;
+  referenceType: string;
+  referenceId?: string;
+  paymentMode?: string;
+  branchOrOutlet?: string;
+  journalEntryId?: string;
+  notes?: string;
+  createdBy?: string;
+  status: string;
+}
+
+export interface SupplierLedgerSummary {
+  openingPayableBalance: number;
+  totalPurchases: number;
+  totalPayments: number;
+  purchaseReturns: number;
+  debitNotes: number;
+  creditNotes: number;
+  outstandingPayable: number;
+  supplierAdvanceBalance: number;
+  overdueAmount: number;
+  creditLimit?: number;
+  paymentTermsDays?: number;
+}
+
+export interface SupplierUnpaidPurchaseData {
+  id: string;
+  purchaseNumber: string;
+  supplierInvoiceNumber?: string;
+  purchaseDate: string;
+  dueDate?: string;
+  isOverdue: boolean;
+  daysOverdue: number;
+  grandTotal: number;
+  paidAmount: number;
+  dueAmount: number;
+  branchOrOutlet?: string;
+  status?: string;
+  paymentStatus?: string;
+}
+
+export interface SupplierAgingReport {
+  supplierId: string;
+  supplierName: string;
+  supplierCode?: string;
+  currentNotDue: number;
+  overdue1to30: number;
+  overdue31to60: number;
+  overdue61to90: number;
+  overdueAbove90: number;
+  totalOutstanding: number;
+  totalOverdue: number;
+  invoices: {
+    id: string;
+    purchaseNumber: string;
+    supplierInvoiceNumber?: string;
+    purchaseDate: string;
+    dueDate: string;
+    grandTotal: number;
+    paidAmount: number;
+    dueAmount: number;
+    isOverdue: boolean;
+    daysOverdue: number;
+  }[];
+}
+
+export interface SupplierStatementReport {
+  restaurantName: string;
+  restaurantAddress: string;
+  restaurantPan: string;
+  restaurantPhone: string;
+  statementNumber: string;
+  statementDate: string;
+  startDate: string;
+  endDate: string;
+  supplier: {
+    name: string;
+    code: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    panVatNumber?: string;
+    advanceBalance?: number;
+  };
+  openingBalance: number;
+  closingBalance: number;
+  totalPurchases: number;
+  totalPayments: number;
+  transactions: {
+    date: string;
+    referenceNumber: string;
+    referenceType: string;
+    description: string;
+    purchaseInvoiceNumber?: string;
+    debit: number;
+    credit: number;
+    runningBalance: number;
+  }[];
+  outstandingInvoices: {
+    id: string;
+    purchaseNumber: string;
+    invoiceNumber?: string;
+    purchaseDate: string;
+    dueDate: string;
+    grandTotal: number;
+    paidAmount: number;
+    dueAmount: number;
+  }[];
+}
+
+
+// ============================================================================
+// SUPPLIER LEDGER TYPES
+// ============================================================================
+
+export interface SupplierLedgerEntryData {
+  id: string;
+  entryDate: string;
+  transactionNumber?: string;
+  purchaseOrderId?: string;
+  purchaseOrderNumber?: string;
+  purchaseInvoiceNumber?: string;
+  description: string;
+  creditAmount: number;
+  debitAmount: number;
+  balance: number;
+  dueDate?: string;
+  referenceType: string;
+  referenceId?: string;
+  paymentMode?: string;
+  branchOrOutlet?: string;
+  journalEntryId?: string;
+  notes?: string;
+  createdBy?: string;
+  status: string;
+}
+
+export interface SupplierLedgerSummary {
+  openingPayableBalance: number;
+  totalPurchases: number;
+  totalPayments: number;
+  purchaseReturns: number;
+  debitNotes: number;
+  creditNotes: number;
+  outstandingPayable: number;
+  supplierAdvanceBalance: number;
+  overdueAmount: number;
+  creditLimit?: number;
+  paymentTermsDays?: number;
+}
+
+export interface SupplierUnpaidPurchaseData {
+  id: string;
+  purchaseNumber: string;
+  supplierInvoiceNumber?: string;
+  purchaseDate: string;
+  dueDate?: string;
+  isOverdue: boolean;
+  daysOverdue: number;
+  grandTotal: number;
+  paidAmount: number;
+  dueAmount: number;
+  branchOrOutlet?: string;
+  status?: string;
+  paymentStatus?: string;
+}
+
+export interface SupplierAgingReport {
+  supplierId: string;
+  supplierName: string;
+  supplierCode?: string;
+  currentNotDue: number;
+  overdue1to30: number;
+  overdue31to60: number;
+  overdue61to90: number;
+  overdueAbove90: number;
+  totalOutstanding: number;
+  totalOverdue: number;
+  invoices: {
+    id: string;
+    purchaseNumber: string;
+    supplierInvoiceNumber?: string;
+    purchaseDate: string;
+    dueDate: string;
+    grandTotal: number;
+    paidAmount: number;
+    dueAmount: number;
+    isOverdue: boolean;
+    daysOverdue: number;
+  }[];
+}
+
+export interface SupplierStatementReport {
+  restaurantName: string;
+  restaurantAddress: string;
+  restaurantPan: string;
+  restaurantPhone: string;
+  statementNumber: string;
+  statementDate: string;
+  startDate: string;
+  endDate: string;
+  supplier: {
+    name: string;
+    code: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    panVatNumber?: string;
+    advanceBalance?: number;
+  };
+  openingBalance: number;
+  closingBalance: number;
+  totalPurchases: number;
+  totalPayments: number;
+  transactions: {
+    date: string;
+    referenceNumber: string;
+    referenceType: string;
+    description: string;
+    purchaseInvoiceNumber?: string;
+    debit: number;
+    credit: number;
+    runningBalance: number;
+  }[];
+  outstandingInvoices: {
+    id: string;
+    purchaseNumber: string;
+    invoiceNumber?: string;
+    purchaseDate: string;
+    dueDate: string;
+    grandTotal: number;
+    paidAmount: number;
+    dueAmount: number;
+  }[];
+}

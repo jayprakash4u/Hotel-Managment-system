@@ -8,6 +8,7 @@ using Hospitality.Persistence;
 using Hospitality.Persistence.Data;
 using System.Text.Json;
 using Hospitality.Api.Common;
+using Hospitality.Domain.Entities;
 using Supabase.Extensions.DependencyInjection;
 using Hospitality.Api.Models;
 
@@ -133,6 +134,10 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""reservationId"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""customerName"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""customerPhone"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""CustomerName"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""CustomerPhone"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountAmount"" double precision DEFAULT 0;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountPercent"" double precision DEFAULT 0;
             ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""cleaningStatus"" text DEFAULT 'CLEAN';
@@ -171,7 +176,32 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""attachmentUrl"" text;
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""createdBy"" text DEFAULT 'Admin';
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""dueDate"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""paidAmount"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""dueAmount"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""freightCharges"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""roundOff"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""receivingStatus"" text DEFAULT 'FULLY_RECEIVED';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""approvedBy"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text DEFAULT 'Restaurant Main';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""warehouse"" text DEFAULT 'Central Store';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""purchaseOrderRef"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""grnNumber"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""journalEntryId"" text;
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""paymentsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""returnsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""PurchaseOrder"" ADD COLUMN IF NOT EXISTS ""invoiceDate"" timestamp with time zone;
             ALTER TABLE IF EXISTS ""PurchaseOrder"" ALTER COLUMN ""supplierId"" DROP NOT NULL;
+
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""advanceBalance"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""supplierType"" text DEFAULT 'Vendor';
+            ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text;
+
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""transactionNumber"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""purchaseInvoiceNumber"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""journalEntryId"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""allocationsJson"" text;
+            ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""notes"" text;
 
             ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""purchaseUnit"" text;
             ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""conversionFactor"" double precision DEFAULT 1.0;
@@ -284,7 +314,7 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""bedConfiguration"" text DEFAULT '[]';
             ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""bathroomFacilities"" text DEFAULT '[]';
             ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""galleryImages"" text DEFAULT '[]';
-            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""policies"" text DEFAULT '{}';
+            ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""policies"" text DEFAULT '{{}}';
             ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""extraAdultPrice"" double precision NOT NULL DEFAULT 0;
             ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""extraChildPrice"" double precision NOT NULL DEFAULT 0;
             ALTER TABLE ""RoomType"" ADD COLUMN IF NOT EXISTS ""weekendPrice"" double precision NOT NULL DEFAULT 0;
@@ -299,7 +329,7 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""bedConfiguration"" text DEFAULT '[]';
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""bathroomFacilities"" text DEFAULT '[]';
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""galleryImages"" text DEFAULT '[]';
-            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""policies"" text DEFAULT '{}';
+            ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""policies"" text DEFAULT '{{}}';
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""extraAdultPrice"" double precision NOT NULL DEFAULT 0;
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""extraChildPrice"" double precision NOT NULL DEFAULT 0;
             ALTER TABLE ""Room"" ADD COLUMN IF NOT EXISTS ""weekendPrice"" double precision NOT NULL DEFAULT 0;
@@ -325,6 +355,13 @@ using (var scope = app.Services.CreateScope())
             CREATE UNIQUE INDEX IF NOT EXISTS ""ix_customer_hotel_phone"" ON ""Customer"" (""hotelId"", ""phone"");
             CREATE INDEX IF NOT EXISTS ""ix_customer_type"" ON ""Customer"" (""customerType"");
             CREATE INDEX IF NOT EXISTS ""ix_customer_status"" ON ""Customer"" (""creditStatus"");
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""customerCode"" text;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""email"" text;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""panVatNumber"" text;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""creditTerms"" integer NOT NULL DEFAULT 30;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""advanceBalance"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE IF EXISTS ""Customer"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text NOT NULL DEFAULT 'RESTAURANT';
+            CREATE INDEX IF NOT EXISTS ""ix_customer_code"" ON ""Customer"" (""customerCode"");
 
             -- Customer Ledger Entry table
             CREATE TABLE IF NOT EXISTS ""CustomerLedgerEntry"" (
@@ -344,6 +381,11 @@ using (var scope = app.Services.CreateScope())
                 ""createdBy"" text,
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""dueDate"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""invoiceNumber"" text;
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""paymentStatus"" text;
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""outlet"" text NOT NULL DEFAULT 'RESTAURANT';
+            ALTER TABLE IF EXISTS ""CustomerLedgerEntry"" ADD COLUMN IF NOT EXISTS ""journalEntryId"" text;
             CREATE INDEX IF NOT EXISTS ""ix_customer_ledger_customer"" ON ""CustomerLedgerEntry"" (""customerId"", ""entryDate"");
             CREATE INDEX IF NOT EXISTS ""ix_customer_ledger_bill"" ON ""CustomerLedgerEntry"" (""billId"");
 
@@ -388,9 +430,262 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""customerId"" text;
             ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""outstandingAmount"" double precision NOT NULL DEFAULT 0;
             ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""paidAt"" timestamp with time zone;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""packingCharge"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""transactionStatus"" text NOT NULL DEFAULT 'COMPLETED';
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""salesChannel"" text NOT NULL DEFAULT 'POS';
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""outlet"" text NOT NULL DEFAULT 'RESTAURANT';
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""deliveryCharge"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""refundAmount"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""returnsJson"" text NOT NULL DEFAULT '[]';
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""cancellationReason"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""cancelledBy"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""cancelledAt"" timestamp with time zone;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""returnReason"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""returnedBy"" text;
+            ALTER TABLE ""Bill"" ADD COLUMN IF NOT EXISTS ""returnedAt"" timestamp with time zone;
+            CREATE INDEX IF NOT EXISTS ""ix_bill_sales_channel"" ON ""Bill"" (""salesChannel"");
+            CREATE INDEX IF NOT EXISTS ""ix_bill_transaction_status"" ON ""Bill"" (""transactionStatus"");
+
+            -- Packing Management Schema
+            ALTER TABLE ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packingStatus"" text NOT NULL DEFAULT 'NONE';
+            ALTER TABLE ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packingCharge"" double precision NOT NULL DEFAULT 0;
+            ALTER TABLE ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packingDetailsJson"" text;
+            ALTER TABLE ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packedAt"" timestamp with time zone;
+            ALTER TABLE ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packedBy"" text;
+
+            ALTER TABLE ""POSProduct"" ADD COLUMN IF NOT EXISTS ""packingConfigJson"" text DEFAULT '[]';
+
+            CREATE TABLE IF NOT EXISTS ""TableCategory"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""name"" text NOT NULL,
+                ""description"" text,
+                ""floor"" text,
+                ""displayOrder"" integer NOT NULL DEFAULT 0,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""categoryId"" text;
+            ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""section"" text DEFAULT 'Main Area';
+
+            CREATE TABLE IF NOT EXISTS ""PackingMaterial"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""name"" text NOT NULL,
+                ""unit"" text NOT NULL DEFAULT 'pcs',
+                ""purchaseCost"" double precision NOT NULL DEFAULT 0,
+                ""packingCharge"" double precision NOT NULL DEFAULT 0,
+                ""availableStock"" integer NOT NULL DEFAULT 0,
+                ""minStockThreshold"" integer NOT NULL DEFAULT 20,
+                ""status"" text NOT NULL DEFAULT 'ACTIVE',
+                ""inventoryItemId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS ""ix_packingmaterial_hotel"" ON ""PackingMaterial"" (""hotelId"");
+            CREATE INDEX IF NOT EXISTS ""ix_packingmaterial_status"" ON ""PackingMaterial"" (""status"");
+
+            CREATE TABLE IF NOT EXISTS ""PackingTransaction"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""materialId"" text NOT NULL,
+                ""orderId"" text,
+                ""orderNumber"" text,
+                ""orderType"" text NOT NULL DEFAULT 'TAKEAWAY',
+                ""quantity"" integer NOT NULL DEFAULT 1,
+                ""unitCost"" double precision NOT NULL DEFAULT 0,
+                ""totalCost"" double precision NOT NULL DEFAULT 0,
+                ""packingCharge"" double precision NOT NULL DEFAULT 0,
+                ""previousStock"" integer NOT NULL DEFAULT 0,
+                ""resultingStock"" integer NOT NULL DEFAULT 0,
+                ""type"" text NOT NULL DEFAULT 'CONSUMPTION',
+                ""notes"" text,
+                ""performedBy"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS ""ix_packingtrans_order"" ON ""PackingTransaction"" (""orderId"");
+            CREATE INDEX IF NOT EXISTS ""ix_packingtrans_material"" ON ""PackingTransaction"" (""materialId"");
+            CREATE INDEX IF NOT EXISTS ""ix_packingtrans_hotel"" ON ""PackingTransaction"" (""hotelId"");
+
+            -- Accounting: Chart of Accounts, Journal Entries, and Lines
+            CREATE TABLE IF NOT EXISTS ""Account"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""accountCode"" text NOT NULL,
+                ""accountName"" text NOT NULL,
+                ""accountType"" text NOT NULL DEFAULT 'ASSET',
+                ""subCategory"" text NOT NULL DEFAULT 'Current Asset',
+                ""normalBalance"" text NOT NULL DEFAULT 'DEBIT',
+                ""parentId"" text,
+                ""accountLevel"" integer NOT NULL DEFAULT 3,
+                ""isGroup"" boolean NOT NULL DEFAULT false,
+                ""isControlAccount"" boolean NOT NULL DEFAULT false,
+                ""allowManualEntries"" boolean NOT NULL DEFAULT true,
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone,
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""description"" text,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""isSystemAccount"" boolean NOT NULL DEFAULT false,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""parentId"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""accountLevel"" integer NOT NULL DEFAULT 3;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""isGroup"" boolean NOT NULL DEFAULT false;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""isControlAccount"" boolean NOT NULL DEFAULT false;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""allowManualEntries"" boolean NOT NULL DEFAULT true;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""openingBalanceDate"" timestamp with time zone;
+            CREATE UNIQUE INDEX IF NOT EXISTS ""ix_account_hotel_code"" ON ""Account"" (""hotelId"", ""accountCode"");
+            CREATE INDEX IF NOT EXISTS ""ix_account_type"" ON ""Account"" (""accountType"");
+            CREATE INDEX IF NOT EXISTS ""ix_account_parent"" ON ""Account"" (""parentId"");
+
+            CREATE TABLE IF NOT EXISTS ""AccountMapping"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""transactionType"" text NOT NULL,
+                ""transactionCategory"" text NOT NULL DEFAULT 'OPERATIONAL',
+                ""debitAccountId"" text NOT NULL,
+                ""creditAccountId"" text NOT NULL,
+                ""taxAccountId"" text,
+                ""serviceChargeAccountId"" text,
+                ""discountAccountId"" text,
+                ""description"" text,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ""ix_accountmapping_hotel_type"" ON ""AccountMapping"" (""hotelId"", ""transactionType"");
+
+            CREATE TABLE IF NOT EXISTS ""JournalEntry"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""entryNumber"" text NOT NULL,
+                ""entryDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""entryType"" text NOT NULL DEFAULT 'GENERAL',
+                ""reference"" text,
+                ""description"" text NOT NULL DEFAULT '',
+                ""totalDebit"" double precision NOT NULL DEFAULT 0,
+                ""totalCredit"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'POSTED',
+                ""sourceModule"" text NOT NULL DEFAULT 'MANUAL',
+                ""sourceTransactionId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""postedBy"" text,
+                ""postedAt"" timestamp with time zone,
+                ""reversedFromId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone
+            );
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""entryType"" text NOT NULL DEFAULT 'GENERAL';
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""sourceTransactionId"" text;
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""postedBy"" text;
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""postedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""reversedFromId"" text;
+            ALTER TABLE IF EXISTS ""JournalEntry"" ADD COLUMN IF NOT EXISTS ""updatedAt"" timestamp with time zone;
+            CREATE INDEX IF NOT EXISTS ""ix_journalentry_hotel_date"" ON ""JournalEntry"" (""hotelId"", ""entryDate"");
+            CREATE INDEX IF NOT EXISTS ""ix_journalentry_number"" ON ""JournalEntry"" (""entryNumber"");
+            CREATE INDEX IF NOT EXISTS ""ix_journalentry_status"" ON ""JournalEntry"" (""status"");
+
+            CREATE TABLE IF NOT EXISTS ""JournalEntryLine"" (
+                ""id"" text PRIMARY KEY,
+                ""journalEntryId"" text NOT NULL,
+                ""accountId"" text NOT NULL,
+                ""accountCode"" text NOT NULL,
+                ""accountName"" text NOT NULL,
+                ""lineDescription"" text,
+                ""debit"" double precision NOT NULL DEFAULT 0,
+                ""credit"" double precision NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS ""ix_journalentryline_entry"" ON ""JournalEntryLine"" (""journalEntryId"");
+            CREATE INDEX IF NOT EXISTS ""ix_journalentryline_account"" ON ""JournalEntryLine"" (""accountId"");
 
         ");
-        logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Bills, and ReservationAlert tables ready.");
+        logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Bills, and Packing tables ready.");
+
+        // Seed default PackingMaterials if none exist
+        if (!await db.PackingMaterials.AnyAsync())
+        {
+            var hotel = await db.Hotels.FirstOrDefaultAsync();
+            var hotelId = hotel?.Id ?? "hotel-default";
+            var defaultMaterials = new List<PackingMaterial>
+            {
+                new PackingMaterial { HotelId = hotelId, Name = "Food Box (Standard)", Unit = "pcs", PurchaseCost = 5.0, PackingCharge = 15.0, AvailableStock = 150, MinStockThreshold = 30, Status = "ACTIVE" },
+                new PackingMaterial { HotelId = hotelId, Name = "Burger Box (Eco Craft)", Unit = "pcs", PurchaseCost = 4.0, PackingCharge = 10.0, AvailableStock = 120, MinStockThreshold = 25, Status = "ACTIVE" },
+                new PackingMaterial { HotelId = hotelId, Name = "Paper Carry Bag", Unit = "pcs", PurchaseCost = 3.0, PackingCharge = 10.0, AvailableStock = 200, MinStockThreshold = 40, Status = "ACTIVE" },
+                new PackingMaterial { HotelId = hotelId, Name = "Sauce / Chutney Container (50ml)", Unit = "pcs", PurchaseCost = 1.5, PackingCharge = 5.0, AvailableStock = 300, MinStockThreshold = 50, Status = "ACTIVE" },
+                new PackingMaterial { HotelId = hotelId, Name = "Hot / Cold Cup with Lid", Unit = "pcs", PurchaseCost = 3.5, PackingCharge = 10.0, AvailableStock = 180, MinStockThreshold = 35, Status = "ACTIVE" },
+                new PackingMaterial { HotelId = hotelId, Name = "Wooden Cutlery & Napkin Set", Unit = "set", PurchaseCost = 2.0, PackingCharge = 5.0, AvailableStock = 250, MinStockThreshold = 50, Status = "ACTIVE" },
+            };
+            db.PackingMaterials.AddRange(defaultMaterials);
+            await db.SaveChangesAsync();
+
+            // Link sample menu items to default packing
+            var allProducts = await db.POSProducts.ToListAsync();
+            var foodBox = defaultMaterials.First(m => m.Name.StartsWith("Food Box"));
+            var sauceContainer = defaultMaterials.First(m => m.Name.StartsWith("Sauce"));
+            var burgerBox = defaultMaterials.First(m => m.Name.StartsWith("Burger Box"));
+            var paperBag = defaultMaterials.First(m => m.Name.StartsWith("Paper Carry Bag"));
+            var cupLid = defaultMaterials.First(m => m.Name.StartsWith("Hot / Cold Cup"));
+
+            foreach (var p in allProducts)
+            {
+                if (p.Name.Contains("Burger", StringComparison.OrdinalIgnoreCase))
+                {
+                    p.PackingConfigJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                    {
+                        new { materialId = burgerBox.Id, materialName = burgerBox.Name, quantity = 1 },
+                        new { materialId = paperBag.Id, materialName = paperBag.Name, quantity = 1 }
+                    });
+                }
+                else if (p.Name.Contains("Coffee", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Tea", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Shake", StringComparison.OrdinalIgnoreCase) || p.Name.Contains("Beverage", StringComparison.OrdinalIgnoreCase))
+                {
+                    p.PackingConfigJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                    {
+                        new { materialId = cupLid.Id, materialName = cupLid.Name, quantity = 1 }
+                    });
+                }
+                else
+                {
+                    p.PackingConfigJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                    {
+                        new { materialId = foodBox.Id, materialName = foodBox.Name, quantity = 1 },
+                        new { materialId = sauceContainer.Id, materialName = sauceContainer.Name, quantity = 1 }
+                    });
+                }
+            }
+            await db.SaveChangesAsync();
+        }
+
+        // Seed default TableCategory if none exist
+        if (!await db.TableCategories.AnyAsync())
+        {
+            var hotel = await db.Hotels.FirstOrDefaultAsync();
+            var hotelId = hotel?.Id ?? "hotel-default";
+            var defaultCategories = new List<TableCategory>
+            {
+                new TableCategory { HotelId = hotelId, Name = "Dining Hall", Description = "Spacious indoor main dining hall", Floor = "Ground Floor", DisplayOrder = 1 },
+                new TableCategory { HotelId = hotelId, Name = "Corridor Side", Description = "Window & corridor aisle seating", Floor = "Ground Floor", DisplayOrder = 2 },
+                new TableCategory { HotelId = hotelId, Name = "Main Area", Description = "Central restaurant dining zone", Floor = "Ground Floor", DisplayOrder = 3 },
+                new TableCategory { HotelId = hotelId, Name = "Skyline Rooftop Terrace", Description = "Panoramic rooftop outdoor view", Floor = "Rooftop", DisplayOrder = 4 },
+                new TableCategory { HotelId = hotelId, Name = "Poolside Lounge & Bar", Description = "Relaxed open-air dining by the pool", Floor = "Ground Floor", DisplayOrder = 5 },
+            };
+            db.TableCategories.AddRange(defaultCategories);
+            await db.SaveChangesAsync();
+
+            // Link existing tables to their matching categories
+            var allTables = await db.RestaurantTables.ToListAsync();
+            foreach (var tbl in allTables)
+            {
+                var matchingCat = defaultCategories.FirstOrDefault(c => c.Name.Equals(tbl.Section, StringComparison.OrdinalIgnoreCase));
+                if (matchingCat != null)
+                {
+                    tbl.CategoryId = matchingCat.Id;
+                }
+            }
+            await db.SaveChangesAsync();
+        }
     }
     catch (Exception ex)
     {

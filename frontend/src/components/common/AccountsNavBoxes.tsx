@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import Link from 'next/link';
@@ -32,7 +32,6 @@ export interface AccountSubOption {
 }
 
 export const ACCOUNTS_SUB_OPTIONS: AccountSubOption[] = [
-  { id: 'overview', name: 'Overview', href: '/accounts', icon: LayoutGrid, iconColor: 'text-slate-600', tag: 'OVERVIEW', description: 'Accounts overview & summary' },
   { id: 'chart-of-accounts', name: 'Chart of Accounts', href: '/accounts?tab=chart-of-accounts', icon: BookOpen, iconColor: 'text-emerald-600', tag: 'GL', description: 'Chart of accounts master' },
   { id: 'journal-entries', name: 'Journal Entries', href: '/accounts?tab=journal-entries', icon: FileText, iconColor: 'text-blue-600', tag: 'JOURNAL', description: 'Journal entries & postings' },
   { id: 'general-ledger', name: 'General Ledger', href: '/accounts?tab=general-ledger', icon: Book, iconColor: 'text-indigo-600', tag: 'LEDGER', description: 'General ledger view' },

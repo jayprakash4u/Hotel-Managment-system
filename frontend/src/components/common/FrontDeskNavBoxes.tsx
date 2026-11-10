@@ -1,5 +1,12 @@
 'use client';
 
+import {
+  HotelRoomBoardBedIcon,
+  HotelCheckInLuggageIcon,
+  HotelReservationsIcon,
+  HotelCheckOutKeyIcon,
+} from '@/components/common/RealisticHospitalityIcons';
+
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -26,28 +33,28 @@ export const FRONT_DESK_OPTIONS: FrontDeskOptionItem[] = [
     id: 'desk',
     name: 'Front Desk Matrix',
     href: '/front-desk',
-    icon: Building2,
+    icon: HotelRoomBoardBedIcon,
     description: 'Front desk room grid, tape chart & occupancy',
   },
   {
     id: 'check-in',
     name: 'Check-In Desk & Form',
     href: '/check-in',
-    icon: UserCheck,
+    icon: HotelCheckInLuggageIcon,
     description: 'Guest check-in station, KYC verification & reg cards',
   },
   {
     id: 'reservations',
     name: 'Reservation List',
     href: '/reservations',
-    icon: CalendarCheck,
+    icon: HotelReservationsIcon,
     description: 'All room bookings & reservations',
   },
   {
     id: 'checkout',
     name: 'Check-Out List',
     href: '/checkout',
-    icon: LogOut,
+    icon: HotelCheckOutKeyIcon,
     description: 'Departing guests & bill settlements',
   },
 ];
@@ -94,7 +101,7 @@ export const FrontDeskNavBoxes: React.FC<{
                     'mb-1 transition-transform group-hover:scale-110 text-muted dark:text-muted'
                   )}
                 >
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.8] text-muted dark:text-muted" />
+                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.25] text-muted dark:text-muted" />
               </div>
 
               <span

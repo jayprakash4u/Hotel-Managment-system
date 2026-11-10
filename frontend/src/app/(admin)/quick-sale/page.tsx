@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import {
   Zap,
   UtensilsCrossed,
@@ -30,6 +31,9 @@ import {
   AlertCircle,
   Phone,
   Tag,
+  Package,
+  Table2,
+  ExternalLink,
 } from 'lucide-react';
 import { RestaurantReceiptModal, ReceiptModalProps, ReceiptItem } from '@/components/common/RestaurantReceiptModal';
 import { useToast } from '@/components/ui/Toast';
@@ -117,6 +121,21 @@ export default function QuickSalePage() {
   const [billRemarks, setBillRemarks] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Order Type & Packing Management (Dine-in, Takeaway, Delivery)
+  const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'>('TAKEAWAY');
+  const [tablesList, setTablesList] = useState<any[]>([]);
+  const [selectedTableId, setSelectedTableId] = useState<string>('');
+
+  useEffect(() => {
+    api.getRestaurantTables()
+      .then((res) => {
+        if (Array.isArray(res)) setTablesList(res);
+      })
+      .catch(() => {});
+  }, []);
+  const [packingCharge, setPackingCharge] = useState<string>('0');
+  const [autoPackingCharge, setAutoPackingCharge] = useState<number>(0);
+
   // Optional Customer Info (Never required for normal counter walk-in)
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState<string>('');
@@ -170,6 +189,12 @@ export default function QuickSalePage() {
   const recentBillsRef = useRef<HTMLDivElement>(null);
   const topSearchRef = useRef<HTMLDivElement>(null);
 
+  // In-Page Open Orders Table State & Backend Sync
+  const [showOpenOrders, setShowOpenOrders] = useState<boolean>(false);
+  const openOrdersRef = useRef<HTMLDivElement>(null);
+  const [backendOpenOrders, setBackendOpenOrders] = useState<any[]>([]);
+  const [isLoadingOpenOrders, setIsLoadingOpenOrders] = useState<boolean>(false);
+
   // Global click outside listener ensuring mutual exclusivity between search popups
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -198,15 +223,244 @@ export default function QuickSalePage() {
   const [openBillType, setOpenBillType] = useState<BillType>('NORMAL');
   const [editingOpenBill, setEditingOpenBill] = useState<QuickBillRecord | null>(null);
   const [openOrdersList, setOpenOrdersList] = useState<QuickBillRecord[]>([]);
-  const [showOpenOrders, setShowOpenOrders] = useState<boolean>(false);
-  const [openOrderSearch, setOpenOrderSearch] = useState<string>('');
-  const openOrdersRef = useRef<HTMLDivElement>(null);
 
-  const refreshOpenOrders = () => {
+  const refreshOpenOrders = async () => {
+    setIsLoadingOpenOrders(true);
     try {
       setOpenOrdersList(getOpenOrders());
     } catch (e) {
-      console.warn('Could not read open orders', e);
+      console.warn('Could not read open orders from local storage', e);
+    }
+    try {
+      const bOrders = await api.getRestaurantOpenOrders();
+      if (Array.isArray(bOrders)) {
+        setBackendOpenOrders(bOrders);
+      }
+    } catch (e) {
+      console.warn('Could not read open orders from backend', e);
+    } finally {
+      setIsLoadingOpenOrders(false);
+    }
+  };
+
+  const handleReopenOpenOrder = (bill: QuickBillRecord) => {
+    setEditingOpenBill(bill);
+    setIsOpenOrder(true);
+    setOpenOrderToken(bill.token);
+    setOpenOrderSource(bill.source);
+    setOpenBillType(bill.billType);
+    if (bill.customerName) setCustomerName(bill.customerName);
+    if (bill.customerPhone) setCustomerPhone(bill.customerPhone);
+    if (bill.notes) setBillRemarks(bill.notes);
+    if (bill.discountPercent) setBillDisPercent(bill.discountPercent.toString());
+    if (bill.discountAmount) setBillDisAmt(bill.discountAmount.toString());
+
+    const loadedCart: QuickCartItem[] = bill.items.map((it, idx) => ({
+      id: `open-item-${idx}-${it.id}`,
+      productId: it.productId,
+      name: it.name,
+      unit: it.unit,
+      unitPrice: it.unitPrice,
+      quantity: it.quantity,
+      remarks: it.notes,
+      category: it.category,
+      trackStock: false,
+    }));
+    setCart(loadedCart);
+    setActiveOrderNumber(bill.masterBillNumber);
+    toast.info(
+      'Editing Open Order',
+      `Loaded ${bill.token} (${bill.masterBillNumber}). Add more items and click Save to append round.`
+    );
+  };
+
+  // Unified Open Orders combining local storage running tabs & backend open orders
+  const allCombinedOpenOrders = useMemo(() => {
+    const list: Array<{
+      id: string;
+      orderNumber: string;
+      token?: string;
+      source: string;
+      orderType?: string;
+      tableNumber?: string | null;
+      tableId?: string | null;
+      customerName?: string | null;
+      customerPhone?: string | null;
+      notes?: string | null;
+      total: number;
+      createdAt: string;
+      currentRound?: number;
+      items: Array<{
+        name: string;
+        quantity: number;
+        unitPrice: number;
+        total: number;
+        notes?: string;
+      }>;
+      isLocalQuickBill: boolean;
+      rawLocalBill?: QuickBillRecord;
+      rawBackendOrder?: any;
+    }> = [];
+
+    const existingKeys = new Set<string>();
+
+    openOrdersList.forEach((b) => {
+      const key = (b.masterBillNumber || b.id).toLowerCase();
+      existingKeys.add(key);
+      list.push({
+        id: b.id,
+        orderNumber: b.masterBillNumber,
+        token: b.token,
+        source: b.source,
+        orderType: b.billType === 'VAT' ? 'VAT Bill' : 'Quick Sale',
+        tableNumber: null,
+        tableId: null,
+        customerName: b.customerName || b.token,
+        customerPhone: b.customerPhone || null,
+        notes: b.notes,
+        total: b.grandTotal,
+        createdAt: b.openedAt,
+        currentRound: b.currentRound || 1,
+        items: (b.items || []).map((it) => ({
+          name: it.name,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          total: it.total,
+          notes: it.notes,
+        })),
+        isLocalQuickBill: true,
+        rawLocalBill: b,
+      });
+    });
+
+    backendOpenOrders.forEach((o) => {
+      const key = (o.orderNumber || o.id).toLowerCase();
+      if (!existingKeys.has(key)) {
+        existingKeys.add(key);
+        list.push({
+          id: o.id,
+          orderNumber: o.orderNumber,
+          token: o.kotNumber || o.orderNumber,
+          source: o.tableNumber ? `Table ${o.tableNumber}` : (o.orderType || 'Counter'),
+          orderType: o.orderType || 'DINE_IN',
+          tableNumber: o.tableNumber,
+          tableId: o.tableId,
+          customerName: o.customerName || (o.tableNumber ? `Table ${o.tableNumber}` : 'Walk-in'),
+          customerPhone: o.customerPhone,
+          notes: o.notes,
+          total: o.total,
+          createdAt: o.createdAt,
+          currentRound: 1,
+          items: (o.items || []).map((it: any) => ({
+            name: it.productName || it.name,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice,
+            total: it.total,
+            notes: it.notes,
+          })),
+          isLocalQuickBill: false,
+          rawBackendOrder: o,
+        });
+      }
+    });
+
+    return list;
+  }, [openOrdersList, backendOpenOrders]);
+
+  const handleToggleOpenOrders = () => {
+    setShowOpenOrders((prev) => {
+      const next = !prev;
+      if (next) {
+        refreshOpenOrders();
+        setTimeout(() => {
+          openOrdersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+      return next;
+    });
+  };
+
+  const handleSettleOpenOrderRow = async (row: any) => {
+    try {
+      if (row.isLocalQuickBill && row.rawLocalBill) {
+        const settled = settleAndPrintBill(row.id, {
+          paymentMethod: 'CASH',
+          paidAmount: row.total,
+        });
+        if (settled) {
+          toast.celebrate('Order Settled', `Bill #${settled.masterBillNumber} settled successfully.`);
+          refreshOpenOrders();
+          loadDailySales();
+        }
+      } else {
+        await api.settleRestaurantOrder(row.id, {
+          paymentMethod: 'CASH',
+          paidAmount: row.total,
+        });
+        toast.celebrate('Order Settled', `Order #${row.orderNumber} settled successfully.`);
+        refreshOpenOrders();
+        loadDailySales();
+      }
+    } catch (e: any) {
+      toast.error('Settlement Failed', e?.message || 'Could not settle open order');
+    }
+  };
+
+  const handleCancelOpenOrderRow = async (row: any) => {
+    const reason = window.prompt(`Reason for cancelling open order ${row.token || row.orderNumber}:`);
+    if (reason === null) return;
+    const effectiveReason = reason.trim() || 'Cancelled by staff';
+
+    try {
+      if (row.isLocalQuickBill && row.rawLocalBill) {
+        cancelOpenOrder(row.id, effectiveReason);
+        toast.info('Order Cancelled', `Open bill ${row.token || row.orderNumber} has been cancelled.`);
+        refreshOpenOrders();
+      } else {
+        await api.updateRestaurantOrderStatus(row.id, { status: 'CANCELLED', notes: effectiveReason });
+        toast.info('Order Cancelled', `Order ${row.orderNumber} has been cancelled.`);
+        refreshOpenOrders();
+      }
+    } catch (e: any) {
+      toast.error('Cancellation Failed', e?.message || 'Could not cancel order');
+    }
+  };
+
+  const handleReopenRow = (row: any) => {
+    if (row.isLocalQuickBill && row.rawLocalBill) {
+      handleReopenOpenOrder(row.rawLocalBill);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (row.rawBackendOrder) {
+      const bo = row.rawBackendOrder;
+      setIsOpenOrder(true);
+      setOpenOrderToken(bo.kotNumber || bo.orderNumber);
+      if (bo.customerName) setCustomerName(bo.customerName);
+      if (bo.customerPhone) setCustomerPhone(bo.customerPhone);
+      if (bo.notes) setBillRemarks(bo.notes);
+      if (bo.orderType === 'DINE_IN' || bo.tableNumber) {
+        setOrderType('DINE_IN');
+        if (bo.tableId) setSelectedTableId(bo.tableId);
+      } else if (bo.orderType === 'DELIVERY') {
+        setOrderType('DELIVERY');
+      } else {
+        setOrderType('TAKEAWAY');
+      }
+
+      const loadedCart: QuickCartItem[] = (bo.items || []).map((it: any, idx: number) => ({
+        id: `open-backend-item-${idx}-${it.id}`,
+        productId: it.productId,
+        name: it.productName || it.name,
+        unit: 'Regular',
+        unitPrice: it.unitPrice,
+        quantity: it.quantity,
+        remarks: it.notes,
+        category: 'Kitchen',
+        trackStock: false,
+      }));
+      setCart(loadedCart);
+      setActiveOrderNumber(bo.orderNumber);
+      toast.info('Loaded Open Order', `Loaded Order #${bo.orderNumber}. Add more items and click Save to append.`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -215,20 +469,19 @@ export default function QuickSalePage() {
     const handleSync = () => refreshOpenOrders();
     if (typeof window !== 'undefined') {
       window.addEventListener('restaurant_quick_bills_updated', handleSync);
+
+      const params = new URLSearchParams(window.location.search);
+      const reopenId = params.get('reopenOpenBill');
+      if (reopenId) {
+        const targetBill = getOpenOrders().find((b) => b.id === reopenId) || getAllBills().find((b) => b.id === reopenId);
+        if (targetBill) {
+          handleReopenOpenOrder(targetBill);
+        }
+      }
+
       return () => window.removeEventListener('restaurant_quick_bills_updated', handleSync);
     }
   }, []);
-
-  const filteredOpenOrders = useMemo(() => {
-    if (!openOrderSearch.trim()) return openOrdersList;
-    const q = openOrderSearch.toLowerCase().trim();
-    return openOrdersList.filter(
-      (b) =>
-        b.masterBillNumber.toLowerCase().includes(q) ||
-        b.token.toLowerCase().includes(q) ||
-        (b.customerName && b.customerName.toLowerCase().includes(q))
-    );
-  }, [openOrdersList, openOrderSearch]);
 
   // Quick Add Variant Selection Modal (Requirement: For multi-size items like Sprite, pop up size choices)
   const [variantModal, setVariantModal] = useState<{
@@ -427,6 +680,39 @@ export default function QuickSalePage() {
     });
   }, [menuCatalog, orderProductName]);
 
+  // Auto-calculate packing charges when orderType or cart changes
+  useEffect(() => {
+    if (orderType === 'DINE_IN' || cart.length === 0) {
+      setAutoPackingCharge(0);
+      setPackingCharge('0');
+      return;
+    }
+
+    const validItems = cart
+      .filter((i) => i.productId && i.quantity > 0)
+      .map((i) => ({ productId: i.productId!, quantity: i.quantity }));
+
+    if (validItems.length === 0) {
+      setAutoPackingCharge(0);
+      setPackingCharge('0');
+      return;
+    }
+
+    let isMounted = true;
+    api.calculatePacking(validItems)
+      .then((res) => {
+        if (!isMounted) return;
+        const total = res.totalPackingCharge || 0;
+        setAutoPackingCharge(total);
+        setPackingCharge(total.toString());
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [cart, orderType]);
+
   // Calculations
   const basicTotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
@@ -445,8 +731,9 @@ export default function QuickSalePage() {
   const isVatBill = openBillType === 'VAT';
   const vatRate = isVatBill ? 0.13 : 0;
   const vatAmount = isVatBill ? Math.round(taxableAmount * vatRate * 100) / 100 : 0;
+  const parsedPackingCharge = orderType === 'DINE_IN' ? 0 : (parseFloat(packingCharge) || 0);
   const parsedRoundOff = parseFloat(billRoundOff) || 0;
-  const netAmount = Math.max(0, Math.round((taxableAmount + vatAmount + parsedRoundOff) * 100) / 100);
+  const netAmount = Math.max(0, Math.round((taxableAmount + vatAmount + parsedPackingCharge + parsedRoundOff) * 100) / 100);
   const parsedPaidAmt = billPaidAmt === '' ? netAmount : parseFloat(billPaidAmt) || 0;
   const changeDue = Math.max(0, Math.round((parsedPaidAmt - netAmount) * 100) / 100);
   const refDue = Math.max(0, Math.round((netAmount - parsedPaidAmt) * 100) / 100);
@@ -675,6 +962,9 @@ export default function QuickSalePage() {
     setBillRemarks('');
     setCustomerName('');
     setCustomerPhone('');
+    setOrderType('TAKEAWAY');
+    setPackingCharge('0');
+    setAutoPackingCharge(0);
     setActiveOrderNumber(generateNewOrderNumber());
     setEditingOpenBill(null);
     setIsOpenOrder(false);
@@ -794,9 +1084,9 @@ export default function QuickSalePage() {
       kotNumber: targetDept !== 'BOT' ? ticketNumber : undefined,
       botNumber: targetDept === 'BOT' ? ticketNumber : undefined,
       receiptNumber: ticketNumber,
-      orderType: 'COUNTER_SALE',
+      orderType: orderType === 'DINE_IN' ? 'DINE_IN' : orderType === 'DELIVERY' ? 'DELIVERY' : 'TAKEAWAY',
       tableNumber: null,
-      seatingNote: 'Counter Sale',
+      seatingNote: orderType === 'DINE_IN' ? 'Dine-In' : orderType === 'DELIVERY' ? 'Delivery' : 'Takeaway',
       createdAt: new Date().toISOString(),
       serverName: 'ADMIN',
       customerName: customerName.trim() || undefined,
@@ -995,96 +1285,6 @@ export default function QuickSalePage() {
     await handleCompleteSale(shouldPrint);
   };
 
-  const handleReopenOpenOrder = (bill: QuickBillRecord) => {
-    setEditingOpenBill(bill);
-    setIsOpenOrder(true);
-    setOpenOrderToken(bill.token);
-    setOpenOrderSource(bill.source);
-    setOpenBillType(bill.billType);
-    if (bill.customerName) setCustomerName(bill.customerName);
-    if (bill.customerPhone) setCustomerPhone(bill.customerPhone);
-    if (bill.notes) setBillRemarks(bill.notes);
-    if (bill.discountPercent) setBillDisPercent(bill.discountPercent.toString());
-    if (bill.discountAmount) setBillDisAmt(bill.discountAmount.toString());
-
-    const loadedCart: QuickCartItem[] = bill.items.map((it, idx) => ({
-      id: `open-item-${idx}-${it.id}`,
-      productId: it.productId,
-      name: it.name,
-      unit: it.unit,
-      unitPrice: it.unitPrice,
-      quantity: it.quantity,
-      remarks: it.notes,
-      category: it.category,
-      trackStock: false,
-    }));
-    setCart(loadedCart);
-    setActiveOrderNumber(bill.masterBillNumber);
-    toast.info(
-      'Editing Open Order',
-      `Loaded ${bill.token} (${bill.masterBillNumber}). Add more items and click Save to append round.`
-    );
-    window.scrollTo({ top: 100, behavior: 'smooth' });
-  };
-
-  const handleSettleOpenOrderRow = (bill: QuickBillRecord) => {
-    const paid = settleAndPrintBill(bill.id, {
-      paymentMethod: billMode || 'CASH',
-      paidAmount: bill.grandTotal,
-      billType: bill.billType,
-    });
-
-    if (paid) {
-      toast.celebrate(
-        'Open Order Settled & Paid!',
-        `Bill #${paid.masterBillNumber} (${paid.token}) settled for Rs. ${paid.grandTotal.toFixed(0)}.`
-      );
-
-      setReceiptData({
-        isOpen: true,
-        onClose: () => setIsReceiptModalOpen(false),
-        orderNumber: paid.masterBillNumber,
-        receiptNumber: paid.vatInvoiceNumber || `REC-${paid.masterBillNumber}`,
-        orderType: 'COUNTER_SALE',
-        tableNumber: null,
-        seatingNote: paid.token,
-        createdAt: paid.paidAt || new Date().toISOString(),
-        serverName: paid.staffUser,
-        customerName: paid.customerName || paid.token,
-        customerPhone: paid.customerPhone,
-        items: paid.items.map((it: any) => ({
-          productName: `[R${it.roundNumber}] ${it.name}`,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          total: it.total,
-          notes: it.notes,
-        })),
-        subtotal: paid.subtotal,
-        discountAmount: paid.discountAmount,
-        discountPercent: paid.discountPercent,
-        tax: paid.vatAmount,
-        serviceCharge: 0,
-        total: paid.grandTotal,
-        paidAmount: paid.paidAmount,
-        changeDue: paid.changeDue,
-        paymentMethod: paid.paymentMethod,
-        paymentStatus: 'PAID',
-      });
-      setIsReceiptModalOpen(true);
-      refreshOpenOrders();
-      loadDailySales();
-    }
-  };
-
-  const handleCancelOpenOrderRow = (bill: QuickBillRecord) => {
-    const reason = window.prompt(`Cancel open order for ${bill.token} (${bill.masterBillNumber})?\nPlease enter cancellation reason:`, 'Customer cancelled order');
-    if (reason !== null) {
-      cancelOpenOrder(bill.id, reason || 'Cancelled by staff');
-      toast.warning('Open Order Cancelled', `${bill.masterBillNumber} (${bill.token}) marked CANCELLED. Number preserved.`);
-      refreshOpenOrders();
-    }
-  };
-
   // ---------------------------------------------------------------------------
   // Complete Quick Sale & Settle
   // ---------------------------------------------------------------------------
@@ -1150,8 +1350,11 @@ export default function QuickSalePage() {
         overrideReason: isCreditSale && isManagerOverrideAllowed ? overrideReason : undefined,
         discountPercent: parsedDisPercent > 0 ? parsedDisPercent : undefined,
         discountAmount: effectiveDisAmt > 0 ? effectiveDisAmt : undefined,
-        tax: 0,
+        tax: isVatBill ? vatAmount : 0,
         serviceCharge: 0,
+        packingCharge: parsedPackingCharge > 0 ? parsedPackingCharge : undefined,
+        orderType: orderType,
+        tableId: orderType === 'DINE_IN' && selectedTableId ? selectedTableId : undefined,
         serverName: 'Counter Cashier',
         customerName: isCreditSale ? selectedCreditCustomer?.name : (customerName.trim() || undefined),
         customerPhone: isCreditSale ? selectedCreditCustomer?.phone : (customerPhone.trim() || undefined),
@@ -1186,9 +1389,11 @@ export default function QuickSalePage() {
         onClose: () => setIsReceiptModalOpen(false),
         orderNumber: savedOrderNumber,
         receiptNumber: isVatBill && vatInvoiceNum ? vatInvoiceNum : `REC-${savedOrderNumber.replace('QS-', '').replace('ORD-', '')}`,
-        orderType: 'COUNTER_SALE',
+        orderType: orderType,
         tableNumber: null,
-        seatingNote: isVatBill ? 'TAX INVOICE (VAT 13%) · Counter Takeaway' : 'Counter Takeaway',
+        seatingNote: isVatBill
+          ? `TAX INVOICE (VAT 13%) · ${orderType === 'DINE_IN' ? 'Dine-In' : orderType === 'DELIVERY' ? 'Delivery' : 'Takeaway'}`
+          : (orderType === 'DINE_IN' ? 'Dine-In' : orderType === 'DELIVERY' ? 'Delivery' : 'Takeaway'),
         createdAt: new Date().toISOString(),
         serverName: 'Counter Cashier',
         customerName: isCreditSale && selectedCreditCustomer ? selectedCreditCustomer.name : (customerName.trim() || 'Walk-in Customer'),
@@ -1205,6 +1410,7 @@ export default function QuickSalePage() {
         discountPercent: parsedDisPercent,
         tax: isVatBill ? vatAmount : 0,
         serviceCharge: 0,
+        packingCharge: parsedPackingCharge > 0 ? parsedPackingCharge : undefined,
         total: netAmount,
         paidAmount: isCreditSale ? 0 : parsedPaidAmt,
         changeDue: isCreditSale ? 0 : changeDue,
@@ -1273,11 +1479,68 @@ export default function QuickSalePage() {
           TOP SERVICE & CUSTOMER INFORMATION STRIP (MATCHING TABLE ORDER PAGE)
           ======================================================================= */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5 rounded-[3px] bg-[#FAFBF9] dark:bg-[#07241E] border border-[#DCE3DF] dark:border-[#145447] text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-[#64736C] dark:text-[#879B90]">Order No:</span>
-          <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400 bg-white dark:bg-[#061D18] px-2.5 py-0.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
-            {activeOrderNumber}
-          </span>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[#64736C] dark:text-[#879B90]">Order No:</span>
+            <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400 bg-white dark:bg-[#061D18] px-2.5 py-0.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
+              {activeOrderNumber}
+            </span>
+          </div>
+
+          {/* Order Type Toggle: Dine-in, Takeaway, Delivery */}
+          <div className="flex items-center gap-1 bg-[#EEF2EF] dark:bg-[#061D18] p-0.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447]">
+            {(['DINE_IN', 'TAKEAWAY', 'DELIVERY'] as const).map((ot) => (
+              <button
+                key={ot}
+                type="button"
+                onClick={() => setOrderType(ot)}
+                className={cn(
+                  'px-2.5 py-1 text-xs font-semibold rounded-[2px] transition-colors cursor-pointer',
+                  orderType === ot
+                    ? 'bg-[#0B3D32] text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                {ot === 'DINE_IN' ? 'Dine-in' : ot === 'TAKEAWAY' ? 'Takeaway' : 'Delivery'}
+              </button>
+            ))}
+          </div>
+
+          {/* Table Suggestion Dropdown for Dine-in */}
+          {orderType === 'DINE_IN' && tablesList.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs animate-in fade-in duration-100">
+              <Table2 className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={selectedTableId}
+                onChange={(e) => setSelectedTableId(e.target.value)}
+                className="h-[28px] rounded-[3px] border border-slate-300 dark:border-[#145447] bg-white dark:bg-[#071F1A] px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+              >
+                <option value="">-- No Table / Walk-in --</option>
+                {tablesList.filter((t) => t.status === 'AVAILABLE' || t.status === 'FREE').length > 0 && (
+                  <optgroup label="Available Tables">
+                    {tablesList
+                      .filter((t) => t.status === 'AVAILABLE' || t.status === 'FREE')
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          Table {t.tableNumber} (Available · {t.capacity} Seats)
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                {tablesList.filter((t) => t.status === 'OCCUPIED').length > 0 && (
+                  <optgroup label="Dined-In / Occupied Tables">
+                    {tablesList
+                      .filter((t) => t.status === 'OCCUPIED')
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          Table {t.tableNumber} (Occupied)
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -1297,35 +1560,30 @@ export default function QuickSalePage() {
           )}
 
           
-          {/* Open Orders History Toggle */}
+          {/* Open Orders Toggle */}
           <button
             type="button"
-            onClick={() => {
-              setShowOpenOrders((prev) => !prev);
-              setTimeout(() => {
-                openOrdersRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
-            }}
+            onClick={handleToggleOpenOrders}
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] text-xs font-semibold shadow-2xs cursor-pointer transition-all',
               showOpenOrders
-                ? 'bg-amber-600 text-white border border-amber-600'
+                ? 'bg-amber-600 text-white border border-amber-600 dark:bg-amber-600 dark:border-amber-500'
                 : 'border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#071F1A] text-[#24352F] dark:text-white hover:bg-slate-50'
             )}
-            title="Click to view open unpaid orders (Save != Print lane)"
+            title="Click to view and manage open orders below"
           >
-            <Clock className={cn('w-3.5 h-3.5', showOpenOrders ? 'text-white' : 'text-amber-500')} />
+            <Clock className={cn('w-3.5 h-3.5', showOpenOrders ? 'text-amber-200' : 'text-amber-500')} />
             <span>Open Orders</span>
-            {openOrdersList.length > 0 && (
+            {allCombinedOpenOrders.length > 0 && (
               <span
                 className={cn(
                   'ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold',
                   showOpenOrders
                     ? 'bg-white/20 text-white'
-                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
                 )}
               >
-                {openOrdersList.length}
+                {allCombinedOpenOrders.length}
               </span>
             )}
           </button>
@@ -2068,8 +2326,8 @@ export default function QuickSalePage() {
           BOTTOM SECTION: BILLING PANEL (EXACT DESIGN MATCHING USER SCREENSHOT)
           =================================================================== */}
       <div className="border border-slate-200 dark:border-slate-800 rounded-md p-3.5 bg-white dark:bg-[#071F1A] shadow-2xs space-y-3">
-        {/* Row 1: Basic Total | Dis % | Dis Amt | Round off | Net Amount | Paid Amt. */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+        {/* Row 1: Basic Total | Dis % | Dis Amt | Packing | Round off | Net Amount | Paid Amt. */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
           <div>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
               Basic Total
@@ -2111,6 +2369,38 @@ export default function QuickSalePage() {
               value={billDisAmt}
               onChange={(e) => handleDisAmtChange(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
+            />
+          </div>
+
+          {/* Packing Charge (Takeaway/Delivery only; Dine-in requires no packing) */}
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+              <span>Packing</span>
+              {orderType !== 'DINE_IN' && autoPackingCharge > 0 && parseFloat(packingCharge) !== autoPackingCharge && (
+                <button
+                  type="button"
+                  onClick={() => setPackingCharge(autoPackingCharge.toString())}
+                  className="text-[9px] text-[#0B3D32] dark:text-emerald-400 hover:underline cursor-pointer"
+                  title="Reset to auto-calculated packing charge"
+                >
+                  Auto: {autoPackingCharge}
+                </button>
+              )}
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="1"
+              disabled={orderType === 'DINE_IN'}
+              placeholder={orderType === 'DINE_IN' ? 'N/A' : '0'}
+              value={orderType === 'DINE_IN' ? '0' : packingCharge}
+              onChange={(e) => setPackingCharge(e.target.value)}
+              className={cn(
+                'w-full px-2.5 py-1.5 text-xs font-mono rounded-[3px] focus:outline-none',
+                orderType === 'DINE_IN'
+                  ? 'bg-[#E9ECEF] dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed'
+                  : 'bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:border-[#0B3D32]'
+              )}
             />
           </div>
 
@@ -2469,48 +2759,44 @@ export default function QuickSalePage() {
 
       
       {/* =========================================================================
-          OPEN ORDERS AREA (TAB / SEPARATE AREA FOR UNPAID OPEN BILLS)
-          Columns: Bill # | Token/Customer | Items count | Total | Opened time | Time elapsed | Status | Actions
+          OPEN ORDERS & RUNNING TABS SECTION (DISPLAYED BELOW QUICK SALE FORM)
+          Clean, Simple & Professional Table Format
           ========================================================================= */}
-      {(showOpenOrders || openOrdersList.length > 0) && (
+      {showOpenOrders && (
         <div
           ref={openOrdersRef}
-          className="rounded-[4px] border border-amber-300 dark:border-amber-900/70 bg-white dark:bg-[#071F1A] shadow-2xs overflow-hidden animate-in fade-in-50 duration-150"
+          className="rounded-[4px] border border-amber-200 dark:border-amber-900/60 bg-white dark:bg-[#071F1A] shadow-2xs overflow-hidden animate-in fade-in-50 duration-150 space-y-0 mb-4"
         >
           {/* Header */}
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-[#0d2a23]">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-amber-200/80 dark:border-amber-900/60 bg-amber-50/60 dark:bg-[#1a1708]/40">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
               <h3 className="text-xs font-bold font-heading text-slate-800 dark:text-white uppercase tracking-wider">
-                Open Orders &amp; Active Tabs
+                Open Orders &amp; Running Tabs
               </h3>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold border border-amber-300 dark:border-amber-800">
-                {openOrdersList.length} Unpaid {openOrdersList.length === 1 ? 'Tab' : 'Tabs'}
-              </span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-1 hidden sm:inline">
-                (Save ≠ Print · Editable in multiple rounds)
+                {allCombinedOpenOrders.length} {allCombinedOpenOrders.length === 1 ? 'Open Order' : 'Open Orders'}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Filter token or bill #..."
-                  value={openOrderSearch}
-                  onChange={(e) => setOpenOrderSearch(e.target.value)}
-                  className="pl-8 pr-2.5 py-1 text-xs border border-amber-300 dark:border-amber-800 rounded bg-white dark:bg-[#061D18] text-slate-900 dark:text-white focus:outline-none w-44"
-                />
-              </div>
+              <Link
+                href="/tables?tab=ACTIVE_ORDERS&filter=OPEN_ORDERS"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-amber-300 dark:border-amber-800 bg-white dark:bg-[#07241E] text-amber-800 dark:text-amber-300 hover:bg-amber-50 text-[11px] font-semibold transition-colors cursor-pointer"
+                title="View full open orders list on Tables page"
+              >
+                <ExternalLink className="w-3 h-3 text-amber-600" />
+                <span>Open in Tables</span>
+              </Link>
               <button
                 type="button"
                 onClick={refreshOpenOrders}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-amber-300 dark:border-amber-800 bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 hover:bg-amber-50 text-[11px] font-semibold transition-colors cursor-pointer"
+                disabled={isLoadingOpenOrders}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-[11px] font-semibold transition-colors cursor-pointer"
                 title="Refresh open orders"
               >
-                <RotateCcw className="w-3 h-3" />
-                <span>Refresh</span>
+                <RotateCcw className={cn('w-3 h-3', isLoadingOpenOrders && 'animate-spin')} />
+                <span>{isLoadingOpenOrders ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 type="button"
@@ -2525,130 +2811,139 @@ export default function QuickSalePage() {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            {filteredOpenOrders.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                No active open orders matching filter.
-              </div>
-            ) : (
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-amber-200 dark:border-amber-900/60 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 bg-amber-50/40 dark:bg-[#061D18]">
-                    <th className="py-2.5 px-3 text-center w-12 border-r border-amber-100 dark:border-amber-900/40">#</th>
-                    <th className="py-2.5 px-3.5 text-left border-r border-amber-100 dark:border-amber-900/40">Bill #</th>
-                    <th className="py-2.5 px-3.5 text-left border-r border-amber-100 dark:border-amber-900/40">Token / Chair</th>
-                    <th className="py-2.5 px-3 text-center border-r border-amber-100 dark:border-amber-900/40">Source</th>
-                    <th className="py-2.5 px-3 text-center border-r border-amber-100 dark:border-amber-900/40">Type</th>
-                    <th className="py-2.5 px-3.5 text-center border-r border-amber-100 dark:border-amber-900/40">Items &amp; Rounds</th>
-                    <th className="py-2.5 px-3.5 text-right border-r border-amber-100 dark:border-amber-900/40">Total</th>
-                    <th className="py-2.5 px-3.5 text-left border-r border-amber-100 dark:border-amber-900/40">Opened / Elapsed</th>
-                    <th className="py-2.5 px-3 text-center border-r border-amber-100 dark:border-amber-900/40">Status</th>
-                    <th className="py-2.5 px-3.5 text-right w-48">Actions</th>
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-amber-100 dark:border-amber-900/40 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-amber-50/30 dark:bg-[#061D18]">
+                  <th className="py-2.5 px-3 text-center w-12 border-r border-slate-100 dark:border-slate-800/80">#</th>
+                  <th className="py-2.5 px-3.5 text-left border-r border-slate-100 dark:border-slate-800/80">Token / Order #</th>
+                  <th className="py-2.5 px-3 text-left border-r border-slate-100 dark:border-slate-800/80">Type / Table</th>
+                  <th className="py-2.5 px-3 text-left border-r border-slate-100 dark:border-slate-800/80">Customer</th>
+                  <th className="py-2.5 px-3 text-left border-r border-slate-100 dark:border-slate-800/80">Items</th>
+                  <th className="py-2.5 px-3 text-center w-24 border-r border-slate-100 dark:border-slate-800/80">Elapsed</th>
+                  <th className="py-2.5 px-3.5 text-right w-28 border-r border-slate-100 dark:border-slate-800/80">Amount</th>
+                  <th className="py-2.5 px-3 text-center w-48">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {allCombinedOpenOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-xs text-slate-400">
+                      <Clock className="w-7 h-7 mx-auto mb-2 opacity-35 text-amber-500" />
+                      <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">
+                        No Open Orders Currently Active
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Running tabs and unpaid kitchen orders will appear here for 1-click round additions or settlement.
+                      </p>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-amber-100 dark:divide-amber-900/40">
-                  {filteredOpenOrders.map((bill, index) => {
-                    const elapsed = timeElapsed(bill.openedAt);
+                ) : (
+                  allCombinedOpenOrders.map((ord, idx) => {
+                    const elapsed = timeElapsed ? timeElapsed(ord.createdAt) : 'Active';
+
                     return (
                       <tr
-                        key={bill.id}
-                        className={cn(
-                          'hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors',
-                          editingOpenBill?.id === bill.id && 'bg-amber-100/60 dark:bg-amber-900/30'
-                        )}
+                        key={ord.id || ord.orderNumber || idx}
+                        className="hover:bg-amber-50/40 dark:hover:bg-[#0E362C]/30 transition-colors"
                       >
-                        <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px] border-r border-amber-100 dark:border-amber-900/40">
-                          {index + 1}
+                        {/* Serial Number */}
+                        <td className="py-2 px-3 text-center font-mono text-xs text-slate-400 border-r border-slate-100 dark:border-slate-800/80">
+                          {idx + 1}
                         </td>
-                        <td className="py-2 px-3.5 font-mono font-bold text-slate-800 dark:text-slate-100 border-r border-amber-100 dark:border-amber-900/40">
-                          {bill.masterBillNumber}
-                        </td>
-                        <td className="py-2 px-3.5 border-r border-amber-100 dark:border-amber-900/40">
-                          <span className="font-bold text-amber-900 dark:text-amber-300 px-1.5 py-0.5 rounded bg-amber-100/80 dark:bg-amber-900/50">
-                            {bill.token}
-                          </span>
-                          {bill.customerName && bill.customerName !== bill.token && (
-                            <span className="text-[11px] text-slate-500 ml-1.5">({bill.customerName})</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-center border-r border-amber-100 dark:border-amber-900/40">
-                          <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-300">
-                            {bill.source.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-center border-r border-amber-100 dark:border-amber-900/40">
-                          <span
-                            className={cn(
-                              'text-[10px] font-bold px-1.5 py-0.5 rounded',
-                              bill.billType === 'VAT'
-                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                            )}
-                          >
-                            {bill.billType}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3.5 text-center border-r border-amber-100 dark:border-amber-900/40">
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">
-                            {bill.items.reduce((s, it) => s + it.quantity, 0)} items
-                          </span>
-                          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-mono ml-1">
-                            (R{bill.currentRound || 1})
-                          </span>
-                        </td>
-                        <td className="py-2 px-3.5 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-amber-100 dark:border-amber-900/40">
-                          Rs. {bill.grandTotal.toFixed(0)}
-                        </td>
-                        <td className="py-2 px-3.5 border-r border-amber-100 dark:border-amber-900/40">
-                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>{new Date(bill.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            <span className="text-[10px] font-mono text-amber-800 dark:text-amber-300 font-medium ml-1">
-                              ({elapsed})
-                            </span>
+
+                        {/* Order Number & Token */}
+                        <td className="py-2 px-3.5 border-r border-slate-100 dark:border-slate-800/80">
+                          <div className="font-mono font-bold text-xs text-amber-700 dark:text-amber-400">
+                            {ord.token || ord.orderNumber}
+                          </div>
+                          <div className="font-mono text-[10px] text-slate-400">
+                            {ord.orderNumber}
                           </div>
                         </td>
-                        <td className="py-2 px-3 text-center border-r border-amber-100 dark:border-amber-900/40">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white uppercase tracking-wider animate-pulse">
-                            OPEN
+
+                        {/* Type / Table */}
+                        <td className="py-2 px-3 text-xs text-slate-600 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/80">
+                          <span className="font-semibold text-slate-800 dark:text-white">
+                            {ord.tableNumber ? `Table ${ord.tableNumber}` : ord.orderType || 'Counter Tab'}
                           </span>
                         </td>
-                        <td className="py-2 px-3.5 text-right space-x-1 whitespace-nowrap">
-                          {/* Add items */}
-                          <button
-                            type="button"
-                            onClick={() => handleReopenOpenOrder(bill)}
-                            className="px-2 py-1 rounded-[3px] bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
-                            title="Reopen order to add more items/rounds"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Add Items</span>
-                          </button>
-                          {/* Settle & Print */}
-                          <button
-                            type="button"
-                            onClick={() => handleSettleOpenOrderRow(bill)}
-                            className="px-2 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#082e25] text-white text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
-                            title="Settle payment and print final tax invoice"
-                          >
-                            <Receipt className="w-3.5 h-3.5" />
-                            <span>Settle</span>
-                          </button>
-                          {/* Cancel */}
-                          <button
-                            type="button"
-                            onClick={() => handleCancelOpenOrderRow(bill)}
-                            className="px-1.5 py-1 rounded-[3px] border border-rose-200 hover:bg-rose-50 text-rose-600 text-[11px] transition-colors cursor-pointer"
-                            title="Cancel open order"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+
+                        {/* Customer */}
+                        <td className="py-2 px-3 text-xs text-slate-600 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/80">
+                          <div className="font-medium text-slate-800 dark:text-slate-200">
+                            {ord.customerName || 'Walk-in'}
+                          </div>
+                          {ord.customerPhone && (
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              {ord.customerPhone}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Items Preview */}
+                        <td className="py-2 px-3 text-xs text-slate-600 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/80 max-w-[240px]">
+                          <div className="truncate font-medium" title={ord.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}>
+                            {ord.items.length > 0
+                              ? ord.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')
+                              : 'No items'}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {ord.items.reduce((sum, it) => sum + it.quantity, 0)} total item(s)
+                          </div>
+                        </td>
+
+                        {/* Elapsed */}
+                        <td className="py-2 px-3 text-center text-xs font-mono text-slate-500 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800/80">
+                          {elapsed}
+                        </td>
+
+                        {/* Total Amount */}
+                        <td className="py-2 px-3.5 text-right font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300 border-r border-slate-100 dark:border-slate-800/80">
+                          Rs. {ord.total.toFixed(0)}
+                        </td>
+
+                        {/* Action Buttons */}
+                        <td className="py-2 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* 1. Add Items / Edit */}
+                            <button
+                              type="button"
+                              onClick={() => handleReopenRow(ord)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-[3px] border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                              title="Reopen in POS to add more items/rounds"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add Items</span>
+                            </button>
+
+                            {/* 2. Settle */}
+                            <button
+                              type="button"
+                              onClick={() => handleSettleOpenOrderRow(ord)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-[3px] border border-emerald-300 dark:border-emerald-700 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                              title="Settle bill & mark as completed"
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Settle</span>
+                            </button>
+
+                            {/* 3. Cancel */}
+                            <button
+                              type="button"
+                              onClick={() => handleCancelOpenOrderRow(ord)}
+                              className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              title="Cancel open order"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
-              </table>
-            )}
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

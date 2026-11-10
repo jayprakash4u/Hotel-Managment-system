@@ -1,5 +1,26 @@
 'use client';
 
+import {
+  HotelConciergeBellIcon,
+  HotelRoomBoardBedIcon,
+  HotelBookNowIcon,
+  HotelReservationsIcon,
+  HotelCheckInLuggageIcon,
+  HotelCheckOutKeyIcon,
+  HotelInHouseGuestsIcon,
+  HotelGuestDirectoryIcon,
+  HotelHousekeepingIcon,
+  HotelSetupBuildingIcon,
+  RestaurantDashboardIcon,
+  RestaurantDiningTableIcon,
+  RestaurantTableReservationIcon,
+  RestaurantQuickBillPOSIcon,
+  RestaurantKitchenDisplayIcon,
+  RestaurantOrderTicketIcon,
+  RestaurantSetupIcon,
+  RestaurantMenuBookIcon,
+} from '@/components/common/RealisticHospitalityIcons';
+
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -58,7 +79,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'dashboard',
     name: 'Dashboard',
     href: '/hotel-management',
-    icon: LayoutDashboard,
+    icon: HotelConciergeBellIcon,
     tag: 'OVERVIEW',
     description: 'Hotel occupancy, room status, today check-ins & metrics',
   },
@@ -66,7 +87,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'room-board',
     name: 'Room Board',
     href: '/front-desk',
-    icon: BedDouble,
+    icon: HotelRoomBoardBedIcon,
     tag: 'ROOMS',
     description: 'Live room status matrix, tape chart & front desk floor grid',
   },
@@ -74,7 +95,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'book-now',
     name: 'Book Now',
     href: '/booking',
-    icon: CalendarPlus,
+    icon: HotelBookNowIcon,
     tag: 'DIRECT',
     description: 'Instant room reservation & direct booking form',
   },
@@ -82,7 +103,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'reservations',
     name: 'Reservations',
     href: '/reservations',
-    icon: CalendarCheck,
+    icon: HotelReservationsIcon,
     tag: 'BOOKING',
     description: 'Advance room bookings & guest reservations',
   },
@@ -90,7 +111,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'check-in',
     name: 'Check-In',
     href: '/check-in',
-    icon: UserCheck,
+    icon: HotelCheckInLuggageIcon,
     tag: 'ARRIVAL',
     description: 'Guest arrival check-in, key assignment & registration',
   },
@@ -98,7 +119,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'check-out',
     name: 'Check-Out',
     href: '/checkout',
-    icon: LogOut,
+    icon: HotelCheckOutKeyIcon,
     tag: 'DEPART',
     description: 'Guest departure, folio bill settlement & checkout',
   },
@@ -106,7 +127,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'in-house',
     name: 'In-House Guests',
     href: '/active-stays',
-    icon: Users,
+    icon: HotelInHouseGuestsIcon,
     tag: 'STAYS',
     description: 'Currently resident guests, room folios & extensions',
   },
@@ -114,7 +135,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'guest-directory',
     name: 'Guest Directory',
     href: '/guests',
-    icon: Contact,
+    icon: HotelGuestDirectoryIcon,
     tag: 'CRM',
     description: 'Guest history, VIP tiers, preferences & profiles',
   },
@@ -122,7 +143,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'housekeeping',
     name: 'Housekeeping',
     href: '/housekeeping',
-    icon: Sparkles,
+    icon: HotelHousekeepingIcon,
     tag: 'CLEAN',
     description: 'Room cleaning tasks, maid assignments & inspections',
   },
@@ -130,7 +151,7 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'hotel-setup',
     name: 'Hotel Setup',
     href: '/hotel?category=room-setup',
-    icon: Building2,
+    icon: HotelSetupBuildingIcon,
     tag: 'SETUP',
     description: 'Hotel room types, room numbers, floors, facilities & rates',
   },
@@ -141,7 +162,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'dashboard',
     name: 'Dashboard',
     href: '/restaurant-management',
-    icon: LayoutDashboard,
+    icon: RestaurantDashboardIcon,
     tag: 'OVERVIEW',
     description: 'Daily restaurant sales, active tables & summary',
   },
@@ -149,7 +170,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'table-board',
     name: 'Table Board',
     href: '/tables',
-    icon: Table2,
+    icon: RestaurantDiningTableIcon,
     tag: 'TABLES',
     description: 'Floor layout, seating status & live table cards',
   },
@@ -157,7 +178,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'table-reservations',
     name: 'Table Reservations',
     href: '/tables?tab=RESERVATIONS',
-    icon: CalendarCheck,
+    icon: RestaurantTableReservationIcon,
     tag: 'BOOKING',
     description: 'Advance dining reservations & guest seating',
   },
@@ -165,7 +186,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'quick-bill',
     name: 'Quick Bill',
     href: '/quick-sale',
-    icon: Zap,
+    icon: RestaurantQuickBillPOSIcon,
     tag: 'POS',
     description: 'Counter sales, takeaway & instant billing',
   },
@@ -173,7 +194,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'kitchen-display',
     name: 'Kitchen Display',
     href: '/restaurant-management?section=kitchen',
-    icon: ChefHat,
+    icon: RestaurantKitchenDisplayIcon,
     tag: 'KDS',
     description: 'Live kitchen order tickets & prep queue',
   },
@@ -181,7 +202,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'orders',
     name: 'Orders',
     href: '/tables?tab=ACTIVE_ORDERS',
-    icon: Receipt,
+    icon: RestaurantOrderTicketIcon,
     tag: 'ORDERS',
     description: 'Live table, walk-in & takeaway active orders',
   },
@@ -189,7 +210,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'restaurant-setup',
     name: 'Restaurant Setup',
     href: '/hotel?category=restaurant-setup',
-    icon: Building2,
+    icon: RestaurantSetupIcon,
     tag: 'SETUP',
     description: 'Food categories, products setup, table sections & portion rates',
   },
@@ -197,12 +218,11 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     id: 'menu',
     name: 'Menu',
     href: '/menu',
-    icon: UtensilsCrossed,
+    icon: RestaurantMenuBookIcon,
     tag: 'MENU',
     description: 'Food & drinks catalog, portion rates & categories',
   },
 ];
-
 const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [];
 
 export const SHARED_QUICK_MODULES = [
@@ -680,7 +700,7 @@ export const Sidebar: React.FC<{
                               className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#0A2620] hover:border-slate-400 dark:hover:border-slate-600 hover:shadow-xs transition-all duration-150 text-center min-h-[82px] sm:min-h-[86px] cursor-pointer"
                             >
                               <div className="mb-2 text-slate-800 dark:text-slate-100 group-hover:scale-110 transition-transform">
-                                <Icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.75]" />
+                                <Icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.25]" />
                               </div>
                               <span className="text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-100 group-hover:text-black dark:group-hover:text-white leading-tight line-clamp-2">
                                 {item.name}
@@ -783,7 +803,7 @@ export const Sidebar: React.FC<{
                             className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#0A2620] hover:border-slate-400 dark:hover:border-slate-600 hover:shadow-xs transition-all duration-150 text-center min-h-[82px] sm:min-h-[86px] cursor-pointer"
                           >
                             <div className="mb-2 text-slate-800 dark:text-slate-100 group-hover:scale-110 transition-transform">
-                              <Icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.75]" />
+                              <Icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.25]" />
                             </div>
                             <span className="text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-100 group-hover:text-black dark:group-hover:text-white leading-tight line-clamp-2">
                               {item.name}
@@ -848,7 +868,7 @@ export const Sidebar: React.FC<{
                         'flex items-center justify-center mb-2 transition-transform group-hover:scale-110 text-[#DC2626] dark:text-[#EF4444]'
                       )}
                     >
-                      <Icon className="w-6 h-6 stroke-[1.8] text-[#DC2626] dark:text-[#EF4444]" />
+                      <Icon className="w-6 h-6 stroke-[1.25] text-[#DC2626] dark:text-[#EF4444]" />
                     </div>
 
                     {/* Label Text Below Icon */}
@@ -923,7 +943,7 @@ export const Sidebar: React.FC<{
                       : 'border-transparent hover:border-[var(--border-default)] hover:bg-[var(--surface-muted)] dark:hover:border-[var(--border-default)] dark:hover:bg-[var(--surface-muted)]'
                   )}
                 >
-                  <Icon className="w-5 h-5 text-[var(--accent-danger)] dark:text-[var(--accent-danger)]" />
+                  <Icon className="w-5 h-5 stroke-[1.25] text-[var(--accent-danger)] dark:text-[var(--accent-danger)]" />
                   {isActive && (
                     <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-1 rounded-r-full bg-[var(--brand-primary)]" />
                   )}

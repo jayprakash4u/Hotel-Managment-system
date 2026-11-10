@@ -30,6 +30,7 @@ export interface ReceiptModalProps {
   discountPercent?: number;
   tax: number;
   serviceCharge?: number;
+  packingCharge?: number;
   total: number;
   paidAmount?: number;
   changeDue?: number;
@@ -80,6 +81,7 @@ export const RestaurantReceiptModal: React.FC<ReceiptModalProps> = ({
   discountPercent = 0,
   tax,
   serviceCharge = 0,
+  packingCharge = 0,
   total,
   paidAmount,
   changeDue = 0,
@@ -348,6 +350,13 @@ export const RestaurantReceiptModal: React.FC<ReceiptModalProps> = ({
                   <div className="flex justify-between">
                     <span className="text-slate-500 dark:text-slate-400">Service Charge (5%):</span>
                     <span className="font-mono">{formatCurrency(serviceCharge)}</span>
+                  </div>
+                )}
+
+                {packingCharge > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Packing Charge:</span>
+                    <span className="font-mono">{formatCurrency(packingCharge)}</span>
                   </div>
                 )}
 

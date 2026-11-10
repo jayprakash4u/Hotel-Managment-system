@@ -41,6 +41,7 @@ export interface TableItem {
   id: string;
   tableNumber: string;
   section: string;
+  categoryId?: string;
   capacity: number;
   status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'BILLED' | 'CLEANING' | 'OUT_OF_SERVICE';
   cleaningStatus?: 'CLEAN' | 'DIRTY' | 'CLEANING';

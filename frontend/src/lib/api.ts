@@ -300,10 +300,54 @@ export const api = {
     return fetcher<any[]>(`/api/restaurant/tables${query}`);
   },
 
-  createTable: (data: any) => {
+  createTable: (data: { tableNumber: string; capacity?: number; section?: string; categoryId?: string; status?: string; cleaningStatus?: string; maintenanceNotes?: string; [key: string]: any }) => {
     return fetcher<any>('/api/restaurant/tables', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  updateTable: (id: string, data: { tableNumber?: string; capacity?: number; section?: string; categoryId?: string; status?: string; cleaningStatus?: string; maintenanceNotes?: string; [key: string]: any }) => {
+    return fetcher<any>(`/api/restaurant/tables/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteTable: (id: string) => {
+    return fetcher<any>(`/api/restaurant/tables/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  bulkCreateTables: (data: { prefix?: string; startNumber?: number; count: number; capacity?: number; categoryId?: string; section?: string }) => {
+    return fetcher<any[]>('/api/restaurant/tables/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getTableCategories: () => {
+    return fetcher<any[]>('/api/restaurant/table-categories');
+  },
+
+  createTableCategory: (data: { name: string; description?: string; floor?: string; displayOrder?: number }) => {
+    return fetcher<any>('/api/restaurant/table-categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateTableCategory: (id: string, data: { name?: string; description?: string; floor?: string; displayOrder?: number; isActive?: boolean }) => {
+    return fetcher<any>(`/api/restaurant/table-categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteTableCategory: (id: string) => {
+    return fetcher<any>(`/api/restaurant/table-categories/${id}`, {
+      method: 'DELETE',
     });
   },
 
@@ -408,8 +452,12 @@ export const api = {
     });
   },
 
+  getRestaurantOpenOrders: () => {
+    return fetcher<any[]>('/api/restaurant/open-orders');
+  },
+
   settleRestaurantOrder: (orderId: string, data: {
-    paymentMethod: string;
+    paymentMethod?: string;
     roomNumber?: string;
     roomId?: string;
     reservationId?: string;
@@ -419,6 +467,7 @@ export const api = {
     discountAmount?: number;
     roundOff?: number;
     remarks?: string;
+    notes?: string;
   }) => {
     return fetcher<any>(`/api/restaurant/orders/${orderId}/settle`, {
       method: 'POST',
@@ -608,6 +657,141 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data || {}),
     });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Restaurant Packing Management
+  // ---------------------------------------------------------------------------
+  getPackingMaterials: (params?: { status?: string; search?: string; lowStockOnly?: boolean }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<any[]>(`/api/restaurant/packing/materials?${query}`);
+  },
+
+  createPackingMaterial: (data: {
+    name: string;
+    unit: string;
+    purchaseCost: number;
+    packingCharge: number;
+    availableStock: number;
+    minStockThreshold?: number;
+    status?: string;
+  }) => {
+    return fetcher<any>('/api/restaurant/packing/materials', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updatePackingMaterial: (id: string, data: any) => {
+    return fetcher<any>(`/api/restaurant/packing/materials/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deletePackingMaterial: (id: string) => {
+    return fetcher<any>(`/api/restaurant/packing/materials/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  adjustPackingMaterialStock: (id: string, data: { quantity: number; notes?: string; type?: string }) => {
+    return fetcher<any>(`/api/restaurant/packing/materials/${encodeURIComponent(id)}/adjust-stock`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getPackingDashboard: (params?: { status?: string; orderType?: string; search?: string; date?: string }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<{
+      orders: any[];
+      counts: { all: number; pending: number; inProgress: number; completed: number };
+    }>(`/api/restaurant/packing/dashboard?${query}`);
+  },
+
+  updateOrderPackingStatus: (orderId: string, data: { status: string; staffName?: string }) => {
+    return fetcher<any>(`/api/restaurant/packing/orders/${encodeURIComponent(orderId)}/status`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  adjustOrderPackingMaterials: (orderId: string, data: { materials: any[] }) => {
+    return fetcher<any>(`/api/restaurant/packing/orders/${encodeURIComponent(orderId)}/adjust-materials`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  completeOrderPacking: (orderId: string, data?: { staffName?: string; modifiedMaterials?: any[] }) => {
+    return fetcher<any>(`/api/restaurant/packing/orders/${encodeURIComponent(orderId)}/complete`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  },
+
+  getMenuPackingConfig: (params?: { search?: string }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<any[]>(`/api/restaurant/packing/menu-config?${query}`);
+  },
+
+  updateMenuPackingConfig: (productId: string, data: { materials: any[] }) => {
+    return fetcher<any>(`/api/restaurant/packing/menu-config/${encodeURIComponent(productId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  calculatePacking: (items: { productId: string; quantity: number }[]) => {
+    return fetcher<{
+      materials: any[];
+      totalPackingCharge: number;
+      totalMaterialCost: number;
+      totalItemsCount: number;
+    }>('/api/restaurant/packing/calculate', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    });
+  },
+
+  getPackingReportsSummary: (params?: { startDate?: string; endDate?: string }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<any>(`/api/restaurant/packing/reports/summary?${query}`);
+  },
+
+  getPackingConsumptionReport: (params?: { startDate?: string; endDate?: string }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<any>(`/api/restaurant/packing/reports/consumption?${query}`);
+  },
+
+  getPackingStockReport: () => {
+    return fetcher<any[]>('/api/restaurant/packing/reports/stock');
   },
 
   // Inventory
@@ -1011,5 +1195,638 @@ export const api = {
   getCreditSummaryReport: () => {
     return fetcher<any>('/api/billing/reports/credit-summary');
   },
+
+  // Accounts (Chart of Accounts, Journal Entries, General Ledger)
+  getChartOfAccounts: (params?: { type?: string; search?: string; activeOnly?: boolean; parentId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.type) q.append('type', params.type);
+    if (params?.search) q.append('search', params.search);
+    if (params?.activeOnly) q.append('activeOnly', 'true');
+    if (params?.parentId) q.append('parentId', params.parentId);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').ChartOfAccountsResponse>(`/api/accounts/chart${qs}`);
+  },
+
+  suggestAccountCode: (params?: { parentId?: string; type?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.parentId) q.append('parentId', params.parentId);
+    if (params?.type) q.append('type', params.type);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{ suggestedCode: string }>(`/api/accounts/chart/suggest-code${qs}`);
+  },
+
+  createAccount: (data: {
+    accountCode: string;
+    accountName: string;
+    accountType: string;
+    parentId?: string;
+    subCategory?: string;
+    normalBalance?: string;
+    isGroup?: boolean;
+    isControlAccount?: boolean;
+    allowManualEntries?: boolean;
+    openingBalance: number;
+    description?: string;
+    isActive?: boolean;
+  }) => {
+    return fetcher<import('./types').AccountItem>('/api/accounts/chart', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateAccount: (id: string, data: {
+    accountName?: string;
+    parentId?: string;
+    subCategory?: string;
+    description?: string;
+    isActive?: boolean;
+    allowManualEntries?: boolean;
+    isControlAccount?: boolean;
+  }) => {
+    return fetcher<import('./types').AccountItem>(`/api/accounts/chart/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteAccount: (id: string) => {
+    return fetcher<{ id: string }>(`/api/accounts/chart/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  seedDefaultAccounts: () => {
+    return fetcher<{ added: number }>('/api/accounts/chart/seed-default', {
+      method: 'POST',
+    });
+  },
+
+  getAccountMappings: () => {
+    return fetcher<import('./types').AccountMappingItem[]>('/api/accounts/mappings');
+  },
+
+  saveAccountMapping: (data: {
+    transactionType: string;
+    transactionCategory: string;
+    debitAccountId: string;
+    creditAccountId: string;
+    taxAccountId?: string;
+    serviceChargeAccountId?: string;
+    discountAccountId?: string;
+    description?: string;
+  }) => {
+    return fetcher<import('./types').AccountMappingItem>('/api/accounts/mappings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getJournalEntries: (params?: { fromDate?: string; toDate?: string; status?: string; entryType?: string; search?: string; page?: number; pageSize?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.status) q.append('status', params.status);
+    if (params?.entryType) q.append('entryType', params.entryType);
+    if (params?.search) q.append('search', params.search);
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').JournalEntriesResponse>(`/api/accounts/journal-entries${qs}`);
+  },
+
+  getNextJournalNumber: () => {
+    return fetcher<{ nextNumber: string }>('/api/accounts/journal-entries/next-number');
+  },
+
+  getJournalEntryById: (id: string) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}`);
+  },
+
+  createJournalEntry: (data: import('./types').CreateJournalEntryPayload) => {
+    return fetcher<import('./types').JournalEntryItem>('/api/accounts/journal-entries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateJournalEntry: (id: string, data: import('./types').CreateJournalEntryPayload) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteJournalEntry: (id: string) => {
+    return fetcher<{ id: string }>(`/api/accounts/journal-entries/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  postJournalEntry: (id: string) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}/post`, {
+      method: 'POST',
+    });
+  },
+
+  reverseJournalEntry: (id: string, data?: { reason?: string }) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  },
+
+  voidJournalEntry: (id: string) => {
+    return fetcher<import('./types').JournalEntryItem>(`/api/accounts/journal-entries/${id}/void`, {
+      method: 'POST',
+    });
+  },
+
+  getGeneralLedger: (params?: { accountId?: string; fromDate?: string; toDate?: string; sourceModule?: string; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.accountId) q.append('accountId', params.accountId);
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.sourceModule) q.append('sourceModule', params.sourceModule);
+    if (params?.search) q.append('search', params.search);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').GeneralLedgerReport>(`/api/accounts/general-ledger${qs}`);
+  },
+
+  getAllAccountsLedger: (params?: { fromDate?: string; toDate?: string; accountType?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.accountType) q.append('accountType', params.accountType);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').AllAccountsLedgerReport>(`/api/accounts/general-ledger/all-accounts${qs}`);
+  },
+
+  getTrialBalance: (params?: { fromDate?: string; toDate?: string; accountType?: string; showZeroBalances?: boolean; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.accountType) q.append('accountType', params.accountType);
+    if (params?.showZeroBalances !== undefined) q.append('showZeroBalances', params.showZeroBalances.toString());
+    if (params?.search) q.append('search', params.search);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').TrialBalanceReport>(`/api/accounts/trial-balance${qs}`);
+  },
+
+  // Sales Transactions Management Module (Shared / Accounts)
+  getSalesTransactions: (params?: {
+    search?: string;
+    salesChannel?: string;
+    outlet?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    transactionStatus?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.append('search', params.search);
+    if (params?.salesChannel) q.append('salesChannel', params.salesChannel);
+    if (params?.outlet) q.append('outlet', params.outlet);
+    if (params?.paymentMethod) q.append('paymentMethod', params.paymentMethod);
+    if (params?.paymentStatus) q.append('paymentStatus', params.paymentStatus);
+    if (params?.transactionStatus) q.append('transactionStatus', params.transactionStatus);
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    if (params?.sortBy) q.append('sortBy', params.sortBy);
+    if (params?.sortOrder) q.append('sortOrder', params.sortOrder);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').GetSalesTransactionsResponse>(`/api/sales-transactions${qs}`);
+  },
+
+  getSalesTransactionById: (id: string) => {
+    return fetcher<import('./types').SalesTransactionDetail>(`/api/sales-transactions/${id}`);
+  },
+
+  createSalesTransaction: (data: import('./types').CreateSalesTransactionRequest) => {
+    return fetcher<{
+      id: string;
+      billNumber: string;
+      grandTotal: number;
+      amountPaid: number;
+      balanceDue: number;
+      paymentStatus: string;
+      transactionStatus: string;
+    }>('/api/sales-transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordSalesPayment: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMethod: string;
+      transactionRef?: string;
+      receivedBy?: string;
+      notes?: string;
+      idempotencyKey?: string;
+    }
+  ) => {
+    return fetcher<{
+      id: string;
+      billNumber: string;
+      amountPaid: number;
+      balanceDue: number;
+      paymentStatus: string;
+    }>(`/api/sales-transactions/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  processSalesReturn: (
+    id: string,
+    data: {
+      returnItems: {
+        name: string;
+        quantity: number;
+        unitPrice: number;
+        reason?: string;
+        restockInventory: boolean;
+      }[];
+      reason: string;
+      authorizedBy?: string;
+      refundPaymentMethod?: string;
+    }
+  ) => {
+    return fetcher<{
+      id: string;
+      billNumber: string;
+      refundAmount: number;
+      transactionStatus: string;
+      paymentStatus: string;
+    }>(`/api/sales-transactions/${id}/return`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  cancelSalesTransaction: (id: string, data: { reason: string; authorizedBy?: string }) => {
+    return fetcher<{
+      id: string;
+      billNumber: string;
+      transactionStatus: string;
+      paymentStatus: string;
+    }>(`/api/sales-transactions/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getSalesMenuItems: (search?: string) => {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return fetcher<any[]>(`/api/sales-transactions/menu-items${qs}`);
+  },
+
+  getSalesCustomers: (search?: string) => {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return fetcher<any[]>(`/api/sales-transactions/customers${qs}`);
+  },
+
+  // Enhanced Customer Ledger Endpoints
+  recordCustomerPaymentV2: (
+    customerId: string,
+    data: {
+      amount: number;
+      paymentMode: string;
+      allocations?: { billId: string; amount: number }[];
+      billIds?: string[];
+      paymentDate?: string;
+      referenceNumber?: string;
+      notes?: string;
+      receivedBy?: string;
+      outlet?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/customers/${customerId}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  allocateCustomerAdvance: (
+    customerId: string,
+    data: {
+      allocations: { billId: string; amount: number }[];
+      notes?: string;
+      authorizedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/customers/${customerId}/advances/allocate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  createCustomerAdjustment: (
+    customerId: string,
+    data: {
+      adjustmentType: 'DEBIT' | 'CREDIT';
+      amount: number;
+      reason: string;
+      referenceNumber?: string;
+      approvedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/customers/${customerId}/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getCustomerAgingReport: (customerId: string) => {
+    return fetcher<import('./types').CustomerAgingReport>(`/api/customers/${customerId}/aging`);
+  },
+
+  getCustomerStatementReport: (customerId: string, params?: { startDate?: string; endDate?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').CustomerStatementReport>(`/api/customers/${customerId}/statement${qs}`);
+  },
+
+  // Purchase Transactions Module
+  getPurchaseTransactions: (params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    supplierId?: string;
+    startDate?: string;
+    endDate?: string;
+    branch?: string;
+    purchaseType?: string;
+    paymentStatus?: string;
+    receivingStatus?: string;
+    status?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    if (params?.search) q.append('search', params.search);
+    if (params?.supplierId) q.append('supplierId', params.supplierId);
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.branch) q.append('branch', params.branch);
+    if (params?.purchaseType) q.append('purchaseType', params.purchaseType);
+    if (params?.paymentStatus) q.append('paymentStatus', params.paymentStatus);
+    if (params?.receivingStatus) q.append('receivingStatus', params.receivingStatus);
+    if (params?.status) q.append('status', params.status);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{
+      items: import('./types').PurchaseTransactionListItem[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      summary: import('./types').PurchaseTransactionsSummary;
+    }>(`/api/purchase-transactions${qs}`);
+  },
+
+  getNextPurchaseNumber: () => {
+    return fetcher<{ purchaseNumber: string }>('/api/purchase-transactions/next-number');
+  },
+
+  getPurchaseTransactionById: (id: string) => {
+    return fetcher<import('./types').PurchaseTransactionListItem>(`/api/purchase-transactions/${id}`);
+  },
+
+  createPurchaseTransaction: (data: {
+    supplierId: string;
+    supplierInvoiceNumber?: string;
+    supplierInvoiceDate?: string;
+    branchOrOutlet?: string;
+    warehouse?: string;
+    purchaseType: string;
+    purchaseOrderRef?: string;
+    items: {
+      inventoryItemId?: string | null;
+      itemCode?: string | null;
+      description: string;
+      category?: string;
+      quantity: number;
+      unit: string;
+      unitCost: number;
+      discountAmount?: number;
+      taxPercent?: number;
+      warehouse?: string;
+    }[];
+    discountAmount?: number;
+    freightCharges?: number;
+    roundOff?: number;
+    paidAmount?: number;
+    paymentMode?: string;
+    paymentReference?: string;
+    notes?: string;
+    receivingStatus?: string;
+    createdBy?: string;
+  }) => {
+    return fetcher<import('./types').PurchaseTransactionListItem>('/api/purchase-transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordPurchasePayment: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMode: string;
+      paymentDate?: string;
+      paymentReference?: string;
+      notes?: string;
+      paidBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/purchase-transactions/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  processPurchaseReturn: (
+    id: string,
+    data: {
+      items: {
+        itemDescription: string;
+        inventoryItemId?: string | null;
+        quantity: number;
+        unit: string;
+        unitCost: number;
+        reason?: string;
+      }[];
+      reason: string;
+      notes?: string;
+      processedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/purchase-transactions/${id}/returns`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  receivePurchaseGoods: (
+    id: string,
+    data: {
+      grnNumber?: string;
+      warehouse?: string;
+      receivedBy?: string;
+      notes?: string;
+      receivingStatus?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/purchase-transactions/${id}/receive`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  cancelPurchaseTransaction: (
+    id: string,
+    data: {
+      reason: string;
+      notes?: string;
+      cancelledBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/purchase-transactions/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getPendingPurchaseOrders: () => {
+    return fetcher<any[]>('/api/purchase-transactions/purchase-orders');
+  },
+
+  // Enhanced Supplier Ledger Endpoints
+  getSupplierLedgerV2: (
+    id: string,
+    params?: {
+      startDate?: string;
+      endDate?: string;
+      transactionType?: string;
+      outlet?: string;
+      outstandingOnly?: boolean;
+      overdueOnly?: boolean;
+      invoiceNumber?: string;
+    }
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.transactionType && params.transactionType !== 'ALL') q.append('transactionType', params.transactionType);
+    if (params?.outlet && params.outlet !== 'ALL') q.append('outlet', params.outlet);
+    if (params?.outstandingOnly) q.append('outstandingOnly', 'true');
+    if (params?.overdueOnly) q.append('overdueOnly', 'true');
+    if (params?.invoiceNumber) q.append('invoiceNumber', params.invoiceNumber);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{
+      supplier: import('./types').SupplierRecord;
+      periodOpeningBalance: number;
+      closingBalance: number;
+      summary: import('./types').SupplierLedgerSummary;
+      entries: import('./types').SupplierLedgerEntryData[];
+    }>(`/api/suppliers/${id}/ledger${qs}`);
+  },
+
+  getSupplierUnpaidPurchases: (id: string) => {
+    return fetcher<import('./types').SupplierUnpaidPurchaseData[]>(`/api/suppliers/${id}/unpaid-purchases`);
+  },
+
+  recordSupplierPaymentMulti: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMode: string;
+      paymentDate?: string;
+      referenceNumber?: string;
+      notes?: string;
+      voucherNumber?: string;
+      branchOrOutlet?: string;
+      paidBy?: string;
+      allocations?: { purchaseOrderId: string; amount: number }[];
+    }
+  ) => {
+    return fetcher<any>(`/api/suppliers/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordSupplierAdvance: (
+    id: string,
+    data: {
+      amount: number;
+      paymentMode: string;
+      paymentDate?: string;
+      referenceNumber?: string;
+      notes?: string;
+      branchOrOutlet?: string;
+      paidBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/suppliers/${id}/advances`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  allocateSupplierAdvance: (
+    id: string,
+    data: {
+      allocations: { purchaseOrderId: string; amount: number }[];
+      notes?: string;
+      authorizedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/suppliers/${id}/advances/allocate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  createSupplierAdjustment: (
+    id: string,
+    data: {
+      adjustmentType: 'DEBIT' | 'CREDIT';
+      amount: number;
+      reason: string;
+      referenceNumber?: string;
+      approvedBy?: string;
+    }
+  ) => {
+    return fetcher<any>(`/api/suppliers/${id}/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getSupplierAgingReport: (id: string) => {
+    return fetcher<import('./types').SupplierAgingReport>(`/api/suppliers/${id}/aging`);
+  },
+
+  getSupplierStatementReport: (id: string, params?: { startDate?: string; endDate?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').SupplierStatementReport>(`/api/suppliers/${id}/statement${qs}`);
+  },
 };
+
+
 
