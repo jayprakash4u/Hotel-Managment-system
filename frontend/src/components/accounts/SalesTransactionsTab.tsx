@@ -447,8 +447,8 @@ export default function SalesTransactionsTab() {
 
   return (
     <div className="space-y-4 pb-12 select-none">
-      {/* 1. Navigation Breadcrumb Bar */}
-      <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
         <div className="flex items-center gap-2 text-xs">
           <Link
             href="/accounts"
@@ -458,25 +458,10 @@ export default function SalesTransactionsTab() {
             <span>Accounts Hub</span>
           </Link>
           <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-600 stroke-[1.25]" />
             <span>Sales Transactions</span>
           </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          
-        </div>
-      </div>
-
-      {/* 2. Page Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Sales Transactions</h1>
-            
-          </div>
-          
         </div>
 
         <div className="flex items-center gap-2">
@@ -508,72 +493,64 @@ export default function SalesTransactionsTab() {
         </div>
       </div>
 
-      {/* 3. Sales Summary Cards (8 KPI metrics) */}
+      {/* 2. Sales Summary Cards (8 KPI metrics) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
         {/* Total Sales */}
         <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Sales</div>
           <div className="text-base font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {summary.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            Rs. {(summary?.totalSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          
         </div>
 
         {/* Total Invoices */}
         <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Invoices</div>
-          <div className="text-base font-black text-slate-900 dark:text-white mt-1">{summary.totalInvoices}</div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Bills count</div>
+          <div className="text-base font-black text-slate-900 dark:text-white mt-1">{summary?.totalInvoices ?? 0}</div>
         </div>
 
         {/* Paid Sales */}
         <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Paid Sales</div>
           <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-            Rs. {summary.paidSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            Rs. {(summary?.paidSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Cash &amp; bank</div>
         </div>
 
         {/* Unpaid / Credit */}
         <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Unpaid Due</div>
           <div className="text-base font-black text-amber-600 dark:text-amber-400 mt-1 truncate">
-            Rs. {summary.unpaidSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            Rs. {(summary?.unpaidSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Receivables balance</div>
         </div>
 
         {/* Partially Paid */}
         <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Partially Paid</div>
-          <div className="text-base font-black text-blue-600 dark:text-blue-400 mt-1">{summary.partiallyPaidCount}</div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Partial bills</div>
+          <div className="text-base font-black text-blue-600 dark:text-blue-400 mt-1">{summary?.partiallyPaidCount ?? 0}</div>
         </div>
 
         {/* Sales Returns */}
         <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Returns</div>
-          <div className="text-base font-black text-purple-600 dark:text-purple-400 mt-1">{summary.salesReturnsCount}</div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Return records</div>
+          <div className="text-base font-black text-purple-600 dark:text-purple-400 mt-1">{summary?.salesReturnsCount ?? 0}</div>
         </div>
 
         {/* Refund Amount */}
         <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Refunds</div>
           <div className="text-base font-black text-rose-600 dark:text-rose-400 mt-1 truncate">
-            Rs. {summary.refundAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            Rs. {(summary?.refundAmount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Refunded money</div>
         </div>
 
         {/* Net Sales */}
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Net Sales</div>
           <div className="text-base font-black text-[#0B3D32] dark:text-emerald-300 mt-1 truncate">
-            Rs. {summary.netSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            Rs. {(summary?.netSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5">Total &minus; Refunds</div>
         </div>
       </div>
 

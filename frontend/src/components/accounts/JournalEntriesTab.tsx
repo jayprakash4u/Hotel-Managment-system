@@ -23,6 +23,7 @@ import {
   Edit2,
   RotateCcw,
   BookOpen,
+  Download,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { JournalEntryItem, AccountItem, JournalEntriesSummary } from '@/lib/types';
@@ -347,6 +348,33 @@ export default function JournalEntriesTab() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (entries.length === 0) {
+      error('No journal entries to export');
+      return;
+    }
+    const headers = ['Voucher No', 'Date', 'Type', 'Description', 'Reference', 'Debit', 'Credit', 'Status'];
+    const rows = entries.map((e) => [
+      `"${e.entryNumber}"`,
+      `"${new Date(e.entryDate).toISOString().split('T')[0]}"`,
+      `"${e.entryType}"`,
+      `"${(e.description || '').replace(/"/g, '""')}"`,
+      `"${e.reference || ''}"`,
+      e.totalDebit.toFixed(2),
+      e.totalCredit.toFixed(2),
+      `"${e.status}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Journal_Entries_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    success('Journal entries exported to CSV');
+  };
+
   const handlePrintVoucher = () => {
     if (typeof window !== 'undefined') {
       window.print();
@@ -355,26 +383,44 @@ export default function JournalEntriesTab() {
 
   return (
     <div className="space-y-4">
-      {/* 1. Header with Breadcrumb & Action Button */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/accounts"
-              className="p-1 rounded-[3px] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              title="Back to Accounts Hub"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Journal Entries
-            </h1>
-            
-          </div>
-          
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
+        <div className="flex items-center gap-2 text-xs">
+          <Link
+            href="/accounts"
+            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Accounts Hub</span>
+          </Link>
+          <span className="text-slate-300 dark:text-slate-700">/</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-blue-600 stroke-[1.25]" />
+            <span>Journal Entries</span>
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={loadEntries}
+            disabled={loading}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded border border-slate-300 dark:border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Refresh entries"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded border border-slate-300 dark:border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+
           <button
             type="button"
             onClick={handleOpenNewEntry}

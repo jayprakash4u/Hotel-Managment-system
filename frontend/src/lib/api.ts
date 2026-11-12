@@ -1826,6 +1826,329 @@ export const api = {
     const qs = q.toString() ? `?${q.toString()}` : '';
     return fetcher<import('./types').SupplierStatementReport>(`/api/suppliers/${id}/statement${qs}`);
   },
+
+  // Cash Accounts Management
+  getCashAccounts: (params?: {
+    branch?: string;
+    search?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.branch) q.append('branch', params.branch);
+    if (params?.search) q.append('search', params.search);
+    if (params?.status) q.append('status', params.status);
+    if (params?.dateFrom) q.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.append('dateTo', params.dateTo);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{
+      summary: import('./types').CashAccountsSummary;
+      accounts: import('./types').CashAccountRecord[];
+      branches: string[];
+    }>(`/api/cash-accounts${qs}`);
+  },
+
+  getCashAccountDetails: (id: string) => {
+    return fetcher<import('./types').CashAccountRecord>(`/api/cash-accounts/${id}`);
+  },
+
+  getCashAccountTransactions: (
+    id: string,
+    params?: {
+      fromDate?: string;
+      toDate?: string;
+      type?: string;
+      search?: string;
+      page?: number;
+      pageSize?: number;
+    }
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.type) q.append('type', params.type);
+    if (params?.search) q.append('search', params.search);
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{
+      periodOpeningBalance: number;
+      periodClosingBalance: number;
+      periodCashIn: number;
+      periodCashOut: number;
+      netMovement: number;
+      totalRecords: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      transactions: import('./types').CashTransactionItem[];
+    }>(`/api/cash-accounts/${id}/transactions${qs}`);
+  },
+
+  createCashAccount: (data: {
+    accountName: string;
+    accountCode?: string;
+    branchOrOutlet?: string;
+    description?: string;
+    openingBalance: number;
+    openingBalanceDate?: string;
+    responsibleEmployee?: string;
+    isActive?: boolean;
+  }) => {
+    return fetcher<any>('/api/cash-accounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateCashAccount: (
+    id: string,
+    data: {
+      accountName?: string;
+      branchOrOutlet?: string;
+      description?: string;
+      responsibleEmployee?: string;
+      isActive: boolean;
+    }
+  ) => {
+    return fetcher<any>(`/api/cash-accounts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordCashReceipt: (data: {
+    accountId: string;
+    date: string;
+    receivedFrom: string;
+    category: string;
+    amount: number;
+    referenceNumber?: string;
+    description?: string;
+    branch?: string;
+    receivedBy?: string;
+  }) => {
+    return fetcher<any>('/api/cash-accounts/receipt', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordCashPayment: (data: {
+    accountId: string;
+    date: string;
+    payee: string;
+    category: string;
+    amount: number;
+    referenceNumber?: string;
+    description?: string;
+    branch?: string;
+    paidBy?: string;
+  }) => {
+    return fetcher<any>('/api/cash-accounts/payment', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  transferCash: (data: {
+    fromAccountId: string;
+    toAccountId: string;
+    amount: number;
+    date: string;
+    description?: string;
+    reference?: string;
+    transferredBy?: string;
+  }) => {
+    return fetcher<any>('/api/cash-accounts/transfer', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  reconcileCash: (data: {
+    accountId: string;
+    reconciliationDate: string;
+    actualCountedCash: number;
+    explanation?: string;
+    denominationsJson?: string;
+    reconciledBy: string;
+    witnessManager?: string;
+    autoApproveAdjustment?: boolean;
+  }) => {
+    return fetcher<any>('/api/cash-accounts/reconcile', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getCashReconciliations: (id: string) => {
+    return fetcher<import('./types').CashReconciliationRecord[]>(`/api/cash-accounts/${id}/reconciliations`);
+  },
+
+  // Bank & Wallet Accounts
+  getBankWalletAccounts: (params?: {
+    type?: string;
+    provider?: string;
+    branch?: string;
+    status?: string;
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.type) q.append('type', params.type);
+    if (params?.provider) q.append('provider', params.provider);
+    if (params?.branch) q.append('branch', params.branch);
+    if (params?.status) q.append('status', params.status);
+    if (params?.search) q.append('search', params.search);
+    if (params?.dateFrom) q.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.append('dateTo', params.dateTo);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{
+      summary: import('./types').BankWalletSummary;
+      bankAccounts: import('./types').BankWalletAccountRecord[];
+      digitalWallets: import('./types').BankWalletAccountRecord[];
+      branches: string[];
+    }>(`/api/bank-wallet-accounts${qs}`);
+  },
+
+  getBankWalletAccountDetails: (id: string) => {
+    return fetcher<import('./types').BankWalletAccountRecord>(`/api/bank-wallet-accounts/${id}`);
+  },
+
+  getBankWalletAccountTransactions: (
+    id: string,
+    params?: {
+      fromDate?: string;
+      toDate?: string;
+      type?: string;
+      source?: string;
+      search?: string;
+      page?: number;
+      pageSize?: number;
+    }
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.append('fromDate', params.fromDate);
+    if (params?.toDate) q.append('toDate', params.toDate);
+    if (params?.type) q.append('type', params.type);
+    if (params?.source) q.append('source', params.source);
+    if (params?.search) q.append('search', params.search);
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{
+      account: {
+        id: string;
+        accountName: string;
+        accountCode: string;
+        accountType: 'BANK' | 'WALLET';
+      };
+      periodOpeningBalance: number;
+      periodClosingBalance: number;
+      periodIn: number;
+      periodOut: number;
+      netMovement: number;
+      totalRecords: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      transactions: import('./types').BankWalletTransactionItem[];
+    }>(`/api/bank-wallet-accounts/${id}/transactions${qs}`);
+  },
+
+  createBankWalletAccount: (data: {
+    accountName: string;
+    accountType: 'BANK' | 'WALLET';
+    accountCode?: string;
+    openingBalance: number;
+    openingDate?: string;
+    branch?: string;
+    notes?: string;
+    isActive: boolean;
+    bankName?: string;
+    accountNumber?: string;
+    accountHolderName?: string;
+    walletProvider?: string;
+    merchantId?: string;
+    registeredMobileNumber?: string;
+    settlementBankAccountId?: string;
+    directBankSettlement?: boolean;
+  }) => {
+    return fetcher<any>('/api/bank-wallet-accounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateBankWalletAccount: (
+    id: string,
+    data: {
+      accountName: string;
+      branch?: string;
+      notes?: string;
+      isActive: boolean;
+      bankName?: string;
+      accountNumber?: string;
+      accountHolderName?: string;
+      walletProvider?: string;
+      merchantId?: string;
+      registeredMobileNumber?: string;
+      directBankSettlement?: boolean;
+    }
+  ) => {
+    return fetcher<any>(`/api/bank-wallet-accounts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordWalletSettlement: (data: {
+    walletAccountId: string;
+    destinationBankAccountId: string;
+    grossAmount: number;
+    walletCharges: number;
+    otherDeductions: number;
+    settlementDate: string;
+    settlementReference: string;
+    bankReference?: string;
+    description?: string;
+  }) => {
+    return fetcher<any>('/api/bank-wallet-accounts/settlement', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  transferBankWalletFunds: (data: {
+    fromAccountId: string;
+    toAccountId: string;
+    amount: number;
+    date: string;
+    reference?: string;
+    description?: string;
+  }) => {
+    return fetcher<any>('/api/bank-wallet-accounts/transfer', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordBankWalletCharge: (data: {
+    accountId: string;
+    amount: number;
+    date: string;
+    chargeType: string;
+    reference?: string;
+    description?: string;
+  }) => {
+    return fetcher<any>('/api/bank-wallet-accounts/charges', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 

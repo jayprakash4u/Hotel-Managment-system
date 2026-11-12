@@ -373,23 +373,21 @@ export default function GeneralLedgerTab() {
 
   return (
     <div className="space-y-4">
-      {/* 1. Header with Breadcrumb, Mode Switcher & Export Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/accounts"
-              className="p-1 rounded-[3px] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              title="Back to Accounts Hub"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              General Ledger
-            </h1>
-            
-          </div>
-          
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
+        <div className="flex items-center gap-2 text-xs">
+          <Link
+            href="/accounts"
+            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Accounts Hub</span>
+          </Link>
+          <span className="text-slate-300 dark:text-slate-700">/</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <Book className="w-3.5 h-3.5 text-indigo-600 stroke-[1.25]" />
+            <span>General Ledger</span>
+          </span>
         </div>
 
         {/* Top Actions: Mode Switcher & Export */}

@@ -29,6 +29,19 @@ public class Account : BaseEntity
     public DateTime? OpeningBalanceDate { get; set; }
     public double CurrentBalance { get; set; } = 0.0;
     
+    public string? BranchOrOutlet { get; set; } = "Main Restaurant";
+    public string? ResponsibleEmployee { get; set; }
+    
+    // Bank & Wallet specific metadata
+    public string? BankName { get; set; } // e.g. "Nabil Bank", "Global IME Bank"
+    public string? AccountNumber { get; set; } // e.g. "01201017500123"
+    public string? AccountHolderName { get; set; } // e.g. "Everest Family Restaurant Pvt. Ltd."
+    public string? WalletProvider { get; set; } // e.g. "eSewa", "Khalti", "IME Pay", "Fonepay"
+    public string? MerchantId { get; set; } // e.g. "ESEWA_POS_01"
+    public string? RegisteredMobileNumber { get; set; } // e.g. "9801234567"
+    public string? SettlementBankAccountId { get; set; } // Destination bank account for wallet sweeps
+    public bool DirectBankSettlement { get; set; } = false; // e.g. Fonepay QR directly crediting bank
+    
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

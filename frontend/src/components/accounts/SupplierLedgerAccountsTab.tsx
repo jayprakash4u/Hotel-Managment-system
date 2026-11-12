@@ -581,8 +581,8 @@ export default function SupplierLedgerAccountsTab() {
 
   return (
     <div className="space-y-4 pb-12 select-none">
-      {/* 1. Breadcrumb Bar */}
-      <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
         <div className="flex items-center gap-2 text-xs">
           <Link
             href="/accounts"
@@ -592,17 +592,18 @@ export default function SupplierLedgerAccountsTab() {
             <span>Accounts Hub</span>
           </Link>
           <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-            <Truck className="w-3.5 h-3.5 text-amber-600" />
+          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <Truck className="w-3.5 h-3.5 text-amber-600 stroke-[1.25]" />
             <span>Supplier Ledger</span>
           </span>
-        </div>
-      </div>
-
-      {/* 2. Main Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Supplier Ledger</h1>
+          {selectedSupplier && (
+            <>
+              <span className="text-slate-300 dark:text-slate-700">/</span>
+              <span className="font-bold text-amber-700 dark:text-amber-400">
+                {selectedSupplier.name}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -870,7 +871,7 @@ export default function SupplierLedgerAccountsTab() {
                 <div className="text-[10px] uppercase font-bold text-slate-400">Credit Limit</div>
                 <div className="font-semibold text-slate-800 dark:text-slate-200">
                   {selectedSupplier.creditLimit && selectedSupplier.creditLimit > 0
-                    ? `Rs. ${selectedSupplier.creditLimit.toLocaleString()}`
+                    ? `Rs. ${(selectedSupplier.creditLimit || 0).toLocaleString()}`
                     : 'No Limit'}
                 </div>
               </div>

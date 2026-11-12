@@ -1873,6 +1873,119 @@ export interface SupplierStatementReport {
   }[];
 }
 
+export interface CashAccountRecord {
+  id: string;
+  accountName: string;
+  accountCode: string;
+  branchOrOutlet: string;
+  accountType: string;
+  openingBalance: number;
+  openingBalanceDate?: string;
+  currentBalance: number;
+  totalCashIn: number;
+  totalCashOut: number;
+  todayCashIn: number;
+  todayCashOut: number;
+  responsibleEmployee?: string;
+  isActive: boolean;
+  description?: string;
+}
+
+export interface CashAccountsSummary {
+  totalCashBalance: number;
+  cashReceived: number;
+  cashPaid: number;
+  todayCashBalance: number;
+}
+
+export interface CashTransactionItem {
+  id: string;
+  date: string;
+  referenceNumber: string;
+  entryNumber: string;
+  transactionType: string;
+  description: string;
+  cashIn: number;
+  cashOut: number;
+  runningBalance: number;
+  sourceModule: string;
+  createdBy: string;
+  journalEntryId: string;
+  accountId: string;
+  accountName: string;
+  accountCode: string;
+}
+
+export interface CashReconciliationRecord {
+  id: string;
+  reconciliationNumber: string;
+  reconciliationDate: string;
+  accountId: string;
+  systemBalance: number;
+  physicalCount: number;
+  difference: number;
+  status: 'MATCHED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  explanation?: string;
+  denominationsJson?: string;
+  reconciledBy: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  journalEntryId?: string;
+  account?: {
+    accountName: string;
+    accountCode: string;
+  };
+}
+
+export interface BankWalletAccountRecord {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'BANK' | 'WALLET';
+  subCategory: string;
+  bankName?: string;
+  accountNumber?: string;
+  rawAccountNumber?: string;
+  accountHolderName?: string;
+  branch: string;
+  walletProvider?: string;
+  merchantId?: string;
+  rawMerchantId?: string;
+  registeredMobileNumber?: string;
+  directBankSettlement?: boolean;
+  openingBalance: number;
+  openingBalanceDate: string;
+  currentBalance: number;
+  totalIn: number;
+  totalOut: number;
+  isActive: boolean;
+  description?: string;
+}
+
+export interface BankWalletSummary {
+  totalAccountBalance: number;
+  totalBankBalance: number;
+  totalWalletBalance: number;
+}
+
+export interface BankWalletTransactionItem {
+  id: string;
+  date: string;
+  referenceNumber: string;
+  entryNumber: string;
+  description: string;
+  transactionType: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  sourceModule: string;
+  status: string;
+  createdBy: string;
+  journalEntryId: string;
+}
+
+
+
 
 // ============================================================================
 // SUPPLIER LEDGER TYPES
@@ -1999,3 +2112,116 @@ export interface SupplierStatementReport {
     dueAmount: number;
   }[];
 }
+
+export interface CashAccountRecord {
+  id: string;
+  accountName: string;
+  accountCode: string;
+  branchOrOutlet: string;
+  accountType: string;
+  openingBalance: number;
+  openingBalanceDate?: string;
+  currentBalance: number;
+  totalCashIn: number;
+  totalCashOut: number;
+  todayCashIn: number;
+  todayCashOut: number;
+  responsibleEmployee?: string;
+  isActive: boolean;
+  description?: string;
+}
+
+export interface CashAccountsSummary {
+  totalCashBalance: number;
+  cashReceived: number;
+  cashPaid: number;
+  todayCashBalance: number;
+}
+
+export interface CashTransactionItem {
+  id: string;
+  date: string;
+  referenceNumber: string;
+  entryNumber: string;
+  transactionType: string;
+  description: string;
+  cashIn: number;
+  cashOut: number;
+  runningBalance: number;
+  sourceModule: string;
+  createdBy: string;
+  journalEntryId: string;
+  accountId: string;
+  accountName: string;
+  accountCode: string;
+}
+
+export interface CashReconciliationRecord {
+  id: string;
+  reconciliationNumber: string;
+  reconciliationDate: string;
+  accountId: string;
+  systemBalance: number;
+  physicalCount: number;
+  difference: number;
+  status: 'MATCHED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  explanation?: string;
+  denominationsJson?: string;
+  reconciledBy: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  journalEntryId?: string;
+  account?: {
+    accountName: string;
+    accountCode: string;
+  };
+}
+
+export interface BankWalletAccountRecord {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'BANK' | 'WALLET';
+  subCategory: string;
+  bankName?: string;
+  accountNumber?: string;
+  rawAccountNumber?: string;
+  accountHolderName?: string;
+  branch: string;
+  walletProvider?: string;
+  merchantId?: string;
+  rawMerchantId?: string;
+  registeredMobileNumber?: string;
+  directBankSettlement?: boolean;
+  openingBalance: number;
+  openingBalanceDate: string;
+  currentBalance: number;
+  totalIn: number;
+  totalOut: number;
+  isActive: boolean;
+  description?: string;
+}
+
+export interface BankWalletSummary {
+  totalAccountBalance: number;
+  totalBankBalance: number;
+  totalWalletBalance: number;
+}
+
+export interface BankWalletTransactionItem {
+  id: string;
+  date: string;
+  referenceNumber: string;
+  entryNumber: string;
+  description: string;
+  transactionType: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  sourceModule: string;
+  status: string;
+  createdBy: string;
+  journalEntryId: string;
+}
+
+

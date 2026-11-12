@@ -44,6 +44,11 @@ public class HospitalityDbContext : DbContext
     public DbSet<AccountMapping> AccountMappings => Set<AccountMapping>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
+    public DbSet<CashReconciliation> CashReconciliations => Set<CashReconciliation>();
+    public DbSet<DigitalWalletAccount> DigitalWalletAccounts => Set<DigitalWalletAccount>();
+    public DbSet<WalletSettlement> WalletSettlements => Set<WalletSettlement>();
+    public DbSet<WalletRefund> WalletRefunds => Set<WalletRefund>();
+    public DbSet<WalletReconciliation> WalletReconciliations => Set<WalletReconciliation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

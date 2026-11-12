@@ -15,6 +15,8 @@ import TrialBalanceTab from '@/components/accounts/TrialBalanceTab';
 import SalesTransactionsTab from '@/components/accounts/SalesTransactionsTab';
 import PurchaseTransactionsTab from '@/components/accounts/PurchaseTransactionsTab';
 import SupplierLedgerAccountsTab from '@/components/accounts/SupplierLedgerAccountsTab';
+import CashAccountsTab from '@/components/accounts/CashAccountsTab';
+import BankAndWalletAccountsTab from '@/components/accounts/BankAndWalletAccountsTab';
 
 function AccountsContent() {
   const searchParams = useSearchParams();
@@ -48,33 +50,16 @@ function AccountsContent() {
     return <SupplierLedgerAccountsTab />;
   }
 
+  if (currentTab === 'cash-accounts') {
+    return <CashAccountsTab />;
+  }
+
+  if (currentTab === 'bank-accounts' || currentTab === 'bank-wallet-accounts' || currentTab === 'digital-wallets') {
+    return <BankAndWalletAccountsTab />;
+  }
+
   if (currentTab === 'customer-ledger') {
-    return (
-      <div className="space-y-4 pb-12 select-none">
-        {/* Navigation Breadcrumb Bar */}
-        <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center gap-2 text-xs">
-            <Link
-              href="/accounts"
-              className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Accounts Hub</span>
-            </Link>
-            <span className="text-slate-300 dark:text-slate-700">/</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-              <Users className="w-3.5 h-3.5 text-teal-600" />
-              <span>Customer Ledger &amp; Receivables</span>
-            </span>
-          </div>
-
-          
-        </div>
-
-        {/* Customer Ledger Tab */}
-        <CustomerLedgerAccountsTab />
-      </div>
-    );
+    return <CustomerLedgerAccountsTab />;
   }
 
   return (

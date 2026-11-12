@@ -553,13 +553,26 @@ export default function CustomerLedgerAccountsTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Customer Ledger</h1>
-            
-          </div>
-          
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
+        <div className="flex items-center gap-2 text-xs">
+          <Link
+            href="/accounts"
+            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Accounts Hub</span>
+          </Link>
+          <span className="text-slate-300 dark:text-slate-700">/</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-teal-600 stroke-[1.25]" />
+            <span>Customer Ledger</span>
+          </span>
+          {selectedCustomer && (
+            <>
+              <span className="text-slate-300 dark:text-slate-700">/</span>
+              <span className="font-bold text-teal-700 dark:text-teal-400">{selectedCustomer.name}</span>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
