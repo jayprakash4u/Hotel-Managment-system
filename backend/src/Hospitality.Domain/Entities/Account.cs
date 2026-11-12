@@ -41,6 +41,8 @@ public class Account : BaseEntity
     public string? RegisteredMobileNumber { get; set; } // e.g. "9801234567"
     public string? SettlementBankAccountId { get; set; } // Destination bank account for wallet sweeps
     public bool DirectBankSettlement { get; set; } = false; // e.g. Fonepay QR directly crediting bank
+    public DateTime? LastReconciledDate { get; set; }
+    public double? LastReconciledBalance { get; set; }
     
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

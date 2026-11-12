@@ -1984,244 +1984,873 @@ export interface BankWalletTransactionItem {
   journalEntryId: string;
 }
 
+// ----------------------------------------------------
+// Unified Bank & Digital Wallet Reconciliation Types
+// ----------------------------------------------------
 
-
-
-// ============================================================================
-// SUPPLIER LEDGER TYPES
-// ============================================================================
-
-export interface SupplierLedgerEntryData {
+export interface BankReconciliationAccount {
   id: string;
-  entryDate: string;
-  transactionNumber?: string;
-  purchaseOrderId?: string;
-  purchaseOrderNumber?: string;
-  purchaseInvoiceNumber?: string;
-  description: string;
-  creditAmount: number;
-  debitAmount: number;
-  balance: number;
-  dueDate?: string;
-  referenceType: string;
-  referenceId?: string;
-  paymentMode?: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'BANK' | 'DIGITAL_WALLET';
   branchOrOutlet?: string;
-  journalEntryId?: string;
-  notes?: string;
-  createdBy?: string;
-  status: string;
+  bankName?: string;
+  accountNumber?: string;
+  maskedAccountNumber?: string;
+  accountHolderName?: string;
+  walletProvider?: string;
+  merchantId?: string;
+  maskedMerchantId?: string;
+  registeredMobileNumber?: string;
+  currentBalance: number;
+  lastReconciledDate?: string;
+  lastReconciledBalance?: number;
+  activeSessionId?: string;
+  unreconciledLinesCount: number;
+  isActive: boolean;
 }
 
-export interface SupplierLedgerSummary {
-  openingPayableBalance: number;
-  totalPurchases: number;
-  totalPayments: number;
-  purchaseReturns: number;
-  debitNotes: number;
-  creditNotes: number;
-  outstandingPayable: number;
-  supplierAdvanceBalance: number;
-  overdueAmount: number;
-  creditLimit?: number;
-  paymentTermsDays?: number;
+export interface BankReconciliationSummary {
+  totalBankAccounts: number;
+  totalWalletAccounts: number;
+  activeReconciliations: number;
+  finalizedThisMonth: number;
+  discrepanciesCount: number;
+  lastReconciledDate?: string;
+  lastReconciliationNumber?: string;
 }
 
-export interface SupplierUnpaidPurchaseData {
+export interface BankReconciliationLineItem {
   id: string;
-  purchaseNumber: string;
-  supplierInvoiceNumber?: string;
+  lineSource: 'SYSTEM' | 'STATEMENT';
+  journalEntryLineId?: string;
+  journalEntryNumber?: string;
+  transactionDate: string;
+  referenceNumber?: string;
+  description: string;
+  payeeOrPayer?: string;
+  debit: number;
+  credit: number;
+  amount: number;
+  transactionType: string;
+  isMatched: boolean;
+  matchedLineId?: string;
+  matchedAt?: string;
+  matchRule?: string;
+  status: 'UNMATCHED' | 'MATCHED' | 'EXCLUDED' | 'ADJUSTED';
+}
+
+export interface BankReconciliationSessionItem {
+  id: string;
+  reconciliationNumber: string;
+  accountId: string;
+  accountName: string;
+  accountCode: string;
+  accountType: 'BANK' | 'DIGITAL_WALLET';
+  bankOrWalletName: string;
+  statementDate: string;
+  periodStartDate: string;
+  periodEndDate: string;
+  statementOpeningBalance: number;
+  statementEndingBalance: number;
+  bookOpeningBalance: number;
+  bookEndingBalance: number;
+  totalDepositsCleared: number;
+  totalPaymentsCleared: number;
+  totalDepositsInTransit: number;
+  totalOutstandingChecks: number;
+  reconciledBalance: number;
+  difference: number;
+  status: 'DRAFT' | 'IN_PROGRESS' | 'RECONCILED' | 'FINALIZED';
+  reconciledBy: string;
+  approvedBy?: string;
+  completedAt?: string;
+  notes?: string;
+  statementFileName?: string;
+  createdAt: string;
+}
+
+export interface BankReconciliationSessionDetail {
+  id: string;
+  reconciliationNumber: string;
+  accountId: string;
+  accountName: string;
+  accountCode: string;
+  accountType: 'BANK' | 'DIGITAL_WALLET';
+  bankOrProvider: string;
+  accountNumber?: string;
+  merchantId?: string;
+  statementDate: string;
+  periodStartDate: string;
+  periodEndDate: string;
+  statementOpeningBalance: number;
+  statementEndingBalance: number;
+  bookOpeningBalance: number;
+  bookEndingBalance: number;
+  totalDepositsCleared: number;
+  totalPaymentsCleared: number;
+  totalDepositsInTransit: number;
+  totalOutstandingChecks: number;
+  bankCharges: number;
+  interestEarned: number;
+  reconciledBalance: number;
+  adjustedBookBalance: number;
+  difference: number;
+  status: 'DRAFT' | 'IN_PROGRESS' | 'RECONCILED' | 'FINALIZED';
+  reconciledBy: string;
+  approvedBy?: string;
+  completedAt?: string;
+  notes?: string;
+  statementFileName?: string;
+  statementFormat?: string;
+  systemLines: BankReconciliationLineItem[];
+  statementLines: BankReconciliationLineItem[];
+  matchedCount: number;
+  unmatchedSystemCount: number;
+  unmatchedStatementCount: number;
+}
+
+// ==========================================
+// 15. INCOME MANAGEMENT TYPES
+// ==========================================
+
+export type IncomeCategoryType = 'OPERATING' | 'NON_OPERATING';
+export type IncomeTransactionStatus = 'DRAFT' | 'POSTED' | 'REVERSED';
+
+export interface IncomeCategoryItem {
+  id: string;
+  hotelId?: string;
+  categoryName: string;
+  categoryType: IncomeCategoryType;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  description?: string;
+  isSystem: boolean;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface IncomeTransactionItem {
+  id: string;
+  voucherNumber: string;
+  incomeDate: string;
+  categoryId: string;
+  categoryName: string;
+  categoryType: IncomeCategoryType;
+  incomeAccountId: string;
+  incomeAccountCode: string;
+  incomeAccountName: string;
+  description: string;
+  amount: number;
+  receivedThrough: 'CASH' | 'BANK' | 'WALLET' | 'CHEQUE' | 'OTHER' | string;
+  receivingAccountId: string;
+  receivingAccountCode: string;
+  receivingAccountName: string;
+  referenceNumber?: string;
+  payerName?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  branchOrOutlet?: string;
+  status: IncomeTransactionStatus;
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  reversalJournalEntryId?: string;
+  reversalJournalEntryNumber?: string;
+  reversalReason?: string;
+  reversedBy?: string;
+  reversedAt?: string;
+  createdBy?: string;
+  postedBy?: string;
+  postedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface IncomeSummary {
+  totalIncome: number;
+  thisMonthIncome: number;
+  todayIncome: number;
+  totalDraftIncome: number;
+  draftCount: number;
+  totalPostedCount: number;
+  operatingIncome: number;
+  nonOperatingIncome: number;
+}
+
+export interface IncomeReceivingAccount {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'CASH' | 'BANK' | 'WALLET';
+  subCategory: string;
+  branchOrOutlet?: string;
+  bankName?: string;
+  accountNumber?: string;
+  walletProvider?: string;
+  merchantId?: string;
+  currentBalance: number;
+}
+
+export interface IncomeReportCategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  categoryType: IncomeCategoryType;
+  count: number;
+  totalAmount: number;
+  percentage: number;
+}
+
+export interface IncomeReportAccountBreakdown {
+  receivingAccountId: string;
+  receivingAccountName: string;
+  receivingAccountCode: string;
+  count: number;
+  totalAmount: number;
+  percentage: number;
+}
+
+export interface IncomeReportsData {
+  totalIncome: number;
+  operatingTotal: number;
+  nonOperatingTotal: number;
+  operatingPercentage: number;
+  nonOperatingPercentage: number;
+  byCategory: IncomeReportCategoryBreakdown[];
+  byAccount: IncomeReportAccountBreakdown[];
+}
+
+export interface CreateIncomeDto {
+  incomeDate: string;
+  categoryId: string;
+  description: string;
+  amount: number;
+  receivedThrough: string;
+  receivingAccountId: string;
+  referenceNumber?: string;
+  payerName?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  branchOrOutlet?: string;
+  autoPost?: boolean;
+  createdBy?: string;
+}
+
+export interface CreateIncomeCategoryDto {
+  categoryName: string;
+  categoryType: IncomeCategoryType;
+  accountId: string;
+  description?: string;
+  displayOrder?: number;
+}
+
+// ==========================================
+// 16. EXPENSE MANAGEMENT TYPES
+// ==========================================
+
+export type ExpenseCategoryType = 'OPERATING' | 'NON_OPERATING';
+export type ExpensePaymentStatus = 'PAID' | 'PARTIALLY_PAID' | 'UNPAID';
+export type ExpenseTransactionStatus = 'DRAFT' | 'POSTED' | 'REVERSED';
+
+export interface ExpenseCategoryItem {
+  id: string;
+  hotelId?: string;
+  categoryName: string;
+  categoryType: ExpenseCategoryType;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  description?: string;
+  isSystem: boolean;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExpensePaymentItem {
+  id: string;
+  expenseTransactionId: string;
+  paymentReceiptNumber: string;
+  paymentDate: string;
+  amount: number;
+  paymentMode: 'CASH' | 'BANK' | 'WALLET' | 'CHEQUE' | string;
+  paymentAccountId: string;
+  paymentAccountCode: string;
+  paymentAccountName: string;
+  referenceNumber?: string;
+  paidBy?: string;
+  notes?: string;
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExpenseTransactionItem {
+  id: string;
+  voucherNumber: string;
+  expenseDate: string;
+  categoryId: string;
+  categoryName: string;
+  categoryType: ExpenseCategoryType;
+  expenseAccountId: string;
+  expenseAccountCode: string;
+  expenseAccountName: string;
+  description: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingPayable: number;
+  paymentStatus: ExpensePaymentStatus;
+  paymentMode: 'CASH' | 'BANK' | 'WALLET' | 'CHEQUE' | 'CREDIT' | string;
+  paymentAccountId: string;
+  paymentAccountCode: string;
+  paymentAccountName: string;
+  paidTo?: string;
+  referenceNumber?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  dueDate?: string;
+  branchOrOutlet?: string;
+  status: ExpenseTransactionStatus;
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  reversalJournalEntryId?: string;
+  reversalJournalEntryNumber?: string;
+  reversalReason?: string;
+  reversedBy?: string;
+  reversedAt?: string;
+  createdBy?: string;
+  postedBy?: string;
+  postedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  paymentCount?: number;
+  payments?: ExpensePaymentItem[];
+}
+
+export interface ExpenseSummary {
+  totalExpenses: number;
+  thisMonthExpenses: number;
+  todayExpenses: number;
+  totalDraftExpenses: number;
+  draftCount: number;
+  totalPostedCount: number;
+  operatingExpenses: number;
+  nonOperatingExpenses: number;
+  totalPaid: number;
+  totalUnpaidPayable: number;
+  unpaidCount: number;
+}
+
+export interface ExpensePaymentAccount {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'CASH' | 'BANK' | 'WALLET' | 'PAYABLE';
+  classification: 'ASSET' | 'LIABILITY' | string;
+  subCategory: string;
+  branchOrOutlet?: string;
+  bankName?: string;
+  accountNumber?: string;
+  walletProvider?: string;
+  merchantId?: string;
+  currentBalance: number;
+}
+
+export interface ExpenseReportCategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  categoryType: ExpenseCategoryType;
+  count: number;
+  totalAmount: number;
+  percentage: number;
+}
+
+export interface ExpenseReportAccountBreakdown {
+  paymentAccountId: string;
+  paymentAccountName: string;
+  paymentAccountCode: string;
+  count: number;
+  totalAmount: number;
+  paidAmount: number;
+  remainingPayable: number;
+  percentage: number;
+}
+
+export interface ExpenseOutstandingPayableItem {
+  id: string;
+  voucherNumber: string;
+  expenseDate: string;
+  dueDate?: string;
+  categoryName: string;
+  description: string;
+  paidTo?: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingPayable: number;
+  paymentStatus: ExpensePaymentStatus;
+}
+
+export interface ExpenseReportsData {
+  totalExpenses: number;
+  totalPaid: number;
+  totalUnpaidPayable: number;
+  operatingTotal: number;
+  nonOperatingTotal: number;
+  operatingPercentage: number;
+  nonOperatingPercentage: number;
+  byCategory: ExpenseReportCategoryBreakdown[];
+  byAccount: ExpenseReportAccountBreakdown[];
+  outstandingPayables: ExpenseOutstandingPayableItem[];
+}
+
+export interface CreateExpenseDto {
+  expenseDate: string;
+  categoryId: string;
+  description: string;
+  amount: number;
+  isPaid: boolean;
+  paymentMode: string;
+  paymentAccountId?: string;
+  paidTo?: string;
+  referenceNumber?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  dueDate?: string;
+  branchOrOutlet?: string;
+  autoPost?: boolean;
+  createdBy?: string;
+}
+
+export interface RecordExpensePaymentDto {
+  paymentDate: string;
+  amount: number;
+  paymentMode: string;
+  paymentAccountId: string;
+  referenceNumber?: string;
+  paidBy?: string;
+  notes?: string;
+}
+
+export interface CreateExpenseCategoryDto {
+  categoryName: string;
+  categoryType: ExpenseCategoryType;
+  accountId: string;
+  description?: string;
+  displayOrder?: number;
+}
+
+// ==========================================
+// 17. FIXED ASSETS MANAGEMENT TYPES
+// ==========================================
+
+export type FixedAssetStatus = 'ACTIVE' | 'FULLY_DEPRECIATED' | 'DISPOSED' | 'DRAFT';
+
+export interface AssetCategoryItem {
+  id: string;
+  hotelId?: string;
+  categoryName: string;
+  codePrefix: string;
+  assetAccountId: string;
+  assetAccountCode: string;
+  assetAccountName: string;
+  accumulatedDepreciationAccountId: string;
+  accumulatedDepreciationAccountCode: string;
+  accumulatedDepreciationAccountName: string;
+  depreciationExpenseAccountId: string;
+  depreciationExpenseAccountCode: string;
+  depreciationExpenseAccountName: string;
+  defaultUsefulLifeYears: number;
+  defaultDepreciationMethod: string;
+  defaultResidualValuePercentage: number;
+  description?: string;
+  isSystem: boolean;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssetDepreciationEntryItem {
+  id: string;
+  fixedAssetId: string;
+  periodKey: string;
+  periodNumber: number;
+  periodDate: string;
+  openingBookValue: number;
+  depreciationAmount: number;
+  accumulatedDepreciation: number;
+  closingBookValue: number;
+  status: 'PENDING' | 'POSTED';
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  postedAt?: string;
+  postedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssetMovementItem {
+  id: string;
+  fixedAssetId: string;
+  transferDate: string;
+  fromLocation?: string;
+  toLocation?: string;
+  fromDepartment?: string;
+  toDepartment?: string;
+  fromAssignedTo?: string;
+  toAssignedTo?: string;
+  reason?: string;
+  transferredBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FixedAssetItem {
+  id: string;
+  hotelId?: string;
+  assetCode: string;
+  assetName: string;
+  categoryId: string;
+  categoryName: string;
+  description?: string;
+  location: string;
+  department: string;
+  assignedTo?: string;
+  serialNumber?: string;
+  barcode?: string;
+  branchOrOutlet?: string;
   purchaseDate: string;
+  supplierName?: string;
+  supplierInvoiceNumber?: string;
+  purchaseCost: number;
+  additionalCapitalizedCosts: number;
+  totalCapitalizedCost: number;
+  acquisitionPaymentMode: 'BANK' | 'CASH' | 'CREDIT' | 'OPENING_BALANCE' | string;
+  paymentAccountId?: string;
+  paymentAccountCode?: string;
+  paymentAccountName?: string;
+  paymentReference?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  acquisitionJournalEntryId?: string;
+  acquisitionJournalEntryNumber?: string;
+  depreciationMethod: string;
+  usefulLifeYears: number;
+  usefulLifeMonths: number;
+  residualValue: number;
+  depreciableAmount: number;
+  annualDepreciation: number;
+  monthlyDepreciation: number;
+  depreciationStartDate: string;
+  depreciationFrequency: string;
+  accumulatedDepreciation: number;
+  currentBookValue: number;
+  lastDepreciationDate?: string;
+  depreciationPeriodsPostedCount: number;
+  assetAccountId: string;
+  assetAccountCode: string;
+  assetAccountName: string;
+  accumulatedDepreciationAccountId: string;
+  accumulatedDepreciationAccountCode: string;
+  accumulatedDepreciationAccountName: string;
+  depreciationExpenseAccountId: string;
+  depreciationExpenseAccountCode: string;
+  depreciationExpenseAccountName: string;
+  status: FixedAssetStatus;
+  disposalDate?: string;
+  disposalType?: string;
+  disposalAmount: number;
+  disposalReceivingAccountId?: string;
+  disposalReceivingAccountCode?: string;
+  disposalReceivingAccountName?: string;
+  netBookValueAtDisposal: number;
+  gainOrLossAmount: number;
+  isGain: boolean;
+  disposalReason?: string;
+  disposalReference?: string;
+  disposalJournalEntryId?: string;
+  disposalJournalEntryNumber?: string;
+  disposedBy?: string;
+  disposedAt?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  depreciationEntries?: AssetDepreciationEntryItem[];
+  movements?: AssetMovementItem[];
+}
+
+export interface FixedAssetsSummary {
+  totalAssetCost: number;
+  accumulatedDepreciation: number;
+  currentBookValue: number;
+  totalActiveAssets: number;
+  fullyDepreciatedCount: number;
+  disposedCount: number;
+  draftCount: number;
+  totalAssetsCount: number;
+}
+
+export interface FixedAssetsReportCategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  count: number;
+  totalCost: number;
+  accumulatedDepreciation: number;
+  currentBookValue: number;
+  costPercentage: number;
+}
+
+export interface FixedAssetsReportDisposedItem {
+  id: string;
+  assetCode: string;
+  assetName: string;
+  categoryName: string;
+  purchaseDate: string;
+  totalCapitalizedCost: number;
+  disposalDate: string;
+  disposalType: string;
+  disposalAmount: number;
+  netBookValueAtDisposal: number;
+  gainOrLossAmount: number;
+  isGain: boolean;
+  disposalReason?: string;
+}
+
+export interface FixedAssetsReportsData {
+  totalCost: number;
+  totalAccumulatedDepreciation: number;
+  totalBookValue: number;
+  byCategory: FixedAssetsReportCategoryBreakdown[];
+  disposedAssets: FixedAssetsReportDisposedItem[];
+}
+
+export interface CreateFixedAssetDto {
+  assetName: string;
+  categoryId: string;
+  description?: string;
+  location?: string;
+  department?: string;
+  assignedTo?: string;
+  serialNumber?: string;
+  barcode?: string;
+  branchOrOutlet?: string;
+  purchaseDate: string;
+  supplierName?: string;
+  supplierInvoiceNumber?: string;
+  purchaseCost: number;
+  additionalCapitalizedCosts?: number;
+  acquisitionPaymentMode: string;
+  paymentAccountId?: string;
+  paymentReference?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  depreciationMethod?: string;
+  usefulLifeYears: number;
+  residualValue?: number;
+  depreciationStartDate?: string;
+  depreciationFrequency?: string;
+  autoCapitalize?: boolean;
+  createdBy?: string;
+}
+
+export interface TransferAssetDto {
+  toLocation: string;
+  toDepartment?: string;
+  toAssignedTo?: string;
+  reason?: string;
+  transferredBy?: string;
+}
+
+export interface DisposeAssetDto {
+  disposalDate: string;
+  disposalType: string;
+  disposalAmount: number;
+  receivingAccountId?: string;
+  reason?: string;
+  reference?: string;
+  disposedBy?: string;
+}
+
+export interface BatchDepreciationDto {
+  year: number;
+  month: number;
+}
+
+export interface CreateAssetCategoryDto {
+  categoryName: string;
+  codePrefix: string;
+  assetAccountId: string;
+  accumulatedDepreciationAccountId: string;
+  depreciationExpenseAccountId: string;
+  defaultUsefulLifeYears: number;
+  defaultResidualValuePercentage?: number;
+  description?: string;
+  displayOrder?: number;
+}
+
+// ==========================================
+// 18. LIABILITIES MANAGEMENT TYPES
+// ==========================================
+
+export type LiabilityClassification = 'CURRENT' | 'NON_CURRENT';
+export type LiabilityStatus = 'OUTSTANDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE';
+export type LiabilitySourceModule = 'SUPPLIER_LEDGER' | 'EXPENSES' | 'PAYROLL' | 'TAX' | 'CUSTOMER_ADVANCE' | 'LOAN' | 'GENERAL_LEDGER';
+
+export interface LiabilityOverviewItem {
+  id: string;
+  liabilityName: string;
+  category: string;
+  classification: LiabilityClassification;
+  relatedParty: string;
+  originalAmount: number;
+  totalPaid: number;
+  outstandingBalance: number;
   dueDate?: string;
   isOverdue: boolean;
   daysOverdue: number;
-  grandTotal: number;
-  paidAmount: number;
-  dueAmount: number;
-  branchOrOutlet?: string;
-  status?: string;
-  paymentStatus?: string;
+  status: LiabilityStatus;
+  sourceModule: LiabilitySourceModule;
+  sourceTransactionId?: string;
+  sourceReferenceNumber?: string;
+  linkedAccountCode: string;
+  linkedAccountName: string;
+  createdAt: string;
 }
 
-export interface SupplierAgingReport {
-  supplierId: string;
-  supplierName: string;
-  supplierCode?: string;
-  currentNotDue: number;
-  overdue1to30: number;
-  overdue31to60: number;
-  overdue61to90: number;
-  overdueAbove90: number;
-  totalOutstanding: number;
-  totalOverdue: number;
-  invoices: {
-    id: string;
-    purchaseNumber: string;
-    supplierInvoiceNumber?: string;
-    purchaseDate: string;
-    dueDate: string;
-    grandTotal: number;
-    paidAmount: number;
-    dueAmount: number;
-    isOverdue: boolean;
-    daysOverdue: number;
-  }[];
+export interface LiabilityCategoryBreakdown {
+  category: string;
+  type: LiabilityClassification;
+  outstanding: number;
+  count: number;
 }
 
-export interface SupplierStatementReport {
-  restaurantName: string;
-  restaurantAddress: string;
-  restaurantPan: string;
-  restaurantPhone: string;
-  statementNumber: string;
-  statementDate: string;
-  startDate: string;
-  endDate: string;
-  supplier: {
-    name: string;
-    code: string;
-    contactPerson?: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    panVatNumber?: string;
-    advanceBalance?: number;
-  };
-  openingBalance: number;
-  closingBalance: number;
-  totalPurchases: number;
-  totalPayments: number;
-  transactions: {
-    date: string;
-    referenceNumber: string;
-    referenceType: string;
-    description: string;
-    purchaseInvoiceNumber?: string;
-    debit: number;
-    credit: number;
-    runningBalance: number;
-  }[];
-  outstandingInvoices: {
-    id: string;
-    purchaseNumber: string;
-    invoiceNumber?: string;
-    purchaseDate: string;
-    dueDate: string;
-    grandTotal: number;
-    paidAmount: number;
-    dueAmount: number;
-  }[];
+export interface LiabilitiesSummary {
+  totalLiabilities: number;
+  currentLiabilities: number;
+  nonCurrentLiabilities: number;
+  overdueLiabilities: number;
+  totalObligationsCount: number;
+  overdueCount: number;
+  categoryBreakdown: LiabilityCategoryBreakdown[];
 }
 
-export interface CashAccountRecord {
+export interface LoanRepaymentScheduleItem {
   id: string;
-  accountName: string;
-  accountCode: string;
-  branchOrOutlet: string;
-  accountType: string;
-  openingBalance: number;
-  openingBalanceDate?: string;
-  currentBalance: number;
-  totalCashIn: number;
-  totalCashOut: number;
-  todayCashIn: number;
-  todayCashOut: number;
-  responsibleEmployee?: string;
-  isActive: boolean;
-  description?: string;
-}
-
-export interface CashAccountsSummary {
-  totalCashBalance: number;
-  cashReceived: number;
-  cashPaid: number;
-  todayCashBalance: number;
-}
-
-export interface CashTransactionItem {
-  id: string;
-  date: string;
-  referenceNumber: string;
-  entryNumber: string;
-  transactionType: string;
-  description: string;
-  cashIn: number;
-  cashOut: number;
-  runningBalance: number;
-  sourceModule: string;
-  createdBy: string;
-  journalEntryId: string;
-  accountId: string;
-  accountName: string;
-  accountCode: string;
-}
-
-export interface CashReconciliationRecord {
-  id: string;
-  reconciliationNumber: string;
-  reconciliationDate: string;
-  accountId: string;
-  systemBalance: number;
-  physicalCount: number;
-  difference: number;
-  status: 'MATCHED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
-  explanation?: string;
-  denominationsJson?: string;
-  reconciledBy: string;
-  approvedBy?: string;
-  approvedAt?: string;
+  loanObligationId: string;
+  periodNumber: number;
+  dueDate: string;
+  principalDue: number;
+  interestDue: number;
+  totalDue: number;
+  principalPaid: number;
+  interestPaid: number;
+  totalPaid: number;
+  status: 'PENDING' | 'PAID' | 'PARTIAL' | 'OVERDUE';
+  paidDate?: string;
+  paymentMode?: string;
+  paymentAccountId?: string;
   journalEntryId?: string;
-  account?: {
-    accountName: string;
-    accountCode: string;
-  };
+  journalEntryNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface BankWalletAccountRecord {
+export interface LoanObligationItem {
+  id: string;
+  hotelId?: string;
+  loanName: string;
+  loanReferenceNumber: string;
+  lenderName: string;
+  category: string;
+  liabilityType: LiabilityClassification;
+  linkedAccountId: string;
+  linkedAccountCode: string;
+  linkedAccountName: string;
+  originalLoanAmount: number;
+  outstandingPrincipal: number;
+  interestRate: number;
+  loanStartDate: string;
+  maturityDate: string;
+  repaymentFrequency: string;
+  nextPaymentDueDate?: string;
+  monthlyInstallmentAmount: number;
+  totalPrincipalPaid: number;
+  totalInterestPaid: number;
+  status: 'ACTIVE' | 'PAID_OFF' | 'DEFAULTED' | 'DRAFT';
+  disbursementBankAccountId?: string;
+  disbursementBankAccountName?: string;
+  acquisitionJournalEntryId?: string;
+  acquisitionJournalEntryNumber?: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+  repaymentSchedule: LoanRepaymentScheduleItem[];
+}
+
+export interface CreateLoanDto {
+  loanName: string;
+  lenderName: string;
+  loanReferenceNumber?: string;
+  category?: string;
+  liabilityType?: LiabilityClassification;
+  linkedAccountId?: string;
+  originalLoanAmount: number;
+  interestRate: number;
+  loanStartDate: string;
+  maturityDate: string;
+  repaymentFrequency?: string;
+  monthlyInstallmentAmount?: number;
+  disbursementBankAccountId?: string;
+  autoCapitalize?: boolean;
+  notes?: string;
+}
+
+export interface RecordLoanRepaymentDto {
+  principalAmount: number;
+  interestAmount: number;
+  paymentDate: string;
+  paymentAccountId: string;
+  referenceNumber?: string;
+  notes?: string;
+}
+
+export interface LiabilityAgingData {
+  notDue: number;
+  days1To30: number;
+  days31To60: number;
+  days61To90: number;
+  days90Plus: number;
+  totalOverdue: number;
+}
+
+export interface LiabilitiesReportsData {
+  totalLiabilities: number;
+  currentTotal: number;
+  nonCurrentTotal: number;
+  aging: LiabilityAgingData;
+  categoryBreakdown: Array<{
+    category: string;
+    count: number;
+    totalOutstanding: number;
+    overdueAmount: number;
+  }>;
+}
+
+export interface LiabilityAccountConfigItem {
   id: string;
   accountCode: string;
   accountName: string;
-  accountType: 'BANK' | 'WALLET';
-  subCategory: string;
-  bankName?: string;
-  accountNumber?: string;
-  rawAccountNumber?: string;
-  accountHolderName?: string;
-  branch: string;
-  walletProvider?: string;
-  merchantId?: string;
-  rawMerchantId?: string;
-  registeredMobileNumber?: string;
-  directBankSettlement?: boolean;
-  openingBalance: number;
-  openingBalanceDate: string;
+  category: string;
+  classification: LiabilityClassification;
   currentBalance: number;
-  totalIn: number;
-  totalOut: number;
-  isActive: boolean;
+  normalBalance: string;
   description?: string;
 }
 
-export interface BankWalletSummary {
-  totalAccountBalance: number;
-  totalBankBalance: number;
-  totalWalletBalance: number;
-}
-
-export interface BankWalletTransactionItem {
-  id: string;
-  date: string;
-  referenceNumber: string;
-  entryNumber: string;
-  description: string;
-  transactionType: string;
-  debit: number;
-  credit: number;
-  runningBalance: number;
-  sourceModule: string;
-  status: string;
-  createdBy: string;
-  journalEntryId: string;
-}
 
 

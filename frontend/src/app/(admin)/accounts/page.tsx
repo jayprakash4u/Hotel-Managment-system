@@ -17,6 +17,11 @@ import PurchaseTransactionsTab from '@/components/accounts/PurchaseTransactionsT
 import SupplierLedgerAccountsTab from '@/components/accounts/SupplierLedgerAccountsTab';
 import CashAccountsTab from '@/components/accounts/CashAccountsTab';
 import BankAndWalletAccountsTab from '@/components/accounts/BankAndWalletAccountsTab';
+import BankReconciliationTab from '@/components/accounts/BankReconciliationTab';
+import IncomeTab from '@/components/accounts/IncomeTab';
+import ExpensesTab from '@/components/accounts/ExpensesTab';
+import FixedAssetsTab from '@/components/accounts/FixedAssetsTab';
+import LiabilitiesTab from '@/components/accounts/LiabilitiesTab';
 
 function AccountsContent() {
   const searchParams = useSearchParams();
@@ -56,6 +61,26 @@ function AccountsContent() {
 
   if (currentTab === 'bank-accounts' || currentTab === 'bank-wallet-accounts' || currentTab === 'digital-wallets') {
     return <BankAndWalletAccountsTab />;
+  }
+
+  if (currentTab === 'bank-reconciliation') {
+    return <BankReconciliationTab />;
+  }
+
+  if (currentTab === 'income') {
+    return <IncomeTab />;
+  }
+
+  if (currentTab === 'expenses') {
+    return <ExpensesTab />;
+  }
+
+  if (currentTab === 'fixed-assets') {
+    return <FixedAssetsTab />;
+  }
+
+  if (currentTab === 'liabilities') {
+    return <LiabilitiesTab />;
   }
 
   if (currentTab === 'customer-ledger') {

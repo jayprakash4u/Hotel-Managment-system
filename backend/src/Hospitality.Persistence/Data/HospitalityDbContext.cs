@@ -49,6 +49,20 @@ public class HospitalityDbContext : DbContext
     public DbSet<WalletSettlement> WalletSettlements => Set<WalletSettlement>();
     public DbSet<WalletRefund> WalletRefunds => Set<WalletRefund>();
     public DbSet<WalletReconciliation> WalletReconciliations => Set<WalletReconciliation>();
+    public DbSet<BankReconciliation> BankReconciliations => Set<BankReconciliation>();
+    public DbSet<BankReconciliationLine> BankReconciliationLines => Set<BankReconciliationLine>();
+    public DbSet<IncomeCategory> IncomeCategories => Set<IncomeCategory>();
+    public DbSet<IncomeTransaction> IncomeTransactions => Set<IncomeTransaction>();
+    public DbSet<ExpenseCategory> ExpenseCategories => Set<ExpenseCategory>();
+    public DbSet<ExpenseTransaction> ExpenseTransactions => Set<ExpenseTransaction>();
+    public DbSet<ExpensePayment> ExpensePayments => Set<ExpensePayment>();
+    public DbSet<AssetCategory> AssetCategories => Set<AssetCategory>();
+    public DbSet<FixedAsset> FixedAssets => Set<FixedAsset>();
+    public DbSet<AssetDepreciationEntry> AssetDepreciationEntries => Set<AssetDepreciationEntry>();
+    public DbSet<AssetMovement> AssetMovements => Set<AssetMovement>();
+    public DbSet<LoanObligation> LoanObligations => Set<LoanObligation>();
+    public DbSet<LoanRepaymentScheduleItem> LoanRepaymentScheduleItems => Set<LoanRepaymentScheduleItem>();
+    public DbSet<LiabilityAccountConfig> LiabilityAccountConfigs => Set<LiabilityAccountConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

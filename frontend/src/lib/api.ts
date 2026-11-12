@@ -1,4 +1,4 @@
-import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData } from './types';
+import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem } from './types';
 
 // Generic API caller with error handling and timeout protection
 async function fetcher<T>(url: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
@@ -2149,7 +2149,695 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
+
+  // Bank & Digital Wallet Reconciliation Endpoints
+  getBankReconciliationAccounts: () => {
+    return fetcher<any[]>('/api/bank-reconciliation/accounts');
+  },
+
+  getBankReconciliationSummary: () => {
+    return fetcher<any>('/api/bank-reconciliation/summary');
+  },
+
+  getBankReconciliationSessions: (params?: {
+    accountId?: string;
+    accountType?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const q = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<{
+      items: any[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/api/bank-reconciliation/sessions${q ? `?${q}` : ''}`);
+  },
+
+  getBankReconciliationSessionById: (id: string) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}`);
+  },
+
+  createBankReconciliationSession: (data: {
+    accountId: string;
+    periodStartDate: string;
+    periodEndDate: string;
+    statementDate?: string;
+    statementOpeningBalance: number;
+    statementEndingBalance: number;
+    statementFormat?: string;
+    notes?: string;
+    reconciledBy?: string;
+    initialStatementLines?: any[];
+  }) => {
+    return fetcher<any>('/api/bank-reconciliation/sessions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  importBankReconciliationStatement: (id: string, data: {
+    statementFileName?: string;
+    statementFormat?: string;
+    lines: Array<{
+      transactionDate: string;
+      referenceNumber?: string;
+      description: string;
+      payeeOrPayer?: string;
+      debit: number;
+      credit: number;
+      amount?: number;
+      transactionType?: string;
+    }>;
+  }) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}/import-statement`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  addManualStatementLine: (id: string, data: {
+    transactionDate: string;
+    referenceNumber?: string;
+    description: string;
+    payeeOrPayer?: string;
+    debit: number;
+    credit: number;
+    amount?: number;
+    transactionType?: string;
+  }) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}/add-manual-line`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  runAutoMatch: (id: string) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}/auto-match`, {
+      method: 'POST',
+    });
+  },
+
+  matchReconciliationLines: (id: string, data: {
+    systemLineId: string;
+    statementLineId: string;
+  }) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}/match-lines`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  unmatchReconciliationLine: (id: string, lineId: string) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}/unmatch-lines`, {
+      method: 'POST',
+      body: JSON.stringify({ lineId }),
+    });
+  },
+
+  postReconciliationAdjustment: (id: string, data: {
+    statementLineId: string;
+    adjustmentType: string;
+    amount: number;
+    description: string;
+    reference?: string;
+  }) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}/post-adjustment`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  finalizeBankReconciliation: (id: string, data: {
+    approvedBy?: string;
+    notes?: string;
+    forceApproveDifference?: boolean;
+    discrepancyReason?: string;
+  }) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}/finalize`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteBankReconciliationSession: (id: string) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getBankReconciliationReport: (id: string) => {
+    return fetcher<any>(`/api/bank-reconciliation/sessions/${id}/report`);
+  },
 };
+
+// ==========================================
+// 15. INCOME MANAGEMENT API
+// ==========================================
+
+export const incomeApi = {
+  getIncomeSummary: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('dateFrom', dateFrom);
+    if (dateTo) params.append('dateTo', dateTo);
+    const qs = params.toString();
+    return fetcher<IncomeSummary>(`/api/income/summary${qs ? `?${qs}` : ''}`);
+  },
+
+  getIncomeTransactions: (filters?: {
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    categoryId?: string;
+    categoryType?: string;
+    receivingAccountId?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.categoryId && filters.categoryId !== 'ALL') params.append('categoryId', filters.categoryId);
+    if (filters?.categoryType && filters.categoryType !== 'ALL') params.append('categoryType', filters.categoryType);
+    if (filters?.receivingAccountId && filters.receivingAccountId !== 'ALL') params.append('receivingAccountId', filters.receivingAccountId);
+    if (filters?.status && filters.status !== 'ALL') params.append('status', filters.status);
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString());
+
+    const qs = params.toString();
+    return fetcher<{
+      items: IncomeTransactionItem[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/api/income/transactions${qs ? `?${qs}` : ''}`);
+  },
+
+  getIncomeTransactionById: (id: string) => {
+    return fetcher<IncomeTransactionItem>(`/api/income/transactions/${id}`);
+  },
+
+  createIncomeTransaction: (data: CreateIncomeDto) => {
+    return fetcher<IncomeTransactionItem>('/api/income/transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateIncomeTransaction: (id: string, data: Partial<CreateIncomeDto>) => {
+    return fetcher<IncomeTransactionItem>(`/api/income/transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteIncomeTransaction: (id: string) => {
+    return fetcher<{ success: boolean }>(`/api/income/transactions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  postIncomeTransaction: (id: string, postedBy?: string) => {
+    return fetcher<{
+      id: string;
+      voucherNumber: string;
+      status: string;
+      journalEntryNumber: string;
+      amount: number;
+      receivingAccountNewBalance: number;
+    }>(`/api/income/transactions/${id}/post`, {
+      method: 'POST',
+      body: JSON.stringify({ postedBy }),
+    });
+  },
+
+  reverseIncomeTransaction: (id: string, data: { reason: string; reversedBy?: string }) => {
+    return fetcher<{
+      id: string;
+      voucherNumber: string;
+      status: string;
+      reversalJournalEntryNumber: string;
+      receivingAccountNewBalance: number;
+    }>(`/api/income/transactions/${id}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getIncomeCategories: () => {
+    return fetcher<IncomeCategoryItem[]>('/api/income/categories');
+  },
+
+  createIncomeCategory: (data: CreateIncomeCategoryDto) => {
+    return fetcher<IncomeCategoryItem>('/api/income/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateIncomeCategory: (id: string, data: CreateIncomeCategoryDto) => {
+    return fetcher<IncomeCategoryItem>(`/api/income/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteIncomeCategory: (id: string) => {
+    return fetcher<{ success: boolean }>(`/api/income/categories/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getIncomeReceivingAccounts: () => {
+    return fetcher<IncomeReceivingAccount[]>('/api/income/receiving-accounts');
+  },
+
+  getIncomeReports: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('dateFrom', dateFrom);
+    if (dateTo) params.append('dateTo', dateTo);
+    const qs = params.toString();
+    return fetcher<IncomeReportsData>(`/api/income/reports${qs ? `?${qs}` : ''}`);
+  },
+};
+
+// ==========================================
+// 16. EXPENSE MANAGEMENT API
+// ==========================================
+
+export const expenseApi = {
+  getExpenseSummary: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('dateFrom', dateFrom);
+    if (dateTo) params.append('dateTo', dateTo);
+    const qs = params.toString();
+    return fetcher<ExpenseSummary>(`/api/expenses/summary${qs ? `?${qs}` : ''}`);
+  },
+
+  getExpenseTransactions: (filters?: {
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    categoryId?: string;
+    categoryType?: string;
+    paymentAccountId?: string;
+    paymentStatus?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.categoryId && filters.categoryId !== 'ALL') params.append('categoryId', filters.categoryId);
+    if (filters?.categoryType && filters.categoryType !== 'ALL') params.append('categoryType', filters.categoryType);
+    if (filters?.paymentAccountId && filters.paymentAccountId !== 'ALL') params.append('paymentAccountId', filters.paymentAccountId);
+    if (filters?.paymentStatus && filters.paymentStatus !== 'ALL') params.append('paymentStatus', filters.paymentStatus);
+    if (filters?.status && filters.status !== 'ALL') params.append('status', filters.status);
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString());
+
+    const qs = params.toString();
+    return fetcher<{
+      items: ExpenseTransactionItem[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/api/expenses/transactions${qs ? `?${qs}` : ''}`);
+  },
+
+  getExpenseTransactionById: (id: string) => {
+    return fetcher<ExpenseTransactionItem>(`/api/expenses/transactions/${id}`);
+  },
+
+  createExpenseTransaction: (data: CreateExpenseDto) => {
+    return fetcher<ExpenseTransactionItem>('/api/expenses/transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateExpenseTransaction: (id: string, data: Partial<CreateExpenseDto>) => {
+    return fetcher<ExpenseTransactionItem>(`/api/expenses/transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteExpenseTransaction: (id: string) => {
+    return fetcher<{ success: boolean }>(`/api/expenses/transactions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  postExpenseTransaction: (id: string, postedBy?: string) => {
+    return fetcher<{
+      id: string;
+      voucherNumber: string;
+      status: string;
+      journalEntryNumber: string;
+      totalAmount: number;
+      paymentAccountNewBalance: number;
+    }>(`/api/expenses/transactions/${id}/post`, {
+      method: 'POST',
+      body: JSON.stringify({ postedBy }),
+    });
+  },
+
+  recordExpensePayment: (id: string, data: RecordExpensePaymentDto) => {
+    return fetcher<{
+      paymentReceiptNumber: string;
+      journalEntryNumber: string;
+      paidAmount: number;
+      remainingPayable: number;
+      paymentStatus: string;
+      paymentAccountNewBalance: number;
+    }>(`/api/expenses/transactions/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  reverseExpenseTransaction: (id: string, data: { reason: string; reversedBy?: string }) => {
+    return fetcher<{
+      id: string;
+      voucherNumber: string;
+      status: string;
+      reversalJournalEntryNumber: string;
+      paymentAccountNewBalance: number;
+    }>(`/api/expenses/transactions/${id}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getExpenseCategories: () => {
+    return fetcher<ExpenseCategoryItem[]>('/api/expenses/categories');
+  },
+
+  createExpenseCategory: (data: CreateExpenseCategoryDto) => {
+    return fetcher<ExpenseCategoryItem>('/api/expenses/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateExpenseCategory: (id: string, data: CreateExpenseCategoryDto) => {
+    return fetcher<ExpenseCategoryItem>(`/api/expenses/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteExpenseCategory: (id: string) => {
+    return fetcher<{ success: boolean }>(`/api/expenses/categories/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getExpensePaymentAccounts: () => {
+    return fetcher<ExpensePaymentAccount[]>('/api/expenses/payment-accounts');
+  },
+
+  getExpenseReports: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('dateFrom', dateFrom);
+    if (dateTo) params.append('dateTo', dateTo);
+    const qs = params.toString();
+    return fetcher<ExpenseReportsData>(`/api/expenses/reports${qs ? `?${qs}` : ''}`);
+  },
+};
+
+// ==========================================
+// FIXED ASSETS API
+// ==========================================
+
+export const fixedAssetsApi = {
+  getSummary: () => {
+    return fetcher<FixedAssetsSummary>('/api/fixed-assets/summary');
+  },
+
+  getReports: () => {
+    return fetcher<FixedAssetsReportsData>('/api/fixed-assets/reports');
+  },
+
+  getAssets: (filters?: {
+    search?: string;
+    categoryId?: string;
+    status?: string;
+    location?: string;
+    department?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.categoryId) params.append('categoryId', filters.categoryId);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.location) params.append('location', filters.location);
+    if (filters?.department) params.append('department', filters.department);
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString());
+    const qs = params.toString();
+    return fetcher<{
+      items: FixedAssetItem[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/api/fixed-assets/assets${qs ? `?${qs}` : ''}`);
+  },
+
+  getAssetById: (id: string) => {
+    return fetcher<FixedAssetItem>(`/api/fixed-assets/assets/${id}`);
+  },
+
+  createAsset: (data: CreateFixedAssetDto) => {
+    return fetcher<FixedAssetItem>('/api/fixed-assets/assets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateAsset: (id: string, data: CreateFixedAssetDto) => {
+    return fetcher<FixedAssetItem>(`/api/fixed-assets/assets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteAsset: (id: string) => {
+    return fetcher<{ success: boolean }>(`/api/fixed-assets/assets/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  postAssetDepreciation: (id: string, periodNumber?: number) => {
+    const qs = periodNumber ? `?periodNumber=${periodNumber}` : '';
+    return fetcher<{
+      assetCode: string;
+      periodKey: string;
+      periodNumber: number;
+      depreciationAmount: number;
+      journalEntryNumber: string;
+      newCurrentBookValue: number;
+      newAccumulatedDepreciation: number;
+      assetStatus: string;
+    }>(`/api/fixed-assets/assets/${id}/depreciation/post${qs}`, {
+      method: 'POST',
+    });
+  },
+
+  runBatchDepreciation: (data: BatchDepreciationDto) => {
+    return fetcher<{
+      periodKey: string;
+      processedAssetsCount: number;
+      totalDepreciationAmount: number;
+    }>('/api/fixed-assets/depreciation/batch-run', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  transferAsset: (id: string, data: TransferAssetDto) => {
+    return fetcher<FixedAssetItem>(`/api/fixed-assets/assets/${id}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  disposeAsset: (id: string, data: DisposeAssetDto) => {
+    return fetcher<FixedAssetItem>(`/api/fixed-assets/assets/${id}/dispose`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getCategories: () => {
+    return fetcher<AssetCategoryItem[]>('/api/fixed-assets/categories');
+  },
+
+  createCategory: (data: CreateAssetCategoryDto) => {
+    return fetcher<AssetCategoryItem>('/api/fixed-assets/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteCategory: (id: string) => {
+    return fetcher<{ success: boolean }>(`/api/fixed-assets/categories/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getAccountsMetadata: () => {
+    return fetcher<Array<{
+      id: string;
+      accountCode: string;
+      accountName: string;
+      accountType: string;
+      subCategory?: string;
+      currentBalance: number;
+    }>>('/api/fixed-assets/accounts-metadata');
+  },
+};
+
+// ==========================================
+// LIABILITIES MANAGEMENT API
+// ==========================================
+
+export const liabilitiesApi = {
+  getSummary: () => {
+    return fetcher<LiabilitiesSummary>('/api/liabilities/summary');
+  },
+
+  getOverview: (filters?: {
+    search?: string;
+    category?: string;
+    classification?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.classification) params.append('classification', filters.classification);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString());
+    const qs = params.toString();
+    return fetcher<{
+      items: LiabilityOverviewItem[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/api/liabilities/overview${qs ? `?${qs}` : ''}`);
+  },
+
+  getLiabilityDetail: (id: string) => {
+    return fetcher<{
+      id: string;
+      liabilityName: string;
+      category: string;
+      classification: string;
+      relatedParty: string;
+      originalAmount: number;
+      totalPaid: number;
+      outstandingBalance: number;
+      dueDate?: string;
+      status: string;
+      sourceModule: string;
+      sourceTransactionId?: string;
+      sourceReferenceNumber?: string;
+      linkedAccountCode: string;
+      linkedAccountName: string;
+      sourceRoute?: string;
+      transactionHistory?: Array<{
+        id: string;
+        entryDate: string;
+        description: string;
+        debitAmount: number;
+        creditAmount: number;
+        balance: number;
+        dueDate?: string;
+      }>;
+      loanDetails?: LoanObligationItem;
+      repaymentSchedule?: LoanRepaymentScheduleItem[];
+    }>(`/api/liabilities/${id}`);
+  },
+
+  getLoans: () => {
+    return fetcher<LoanObligationItem[]>('/api/liabilities/loans');
+  },
+
+  getLoanById: (id: string) => {
+    return fetcher<LoanObligationItem>(`/api/liabilities/loans/${id}`);
+  },
+
+  createLoan: (data: CreateLoanDto) => {
+    return fetcher<LoanObligationItem>('/api/liabilities/loans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  recordLoanRepayment: (id: string, data: RecordLoanRepaymentDto) => {
+    return fetcher<{
+      id: string;
+      loanReferenceNumber: string;
+      newOutstandingPrincipal: number;
+      totalPrincipalPaid: number;
+      totalInterestPaid: number;
+      loanStatus: string;
+      journalEntryNumber: string;
+    }>(`/api/liabilities/loans/${id}/repay`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getReports: () => {
+    return fetcher<LiabilitiesReportsData>('/api/liabilities/reports');
+  },
+
+  getAccountConfigs: () => {
+    return fetcher<LiabilityAccountConfigItem[]>('/api/liabilities/account-configs');
+  },
+
+  getBankAccounts: () => {
+    return fetcher<Array<{
+      id: string;
+      accountCode: string;
+      accountName: string;
+      currentBalance: number;
+      subCategory?: string;
+    }>>('/api/liabilities/bank-accounts');
+  },
+};
+
+
+
+
 
 
 
