@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Search,
   Calendar,
@@ -179,63 +180,56 @@ export const ItemPurchaseLedgerView: React.FC<ItemPurchaseLedgerViewProps> = ({
 
   return (
     <div className={cn('space-y-4 font-sans select-none', isModal ? 'p-1' : '')}>
-      {/* Top Header / Item Selector */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-lg border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-[#00A884] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-800">
-            <Receipt className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 leading-tight">
-                Item Purchase Ledger
-              </h2>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                Purchase History
-              </span>
+      {/* 1. Sub-Header & Item Selector */}
+      {!isModal && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Item Purchase Ledger
+          </span>
+
+          {/* Item Selector Dropdown */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+              Item:
+            </label>
+            <div className="relative min-w-[220px]">
+              <select
+                value={selectedItemId}
+                onChange={(e) => {
+                  setSelectedItemId(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full h-[30px] px-2.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#0B3D32] shadow-2xs cursor-pointer"
+              >
+                <option value="ALL">All Items (Global Ledger)</option>
+                <optgroup label="Inventory Items">
+                  {items.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name} ({i.sku})
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Historical purchase spending, quantities and supplier details for individual inventory items.
-            </p>
           </div>
         </div>
-
-        {/* Item Selector Dropdown */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-            Select Item:
-          </label>
-          <div className="relative min-w-[240px]">
-            <select
-              value={selectedItemId}
-              onChange={(e) => {
-                setSelectedItemId(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full px-3 py-1.5 rounded-[4px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#00A884] shadow-2xs cursor-pointer"
-            >
-              <option value="ALL">All Items (Global Purchase Ledger)</option>
-              <optgroup label="Inventory Items">
-                {items.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name} ({i.sku}) [{i.department}]
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-          </div>
-
-          {isModal && onClose && (
+      )}
+      {isModal && (
+        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+          <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            Item Purchase Ledger
+          </h2>
+          {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ml-1"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
-      </div>
+      )}
 
       {/* =========================================================================
           PURCHASE LEDGER SUMMARY CARDS (SPEC SECTION 5)

@@ -4,6 +4,8 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { useBusinessModules } from '@/lib/businessSetup';
+import { BackButton } from '@/components/common/BackButton';
+import { InventoryNavBoxes } from '@/components/common/InventoryNavBoxes';
 import { DepartmentInventoryView, InventoryItem } from './DepartmentInventoryView';
 import { PurchasesView, PurchaseRecord } from './PurchasesView';
 import { SuppliersView, SupplierRecord } from './SuppliersView';
@@ -66,22 +68,17 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
   // Determine active tab from search params or business module
   const computeActiveTab = (): InventoryTab => {
     if (initialTab) return initialTab;
-    if (urlTab === 'overview') return 'OVERVIEW';
-    if (urlTab === 'items') return 'ITEMS';
-    if (urlTab === 'purchase-ledger') return 'PURCHASE_LEDGER';
-    if (urlTab === 'stock-movements') return 'STOCK_MOVEMENTS';
-    if (urlTab === 'suppliers') return 'SUPPLIERS';
     if (urlTab === 'receive-stock' || urlTab === 'purchases') return 'RECEIVE_STOCK';
+    if (urlTab === 'suppliers') return 'SUPPLIERS';
+    if (urlTab === 'stock-movements') return 'STOCK_MOVEMENTS';
+    if (urlTab === 'purchase-ledger') return 'PURCHASE_LEDGER';
     if (urlTab === 'stock-adjustments') return 'STOCK_ADJUSTMENT';
     if (urlTab === 'transfers' && isTransfersEnabled) return 'STOCK_TRANSFERS';
     if (urlTab === 'categories') return 'CATEGORIES';
     if (urlTab === 'units') return 'UNITS';
 
-    // Legacy department query params
-    if (urlDept === 'RESTAURANT' && isRestaurantEnabled) return 'ITEMS';
-    if (urlDept === 'HOTEL' && isHotelEnabled) return 'ITEMS';
-
-    return 'OVERVIEW';
+    // Default to items table
+    return 'ITEMS';
   };
 
   const [activeTab, setActiveTab] = useState<InventoryTab>(computeActiveTab);
@@ -142,11 +139,8 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
   const handleTabSelect = (tab: InventoryTab) => {
     setActiveTab(tab);
     switch (tab) {
-      case 'OVERVIEW':
-        router.push('/inventory?tab=overview');
-        break;
       case 'ITEMS':
-        router.push(`/inventory?tab=items&dept=${selectedDept}`);
+        router.push('/inventory?tab=items');
         break;
       case 'PURCHASE_LEDGER':
         router.push('/inventory?tab=purchase-ledger');
@@ -173,7 +167,7 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
         router.push('/inventory?tab=units');
         break;
       default:
-        router.push('/inventory?tab=overview');
+        router.push('/inventory?tab=items');
         break;
     }
   };
@@ -245,50 +239,87 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
   }, [isTransfersEnabled]);
 
   return (
-    <div className="space-y-3.5 select-none w-full min-w-0 pb-12 font-sans">
-      {/* =====================================================================
-          SLEEK HORIZONTAL INVENTORY NAVIGATION TAB STRIP
-          ===================================================================== */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border-default dark:border-border-default no-scrollbar">
-        {tabItems.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
+    <div className="space-y-4 select-none w-full min-w-0 pb-12 font-sans">
+      {/* 1. Universal Clean Header & Main Tab Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Inventory
+          </h1>
+        </div>
+
+        {/* 4 Clean Navigation Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => handleTabSelect('ITEMS')}
+            className={cn(
+              'px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-colors cursor-pointer shrink-0',
+              activeTab === 'ITEMS' || activeTab === 'OVERVIEW'
+                ? 'bg-[#0B3D32] text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            )}
+          >
+            Stock Items
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabSelect('RECEIVE_STOCK')}
+            className={cn(
+              'px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-colors cursor-pointer shrink-0',
+              activeTab === 'RECEIVE_STOCK'
+                ? 'bg-[#0B3D32] text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            )}
+          >
+            Purchases
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabSelect('SUPPLIERS')}
+            className={cn(
+              'px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-colors cursor-pointer shrink-0',
+              activeTab === 'SUPPLIERS'
+                ? 'bg-[#0B3D32] text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            )}
+          >
+            Suppliers
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabSelect('STOCK_MOVEMENTS')}
+            className={cn(
+              'px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-colors cursor-pointer shrink-0',
+              activeTab === 'STOCK_MOVEMENTS'
+                ? 'bg-[#0B3D32] text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            )}
+          >
+            Stock Movements
+          </button>
+          {isTransfersEnabled && (
             <button
-              key={tab.id}
               type="button"
-              onClick={() => handleTabSelect(tab.id)}
+              onClick={() => handleTabSelect('STOCK_TRANSFERS')}
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[3px] border transition-all cursor-pointer shrink-0',
-                isActive
-                  ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs dark:bg-emerald-700 dark:border-emerald-600'
-                  : 'bg-white dark:bg-surface-card border-slate-200 dark:border-border-default text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-hover hover:border-slate-300'
+                'px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-colors cursor-pointer shrink-0',
+                activeTab === 'STOCK_TRANSFERS'
+                  ? 'bg-[#0B3D32] text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               )}
             >
-              <Icon className={cn('w-3.5 h-3.5', isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400')} />
-              <span>{tab.label}</span>
+              Transfers
             </button>
-          );
-        })}
+          )}
+        </div>
       </div>
 
       {/* =====================================================================
-          VIEW 1: INVENTORY OVERVIEW (MAIN COMPREHENSIVE TABLE)
+          VIEW: INVENTORY ITEMS (DEFAULT)
           ===================================================================== */}
-      {activeTab === 'OVERVIEW' && (
-        <DepartmentInventoryView
-          department="ALL"
-          items={items}
-          suppliers={suppliers}
-          loading={loading}
-          onRefresh={loadData}
-        />
-      )}
-
-      {/* =====================================================================
-          VIEW 2: INVENTORY ITEMS
-          ===================================================================== */}
-      {activeTab === 'ITEMS' && (
+      {(activeTab === 'ITEMS' || activeTab === 'OVERVIEW') && (
         <DepartmentInventoryView
           department="ALL"
           items={items}
@@ -346,23 +377,20 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
           ===================================================================== */}
       {activeTab === 'STOCK_ADJUSTMENT' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-[#071F1A] border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-            <div>
-              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                Stock Adjustments & Corrections
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Record physical counts, damaged stock, expiry, wastage or manual increases/decreases.
-              </p>
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Stock Adjustments
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAdjustmentModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Record Adjustment</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAdjustmentModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[3px] bg-[#DC2626] hover:bg-[#b91c1c] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Record Stock Adjustment</span>
-            </button>
           </div>
 
           <StockMovementLedgerView

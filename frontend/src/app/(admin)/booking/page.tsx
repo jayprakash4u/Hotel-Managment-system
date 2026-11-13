@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Bed,
   Calendar,
@@ -911,14 +912,10 @@ function NewRoomBookingContent() {
               <span>Booked List</span>
             </Link>
 
-            <button
-              type="button"
+            <BackButton
               onClick={handleBackNavigation}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border bg-white dark:bg-surface-card text-body dark:text-slate-300 border-border-default dark:border-border-default hover:bg-[#F2F6F4]"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{fromParam === 'reservations' ? 'Back to Reservations' : fromParam === 'check-in' ? 'Back to Check-In' : 'Back to Front Desk'}</span>
-            </button>
+              label="Back"
+            />
           </div>
         </div>
 

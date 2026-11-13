@@ -6,7 +6,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { ArrowLeft, Receipt, Plus, Trash2 } from 'lucide-react';
+import { BackButton } from '@/components/common/BackButton';
+import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
@@ -118,23 +119,12 @@ function AddOrderContent() {
   return (
     <div className="w-full min-w-0 space-y-5">
       {/* Page Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/active-stays"
-          className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
-            <Receipt className="w-4 h-4" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900 dark:text-white font-heading">
-              Add Order — Room {stay.room.number} ({stay.guest.firstName})
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Enter what the guest ordered and its price — it's charged straight to their bill</p>
-          </div>
+          <BackButton href="/active-stays" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Add Order — Room {stay.room.number} ({stay.guest.firstName})
+          </h1>
         </div>
       </div>
 

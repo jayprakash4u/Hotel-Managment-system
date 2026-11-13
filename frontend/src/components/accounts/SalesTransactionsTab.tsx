@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Search,
@@ -448,20 +449,12 @@ export default function SalesTransactionsTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-600 stroke-[1.25]" />
-            <span>Sales Transactions</span>
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Sales Transactions
+          </h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -490,67 +483,6 @@ export default function SalesTransactionsTab() {
             <Plus className="w-3.5 h-3.5" />
             <span>New Sale</span>
           </button>
-        </div>
-      </div>
-
-      {/* 2. Sales Summary Cards (8 KPI metrics) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        {/* Total Sales */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Sales</div>
-          <div className="text-base font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {(summary?.totalSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Total Invoices */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Invoices</div>
-          <div className="text-base font-black text-slate-900 dark:text-white mt-1">{summary?.totalInvoices ?? 0}</div>
-        </div>
-
-        {/* Paid Sales */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Paid Sales</div>
-          <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-            Rs. {(summary?.paidSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Unpaid / Credit */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Unpaid Due</div>
-          <div className="text-base font-black text-amber-600 dark:text-amber-400 mt-1 truncate">
-            Rs. {(summary?.unpaidSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Partially Paid */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Partially Paid</div>
-          <div className="text-base font-black text-blue-600 dark:text-blue-400 mt-1">{summary?.partiallyPaidCount ?? 0}</div>
-        </div>
-
-        {/* Sales Returns */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Returns</div>
-          <div className="text-base font-black text-purple-600 dark:text-purple-400 mt-1">{summary?.salesReturnsCount ?? 0}</div>
-        </div>
-
-        {/* Refund Amount */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Refunds</div>
-          <div className="text-base font-black text-rose-600 dark:text-rose-400 mt-1 truncate">
-            Rs. {(summary?.refundAmount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Net Sales */}
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Net Sales</div>
-          <div className="text-base font-black text-[#0B3D32] dark:text-emerald-300 mt-1 truncate">
-            Rs. {(summary?.netSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
         </div>
       </div>
 

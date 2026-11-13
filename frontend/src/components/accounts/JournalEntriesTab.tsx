@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   FileText,
@@ -384,20 +385,12 @@ export default function JournalEntriesTab() {
   return (
     <div className="space-y-4">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <FileText className="w-3.5 h-3.5 text-blue-600 stroke-[1.25]" />
-            <span>Journal Entries</span>
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Journal Entries
+          </h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -429,57 +422,6 @@ export default function JournalEntriesTab() {
             <Plus className="w-3.5 h-3.5" />
             <span>Create Journal Entry</span>
           </button>
-        </div>
-      </div>
-
-      {/* 2. Top Summary KPI Cards (Hotel & Restaurant Standard) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Card 1: Total Entries */}
-        <div className="rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Entries</span>
-            <FileText className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
-            {summary.totalEntries}
-          </div>
-          
-        </div>
-
-        {/* Card 2: Posted Entries */}
-        <div className="rounded-[3px] border border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Posted Entries</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div className="text-2xl font-black font-mono text-emerald-900 dark:text-emerald-300 mt-1">
-            {summary.postedEntries}
-          </div>
-          
-        </div>
-
-        {/* Card 3: Draft Entries */}
-        <div className="rounded-[3px] border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-amber-800 dark:text-amber-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Draft Entries</span>
-            <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div className="text-2xl font-black font-mono text-amber-900 dark:text-amber-300 mt-1">
-            {summary.draftEntries}
-          </div>
-          
-        </div>
-
-        {/* Card 4: Total Period Debit / Credit */}
-        <div className="rounded-[3px] border border-blue-200/80 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-blue-800 dark:text-blue-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Period Turnover</span>
-            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="text-xl font-black font-mono text-blue-950 dark:text-blue-300 mt-1 truncate">
-            Rs. {formatCurrency(summary.periodDebit)}
-          </div>
-          
         </div>
       </div>
 

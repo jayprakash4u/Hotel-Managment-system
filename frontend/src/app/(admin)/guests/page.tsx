@@ -507,9 +507,8 @@ function GuestDirectoryContent() {
           ----------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <Contact className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
-            <span>Guest Directory</span>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+            Guest Directory
           </h1>
         </div>
 

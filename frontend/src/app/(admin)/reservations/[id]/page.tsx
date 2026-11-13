@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Calendar,
@@ -270,13 +271,7 @@ export default function ReservationDetailPage() {
           Reservation &ldquo;{rawId}&rdquo; Not Found
         </h2>
         <div>
-          <Link
-            href="/reservations"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-emerald-600 dark:hover:bg-emerald-500 shadow-2xs"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Reservations</span>
-          </Link>
+          <BackButton href="/reservations" label="Back" />
         </div>
       </div>
     );
@@ -292,18 +287,11 @@ export default function ReservationDetailPage() {
           TOP NAVIGATION BAR & WORKFLOW ACTIONS
           ----------------------------------------------------------------------- */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/reservations"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-slate-200 bg-white font-semibold text-slate-700 hover:text-[#0B3D32] hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-emerald-400 dark:hover:bg-slate-800 transition-colors shadow-2xs"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Reservations</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-600">/</span>
-          <span className="font-mono font-bold text-slate-900 dark:text-white">
+        <div className="flex items-center gap-3">
+          <BackButton href="/reservations" label="Back" />
+          <h1 className="text-lg font-bold font-mono tracking-tight text-slate-900 dark:text-slate-100">
             {booking.bookingCode}
-          </span>
+          </h1>
         </div>
 
         {/* Action Buttons */}

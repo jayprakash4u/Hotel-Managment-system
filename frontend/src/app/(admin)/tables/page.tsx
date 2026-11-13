@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Search,
   Table2,
@@ -3268,14 +3269,7 @@ function TablesContent() {
         {/* Top Navigation Bar: Back Button, Table Title, and Primary Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-default dark:border-border-default">
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleBackToTables}
-              className="inline-flex items-center gap-1.5 rounded-[3px] border border-border-default bg-white px-3 py-1.5 text-xs font-bold text-body hover:bg-surface-muted hover:border-[#0B3D32] shadow-2xs dark:border-border-default dark:bg-surface-card dark:text-body dark:hover:border-emerald-500 transition-all cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Tables</span>
-            </button>
+            <BackButton onClick={handleBackToTables} label="Back" />
 
             <button
               type="button"
@@ -4519,23 +4513,12 @@ function TablesContent() {
           ----------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-border-default dark:border-border-default">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            {activeTab === 'FLOOR_PLAN' ? (
-              <>
-                <Table2 className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
-                <span>Table Board</span>
-              </>
-            ) : activeTab === 'ACTIVE_ORDERS' ? (
-              <>
-                <ShoppingBag className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
-                <span>Orders</span>
-              </>
-            ) : (
-              <>
-                <CalendarCheck className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
-                <span>Table Reservations</span>
-              </>
-            )}
+          <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+            {activeTab === 'FLOOR_PLAN'
+              ? 'Table Board'
+              : activeTab === 'ACTIVE_ORDERS'
+              ? 'Orders'
+              : 'Table Reservations'}
           </h1>
 
           {/* Clean Segmented Switcher */}

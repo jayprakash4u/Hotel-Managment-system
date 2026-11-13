@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   LogOut,
   Search,
@@ -186,15 +187,11 @@ function CheckOutListContent() {
           TOP HEADER: Clean Title & Action Buttons
           ----------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-default dark:border-border-default">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600">
-            <LogOut className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-heading">
-              Check-Out & Departures
-            </h1>
-          </div>
+        <div className="flex items-center gap-3">
+          <BackButton href="/front-desk" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-heading">
+            Check-Out &amp; Departures
+          </h1>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

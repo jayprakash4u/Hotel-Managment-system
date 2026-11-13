@@ -3,7 +3,9 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   FileText,
   Search,
@@ -237,97 +239,40 @@ function BillingContent() {
 
   return (
     <div className="space-y-4 w-full min-w-0 pb-14 select-none">
-      
-
-      {/* =====================================================================
-          2. FINANCIAL SUMMARY METRICS STRIP
-          ===================================================================== */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-[#071F1A] p-3 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
-            Total Billed / Invoiced
-          </span>
-          <div className="text-lg font-black font-mono text-[#0B3D32] dark:text-emerald-400 mt-0.5">
-            Rs. {summary.totalBilled.toLocaleString()}
-          </div>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">
-            Across {summary.totalBills} recorded bills
-          </span>
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Billing & Invoices
+          </h1>
         </div>
 
-        <div className="bg-white dark:bg-[#071F1A] p-3 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
-            Collected / Settled
-          </span>
-          <div className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-300 mt-0.5">
-            Rs. {summary.totalPaid.toLocaleString()}
-          </div>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">
-            Cash, Card & QR collections
-          </span>
-        </div>
-
-        <div className="bg-white dark:bg-[#071F1A] p-3 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
-            Balance Due / Outstanding
-          </span>
-          <div
-            className={cn(
-              'text-lg font-black font-mono mt-0.5',
-              summary.totalDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'
-            )}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/quick-sale"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
           >
-            Rs. {summary.totalDue.toLocaleString()}
-          </div>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">
-            Pending table & stay balances
-          </span>
-        </div>
-
-        <div className="bg-white dark:bg-[#071F1A] p-3 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
-            Total Bills Count
-          </span>
-          <div className="text-lg font-black font-mono text-slate-800 dark:text-white mt-0.5">
-            {summary.totalBills} Bills
-          </div>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">
-            Sequential & permanent
-          </span>
+            <Zap className="w-3.5 h-3.5" />
+            <span>Quick Bill</span>
+          </Link>
+          <button
+            type="button"
+            onClick={loadBills}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors shadow-2xs cursor-pointer"
+            title="Refresh bills ledger"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
 
-      {/* =====================================================================
-          3. MAIN DATA PANEL: HEADER, FILTERS & TABLE
-          ===================================================================== */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] shadow-2xs overflow-hidden">
-        {/* Panel Header */}
-        <div className="p-3.5 border-b border-[#DCE3DF] dark:border-[#145447] flex flex-col md:flex-row md:items-center justify-between gap-3 bg-[#F8FAF9] dark:bg-[#07241E]">
-          <div>
-            <h1 className="text-sm font-bold font-heading text-[#24352F] dark:text-white flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
-              <span>Central Bills & Invoices Ledger</span>
-            </h1>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Unified billing for hotel checkouts, restaurant dining, quick sales, and room service folios
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={loadBills}
-              disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] text-xs font-semibold text-[#24352F] dark:text-slate-200 hover:bg-[#F2F6F4] transition-colors cursor-pointer"
-            >
-              <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
-              <span>Refresh</span>
-            </button>
-          </div>
-        </div>
-
+      {/* 2. Main Data Panel & Table */}
+      <div className="bg-white dark:bg-slate-900 rounded-[3px] border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
         {/* Filter Strip */}
-        <div className="p-3 border-b border-[#F0F4F2] dark:border-[#103D33] space-y-2.5">
+        <div className="p-3 border-b border-slate-200 dark:border-slate-800 space-y-2.5 bg-slate-50/50 dark:bg-slate-900/50">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
             {/* Search Input */}
             <div className="relative flex-1 max-w-md">
@@ -336,55 +281,43 @@ function BillingContent() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Bill # (e.g. BILL-2026-000001), Order #, Stay Ref, Guest name..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#0B3D32]"
+                placeholder="Search bill #, guest, order, stay ref..."
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs focus:outline-none focus:border-[#0B3D32]"
               />
             </div>
 
-            {/* Billing Type Selector */}
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Type:
-              </span>
+            {/* Select Filters */}
+            <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="px-2.5 py-1.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] text-slate-900 dark:text-white text-xs font-semibold"
+                className="h-[30px] px-2.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-semibold shadow-2xs focus:outline-none focus:border-[#0B3D32] cursor-pointer"
               >
-                <option value="ALL">All Billing Types</option>
+                <option value="ALL">All Types</option>
                 <option value="QUICK_BILL">Quick Bill (Counter)</option>
                 <option value="WALK_IN">Walk-in Order</option>
                 <option value="TABLE_ORDER">Table Order</option>
                 <option value="ROOM_SERVICE">Room Service</option>
                 <option value="HOTEL_CHECKOUT">Hotel Checkout</option>
               </select>
-            </div>
 
-            {/* Payment Status Selector */}
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Status:
-              </span>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-2.5 py-1.5 rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#07241E] text-slate-900 dark:text-white text-xs font-semibold"
+                className="h-[30px] px-2.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-semibold shadow-2xs focus:outline-none focus:border-[#0B3D32] cursor-pointer"
               >
                 <option value="ALL">All Statuses</option>
-                <option value="PAID">Paid in Full</option>
-                <option value="CREDIT">Credit Bills</option>
-                <option value="PARTIAL">Partially Paid</option>
-                <option value="UNPAID">Unpaid / Due</option>
-                <option value="VOID">Voided</option>
+                <option value="PAID">Paid</option>
+                <option value="CREDIT">Credit</option>
+                <option value="PARTIAL">Partial</option>
+                <option value="UNPAID">Unpaid</option>
+                <option value="VOID">Void</option>
               </select>
             </div>
           </div>
 
           {/* Date Quick Filter Pills */}
-          <div className="flex items-center gap-1.5 flex-wrap pt-1 text-xs">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
-              Date Filter:
-            </span>
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-xs">
             {(
               [
                 { id: 'ALL', label: 'All Time' },
@@ -399,10 +332,10 @@ function BillingContent() {
                 type="button"
                 onClick={() => setDateFilter(df.id)}
                 className={cn(
-                  'px-2 py-0.5 rounded-[2px] text-[11px] font-semibold transition-colors cursor-pointer',
+                  'px-2.5 py-1 rounded-[3px] text-xs font-semibold transition-colors cursor-pointer shadow-2xs',
                   dateFilter === df.id
-                    ? 'bg-[#0B3D32] text-white shadow-2xs'
-                    : 'bg-[#F2F6F4] text-slate-600 hover:bg-slate-200 dark:bg-[#0A2E26] dark:text-slate-300 dark:hover:bg-[#0F3D32]'
+                    ? 'bg-[#0B3D32] text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'
                 )}
               >
                 {df.label}
@@ -529,16 +462,17 @@ function BillingContent() {
 
                       {/* 9. Actions */}
                       <td className="p-3 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1">
+                        <div className="inline-flex items-center gap-1.5 justify-end">
                           {/* Record Payment if due */}
                           {b.balanceDue > 0.01 && (
                             <button
                               type="button"
                               onClick={() => setPaymentBill(b)}
                               title="Record Payment"
-                              className="p-1.5 rounded-[2px] bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-[3px] bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-semibold transition-colors cursor-pointer"
                             >
-                              <CreditCard className="w-3.5 h-3.5" />
+                              <CreditCard className="w-3 h-3" />
+                              <span>Settle</span>
                             </button>
                           )}
 
@@ -546,20 +480,11 @@ function BillingContent() {
                           <button
                             type="button"
                             onClick={() => setViewBill(b)}
-                            title="View Document"
-                            className="p-1.5 rounded-[2px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                            title="View Document & Print"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Print / Reprint */}
-                          <button
-                            type="button"
-                            onClick={() => setViewBill(b)}
-                            title="Print / Reprint Bill"
-                            className="p-1.5 rounded-[2px] bg-[#0B3D32] hover:bg-[#124D40] text-white transition-colors cursor-pointer"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
+                            <Eye className="w-3 h-3" />
+                            <span>View</span>
                           </button>
                         </div>
                       </td>

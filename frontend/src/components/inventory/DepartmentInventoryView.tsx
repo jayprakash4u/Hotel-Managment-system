@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Plus,
   Search,
@@ -325,47 +326,30 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
   }, [visibleColumns]);
 
   return (
-    <div className="space-y-3 font-sans select-none">
-      {/* =========================================================================
-          1. QUICK STATUS FILTER TABS
-         ========================================================================= */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
-        {[
-          { id: 'ALL', label: 'All Items' },
-          { id: 'IN_STOCK', label: 'In Stock' },
-          { id: 'LOW_STOCK', label: 'Low Stock' },
-          { id: 'OUT_OF_STOCK', label: 'Out of Stock' },
-          { id: 'NOT_TRACKED', label: 'Not Tracked' },
-        ].map((tab) => {
-          const isSelected = statusFilter === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setStatusFilter(tab.id as any);
-                setCurrentPage(1);
-              }}
-              className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-[3px] border transition-colors cursor-pointer shrink-0',
-                isSelected
-                  ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs'
-                  : 'bg-white dark:bg-surface-card border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-hover'
-              )}
-            >
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+    <div className="space-y-4 font-sans select-none">
+      {/* 1. Sub-Header Action Bar */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Items &amp; Stock Levels
+        </span>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsAddItemOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Item</span>
+          </button>
           <button
             type="button"
             onClick={onRefresh}
-            className="p-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
             title="Refresh inventory"
           >
-            <RotateCcw className={cn('w-3.5 h-3.5', loading && 'animate-spin text-[#0B3D32]')} />
+            <RotateCcw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
@@ -376,7 +360,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
       <div className="bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] p-3.5 shadow-2xs space-y-3">
         {/* Top Controls Row */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs text-slate-700 dark:text-slate-300 select-none">
-          {/* Left Controls: Show entries & Category Filter */}
+          {/* Left Controls: Show entries, Status & Category Filters */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span>Show</span>
@@ -394,6 +378,24 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 <option value={100}>100</option>
               </select>
               <span>entries</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as any);
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="IN_STOCK">In Stock</option>
+                <option value="LOW_STOCK">Low Stock</option>
+                <option value="OUT_OF_STOCK">Out of Stock</option>
+                <option value="NOT_TRACKED">Not Tracked</option>
+              </select>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -415,7 +417,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
             </div>
           </div>
 
-          {/* Right Controls: Column Visibility, Search, & "+ Add Item" */}
+          {/* Right Controls: Column Visibility & Search */}
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* Show / Hide Columns Dropdown */}
             <div className="relative" ref={columnDropdownRef}>
@@ -489,16 +491,6 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 )}
               </div>
             </div>
-
-            {/* "+ Add Item" Button */}
-            <button
-              type="button"
-              onClick={() => setIsAddItemOpen(true)}
-              className="inline-flex items-center gap-1 px-3 py-1 bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold rounded-[3px] shadow-2xs transition-colors cursor-pointer shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Item</span>
-            </button>
           </div>
         </div>
 

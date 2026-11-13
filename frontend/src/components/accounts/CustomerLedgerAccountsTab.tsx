@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Users,
   Search,
@@ -553,26 +554,21 @@ export default function CustomerLedgerAccountsTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton
             href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5 text-teal-600 stroke-[1.25]" />
+            label="Back"
+            onClick={selectedCustomer ? () => setSelectedCustomer(null) : undefined}
+          />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <span>Customer Ledger</span>
-          </span>
-          {selectedCustomer && (
-            <>
-              <span className="text-slate-300 dark:text-slate-700">/</span>
-              <span className="font-bold text-teal-700 dark:text-teal-400">{selectedCustomer.name}</span>
-            </>
-          )}
+            {selectedCustomer && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200 dark:border-teal-900">
+                {selectedCustomer.name}
+              </span>
+            )}
+          </h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -812,78 +808,6 @@ export default function CustomerLedgerAccountsTab() {
             </div>
           </div>
 
-          {/* 7 Financial Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            {/* Opening Balance */}
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Opening Balance</div>
-              <div className="text-base font-black text-slate-800 dark:text-white mt-1 truncate">
-                Rs. {(ledgerSummary?.openingBalance || selectedCustomer.openingBalance || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Total Sales (Debits) */}
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Billed</div>
-              <div className="text-base font-black text-blue-600 dark:text-blue-400 mt-1 truncate">
-                Rs. {(ledgerSummary?.periodDebits || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Total Payments Received */}
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Received</div>
-              <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-                Rs. {(ledgerSummary?.periodCredits || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Outstanding Balance */}
-            <div className="p-3 bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
-                Outstanding Due
-              </div>
-              <div className="text-base font-black text-rose-700 dark:text-rose-300 mt-1 truncate">
-                Rs. {(selectedCustomer.currentOutstanding || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Advance Balance */}
-            <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
-                Advance Deposit
-              </div>
-              <div className="text-base font-black text-blue-700 dark:text-blue-300 mt-1 truncate">
-                Rs. {(selectedCustomer.advanceBalance || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Credit Limit */}
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Credit Limit</div>
-              <div className="text-base font-black text-slate-800 dark:text-white mt-1 truncate">
-                Rs. {(selectedCustomer.creditLimit || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Available Credit */}
-            <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                Available Credit
-              </div>
-              <div className="text-base font-black text-[#0B3D32] dark:text-emerald-300 mt-1 truncate">
-                Rs. {Math.max(0, (selectedCustomer.creditLimit || 0) - (selectedCustomer.currentOutstanding || 0)).toFixed(2)}
-              </div>
-              
-            </div>
-          </div>
-
           {/* Ledger Filter Toolbar */}
           <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
             <div className="flex flex-wrap items-center gap-2">
@@ -1007,14 +931,14 @@ export default function CustomerLedgerAccountsTab() {
                         e.referenceType === 'CREDIT_BILL' || e.referenceType === 'INVOICE'
                           ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
                           : e.referenceType === 'PAYMENT'
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                          : e.referenceType === 'CUSTOMER_ADVANCE'
-                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                          : e.referenceType === 'ADVANCE_ADJUSTMENT'
-                          ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
-                          : e.referenceType === 'SALES_RETURN' || e.referenceType === 'CREDIT_NOTE'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                          : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            : e.referenceType === 'CUSTOMER_ADVANCE'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                              : e.referenceType === 'ADVANCE_ADJUSTMENT'
+                                ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
+                                : e.referenceType === 'SALES_RETURN' || e.referenceType === 'CREDIT_NOTE'
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                  : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
 
                       const debitAmt = e.debitAmount ?? e.debit ?? 0;
                       const creditAmt = e.creditAmount ?? e.credit ?? 0;
@@ -1155,7 +1079,7 @@ export default function CustomerLedgerAccountsTab() {
         <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
           <div className="p-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Customer Accounts Directory ({filteredCustomers.length})
+              Customer Accounts Directory
             </span>
             <span className="text-[11px] text-slate-500">
               Click any customer row or &ldquo;View Ledger&rdquo; to inspect statement

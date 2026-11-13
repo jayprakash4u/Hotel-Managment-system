@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Calendar,
@@ -206,25 +207,12 @@ export default function FinancialSummaryTab() {
   return (
     <div className="space-y-6 pb-16">
       {/* Top Header & Navigation */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
-          <Link
-            href="/accounts"
-            className="p-2 rounded-lg border border-[var(--border-default)] hover:bg-[var(--surface-hover)] transition-colors text-slate-600 dark:text-slate-300"
-          >
-            <ArrowLeft className="w-4 h-4 stroke-[1.25]" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 stroke-[1.25]" />
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Financial Summary
-              </h1>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Executive dashboard: revenue, profitability, balance sheet position, and liquidity
-            </p>
-          </div>
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+            Financial Summary
+          </h1>
         </div>
 
         {/* Global Action Buttons */}

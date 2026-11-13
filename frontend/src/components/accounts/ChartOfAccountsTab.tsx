@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   BookOpen,
@@ -372,20 +373,12 @@ export default function ChartOfAccountsTab() {
   return (
     <div className="space-y-4">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <BookOpen className="w-3.5 h-3.5 text-emerald-600 stroke-[1.25]" />
-            <span>Chart of Accounts</span>
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Chart of Accounts
+          </h1>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -429,71 +422,6 @@ export default function ChartOfAccountsTab() {
           </button>
         </div>
       </div>
-
-      {/* 2. Account Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {/* Assets */}
-          <div className="p-3.5 rounded-[3px] border border-emerald-200/90 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-2xs">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
-              <span>Total Assets</span>
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-            </div>
-            <div className="text-xl font-extrabold font-mono text-emerald-950 dark:text-emerald-300 mt-1 truncate">
-              Rs. {formatCurrency(summary.totalAssets)}
-            </div>
-            
-          </div>
-
-          {/* Liabilities */}
-          <div className="p-3.5 rounded-[3px] border border-amber-200/90 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 shadow-2xs">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
-              <span>Total Liabilities</span>
-              <TrendingDown className="w-3.5 h-3.5 text-amber-600" />
-            </div>
-            <div className="text-xl font-extrabold font-mono text-amber-900 dark:text-amber-300 mt-1 truncate">
-              Rs. {formatCurrency(summary.totalLiabilities)}
-            </div>
-            
-          </div>
-
-          {/* Equity */}
-          <div className="p-3.5 rounded-[3px] border border-purple-200/90 dark:border-purple-900/60 bg-purple-50/40 dark:bg-purple-950/20 shadow-2xs">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-purple-800 dark:text-purple-400">
-              <span>Total Equity</span>
-              <Building2 className="w-3.5 h-3.5 text-purple-600" />
-            </div>
-            <div className="text-xl font-extrabold font-mono text-purple-900 dark:text-purple-300 mt-1 truncate">
-              Rs. {formatCurrency(summary.totalEquity)}
-            </div>
-            
-          </div>
-
-          {/* Income */}
-          <div className="p-3.5 rounded-[3px] border border-blue-200/90 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20 shadow-2xs">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-400">
-              <span>Total Income</span>
-              <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-            </div>
-            <div className="text-xl font-extrabold font-mono text-blue-900 dark:text-blue-300 mt-1 truncate">
-              Rs. {formatCurrency(summary.totalIncome ?? (summary as any).totalRevenue)}
-            </div>
-            
-          </div>
-
-          {/* Expenses */}
-          <div className="p-3.5 rounded-[3px] border border-rose-200/90 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 shadow-2xs">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-400">
-              <span>Total Expenses</span>
-              <TrendingDown className="w-3.5 h-3.5 text-rose-600" />
-            </div>
-            <div className="text-xl font-extrabold font-mono text-rose-900 dark:text-rose-300 mt-1 truncate">
-              Rs. {formatCurrency(summary.totalExpenses)}
-            </div>
-            
-          </div>
-        </div>
-      )}
 
       {/* 3. Clean Filter & Search Bar */}
       <div className="rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-2.5 shadow-2xs space-y-2.5">

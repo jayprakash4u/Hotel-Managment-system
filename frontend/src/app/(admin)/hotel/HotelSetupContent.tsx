@@ -3,6 +3,7 @@
 
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Globe,
   UtensilsCrossed,
@@ -3187,15 +3188,7 @@ export default function HotelSetupContent({
           <aside className="w-full lg:w-60 xl:w-64 shrink-0 border-b lg:border-b-0 lg:border-r border-[#DCE3DF] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#071F1A] flex flex-col select-none h-full min-h-0">
             {/* Clean Secondary Sidebar Header: Back Button, Header Name, One Search Box (STATIC) */}
             <div className="shrink-0 p-3 border-b border-[#E5EEE9] dark:border-[#145447] bg-white dark:bg-[#061B16] space-y-2">
-              <button
-                type="button"
-                onClick={handleBackToBoxes}
-                className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-bold text-[#4A6B5D] bg-[#F2F6F4] hover:bg-[#E8F2EE] hover:text-[#0B3D32] dark:bg-[#0A2E26] dark:text-[#A4B8AE] dark:hover:text-white dark:hover:bg-[#0E3B31] border border-[#DCE3DF] dark:border-[#145447] transition-all shadow-2xs"
-                title="Back to all categories view"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                <span>All Categories</span>
-              </button>
+              <BackButton onClick={handleBackToBoxes} label="Back" />
 
               <div className="flex items-center gap-2 min-w-0 pt-0.5">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-700">

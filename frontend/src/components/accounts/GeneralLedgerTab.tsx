@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Book,
@@ -374,20 +375,12 @@ export default function GeneralLedgerTab() {
   return (
     <div className="space-y-4">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Book className="w-3.5 h-3.5 text-indigo-600 stroke-[1.25]" />
-            <span>General Ledger</span>
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            General Ledger
+          </h1>
         </div>
 
         {/* Top Actions: Mode Switcher & Export */}
@@ -932,53 +925,6 @@ export default function GeneralLedgerTab() {
           ========================================================================= */}
       {viewMode === 'ALL_ACCOUNTS' && (
         <>
-          {/* Consolidated Trial Balance / Summary Cards */}
-          {allAccountsReport && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Card 1: Active Accounts Count */}
-              <div className="p-3.5 rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Accounts</span>
-                <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
-                  {allAccountsReport.totalAccounts}
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Posting sub-ledgers evaluated</div>
-              </div>
-
-              {/* Card 2: Total Opening Balance */}
-              <div className="p-3.5 rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Opening Debits</span>
-                <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">
-                  Rs. {formatCurrency(allAccountsReport.totals.openingDebit)}
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">
-                  Opening Credits: Rs. {formatCurrency(allAccountsReport.totals.openingCredit)}
-                </div>
-              </div>
-
-              {/* Card 3: Total Period Turnover */}
-              <div className="p-3.5 rounded-[3px] border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">Period Turnover</span>
-                <div className="text-xl font-black font-mono text-blue-950 dark:text-blue-200 mt-1">
-                  Rs. {formatCurrency(allAccountsReport.totals.periodDebit)}
-                </div>
-                <div className="text-[10px] text-blue-700/80 dark:text-blue-400 mt-0.5">
-                  Balanced Double-Entry Activity
-                </div>
-              </div>
-
-              {/* Card 4: Total Closing Debits */}
-              <div className="p-3.5 rounded-[3px] border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Total Closing Debits</span>
-                <div className="text-xl font-black font-mono text-emerald-950 dark:text-emerald-200 mt-1">
-                  Rs. {formatCurrency(allAccountsReport.totals.closingDebit)}
-                </div>
-                <div className="text-[10px] text-emerald-700/80 dark:text-emerald-400 mt-0.5">
-                  Closing Credits: Rs. {formatCurrency(allAccountsReport.totals.closingCredit)}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Consolidated All Accounts Table */}
           <div className="rounded-[3px] border border-slate-200 bg-white overflow-hidden shadow-2xs dark:border-slate-800 dark:bg-slate-900/50">
             <div className="overflow-x-auto">

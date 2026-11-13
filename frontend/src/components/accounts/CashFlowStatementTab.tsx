@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Calendar,
@@ -317,25 +318,12 @@ export default function CashFlowStatementTab() {
   return (
     <div className="space-y-6 pb-16">
       {/* Top Header & Navigation */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
-          <Link
-            href="/accounts"
-            className="p-2 rounded-lg border border-[var(--border-default)] hover:bg-[var(--surface-hover)] transition-colors text-slate-600 dark:text-slate-300"
-          >
-            <ArrowLeft className="w-4 h-4 stroke-[1.25]" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <CircleDollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[1.25]" />
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Cash Flow Statement
-              </h1>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Actual cash &amp; cash-equivalent inflows and outflows (Operating, Investing, Financing)
-            </p>
-          </div>
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+            Cash Flow Statement
+          </h1>
         </div>
 
         {/* Action Buttons */}
@@ -496,97 +484,6 @@ export default function CashFlowStatementTab() {
           </div>
         )}
       </div>
-
-      {/* 5 Compact Summary Cards */}
-      {statement && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* 1. Opening Cash */}
-          <div className="p-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-sm space-y-1.5">
-            <div className="flex items-center justify-between text-slate-500 text-[11px] font-semibold uppercase tracking-wider">
-              <span>Opening Cash</span>
-              <Landmark className="w-3.5 h-3.5 text-slate-400 stroke-[1.25]" />
-            </div>
-            <div className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {fmt(statement.summary.openingCashBalance)}
-            </div>
-            <p className="text-[10px] text-slate-400">As of period start date</p>
-          </div>
-
-          {/* 2. Total Inflows */}
-          <div className="p-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-sm space-y-1.5">
-            <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold uppercase tracking-wider">
-              <span>Total Inflows</span>
-              <ArrowDownLeft className="w-3.5 h-3.5 stroke-[1.25]" />
-            </div>
-            <div className="text-xl font-bold tracking-tight text-emerald-700 dark:text-emerald-300">
-              +{fmt(statement.summary.totalCashInflow)}
-            </div>
-            <p className="text-[10px] text-slate-400">Revenue, collections &amp; deposits</p>
-          </div>
-
-          {/* 3. Total Outflows */}
-          <div className="p-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-sm space-y-1.5">
-            <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 text-[11px] font-semibold uppercase tracking-wider">
-              <span>Total Outflows</span>
-              <ArrowUpRight className="w-3.5 h-3.5 stroke-[1.25]" />
-            </div>
-            <div className="text-xl font-bold tracking-tight text-rose-700 dark:text-rose-300">
-              -{fmt(statement.summary.totalCashOutflow)}
-            </div>
-            <p className="text-[10px] text-slate-400">Purchases, payroll &amp; capex</p>
-          </div>
-
-          {/* 4. Net Change in Cash */}
-          <div
-            className={cn(
-              'p-3.5 rounded-xl border shadow-sm space-y-1.5',
-              statement.summary.netChangeInCash >= 0
-                ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300/40'
-                : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-300/40'
-            )}
-          >
-            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider">
-              <span className={statement.summary.netChangeInCash >= 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}>
-                Net Cash Change
-              </span>
-              {statement.summary.netChangeInCash >= 0 ? (
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-              ) : (
-                <TrendingDown className="w-3.5 h-3.5 text-rose-600" />
-              )}
-            </div>
-            <div
-              className={cn(
-                'text-xl font-bold tracking-tight',
-                statement.summary.netChangeInCash >= 0
-                  ? 'text-emerald-700 dark:text-emerald-300'
-                  : 'text-rose-700 dark:text-rose-300'
-              )}
-            >
-              {statement.summary.netChangeInCash >= 0 ? '+' : ''}
-              {fmt(statement.summary.netChangeInCash)}
-            </div>
-            <div className="text-[10px] text-slate-500 flex items-center justify-between">
-              <span>Op: {fmt(statement.summary.operatingCashFlow)}</span>
-              <span>Inv: {fmt(statement.summary.investingCashFlow)}</span>
-            </div>
-          </div>
-
-          {/* 5. Closing Cash */}
-          <div className="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-sm space-y-1.5">
-            <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold uppercase tracking-wider">
-              <span>Closing Cash</span>
-              <ShieldCheck className="w-3.5 h-3.5 stroke-[1.25]" />
-            </div>
-            <div className="text-xl font-bold tracking-tight text-indigo-900 dark:text-indigo-200">
-              {fmt(statement.summary.closingCashBalance)}
-            </div>
-            <p className="text-[10px] text-indigo-600/80 dark:text-indigo-400">
-              Reconciles with Balance Sheet
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Cash Accounts Reconciliation Strip (Collapsible) */}
       {statement && statement.cashAccounts.length > 0 && (

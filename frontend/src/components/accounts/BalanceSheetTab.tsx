@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Calendar,
@@ -311,26 +312,13 @@ export default function BalanceSheetTab() {
 
   return (
     <div className="space-y-6 pb-16">
-      {/* Top Breadcrumb & Navigation */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Header & Navigation */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
-          <Link
-            href="/accounts"
-            className="p-2 rounded-lg border border-[var(--border-default)] hover:bg-[var(--surface-hover)] transition-colors text-slate-600 dark:text-slate-300"
-          >
-            <ArrowLeft className="w-4 h-4 stroke-[1.25]" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <Scale className="w-5 h-5 text-indigo-600 dark:text-indigo-400 stroke-[1.25]" />
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Balance Sheet
-              </h1>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Point-in-time statement of financial position (Assets = Liabilities + Equity)
-            </p>
-          </div>
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+            Balance Sheet
+          </h1>
         </div>
 
         {/* Global Action Buttons */}
@@ -470,160 +458,6 @@ export default function BalanceSheetTab() {
           </div>
         )}
       </div>
-
-      {/* Financial Summary Cards */}
-      {statement && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* 1. Total Assets Card */}
-          <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-sm space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Total Assets
-              </span>
-              <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[1.25]" />
-            </div>
-            <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {fmt(statement.summary.totalAssets)}
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-[var(--border-subtle)]">
-              <span>Current: {fmt(statement.assets.totalCurrentAssets)}</span>
-              <span>Net FA: {fmt(statement.assets.netFixedAssets)}</span>
-            </div>
-            {statement.comparisonMode !== 'NONE' && (
-              <div className="flex items-center gap-1.5 text-[11px]">
-                <span className="text-slate-400">vs Prior:</span>
-                <span
-                  className={cn(
-                    'font-semibold flex items-center gap-0.5',
-                    statement.summary.varianceAssets >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                  )}
-                >
-                  {statement.summary.varianceAssets >= 0 ? '+' : ''}
-                  {fmt(statement.summary.varianceAssets)} ({statement.summary.variancePercentageAssets}%)
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* 2. Total Liabilities Card */}
-          <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-sm space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Total Liabilities
-              </span>
-              <Wallet className="w-4 h-4 text-amber-600 dark:text-amber-400 stroke-[1.25]" />
-            </div>
-            <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {fmt(statement.summary.totalLiabilities)}
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-[var(--border-subtle)]">
-              <span>Current: {fmt(statement.liabilities.totalCurrentLiabilities)}</span>
-              <span>Long-Term: {fmt(statement.liabilities.totalNonCurrentLiabilities)}</span>
-            </div>
-            {statement.comparisonMode !== 'NONE' && (
-              <div className="flex items-center gap-1.5 text-[11px]">
-                <span className="text-slate-400">vs Prior:</span>
-                <span
-                  className={cn(
-                    'font-semibold flex items-center gap-0.5',
-                    statement.summary.varianceLiabilities <= 0 ? 'text-emerald-600' : 'text-rose-600'
-                  )}
-                >
-                  {statement.summary.varianceLiabilities >= 0 ? '+' : ''}
-                  {fmt(statement.summary.varianceLiabilities)} ({statement.summary.variancePercentageLiabilities}%)
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* 3. Total Equity Card */}
-          <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-sm space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Owner's Equity
-              </span>
-              <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400 stroke-[1.25]" />
-            </div>
-            <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {fmt(statement.summary.totalEquity)}
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-[var(--border-subtle)]">
-              <span>Capital + Retained Earnings</span>
-              <Link
-                href="/accounts?tab=profit-loss"
-                className="text-indigo-600 hover:underline flex items-center gap-0.5"
-              >
-                <span>View P&L</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </Link>
-            </div>
-            {statement.comparisonMode !== 'NONE' && (
-              <div className="flex items-center gap-1.5 text-[11px]">
-                <span className="text-slate-400">vs Prior:</span>
-                <span
-                  className={cn(
-                    'font-semibold flex items-center gap-0.5',
-                    statement.summary.varianceEquity >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                  )}
-                >
-                  {statement.summary.varianceEquity >= 0 ? '+' : ''}
-                  {fmt(statement.summary.varianceEquity)} ({statement.summary.variancePercentageEquity}%)
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* 4. Accounting Equation & Balance Status Card */}
-          <div
-            className={cn(
-              'p-4 rounded-xl border shadow-sm space-y-2 transition-all',
-              statement.summary.isBalanced
-                ? 'border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20'
-                : 'border-rose-500/40 bg-rose-50/50 dark:bg-rose-950/20'
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                Accounting Equation
-              </span>
-              {statement.summary.isBalanced ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  BALANCED
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 animate-pulse">
-                  <AlertTriangle className="w-3 h-3 text-rose-600" />
-                  DISCREPANCY
-                </span>
-              )}
-            </div>
-
-            <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {statement.summary.isBalanced ? (
-                <span className="text-emerald-700 dark:text-emerald-400">Rs. 0.00</span>
-              ) : (
-                <span className="text-rose-700 dark:text-rose-400">
-                  {fmt(statement.summary.balanceDifference)}
-                </span>
-              )}
-            </div>
-
-            <div className="text-[11px] text-slate-600 dark:text-slate-400 pt-1 border-t border-[var(--border-subtle)] flex items-center justify-between">
-              <span>Assets = Liab + Equity</span>
-              {!statement.summary.isBalanced && (
-                <button
-                  onClick={handleOpenInvestigation}
-                  className="font-bold text-rose-700 dark:text-rose-400 hover:underline flex items-center gap-1 text-[11px]"
-                >
-                  <HelpCircle className="w-3 h-3" />
-                  Investigate
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Statement Content */}
       <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-sm overflow-hidden">

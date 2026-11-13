@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Landmark,
@@ -635,42 +636,26 @@ export default function BankAndWalletAccountsTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Navigation Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton
             href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Landmark className="w-3.5 h-3.5 text-blue-600 stroke-[1.25]" />
+            label="Back"
+            onClick={viewMode === 'DETAILS' ? () => setViewMode('LIST') : undefined}
+          />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <span>Bank &amp; Wallet Accounts</span>
-          </span>
-          {viewMode === 'DETAILS' && selectedAccount && (
-            <>
-              <span className="text-slate-300 dark:text-slate-700">/</span>
-              <span className="font-bold text-blue-700 dark:text-blue-400">
+            {viewMode === 'DETAILS' && selectedAccount && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
                 {selectedAccount.accountName}
               </span>
-            </>
-          )}
+            )}
+          </h1>
         </div>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {viewMode === 'DETAILS' ? (
-            <button
-              type="button"
-              onClick={() => setViewMode('LIST')}
-              className="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 stroke-[1.25]" />
-              <span>Back to Accounts</span>
-            </button>
-          ) : (
+          {viewMode === 'LIST' && (
             <button
               type="button"
               onClick={() => {
@@ -737,42 +722,6 @@ export default function BankAndWalletAccountsTab() {
         </div>
       </div>
 
-      {/* 2. Account Overview Summary (Essential Information) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* Total Account Balance */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Total Account Balance
-          </div>
-          <div className="text-base sm:text-lg font-black text-[#0B3D32] dark:text-emerald-400 mt-1 truncate">
-            Rs. {formatCur(summary.totalAccountBalance)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Consolidated Banks &amp; Digital Wallets</div>
-        </div>
-
-        {/* Total Bank Balance */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Total Bank Balance
-          </div>
-          <div className="text-base sm:text-lg font-black text-blue-600 dark:text-blue-400 mt-1 truncate">
-            Rs. {formatCur(summary.totalBankBalance)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Commercial Operating &amp; Revenue Accounts</div>
-        </div>
-
-        {/* Total Wallet Balance */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Total Wallet Balance
-          </div>
-          <div className="text-base sm:text-lg font-black text-teal-600 dark:text-teal-400 mt-1 truncate">
-            Rs. {formatCur(summary.totalWalletBalance)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">eSewa, Khalti, IME Pay Merchant Holdings</div>
-        </div>
-      </div>
-
       {/* 3. Navigation Tabs (Bank Accounts vs Digital Wallets) */}
       <div className="border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-1">
@@ -789,7 +738,7 @@ export default function BankAndWalletAccountsTab() {
             }`}
           >
             <Landmark className="w-3.5 h-3.5 stroke-[1.25]" />
-            <span>Bank Accounts ({filteredBankAccounts.length})</span>
+            <span>Bank Accounts</span>
           </button>
 
           <button
@@ -805,7 +754,7 @@ export default function BankAndWalletAccountsTab() {
             }`}
           >
             <Smartphone className="w-3.5 h-3.5 stroke-[1.25]" />
-            <span>Digital Wallets ({filteredWallets.length})</span>
+            <span>Digital Wallets</span>
           </button>
         </div>
 

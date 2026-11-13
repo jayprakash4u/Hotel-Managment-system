@@ -27,6 +27,17 @@ import {
   ChevronRight,
   MoreVertical,
   Check,
+  Calculator,
+  Book,
+  TrendingUp,
+  TrendingDown,
+  Truck,
+  Wallet,
+  Landmark,
+  Building2,
+  ShieldCheck,
+  Scale,
+  PieChart,
 } from 'lucide-react';
 import { useWorkspaceTabs, WorkspaceTab } from '@/context/WorkspaceTabsContext';
 import { cn } from '@/lib/utils';
@@ -51,6 +62,17 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap,
   Receipt,
   User,
+  Calculator,
+  Book,
+  TrendingUp,
+  TrendingDown,
+  Truck,
+  Wallet,
+  Landmark,
+  Building2,
+  ShieldCheck,
+  Scale,
+  PieChart,
 };
 
 const QUICK_MODULES = [
@@ -60,7 +82,11 @@ const QUICK_MODULES = [
   { path: '/tables', title: 'Tables & Floor', icon: Table2, desc: 'Dine-in floor plan & table orders' },
   { path: '/tables?tab=ACTIVE_ORDERS', title: 'Live Kitchen Orders', icon: Receipt, desc: 'Active order tickets & prep status' },
   { path: '/front-desk', title: 'Room Board', icon: BedDouble, desc: 'Tape chart & live room grid' },
-  { path: '/housekeeping', title: 'Housekeeping', icon: Sparkles, desc: 'Room cleaning & maid task status' },
+  { path: '/accounts', title: 'Accounting Hub', icon: BookOpen, desc: 'Chart of accounts, general ledger & reports' },
+  { path: '/accounts?tab=trial-balance', title: 'Trial Balance', icon: Calculator, desc: 'General ledger debits vs credits verification' },
+  { path: '/accounts?tab=profit-loss', title: 'Profit & Loss', icon: BarChart3, desc: 'Revenue, expenses & net profit report' },
+  { path: '/accounts?tab=balance-sheet', title: 'Balance Sheet', icon: Scale, desc: 'Assets, liabilities & equity statement' },
+  { path: '/accounts?tab=cash-flow', title: 'Cash Flow', icon: Landmark, desc: 'Operating, investing & financing cash flow' },
   { path: '/inventory', title: 'Inventory Stock', icon: Boxes, desc: 'Kitchen pantry & hotel linen stock' },
   { path: '/reports', title: 'Reports & Analytics', icon: BarChart3, desc: 'Daily revenue, audits & metrics' },
   { path: '/hotel-management', title: 'Hotel Overview', icon: LayoutDashboard, desc: 'Manager overview & occupancy summary' },

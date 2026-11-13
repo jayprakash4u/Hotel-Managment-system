@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Search,
@@ -804,20 +805,12 @@ export default function PurchaseTransactionsTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Truck className="w-3.5 h-3.5 text-orange-600 stroke-[1.25]" />
-            <span>Purchase Transactions</span>
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Purchase Transactions
+          </h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -846,61 +839,6 @@ export default function PurchaseTransactionsTab() {
             <Plus className="w-3.5 h-3.5" />
             <span>Add New Purchase</span>
           </button>
-        </div>
-      </div>
-
-      {/* 3. Financial KPI Summary Cards (7 Metrics) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-        {/* Total Purchases */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Purchases</div>
-          <div className="text-base font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {(summary?.totalPurchases ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Total Invoices */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Invoices</div>
-          <div className="text-base font-black text-slate-900 dark:text-white mt-1">{summary?.totalPurchaseInvoices ?? 0}</div>
-        </div>
-
-        {/* Paid Purchases */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Paid Purchases</div>
-          <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-            Rs. {(summary?.paidPurchases ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Unpaid Purchases */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Unpaid Purchases</div>
-          <div className="text-base font-black text-rose-600 dark:text-rose-400 mt-1 truncate">
-            Rs. {(summary?.unpaidPurchases ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Partially Paid Purchases */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Partially Paid</div>
-          <div className="text-base font-black text-blue-600 dark:text-blue-400 mt-1">{summary?.partiallyPaidPurchases ?? 0}</div>
-        </div>
-
-        {/* Purchase Returns */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Returns / Debit Notes</div>
-          <div className="text-base font-black text-purple-600 dark:text-purple-400 mt-1 truncate">
-            Rs. {(summary?.purchaseReturns ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Outstanding Payables */}
-        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Outstanding Payables</div>
-          <div className="text-base font-black text-amber-900 dark:text-amber-200 mt-1 truncate">
-            Rs. {(summary?.outstandingPayables ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
         </div>
       </div>
 

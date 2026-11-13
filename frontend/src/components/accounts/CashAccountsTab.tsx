@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Wallet,
@@ -651,42 +652,26 @@ export default function CashAccountsTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton
             href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Wallet className="w-3.5 h-3.5 text-emerald-600 stroke-[1.25]" />
+            label="Back"
+            onClick={viewMode === 'DETAILS' ? () => setViewMode('LIST') : undefined}
+          />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <span>Cash Accounts</span>
-          </span>
-          {viewMode === 'DETAILS' && (
-            <>
-              <span className="text-slate-300 dark:text-slate-700">/</span>
-              <span className="font-bold text-emerald-700 dark:text-emerald-400">
+            {viewMode === 'DETAILS' && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
                 {selectedAccount?.accountName || 'Ledger'}
               </span>
-            </>
-          )}
+            )}
+          </h1>
         </div>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {viewMode === 'DETAILS' ? (
-            <button
-              type="button"
-              onClick={() => setViewMode('LIST')}
-              className="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 stroke-[1.25]" />
-              <span>Back to Accounts</span>
-            </button>
-          ) : (
+          {viewMode === 'LIST' && (
             <button
               type="button"
               onClick={() => setIsAddAccountModalOpen(true)}
@@ -754,53 +739,6 @@ export default function CashAccountsTab() {
           >
             <RefreshCw className="w-3.5 h-3.5 stroke-[1.25]" />
           </button>
-        </div>
-      </div>
-
-      {/* 2. Four Compact Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Card 1: Total Cash Balance */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Total Cash Balance
-          </div>
-          <div className="text-base sm:text-lg font-black text-[#0B3D32] dark:text-emerald-400 mt-1 truncate">
-            Rs. {formatCur(summary?.totalCashBalance)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Across all active drawers &amp; vaults</div>
-        </div>
-
-        {/* Card 2: Cash Received */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Cash Received
-          </div>
-          <div className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-            Rs. {formatCur(summary?.cashReceived)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Total cash in (filtered period)</div>
-        </div>
-
-        {/* Card 3: Cash Paid */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Cash Paid
-          </div>
-          <div className="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 mt-1 truncate">
-            Rs. {formatCur(summary?.cashPaid)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Total cash out (filtered period)</div>
-        </div>
-
-        {/* Card 4: Today's Cash Balance */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Today&apos;s Cash Balance
-          </div>
-          <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {formatCur(summary?.todayCashBalance)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Live consolidated cash on-hand</div>
         </div>
       </div>
 
@@ -943,7 +881,7 @@ export default function CashAccountsTab() {
           <div className="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Cash Accounts Register ({filteredAccounts.length})
+                Cash Accounts Register
               </span>
             </div>
             <button

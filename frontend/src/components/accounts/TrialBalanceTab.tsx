@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Calculator,
@@ -206,20 +207,12 @@ export default function TrialBalanceTab() {
   return (
     <div className="space-y-4">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Calculator className="w-3.5 h-3.5 text-violet-600 stroke-[1.25]" />
-            <span>Trial Balance</span>
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Trial Balance
+          </h1>
         </div>
 
         {/* Export & Print Actions */}
@@ -245,82 +238,6 @@ export default function TrialBalanceTab() {
           </button>
         </div>
       </div>
-
-      {/* 2. Top Summary KPI Cards */}
-      {report && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Card 1: Total Debit Balance */}
-          <div className="rounded-[3px] border border-sky-200/80 dark:border-sky-900/50 bg-sky-50/40 dark:bg-sky-950/20 p-3.5 shadow-2xs">
-            <div className="flex items-center justify-between text-sky-800 dark:text-sky-300">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Total Debit Balance</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-200/70 dark:bg-sky-900/60">
-                DR
-              </span>
-            </div>
-            <div className="text-2xl font-black font-mono text-sky-950 dark:text-sky-200 mt-1">
-              Rs. {formatCurrency(report.totals.closingDebit)}
-            </div>
-            
-          </div>
-
-          {/* Card 2: Total Credit Balance */}
-          <div className="rounded-[3px] border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3.5 shadow-2xs">
-            <div className="flex items-center justify-between text-amber-800 dark:text-amber-300">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Total Credit Balance</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-200/70 dark:bg-amber-900/60">
-                CR
-              </span>
-            </div>
-            <div className="text-2xl font-black font-mono text-amber-950 dark:text-amber-200 mt-1">
-              Rs. {formatCurrency(report.totals.closingCredit)}
-            </div>
-            
-          </div>
-
-          {/* Card 3: Total Accounts Evaluated */}
-          <div className="rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-3.5 shadow-2xs">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Active Accounts</span>
-              <Layers className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
-              {report.totalAccounts}
-            </div>
-            
-          </div>
-
-          {/* Card 4: Accounting Equilibrium Status */}
-          <div
-            className={cn(
-              'rounded-[3px] border p-3.5 shadow-2xs',
-              report.isBalanced
-                ? 'border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200'
-                : 'border-rose-200/80 dark:border-rose-900/50 bg-rose-50/40 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200'
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Accounting Status</span>
-              {report.isBalanced ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              ) : (
-                <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-              )}
-            </div>
-            <div className="text-xl font-black font-mono mt-1">
-              {report.isBalanced ? 'Balanced' : 'Out of Balance'}
-            </div>
-            <div className="text-[10px] mt-0.5 font-medium">
-              {report.isBalanced ? (
-                'Total Debit = Total Credit (Diff: Rs. 0.00)'
-              ) : (
-                <span>
-                  Discrepancy: <strong className="font-mono">Rs. {report.difference.toFixed(2)}</strong>
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 3. Filter & Control Toolbar */}
       <div className="rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-2.5 shadow-2xs space-y-2.5">

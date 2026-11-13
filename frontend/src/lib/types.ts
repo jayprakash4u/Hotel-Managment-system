@@ -3433,3 +3433,56 @@ export interface FinancialSummaryDashboardResponse {
   performanceTrends: MonthlyPerformanceTrendItem[];
   cashFlowTrends: MonthlyCashFlowTrendSummaryItem[];
 }
+
+
+// ==========================================
+// TAX MANAGEMENT TYPES
+// ==========================================
+
+export interface TaxSummaryResponse {
+  totalTaxLiability: number;
+  netVatPayable: number;
+  outputVatCollected: number;
+  inputVatPaid: number;
+  totalTdsPayable: number;
+  tdsOnRent: number;
+  tdsOnServices: number;
+  tdsOnPayroll: number;
+  estimatedCorporateTax: number;
+  totalTaxPaidPeriod: number;
+  taxPeriod: string;
+  status: 'UP_TO_DATE' | 'PAYMENT_DUE';
+}
+
+export interface TaxRecordItem {
+  id: string;
+  voucherNumber: string;
+  transactionDate: string;
+  taxType: 'VAT' | 'TDS' | 'CORPORATE_TAX' | string;
+  category: string;
+  referenceNumber: string;
+  partyName: string;
+  taxableAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  status: 'PENDING' | 'PAID' | 'FILED' | string;
+  paymentVoucherNumber?: string | null;
+  sourceModule: string;
+}
+
+export interface TaxRecordsListResponse {
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  records: TaxRecordItem[];
+}
+
+export interface RecordTaxPaymentDto {
+  taxType: string;
+  amount: number;
+  paymentDate: string;
+  paymentAccountId: string;
+  referenceNumber: string;
+  taxPeriod?: string;
+  notes?: string;
+}

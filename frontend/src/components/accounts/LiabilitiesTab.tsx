@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
+import { useDebounce } from '@/lib/useDebounce';
 import {
   ArrowLeft,
   Receipt,
@@ -89,6 +91,7 @@ export default function LiabilitiesTab() {
   const [totalPages, setTotalPages] = useState(1);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [classificationFilter, setClassificationFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -182,7 +185,7 @@ export default function LiabilitiesTab() {
     try {
       setLoading(true);
       const res = await liabilitiesApi.getOverview({
-        search: searchQuery.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
         category: categoryFilter !== 'ALL' ? categoryFilter : undefined,
         classification: classificationFilter !== 'ALL' ? classificationFilter : undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
@@ -202,7 +205,7 @@ export default function LiabilitiesTab() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, categoryFilter, classificationFilter, statusFilter, dateFrom, dateTo, page, pageSize, toastError]);
+  }, [debouncedSearch, categoryFilter, classificationFilter, statusFilter, dateFrom, dateTo, page, pageSize, toastError]);
 
   // 3. Fetch Master Metadata (Bank accounts & config)
   const fetchMasterData = useCallback(async () => {
@@ -441,20 +444,12 @@ export default function LiabilitiesTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Receipt className="w-3.5 h-3.5 text-red-600 stroke-[1.25]" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Liabilities Management
-          </span>
+          </h1>
         </div>
 
         {/* Action Buttons */}
@@ -507,77 +502,6 @@ export default function LiabilitiesTab() {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#0B3D32]' : ''}`} />
           </button>
-        </div>
-      </div>
-
-      {/* 2. Compact Financial Summary Cards (4 Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Total Liabilities */}
-        <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-            <span className="font-semibold uppercase tracking-wider">Total Liabilities</span>
-            <Receipt className="w-4 h-4 text-red-600 stroke-[1.25]" />
-          </div>
-          <div className="text-xl font-bold text-slate-900 dark:text-white">
-            Rs. {summary.totalLiabilities.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-            <span>Outstanding Obligations</span>
-            <span className="font-medium text-slate-700 dark:text-slate-300">{summary.totalObligationsCount} Items</span>
-          </div>
-        </div>
-
-        {/* Current Liabilities */}
-        <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-            <span className="font-semibold uppercase tracking-wider">Current Liabilities</span>
-            <Clock className="w-4 h-4 text-amber-600 stroke-[1.25]" />
-          </div>
-          <div className="text-xl font-bold text-amber-600 dark:text-amber-400">
-            Rs. {summary.currentLiabilities.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-            <span>Due Within 12 Months</span>
-            <span className="font-medium text-amber-700 dark:text-amber-300">
-              {summary.totalLiabilities > 0
-                ? `${Math.round((summary.currentLiabilities / summary.totalLiabilities) * 100)}% of Total`
-                : '0%'}
-            </span>
-          </div>
-        </div>
-
-        {/* Non-Current Liabilities */}
-        <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-            <span className="font-semibold uppercase tracking-wider">Non-Current Liabilities</span>
-            <Landmark className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400 stroke-[1.25]" />
-          </div>
-          <div className="text-xl font-bold text-[#0B3D32] dark:text-emerald-400">
-            Rs. {summary.nonCurrentLiabilities.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-            <span>Long-Term Debt &amp; Borrowings</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-semibold">
-              Term Debt
-            </span>
-          </div>
-        </div>
-
-        {/* Overdue Liabilities */}
-        <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-            <span className="font-semibold uppercase tracking-wider">Overdue Obligations</span>
-            <AlertTriangle className="w-4 h-4 text-rose-600 stroke-[1.25]" />
-          </div>
-          <div className="text-xl font-bold text-rose-600 dark:text-rose-400">
-            Rs. {summary.overdueLiabilities.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-            <span>Requires Immediate Attention</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold">
-              {summary.overdueCount} Overdue
-            </span>
-          </div>
         </div>
       </div>
 
@@ -722,11 +646,10 @@ export default function LiabilitiesTab() {
                         {item.category}
                       </div>
                       <div className="mt-0.5">
-                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                          item.classification === 'CURRENT'
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${item.classification === 'CURRENT'
                             ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
                             : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                        }`}>
+                          }`}>
                           {item.classification === 'CURRENT' ? 'CURRENT (≤1Y)' : 'LONG-TERM (>1Y)'}
                         </span>
                       </div>
@@ -929,13 +852,12 @@ export default function LiabilitiesTab() {
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     {selectedDetail.liabilityName}
                   </h3>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    selectedDetail.status === 'OVERDUE'
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedDetail.status === 'OVERDUE'
                       ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
                       : selectedDetail.status === 'PAID'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                  }`}>
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                    }`}>
                     {selectedDetail.status}
                   </span>
                 </div>
@@ -1007,9 +929,8 @@ export default function LiabilitiesTab() {
                               Rs. {sch.totalDue.toLocaleString()}
                             </td>
                             <td className="py-1.5 px-2.5 text-center">
-                              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                                sch.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                              }`}>
+                              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${sch.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                                }`}>
                                 {sch.status}
                               </span>
                             </td>
@@ -1658,11 +1579,10 @@ export default function LiabilitiesTab() {
                           {cfg.category}
                         </td>
                         <td className="py-2 px-3 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            cfg.classification === 'CURRENT'
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${cfg.classification === 'CURRENT'
                               ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                               : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                          }`}>
+                            }`}>
                             {cfg.classification}
                           </span>
                         </td>

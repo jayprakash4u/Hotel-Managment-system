@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   SlidersHorizontal,
   User,
@@ -106,14 +107,7 @@ export default function SystemAdminPage() {
       {/* Back button only shown when viewing a sub-view */}
       {activeTab !== 'overview' && (
         <div className="mb-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab('overview')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Back to System Cards</span>
-          </button>
+          <BackButton onClick={() => setActiveTab('overview')} label="Back" />
         </div>
       )}
 
@@ -164,13 +158,7 @@ export default function SystemAdminPage() {
                 {activeTab.replace('-', ' ')}
               </h2>
             </div>
-            <button
-              type="button"
-              onClick={() => setActiveTab('overview')}
-              className="px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer"
-            >
-              Back to System Cards
-            </button>
+            <BackButton onClick={() => setActiveTab('overview')} label="Back" />
           </div>
 
           <div className="p-8 text-center max-w-md mx-auto space-y-3">

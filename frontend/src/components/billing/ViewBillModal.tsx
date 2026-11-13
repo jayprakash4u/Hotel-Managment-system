@@ -126,29 +126,24 @@ export const ViewBillModal: React.FC<ViewBillModalProps> = ({
         {/* =====================================================================
             TOP BAR: Title, Layout Switcher & Actions (Hidden during print)
             ===================================================================== */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-[#DCE3DF] dark:border-[#145447] bg-[#F8FAF9] dark:bg-[#07241E] print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white">
-              <FileText className="w-3.5 h-3.5" />
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 print:hidden">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-black font-mono text-slate-900 dark:text-white">
+                {bill.billNumber}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCopyBillNo}
+                title="Copy Bill Number"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-black font-mono text-[#24352F] dark:text-white">
-                  {bill.billNumber}
-                </h3>
-                <button
-                  type="button"
-                  onClick={handleCopyBillNo}
-                  title="Copy Bill Number"
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <Copy className="w-3 h-3" />
-                </button>
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                Generated {formattedDate}
-              </p>
-            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Generated {formattedDate}
+            </p>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">

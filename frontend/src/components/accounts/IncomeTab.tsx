@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   TrendingUp,
@@ -45,6 +46,7 @@ import {
   AccountItem
 } from '@/lib/types';
 import { useToast } from '@/components/ui/Toast';
+import { useDebounce } from '@/lib/useDebounce';
 
 export default function IncomeTab() {
   const { success, error: toastError } = useToast();
@@ -74,6 +76,7 @@ export default function IncomeTab() {
   const [totalPages, setTotalPages] = useState(1);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
   const [dateRangePreset, setDateRangePreset] = useState<'ALL' | 'TODAY' | 'MONTH' | 'YEAR' | 'CUSTOM'>('ALL');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -134,7 +137,7 @@ export default function IncomeTab() {
     try {
       setLoading(true);
       const res = await incomeApi.getIncomeTransactions({
-        search: searchQuery.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
         categoryId: categoryFilter,
@@ -155,7 +158,7 @@ export default function IncomeTab() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, dateFrom, dateTo, categoryFilter, categoryTypeFilter, accountFilter, statusFilter, page, pageSize, toastError]);
+  }, [debouncedSearch, dateFrom, dateTo, categoryFilter, categoryTypeFilter, accountFilter, statusFilter, page, pageSize, toastError]);
 
   // 3. Fetch Master Data (Categories, Receiving Accounts, GL Accounts)
   const fetchMasterData = useCallback(async () => {
@@ -495,20 +498,12 @@ export default function IncomeTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-600 stroke-[1.25]" />
-            <span>Income Management</span>
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Income Management
+          </h1>
         </div>
 
         {/* Action Buttons */}
@@ -561,65 +556,6 @@ export default function IncomeTab() {
           >
             <RefreshCw className={`w-3.5 h-3.5 stroke-[1.25] ${loading ? 'animate-spin' : ''}`} />
           </button>
-        </div>
-      </div>
-
-      {/* 2. Three Compact Summary Cards (Requirement: Total Income, This Month, Today) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Card 1: Total Income */}
-        <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
-            <span>Total Income</span>
-            <TrendingUp className="w-4 h-4 text-emerald-600 stroke-[1.25]" />
-          </div>
-          <div className="mt-1.5 text-xl font-bold text-slate-900 dark:text-white">
-            Rs. {(summary.totalIncome || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-            <span>{summary.totalPostedCount || 0} posted vouchers</span>
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-              Op: Rs. {(summary.operatingIncome || 0).toLocaleString()}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 2: This Month */}
-        <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
-            <span>This Month</span>
-            <Calendar className="w-4 h-4 text-blue-600 stroke-[1.25]" />
-          </div>
-          <div className="mt-1.5 text-xl font-bold text-blue-900 dark:text-blue-300">
-            Rs. {(summary.thisMonthIncome || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-            <span>Current Calendar Month</span>
-            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-              Non-Op: Rs. {(summary.nonOperatingIncome || 0).toLocaleString()}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Today */}
-        <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
-            <span>Today</span>
-            <Clock className="w-4 h-4 text-teal-600 stroke-[1.25]" />
-          </div>
-          <div className="mt-1.5 text-xl font-bold text-teal-900 dark:text-teal-300">
-            Rs. {(summary.todayIncome || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-            <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            {summary.draftCount > 0 ? (
-              <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                {summary.draftCount} Drafts (Rs. {summary.totalDraftIncome.toLocaleString()})
-              </span>
-            ) : (
-              <span className="text-slate-400">No pending drafts</span>
-            )}
-          </div>
         </div>
       </div>
 

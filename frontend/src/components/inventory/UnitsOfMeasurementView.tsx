@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Scale,
   Layers,
@@ -64,30 +65,11 @@ export const UnitsOfMeasurementView: React.FC<UnitsOfMeasurementViewProps> = ({ 
 
   return (
     <div className="space-y-4 font-sans select-none">
-      {/* Top Banner */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-lg border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0 border border-cyan-100 dark:border-cyan-800">
-            <Scale className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 leading-tight">
-              Units of Measurement & Conversions
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Standard stock units, bulk purchase package units, and auto-conversion factors.
-            </p>
-          </div>
-        </div>
-
-        <div className="text-right">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-            Measurement Standard
-          </span>
-          <span className="text-sm font-bold text-slate-800 dark:text-slate-100 font-mono">
-            Metric & Commercial Packages
-          </span>
-        </div>
+      {/* 1. Sub-Header */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Units of Measurement
+        </span>
       </div>
 
       {/* Conversion Matrix Table */}

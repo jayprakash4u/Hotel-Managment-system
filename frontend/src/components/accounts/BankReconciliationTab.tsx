@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Receipt,
@@ -752,31 +753,21 @@ export default function BankReconciliationTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton
             href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Receipt className="w-3.5 h-3.5 text-cyan-600 stroke-[1.25]" />
+            label="Back"
+            onClick={viewMode === 'WORKSPACE' ? () => setViewMode('DASHBOARD') : undefined}
+          />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <span>Bank &amp; Wallet Reconciliation</span>
-          </span>
-          {viewMode === 'WORKSPACE' && activeSession && (
-            <>
-              <span className="text-slate-300 dark:text-slate-700">/</span>
-              <span className="font-bold text-cyan-700 dark:text-cyan-400 flex items-center gap-1">
-                <span>{activeSession.reconciliationNumber}</span>
-                <span className="text-slate-400 dark:text-slate-500 font-normal">
-                  ({activeSession.accountName})
-                </span>
+            {viewMode === 'WORKSPACE' && activeSession && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-900">
+                {activeSession.reconciliationNumber} ({activeSession.accountName})
               </span>
-            </>
-          )}
+            )}
+          </h1>
         </div>
 
         {/* Action Buttons */}
@@ -922,65 +913,12 @@ export default function BankReconciliationTab() {
       {/* ========================================================================= */}
       {viewMode === 'DASHBOARD' && (
         <div className="space-y-4">
-          {/* Top 5 KPI Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Bank Accounts
-              </div>
-              <div className="text-base font-black text-slate-900 dark:text-white mt-1">
-                {summary?.totalBankAccounts ?? 0}
-              </div>
-            </div>
-
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Digital Wallets
-              </div>
-              <div className="text-base font-black text-slate-900 dark:text-white mt-1">
-                {summary?.totalWalletAccounts ?? 0}
-              </div>
-            </div>
-
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                Active Sessions
-              </div>
-              <div className="text-base font-black text-blue-600 dark:text-blue-400 mt-1">
-                {summary?.activeReconciliations ?? 0}
-              </div>
-            </div>
-
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                Finalized This Month
-              </div>
-              <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {summary?.finalizedThisMonth ?? 0}
-              </div>
-            </div>
-
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                Open Discrepancies
-              </div>
-              <div className="text-base font-black text-amber-600 dark:text-amber-400 mt-1">
-                {summary?.discrepanciesCount ?? 0}
-              </div>
-            </div>
-          </div>
-
           {/* Accounts Grid & Selection Table */}
           <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
             <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Bank &amp; Digital Wallet Accounts Ready for Reconciliation
-                </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                  {accounts.length} Accounts
-                </span>
-              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Accounts for Reconciliation
+              </span>
               <button
                 type="button"
                 onClick={() => handleOpenNewSessionModal()}

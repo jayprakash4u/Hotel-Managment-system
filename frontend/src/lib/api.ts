@@ -1,37 +1,150 @@
-import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse } from './types';
+import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse, TaxSummaryResponse, TaxRecordsListResponse, RecordTaxPaymentDto } from './types';
 
-// Generic API caller with error handling and timeout protection
-async function fetcher<T>(url: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
+// ============================================================================
+// DATA CACHING & REQUEST DEDUPLICATION ARCHITECTURE
+// ============================================================================
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttlMs: number;
+}
+
+const apiMemoryCache = new Map<string, CacheEntry<any>>();
+const inFlightRequests = new Map<string, Promise<any>>();
+
+export const apiCache = {
+  invalidate: (prefixOrPattern?: string) => {
+    if (!prefixOrPattern) {
+      apiMemoryCache.clear();
+      return;
+    }
+    const cleanPattern = prefixOrPattern.toLowerCase();
+    for (const key of Array.from(apiMemoryCache.keys())) {
+      if (key.toLowerCase().includes(cleanPattern)) {
+        apiMemoryCache.delete(key);
+      }
+    }
+  },
+  clear: () => {
+    apiMemoryCache.clear();
+  },
+};
+
+// Generic API caller with error handling, timeout protection, caching & deduplication
+export async function fetcher<T>(
+  url: string,
+  options?: RequestInit & { timeoutMs?: number; cacheTtlMs?: number; noCache?: boolean }
+): Promise<T> {
+  const method = (options?.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+  const noCache = options?.noCache || false;
+  const ttlMs = options?.cacheTtlMs ?? 15000; // Default 15s in-memory cache for GET
+
+  // 1. Return from memory cache if valid and GET
+  if (isGet && !noCache) {
+    const cached = apiMemoryCache.get(url);
+    if (cached && Date.now() - cached.timestamp < cached.ttlMs) {
+      return cached.data as T;
+    }
+
+    // 2. Return in-flight promise if duplicate request is already pending
+    if (inFlightRequests.has(url)) {
+      return inFlightRequests.get(url) as Promise<T>;
+    }
+  }
+
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  const timeoutMs = options?.timeoutMs ?? 2500;
+  const timeoutMs = options?.timeoutMs ?? 5000;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    const res = await fetch(url, {
-      ...options,
-      signal: options?.signal || controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options?.headers,
-      },
-    });
+  const executeRequest = async (): Promise<T> => {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: options?.signal || controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...options?.headers,
+        },
+      });
 
-    const json = await res.json();
-    if (!res.ok || json.success === false) {
-      throw new Error(json.error || `Request failed with status ${res.status}`);
+      const json = await res.json();
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || `Request failed with status ${res.status}`);
+      }
+
+      const data = json.data as T;
+
+      // Cache successful GET response
+      if (isGet && !noCache) {
+        apiMemoryCache.set(url, {
+          data,
+          timestamp: Date.now(),
+          ttlMs,
+        });
+      }
+
+      // If mutation (POST, PUT, DELETE, PATCH), invalidate related cache keys
+      if (!isGet) {
+        // Automatically determine base route to invalidate
+        const basePath = url.split('?')[0];
+        const routeSegments = basePath.split('/').filter(Boolean);
+        if (routeSegments.length >= 2) {
+          const rootDomain = `/${routeSegments[0]}/${routeSegments[1]}`;
+          apiCache.invalidate(rootDomain);
+        } else {
+          apiCache.invalidate(basePath);
+        }
+
+        // Invalidate dependent financial reports when accounting data mutates
+        if (
+          url.includes('/income') ||
+          url.includes('/expenses') ||
+          url.includes('/journal') ||
+          url.includes('/fixed-assets') ||
+          url.includes('/liabilities') ||
+          url.includes('/tax-management') ||
+          url.includes('/sales-transactions') ||
+          url.includes('/purchase-transactions') ||
+          url.includes('/reconciliation') ||
+          url.includes('/bank-accounts') ||
+          url.includes('/cash-accounts')
+        ) {
+          apiCache.invalidate('/api/financial-summary');
+          apiCache.invalidate('/api/profit-loss');
+          apiCache.invalidate('/api/balance-sheet');
+          apiCache.invalidate('/api/cash-flow');
+          apiCache.invalidate('/api/trial-balance');
+          apiCache.invalidate('/api/general-ledger');
+          apiCache.invalidate('/api/accounts');
+        }
+      }
+
+      return data;
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw new Error(`Request timeout (${timeoutMs}ms) connecting to backend API`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+      if (isGet) {
+        inFlightRequests.delete(url);
+      }
     }
-    return json.data as T;
-  } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      throw new Error(`Request timeout (${timeoutMs}ms) connecting to backend API`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
+  };
+
+  if (isGet && !noCache) {
+    const requestPromise = executeRequest();
+    inFlightRequests.set(url, requestPromise);
+    return requestPromise;
   }
+
+  return executeRequest();
 }
 
 export const api = {
@@ -300,14 +413,14 @@ export const api = {
     return fetcher<any[]>(`/api/restaurant/tables${query}`);
   },
 
-  createTable: (data: { tableNumber: string; capacity?: number; section?: string; categoryId?: string; status?: string; cleaningStatus?: string; maintenanceNotes?: string; [key: string]: any }) => {
+  createTable: (data: { tableNumber: string; capacity?: number; section?: string; categoryId?: string; status?: string; cleaningStatus?: string; maintenanceNotes?: string;[key: string]: any }) => {
     return fetcher<any>('/api/restaurant/tables', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
-  updateTable: (id: string, data: { tableNumber?: string; capacity?: number; section?: string; categoryId?: string; status?: string; cleaningStatus?: string; maintenanceNotes?: string; [key: string]: any }) => {
+  updateTable: (id: string, data: { tableNumber?: string; capacity?: number; section?: string; categoryId?: string; status?: string; cleaningStatus?: string; maintenanceNotes?: string;[key: string]: any }) => {
     return fetcher<any>(`/api/restaurant/tables/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -2962,6 +3075,55 @@ export const financialSummaryApi = {
     return fetcher<FinancialSummaryDashboardResponse>(`/api/financial-summary${qs ? `?${qs}` : ''}`);
   },
 };
+
+// ==========================================
+// TAX MANAGEMENT API
+// ==========================================
+
+export const taxManagementApi = {
+  getSummary: (params?: { startDate?: string; endDate?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    const qs = q.toString();
+    return fetcher<TaxSummaryResponse>(`/api/tax-management/summary${qs ? `?${qs}` : ''}`);
+  },
+
+  getRecords: (params?: {
+    taxType?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.taxType) q.append('taxType', params.taxType);
+    if (params?.status) q.append('status', params.status);
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.search) q.append('search', params.search);
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    const qs = q.toString();
+    return fetcher<TaxRecordsListResponse>(`/api/tax-management/records${qs ? `?${qs}` : ''}`);
+  },
+
+  recordPayment: (dto: RecordTaxPaymentDto) => {
+    return fetcher<{
+      journalEntryId: string;
+      entryNumber: string;
+      taxType: string;
+      amountPaid: number;
+      paymentDate: string;
+    }>('/api/tax-management/record-payment', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+};
+
 
 
 

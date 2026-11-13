@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   BarChart3,
@@ -228,20 +229,12 @@ export default function ProfitAndLossTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <BarChart3 className="w-3.5 h-3.5 text-indigo-600 stroke-[1.25]" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Profit &amp; Loss Statement (P&amp;L)
-          </span>
+          </h1>
         </div>
 
         {/* Action Buttons */}
@@ -404,94 +397,6 @@ export default function ProfitAndLossTab() {
           </div>
         </div>
       </div>
-
-      {/* 3. Compact Financial Summary Cards (4 Cards) */}
-      {sum && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Total Net Revenue */}
-          <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-              <span className="font-semibold uppercase tracking-wider">Net Operating Revenue</span>
-              <TrendingUp className="w-4 h-4 text-emerald-600 stroke-[1.25]" />
-            </div>
-            <div className="text-xl font-bold text-slate-900 dark:text-white">
-              Rs. {sum.totalNetRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Gross Sales less Returns</span>
-              {hasComp && (
-                <span className={`font-semibold flex items-center gap-0.5 ${
-                  sum.revenueGrowthPercentage >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                }`}>
-                  {sum.revenueGrowthPercentage >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                  {sum.revenueGrowthPercentage}%
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Gross Profit */}
-          <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-              <span className="font-semibold uppercase tracking-wider">Gross Profit</span>
-              <DollarSign className="w-4 h-4 text-emerald-600 stroke-[1.25]" />
-            </div>
-            <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
-              Rs. {sum.grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Gross Margin</span>
-              <span className="font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                {sum.grossProfitMargin}%
-              </span>
-            </div>
-          </div>
-
-          {/* Operating Profit (EBITDA) */}
-          <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-              <span className="font-semibold uppercase tracking-wider">Operating Profit (EBITDA)</span>
-              <BarChart3 className="w-4 h-4 text-indigo-600 stroke-[1.25]" />
-            </div>
-            <div className="text-xl font-bold text-slate-900 dark:text-white">
-              Rs. {sum.operatingProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Operating Margin</span>
-              <span className="font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                {sum.operatingProfitMargin}%
-              </span>
-            </div>
-          </div>
-
-          {/* Net Profit / Loss After Tax */}
-          <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-              <span className="font-semibold uppercase tracking-wider">Net Profit / (Loss)</span>
-              {sum.netProfitAfterTax >= 0 ? (
-                <TrendingUp className="w-4 h-4 text-emerald-600 stroke-[1.25]" />
-              ) : (
-                <TrendingDown className="w-4 h-4 text-rose-600 stroke-[1.25]" />
-              )}
-            </div>
-            <div className={`text-xl font-bold ${
-              sum.netProfitAfterTax >= 0 ? 'text-[#0B3D32] dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-            }`}>
-              Rs. {sum.netProfitAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Net Profit Margin</span>
-              <span className={`font-bold px-1.5 py-0.2 rounded ${
-                sum.netProfitAfterTax >= 0
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-              }`}>
-                {sum.netProfitMargin}%
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 4. Optional Visual Analytics Section */}
       {showCharts && reportData && (

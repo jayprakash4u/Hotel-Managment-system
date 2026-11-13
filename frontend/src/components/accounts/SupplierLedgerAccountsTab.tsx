@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
+import { useDebounce } from '@/lib/useDebounce';
 import {
   ArrowLeft,
   Truck,
@@ -71,6 +73,7 @@ export default function SupplierLedgerAccountsTab() {
   const [outstandingOnly, setOutstandingOnly] = useState(false);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [invoiceNumberSearch, setInvoiceNumberSearch] = useState('');
+  const debouncedInvoiceNumberSearch = useDebounce(invoiceNumberSearch, 350);
 
   // Ledger Data State
   const [isLoadingLedger, setIsLoadingLedger] = useState(false);
@@ -213,7 +216,7 @@ export default function SupplierLedgerAccountsTab() {
         outlet: outletFilter !== 'ALL' ? outletFilter : undefined,
         outstandingOnly: outstandingOnly,
         overdueOnly: overdueOnly,
-        invoiceNumber: invoiceNumberSearch.trim() || undefined,
+        invoiceNumber: debouncedInvoiceNumberSearch.trim() || undefined,
       });
 
       setSelectedSupplier(res?.supplier || null);
@@ -240,7 +243,7 @@ export default function SupplierLedgerAccountsTab() {
     } finally {
       setIsLoadingLedger(false);
     }
-  }, [selectedSupplierId, dateFrom, dateTo, transactionTypeFilter, outletFilter, outstandingOnly, overdueOnly, invoiceNumberSearch]);
+  }, [selectedSupplierId, dateFrom, dateTo, transactionTypeFilter, outletFilter, outstandingOnly, overdueOnly, debouncedInvoiceNumberSearch]);
 
   useEffect(() => {
     if (selectedSupplierId) {
@@ -582,28 +585,21 @@ export default function SupplierLedgerAccountsTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton
             href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Truck className="w-3.5 h-3.5 text-amber-600 stroke-[1.25]" />
+            label="Back"
+            onClick={selectedSupplier ? () => setSelectedSupplier(null) : undefined}
+          />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <span>Supplier Ledger</span>
-          </span>
-          {selectedSupplier && (
-            <>
-              <span className="text-slate-300 dark:text-slate-700">/</span>
-              <span className="font-bold text-amber-700 dark:text-amber-400">
+            {selectedSupplier && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
                 {selectedSupplier.name}
               </span>
-            </>
-          )}
+            )}
+          </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -894,81 +890,6 @@ export default function SupplierLedgerAccountsTab() {
           </div>
         </div>
       )}
-
-      {/* 5. 9 Financial KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2">
-        {/* 1. Opening Payable */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Opening Payable</div>
-          <div className="text-sm font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {(summary?.openingPayableBalance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 2. Total Purchases */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Purchases</div>
-          <div className="text-sm font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {(summary?.totalPurchases ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 3. Total Payments */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Payments</div>
-          <div className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-            Rs. {(summary?.totalPayments ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 4. Purchase Returns */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Returns</div>
-          <div className="text-sm font-black text-purple-600 dark:text-purple-400 mt-1 truncate">
-            Rs. {(summary?.purchaseReturns ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 5. Debit Notes */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Debit Notes</div>
-          <div className="text-sm font-black text-blue-600 dark:text-blue-400 mt-1 truncate">
-            Rs. {(summary?.debitNotes ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 6. Credit Notes */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Credit Notes</div>
-          <div className="text-sm font-black text-slate-700 dark:text-slate-300 mt-1 truncate">
-            Rs. {(summary?.creditNotes ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 7. Outstanding Payable */}
-        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Outstanding Payable</div>
-          <div className="text-sm font-black text-amber-900 dark:text-amber-200 mt-1 truncate">
-            Rs. {(summary?.outstandingPayable ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 8. Advance Balance */}
-        <div className="p-3 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">Advance Balance</div>
-          <div className="text-sm font-black text-teal-900 dark:text-teal-200 mt-1 truncate">
-            Rs. {(summary?.supplierAdvanceBalance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 9. Overdue Amount */}
-        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">Overdue Payables</div>
-          <div className="text-sm font-black text-rose-900 dark:text-rose-200 mt-1 truncate">
-            Rs. {(summary?.overdueAmount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-      </div>
 
       {/* 6. Chronological Supplier Ledger Transaction Table */}
       <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">

@@ -100,24 +100,19 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#DCE3DF] dark:border-[#145447] bg-[#F8FAF9] dark:bg-[#07241E]">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-[3px] bg-emerald-600 text-white">
-              <CreditCard className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-[#24352F] dark:text-white">
-                Record Payment
-              </h3>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                Bill #{bill.billNumber} · {bill.billingType}
-              </p>
-            </div>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              Record Payment
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+              Bill #{bill.billNumber} · {bill.billingType}
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-white"
+            className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>

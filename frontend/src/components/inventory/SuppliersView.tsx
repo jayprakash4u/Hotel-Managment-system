@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Users,
   Plus,
@@ -359,54 +360,41 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
   };
 
   return (
-    <div className="space-y-3 font-sans">
-      {/* =========================================================================
-          1. QUICK STATUS FILTER TABS (MATCHING TABLE RESERVATIONS DESIGN)
-         ========================================================================= */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
-        {[
-          { id: 'ALL' as StatusFilter, label: 'All Suppliers' },
-          { id: 'ACTIVE' as StatusFilter, label: 'Active' },
-          { id: 'INACTIVE' as StatusFilter, label: 'Inactive / Deactivated' },
-        ].map((tab) => {
-          const isSelected = statusFilter === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setStatusFilter(tab.id);
-                setCurrentPage(1);
-              }}
-              className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-[3px] border transition-colors cursor-pointer shrink-0',
-                isSelected
-                  ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs'
-                  : 'bg-white dark:bg-surface-card border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-hover'
-              )}
-            >
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+    <div className="space-y-4 font-sans select-none">
+      {/* 1. Sub-Header Action Bar */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Suppliers Directory
+        </span>
 
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="ml-auto p-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
-          title="Refresh suppliers"
-        >
-          <RotateCcw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin text-[#0B3D32]')} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleOpenAdd}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Supplier</span>
+          </button>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            title="Refresh suppliers"
+          >
+            <RotateCcw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* =========================================================================
           2. MAIN DATATABLES CARD
          ========================================================================= */}
       <div className="bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] p-3.5 shadow-2xs space-y-3">
-        {/* Top Controls: "Show [ 10 v ] entries" on left, "Search: [ ___ ]" & Add button on right */}
+        {/* Top Controls: "Show [ 10 v ] entries" on left, "Search" on right */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-700 dark:text-slate-300 select-none">
-          {/* Left: Show Entries & Category Filter */}
+          {/* Left: Show Entries, Status & Category Filters */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span>Show</span>
@@ -424,6 +412,22 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
                 <option value={100}>100</option>
               </select>
               <span>entries</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as StatusFilter);
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -475,15 +479,6 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({
                 )}
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={handleOpenAdd}
-              className="inline-flex items-center gap-1 px-3 py-1 bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold rounded-[3px] shadow-2xs transition-colors cursor-pointer shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Supplier</span>
-            </button>
           </div>
         </div>
 

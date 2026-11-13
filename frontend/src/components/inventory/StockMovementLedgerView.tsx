@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Activity,
   Search,
@@ -159,31 +160,16 @@ export const StockMovementLedgerView: React.FC<StockMovementLedgerViewProps> = (
 
   return (
     <div className="space-y-4 font-sans select-none">
-      {/* Top Banner & Header */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-lg border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-[#00A884] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-teal-100 dark:border-teal-800">
-            <Activity className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 leading-tight">
-                Stock Movement Ledger
-              </h2>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                Audited Stock Log
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Complete chronological audit trail of all inventory increases, deductions, transfers and stock adjustments.
-            </p>
-          </div>
-        </div>
+      {/* 1. Sub-Header Action Bar & Item Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Stock Movement Ledger
+        </span>
 
         {/* Item Selector Dropdown */}
         <div className="flex items-center gap-2">
           <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-            Filter Item:
+            Item:
           </label>
           <div className="relative min-w-[220px]">
             <select
@@ -192,7 +178,7 @@ export const StockMovementLedgerView: React.FC<StockMovementLedgerViewProps> = (
                 setSelectedItemId(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-1.5 rounded-[4px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#00A884] shadow-2xs cursor-pointer"
+              className="w-full h-[30px] px-2.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#0B3D32] shadow-2xs cursor-pointer"
             >
               <option value="ALL">All Items</option>
               <optgroup label="Inventory Items">

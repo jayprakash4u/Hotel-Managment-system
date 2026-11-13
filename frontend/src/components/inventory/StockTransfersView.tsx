@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/ui/Button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/Table';
 import { Modal } from '@/components/ui/Modal';
@@ -165,15 +166,13 @@ export const StockTransfersView: React.FC<StockTransfersViewProps> = ({
   // If business has only one department enabled, show clear notice
   if (!isTransfersEnabled) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-slate-800">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-heading">
+      <div className="space-y-4 font-sans select-none">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <BackButton href="/inventory" label="Back" />
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
               Stock Transfers
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Inter-department stock transfers between Hotel and Restaurant
-            </p>
           </div>
         </div>
 
@@ -194,36 +193,31 @@ export const StockTransfersView: React.FC<StockTransfersViewProps> = ({
   }
 
   return (
-    <div className="space-y-5 select-none">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-heading">
-            Stock Transfers
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Atomic stock reallocation between Hotel Inventory and Restaurant Inventory
-          </p>
-        </div>
+    <div className="space-y-4 font-sans select-none">
+      {/* 1. Sub-Header Action Bar */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Stock Transfers
+        </span>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            leftIcon={<RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />}
-          >
-            Refresh
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
             onClick={handleOpenTransferModal}
-            leftIcon={<ArrowLeftRight className="w-3.5 h-3.5" />}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
           >
-            + Transfer Stock
-          </Button>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Transfer Stock</span>
+          </button>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            title="Refresh transfers"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
 

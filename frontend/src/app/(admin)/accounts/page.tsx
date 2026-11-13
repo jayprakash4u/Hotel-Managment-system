@@ -26,6 +26,7 @@ import ProfitAndLossTab from '@/components/accounts/ProfitAndLossTab';
 import BalanceSheetTab from '@/components/accounts/BalanceSheetTab';
 import CashFlowStatementTab from '@/components/accounts/CashFlowStatementTab';
 import FinancialSummaryTab from '@/components/accounts/FinancialSummaryTab';
+import TaxManagementTab from '@/components/accounts/TaxManagementTab';
 
 function AccountsContent() {
   const searchParams = useSearchParams();
@@ -103,20 +104,22 @@ function AccountsContent() {
     return <FinancialSummaryTab />;
   }
 
+  if (currentTab === 'tax-management' || currentTab === 'tax') {
+    return <TaxManagementTab />;
+  }
+
   if (currentTab === 'customer-ledger') {
     return <CustomerLedgerAccountsTab />;
   }
 
   return (
-    <div className="space-y-6 pb-12">
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Accounts &amp; Financial Management Hub
-          </span>
-        </div>
-        <AccountsNavBoxes activeId={currentTab || ''} />
+    <div className="space-y-4 pb-12">
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Accounts
+        </span>
       </div>
+      <AccountsNavBoxes activeId={currentTab || ''} />
     </div>
   );
 }
