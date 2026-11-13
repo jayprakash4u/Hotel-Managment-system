@@ -131,7 +131,10 @@ public class AccountsController : ControllerBase
             // NON-OPERATING EXPENSES (6000 - 6999)
             new Account { HotelId = hotelId, AccountCode = "6100", AccountName = "Interest Expense on Borrowings", AccountType = "EXPENSE", SubCategory = "Non-Operating Expense", NormalBalance = "DEBIT", OpeningBalance = 0, CurrentBalance = 0, Description = "Bank loan and overdraft financing interest" },
             new Account { HotelId = hotelId, AccountCode = "6200", AccountName = "Loss on Disposal of Fixed Assets", AccountType = "EXPENSE", SubCategory = "Non-Operating Expense", NormalBalance = "DEBIT", OpeningBalance = 0, CurrentBalance = 0, Description = "Loss recognized on disposal or write-off of used equipment" },
-            new Account { HotelId = hotelId, AccountCode = "6900", AccountName = "Other Non-Operating Expenses", AccountType = "EXPENSE", SubCategory = "Non-Operating Expense", NormalBalance = "DEBIT", OpeningBalance = 0, CurrentBalance = 0, Description = "Secondary non-operational charges and statutory penalties" }
+            new Account { HotelId = hotelId, AccountCode = "6900", AccountName = "Other Non-Operating Expenses", AccountType = "EXPENSE", SubCategory = "Non-Operating Expense", NormalBalance = "DEBIT", OpeningBalance = 0, CurrentBalance = 0, Description = "Secondary non-operational charges and statutory penalties" },
+
+            // TAX EXPENSE (7000 - 7999)
+            new Account { HotelId = hotelId, AccountCode = "7010", AccountName = "Corporate Income Tax Expense", AccountType = "EXPENSE", SubCategory = "Income Tax", NormalBalance = "DEBIT", OpeningBalance = 0, CurrentBalance = 0, Description = "Estimated corporate income tax on period net earnings" }
         };
     }
     #endregion

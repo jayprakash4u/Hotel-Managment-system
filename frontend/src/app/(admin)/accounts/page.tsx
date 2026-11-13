@@ -22,6 +22,10 @@ import IncomeTab from '@/components/accounts/IncomeTab';
 import ExpensesTab from '@/components/accounts/ExpensesTab';
 import FixedAssetsTab from '@/components/accounts/FixedAssetsTab';
 import LiabilitiesTab from '@/components/accounts/LiabilitiesTab';
+import ProfitAndLossTab from '@/components/accounts/ProfitAndLossTab';
+import BalanceSheetTab from '@/components/accounts/BalanceSheetTab';
+import CashFlowStatementTab from '@/components/accounts/CashFlowStatementTab';
+import FinancialSummaryTab from '@/components/accounts/FinancialSummaryTab';
 
 function AccountsContent() {
   const searchParams = useSearchParams();
@@ -81,6 +85,22 @@ function AccountsContent() {
 
   if (currentTab === 'liabilities') {
     return <LiabilitiesTab />;
+  }
+
+  if (currentTab === 'profit-loss') {
+    return <ProfitAndLossTab />;
+  }
+
+  if (currentTab === 'balance-sheet') {
+    return <BalanceSheetTab />;
+  }
+
+  if (currentTab === 'cash-flow') {
+    return <CashFlowStatementTab />;
+  }
+
+  if (currentTab === 'financial-summary') {
+    return <FinancialSummaryTab />;
   }
 
   if (currentTab === 'customer-ledger') {

@@ -1,4 +1,4 @@
-import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem } from './types';
+import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse } from './types';
 
 // Generic API caller with error handling and timeout protection
 async function fetcher<T>(url: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
@@ -2834,6 +2834,138 @@ export const liabilitiesApi = {
     }>>('/api/liabilities/bank-accounts');
   },
 };
+
+// ==========================================
+// PROFIT & LOSS (P&L) API
+// ==========================================
+
+export const profitAndLossApi = {
+  getStatement: (params?: {
+    startDate?: string;
+    endDate?: string;
+    comparisonMode?: PnLComparisonMode;
+    compareStartDate?: string;
+    compareEndDate?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.comparisonMode) q.append('comparisonMode', params.comparisonMode);
+    if (params?.compareStartDate) q.append('compareStartDate', params.compareStartDate);
+    if (params?.compareEndDate) q.append('compareEndDate', params.compareEndDate);
+    const qs = q.toString();
+    return fetcher<PnLStatementResponse>(`/api/profit-loss/statement${qs ? `?${qs}` : ''}`);
+  },
+
+  getAccountDrilldown: (accountId: string, startDate: string, endDate: string) => {
+    const q = new URLSearchParams();
+    q.append('accountId', accountId);
+    q.append('startDate', startDate);
+    q.append('endDate', endDate);
+    return fetcher<PnLDrilldownResponse>(`/api/profit-loss/drilldown?${q.toString()}`);
+  },
+};
+
+// ==========================================
+// BALANCE SHEET REPORTING API
+// ==========================================
+
+export const balanceSheetApi = {
+  getStatement: (params?: {
+    asOfDate?: string;
+    comparisonMode?: BalanceSheetComparisonMode;
+    compareAsOfDate?: string;
+    viewMode?: BalanceSheetViewMode;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.asOfDate) q.append('asOfDate', params.asOfDate);
+    if (params?.comparisonMode) q.append('comparisonMode', params.comparisonMode);
+    if (params?.compareAsOfDate) q.append('compareAsOfDate', params.compareAsOfDate);
+    if (params?.viewMode) q.append('viewMode', params.viewMode);
+    const qs = q.toString();
+    return fetcher<BalanceSheetStatementResponse>(`/api/balance-sheet/statement${qs ? `?${qs}` : ''}`);
+  },
+
+  getAccountDrilldown: (accountId: string, asOfDate?: string) => {
+    const q = new URLSearchParams();
+    q.append('accountId', accountId);
+    if (asOfDate) q.append('asOfDate', asOfDate);
+    return fetcher<BalanceSheetDrilldownResponse>(`/api/balance-sheet/drilldown?${q.toString()}`);
+  },
+
+  investigateDiscrepancy: (asOfDate?: string) => {
+    const q = new URLSearchParams();
+    if (asOfDate) q.append('asOfDate', asOfDate);
+    const qs = q.toString();
+    return fetcher<DiscrepancyDiagnosticResponse>(`/api/balance-sheet/investigate${qs ? `?${qs}` : ''}`);
+  },
+};
+
+// ==========================================
+// CASH FLOW STATEMENT API
+// ==========================================
+
+export const cashFlowApi = {
+  getStatement: (params?: {
+    startDate?: string;
+    endDate?: string;
+    comparisonMode?: CashFlowComparisonMode;
+    compareStartDate?: string;
+    compareEndDate?: string;
+    method?: CashFlowPresentationMethod;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.comparisonMode) q.append('comparisonMode', params.comparisonMode);
+    if (params?.compareStartDate) q.append('compareStartDate', params.compareStartDate);
+    if (params?.compareEndDate) q.append('compareEndDate', params.compareEndDate);
+    if (params?.method) q.append('method', params.method);
+    const qs = q.toString();
+    return fetcher<CashFlowStatementResponse>(`/api/cash-flow/statement${qs ? `?${qs}` : ''}`);
+  },
+
+  getCategoryDrilldown: (params: {
+    itemKey: string;
+    startDate?: string;
+    endDate?: string;
+    activityType?: string;
+  }) => {
+    const q = new URLSearchParams();
+    q.append('itemKey', params.itemKey);
+    if (params.startDate) q.append('startDate', params.startDate);
+    if (params.endDate) q.append('endDate', params.endDate);
+    if (params.activityType) q.append('activityType', params.activityType);
+    return fetcher<CashFlowDrilldownResponse>(`/api/cash-flow/drilldown?${q.toString()}`);
+  },
+};
+
+// ==========================================
+// FINANCIAL SUMMARY DASHBOARD API
+// ==========================================
+
+export const financialSummaryApi = {
+  getDashboard: (params?: {
+    startDate?: string;
+    endDate?: string;
+    comparisonMode?: string;
+    compareStartDate?: string;
+    compareEndDate?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.comparisonMode) q.append('comparisonMode', params.comparisonMode);
+    if (params?.compareStartDate) q.append('compareStartDate', params.compareStartDate);
+    if (params?.compareEndDate) q.append('compareEndDate', params.compareEndDate);
+    const qs = q.toString();
+    return fetcher<FinancialSummaryDashboardResponse>(`/api/financial-summary${qs ? `?${qs}` : ''}`);
+  },
+};
+
+
+
+
 
 
 

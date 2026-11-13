@@ -2852,5 +2852,584 @@ export interface LiabilityAccountConfigItem {
   description?: string;
 }
 
+// ==========================================
+// 19. PROFIT & LOSS (P&L) TYPES
+// ==========================================
+
+export type PnLComparisonMode = 'NONE' | 'PREVIOUS_PERIOD' | 'PREVIOUS_YEAR' | 'CUSTOM';
+
+export interface PnLLineItem {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  subCategory: string;
+  currentAmount: number;
+  compareAmount: number;
+  variance: number;
+  variancePercentage: number;
+  isContra: boolean;
+}
+
+export interface PnLSection {
+  sectionKey: string;
+  title: string;
+  items: PnLLineItem[];
+  currentTotal: number;
+  compareTotal: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface MonthlyTrendItem {
+  monthKey: string;
+  monthLabel: string;
+  revenue: number;
+  cogs: number;
+  operatingExpenses: number;
+  grossProfit: number;
+  netProfit: number;
+}
+
+export interface ExpenseCategoryBreakdownItem {
+  categoryName: string;
+  amount: number;
+  percentageOfExpenses: number;
+}
+
+export interface PnLStatementPeriod {
+  startDate: string;
+  endDate: string;
+  formattedPeriod: string;
+  comparisonMode: PnLComparisonMode;
+  hasComparison: boolean;
+  compareStartDate?: string;
+  compareEndDate?: string;
+  formattedComparePeriod?: string;
+}
+
+export interface PnLSummaryCards {
+  totalNetRevenue: number;
+  compareNetRevenue: number;
+  revenueGrowthPercentage: number;
+
+  grossProfit: number;
+  compareGrossProfit: number;
+  grossProfitMargin: number;
+  compareGrossProfitMargin: number;
+  grossProfitGrowthPercentage: number;
+
+  operatingProfit: number;
+  compareOperatingProfit: number;
+  operatingProfitMargin: number;
+
+  netProfitAfterTax: number;
+  compareNetProfitAfterTax: number;
+  netProfitMargin: number;
+  compareNetProfitMargin: number;
+  netProfitGrowthPercentage: number;
+
+  totalOperatingExpenses: number;
+  totalCOGS: number;
+  totalOtherIncome: number;
+  totalOtherExpenses: number;
+  taxExpense: number;
+}
+
+export interface PnLStatementResponse {
+  period: PnLStatementPeriod;
+  summaryCards: PnLSummaryCards;
+  sections: PnLSection[];
+  monthlyTrends: MonthlyTrendItem[];
+  expenseCategoryBreakdown: ExpenseCategoryBreakdownItem[];
+}
+
+export interface PnLDrilldownTransaction {
+  id: string;
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string;
+  lineDescription?: string;
+  reference?: string;
+  sourceModule: string;
+  sourceTransactionId?: string;
+  debit: number;
+  credit: number;
+  status: string;
+}
+
+export interface PnLDrilldownResponse {
+  account: {
+    id: string;
+    accountCode: string;
+    accountName: string;
+    accountType: string;
+    subCategory?: string;
+    normalBalance: string;
+  };
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  totals: {
+    totalDebit: number;
+    totalCredit: number;
+    netMovement: number;
+    transactionCount: number;
+  };
+  transactions: PnLDrilldownTransaction[];
+}
 
 
+
+
+
+
+// ==========================================
+// BALANCE SHEET REPORTING MODULE TYPES
+// ==========================================
+
+export type BalanceSheetComparisonMode = 'NONE' | 'PREVIOUS_MONTH_END' | 'PREVIOUS_YEAR_END' | 'CUSTOM';
+export type BalanceSheetViewMode = 'DETAILED' | 'CONDENSED';
+
+export interface BalanceSheetLineItem {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  subCategory: string;
+  currentBalance: number;
+  compareBalance: number;
+  variance: number;
+  variancePercentage: number;
+  isContra: boolean;
+}
+
+export interface BalanceSheetSubGroup {
+  groupKey: string;
+  title: string;
+  items: BalanceSheetLineItem[];
+  currentTotal: number;
+  compareTotal: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface BalanceSheetAssetsSection {
+  title: string;
+  currentAssetGroups: BalanceSheetSubGroup[];
+  totalCurrentAssets: number;
+  compareTotalCurrentAssets: number;
+  fixedAssetsCostItems: BalanceSheetLineItem[];
+  totalFixedAssetsCost: number;
+  compareTotalFixedAssetsCost: number;
+  accumulatedDepreciationItems: BalanceSheetLineItem[];
+  totalAccumulatedDepreciation: number;
+  compareTotalAccumulatedDepreciation: number;
+  netFixedAssets: number;
+  compareNetFixedAssets: number;
+  totalAssets: number;
+  compareTotalAssets: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface BalanceSheetLiabilitiesSection {
+  title: string;
+  currentLiabilityGroups: BalanceSheetSubGroup[];
+  totalCurrentLiabilities: number;
+  compareTotalCurrentLiabilities: number;
+  nonCurrentLiabilityGroups: BalanceSheetSubGroup[];
+  totalNonCurrentLiabilities: number;
+  compareTotalNonCurrentLiabilities: number;
+  totalLiabilities: number;
+  compareTotalLiabilities: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface BalanceSheetEquitySection {
+  title: string;
+  items: BalanceSheetLineItem[];
+  totalEquity: number;
+  compareTotalEquity: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface BalanceSheetSummaryCards {
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  totalLiabilitiesAndEquity: number;
+  balanceDifference: number;
+  isBalanced: boolean;
+  compareTotalAssets: number;
+  compareTotalLiabilities: number;
+  compareTotalEquity: number;
+  compareTotalLiabilitiesAndEquity: number;
+  compareBalanceDifference: number;
+  varianceAssets: number;
+  variancePercentageAssets: number;
+  varianceLiabilities: number;
+  variancePercentageLiabilities: number;
+  varianceEquity: number;
+  variancePercentageEquity: number;
+}
+
+export interface BalanceSheetStatementResponse {
+  asOfDate: string;
+  compareAsOfDate?: string | null;
+  formattedAsOfDate: string;
+  formattedCompareAsOfDate?: string | null;
+  comparisonMode: BalanceSheetComparisonMode;
+  viewMode: BalanceSheetViewMode;
+  summary: BalanceSheetSummaryCards;
+  assets: BalanceSheetAssetsSection;
+  liabilities: BalanceSheetLiabilitiesSection;
+  equity: BalanceSheetEquitySection;
+}
+
+export interface BalanceSheetDrilldownItem {
+  id: string;
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  entryType: string;
+  reference?: string | null;
+  narration: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  sourceModule: string;
+}
+
+export interface BalanceSheetDrilldownResponse {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  subCategory: string;
+  normalBalance: string;
+  openingBalance: number;
+  totalDebits: number;
+  totalCredits: number;
+  closingBalance: number;
+  asOfDate: string;
+  transactions: BalanceSheetDrilldownItem[];
+}
+
+export interface DiscrepancyDiagnosticResponse {
+  asOfDate: string;
+  balanceDifference: number;
+  isBalanced: boolean;
+  openingDebitsSum: number;
+  openingCreditsSum: number;
+  openingDiscrepancy: number;
+  imbalancedJournalEntriesCount: number;
+  imbalancedEntryNumbers: string[];
+  unpostedDraftsCount: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  cumulativeNetProfit: number;
+  auditFindings: string[];
+  recommendations: string[];
+}
+
+
+// ==========================================
+// CASH FLOW STATEMENT MODULE TYPES
+// ==========================================
+
+export type CashFlowComparisonMode = 'NONE' | 'PREVIOUS_PERIOD' | 'PREVIOUS_YEAR' | 'CUSTOM';
+export type CashFlowPresentationMethod = 'DIRECT' | 'INDIRECT';
+
+export interface CashFlowLineItem {
+  itemKey: string;
+  title: string;
+  category: string;
+  currentAmount: number;
+  compareAmount: number;
+  variance: number;
+  variancePercentage: number;
+  transactionCount: number;
+}
+
+export interface CashFlowActivitySection {
+  activityType: string;
+  title: string;
+  inflows: CashFlowLineItem[];
+  totalInflows: number;
+  compareTotalInflows: number;
+  outflows: CashFlowLineItem[];
+  totalOutflows: number;
+  compareTotalOutflows: number;
+  netCashFlow: number;
+  compareNetCashFlow: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface CashAccountBalanceSummary {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  subCategory: string;
+  openingBalance: number;
+  totalInflows: number;
+  totalOutflows: number;
+  netChange: number;
+  closingBalance: number;
+}
+
+export interface IndirectWorkingCapitalItem {
+  itemKey: string;
+  title: string;
+  openingBalance: number;
+  closingBalance: number;
+  changeInBalance: number;
+  cashFlowImpact: number;
+  explanation: string;
+}
+
+export interface IndirectMethodSection {
+  netProfitOrLoss: number;
+  nonCashAdjustments: CashFlowLineItem[];
+  totalNonCashAdjustments: number;
+  workingCapitalAdjustments: IndirectWorkingCapitalItem[];
+  totalWorkingCapitalAdjustments: number;
+  netOperatingCashFlow: number;
+}
+
+export interface MonthlyCashFlowTrendItem {
+  monthKey: string;
+  monthLabel: string;
+  totalInflow: number;
+  totalOutflow: number;
+  netChange: number;
+  operatingCashFlow: number;
+  investingCashFlow: number;
+  financingCashFlow: number;
+}
+
+export interface CashFlowSummaryCards {
+  openingCashBalance: number;
+  totalCashInflow: number;
+  totalCashOutflow: number;
+  netChangeInCash: number;
+  closingCashBalance: number;
+  operatingCashFlow: number;
+  investingCashFlow: number;
+  financingCashFlow: number;
+  compareOpeningCashBalance: number;
+  compareTotalCashInflow: number;
+  compareTotalCashOutflow: number;
+  compareNetChangeInCash: number;
+  compareClosingCashBalance: number;
+  varianceNetChange: number;
+  variancePercentageNetChange: number;
+}
+
+export interface CashFlowStatementResponse {
+  startDate: string;
+  endDate: string;
+  formattedPeriod: string;
+  compareStartDate?: string | null;
+  compareEndDate?: string | null;
+  formattedComparePeriod?: string | null;
+  comparisonMode: CashFlowComparisonMode;
+  presentationMethod: CashFlowPresentationMethod;
+  summary: CashFlowSummaryCards;
+  cashAccounts: CashAccountBalanceSummary[];
+  operatingActivities: CashFlowActivitySection;
+  investingActivities: CashFlowActivitySection;
+  financingActivities: CashFlowActivitySection;
+  indirectMethod?: IndirectMethodSection | null;
+  monthlyTrends: MonthlyCashFlowTrendItem[];
+}
+
+export interface CashFlowDrilldownTransaction {
+  id: string;
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string;
+  reference?: string | null;
+  sourceModule: string;
+  cashAccountCode: string;
+  cashAccountName: string;
+  contraAccountCode: string;
+  contraAccountName: string;
+  isInflow: boolean;
+  amount: number;
+}
+
+export interface CashFlowDrilldownResponse {
+  itemKey: string;
+  title: string;
+  activityType: string;
+  category: string;
+  totalAmount: number;
+  transactionCount: number;
+  formattedPeriod: string;
+  transactions: CashFlowDrilldownTransaction[];
+}
+
+
+// ==========================================
+// FINANCIAL SUMMARY DASHBOARD TYPES
+// ==========================================
+
+export interface OverviewCardMetric {
+  currentAmount: number;
+  compareAmount: number;
+  variance: number;
+  variancePercentage: number;
+  hasComparison: boolean;
+}
+
+export interface CashAndBankCardMetric {
+  totalCashAndBank: number;
+  cashInHand: number;
+  bankBalance: number;
+  walletBalance: number;
+}
+
+export interface OutstandingPayablesCardMetric {
+  totalOutstandingPayables: number;
+  overduePayables: number;
+  supplierCount: number;
+}
+
+export interface PrimaryOverviewCards {
+  netRevenue: OverviewCardMetric;
+  netProfit: OverviewCardMetric;
+  netMarginPercentage: number;
+  cashAndBank: CashAndBankCardMetric;
+  payables: OutstandingPayablesCardMetric;
+}
+
+export interface FinancialPerformanceSummary {
+  grossSales: number;
+  salesDiscounts: number;
+  salesReturns: number;
+  netRevenue: number;
+  costOfGoodsSold: number;
+  grossProfit: number;
+  grossMarginPercentage: number;
+  operatingExpenses: number;
+  depreciationExpense: number;
+  otherIncome: number;
+  otherExpenses: number;
+  incomeTaxExpense: number;
+  netProfit: number;
+  netMarginPercentage: number;
+
+  compareNetRevenue: number;
+  compareGrossProfit: number;
+  compareNetProfit: number;
+  varianceNetRevenue: number;
+  variancePercentageNetRevenue: number;
+  varianceNetProfit: number;
+  variancePercentageNetProfit: number;
+}
+
+export interface AssetsPositionSummary {
+  cashInHand: number;
+  bankBalances: number;
+  digitalWalletBalances: number;
+  accountsReceivable: number;
+  inventory: number;
+  fixedAssetsGross: number;
+  accumulatedDepreciation: number;
+  fixedAssetsNet: number;
+  otherAssets: number;
+  totalAssets: number;
+}
+
+export interface LiabilitiesPositionSummary {
+  supplierPayables: number;
+  accruedExpensePayables: number;
+  loanBalances: number;
+  taxLiabilities: number;
+  customerAdvances: number;
+  payrollAndTipsPayable: number;
+  otherLiabilities: number;
+  totalLiabilities: number;
+}
+
+export interface EquityPositionSummary {
+  ownersCapital: number;
+  retainedEarnings: number;
+  currentPeriodProfitOrLoss: number;
+  lessDrawings: number;
+  otherEquity: number;
+  totalEquity: number;
+}
+
+export interface FinancialPositionSummary {
+  asOfDate: string;
+  formattedAsOfDate: string;
+  assets: AssetsPositionSummary;
+  liabilities: LiabilitiesPositionSummary;
+  equity: EquityPositionSummary;
+  totalLiabilitiesAndEquity: number;
+  balanceDifference: number;
+  isBalanced: boolean;
+}
+
+export interface CashFlowSummarySection {
+  openingCashBalance: number;
+  operatingCashFlow: number;
+  investingCashFlow: number;
+  financingCashFlow: number;
+  netChangeInCash: number;
+  closingCashBalance: number;
+}
+
+export interface ReceivablesSummarySection {
+  totalCustomerReceivables: number;
+  overdueReceivables: number;
+  customerCount: number;
+}
+
+export interface PayablesSummarySection {
+  totalSupplierPayables: number;
+  overduePayables: number;
+  supplierCount: number;
+}
+
+export interface MonthlyPerformanceTrendItem {
+  monthKey: string;
+  monthLabel: string;
+  netRevenue: number;
+  costOfGoodsSold: number;
+  operatingExpenses: number;
+  netProfit: number;
+}
+
+export interface MonthlyCashFlowTrendSummaryItem {
+  monthKey: string;
+  monthLabel: string;
+  totalInflow: number;
+  totalOutflow: number;
+  netChange: number;
+}
+
+export interface FinancialSummaryDashboardResponse {
+  startDate: string;
+  endDate: string;
+  formattedPeriod: string;
+  asOfDate: string;
+  formattedAsOfDate: string;
+  comparisonMode: string;
+  hasComparison: boolean;
+  overviewCards: PrimaryOverviewCards;
+  performance: FinancialPerformanceSummary;
+  financialPosition: FinancialPositionSummary;
+  cashFlow: CashFlowSummarySection;
+  receivables: ReceivablesSummarySection;
+  payables: PayablesSummarySection;
+  performanceTrends: MonthlyPerformanceTrendItem[];
+  cashFlowTrends: MonthlyCashFlowTrendSummaryItem[];
+}
