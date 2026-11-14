@@ -84,7 +84,7 @@ interface RestaurantTableOption {
 }
 
 export default function QrMenuPage() {
-  const { showToast } = useToast();
+  const { success, error, info } = useToast();
   const [activeTab, setActiveTab] = useState<ActiveTab>('DASHBOARD');
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -153,7 +153,7 @@ export default function QrMenuPage() {
       }
 
       // 2. Fetch QR codes & tables
-      const qrRes = await api.getQrCodes();
+      const qrRes = (await api.getQrCodes()) as any;
       if (qrRes?.data) {
         setQrCodes(qrRes.data.qrCodes || []);
         setTables(qrRes.data.tables || []);
@@ -174,7 +174,7 @@ export default function QrMenuPage() {
       }
     } catch (err: any) {
       console.error('Failed to load QR menu configuration:', err);
-      showToast('Could not load QR menu data. Please try again.', 'error');
+      error('Could not load QR menu data. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -239,7 +239,7 @@ export default function QrMenuPage() {
     if (typeof navigator !== 'undefined') {
       navigator.clipboard.writeText(fullPublicMenuUrl);
       setCopiedLink(true);
-      showToast('Public Menu URL copied to clipboard!', 'success');
+      success('Public Menu URL copied to clipboard!');
       setTimeout(() => setCopiedLink(false), 2500);
     }
   };
@@ -250,13 +250,13 @@ export default function QrMenuPage() {
     try {
       const res = await api.updateQrMenuSettings(settings);
       if (res?.data?.settings) {
-        showToast('QR Menu settings updated successfully!', 'success');
+        success('QR Menu settings updated successfully!');
       } else {
-        showToast('Settings saved successfully.', 'success');
+        success('Settings saved successfully.');
       }
     } catch (err: any) {
       console.error('Failed to update settings:', err);
-      showToast('Failed to save settings. Please try again.', 'error');
+      error('Failed to save settings. Please try again.');
     } finally {
       setSavingSettings(false);
     }
@@ -269,10 +269,10 @@ export default function QrMenuPage() {
         codeType: 'RESTAURANT',
         customLabel: `${hotelName} - Main Menu`,
       });
-      showToast('Restaurant QR code generated successfully!', 'success');
+      success('Restaurant QR code generated successfully!');
       await loadData(true);
     } catch (err) {
-      showToast('Failed to generate restaurant QR code.', 'error');
+      error('Failed to generate restaurant QR code.');
     }
   };
 
@@ -283,10 +283,10 @@ export default function QrMenuPage() {
         codeType: 'TABLE',
         tableId: tableId,
       });
-      showToast('Table QR code generated successfully!', 'success');
+      success('Table QR code generated successfully!');
       await loadData(true);
     } catch (err) {
-      showToast('Failed to generate table QR code.', 'error');
+      error('Failed to generate table QR code.');
     }
   };
 
@@ -296,10 +296,10 @@ export default function QrMenuPage() {
     try {
       const res = await api.generateAllTableQrs();
       const count = res?.data?.generatedCount ?? 0;
-      showToast(`Successfully generated ${count} table QR codes!`, 'success');
+      success(`Successfully generated ${count} table QR codes!`);
       await loadData(true);
     } catch (err) {
-      showToast('Failed to generate table QR codes.', 'error');
+      error('Failed to generate table QR codes.');
     } finally {
       setGeneratingAll(false);
     }
@@ -313,9 +313,9 @@ export default function QrMenuPage() {
       setQrCodes((prev) =>
         prev.map((q) => (q.id === item.id ? { ...q, isActive: newStatus } : q))
       );
-      showToast(`QR Code ${newStatus ? 'activated' : 'deactivated'}.`, 'success');
+      success(`QR Code ${newStatus ? 'activated' : 'deactivated'}.`);
     } catch (err) {
-      showToast('Failed to change QR status.', 'error');
+      error('Failed to change QR status.');
     }
   };
 
@@ -326,10 +326,10 @@ export default function QrMenuPage() {
     }
     try {
       await api.revokeQrCode(item.id);
-      showToast('QR token revoked and refreshed with a new secure token.', 'success');
+      success('QR token revoked and refreshed with a new secure token.');
       await loadData(true);
     } catch (err) {
-      showToast('Failed to revoke QR code.', 'error');
+      error('Failed to revoke QR code.');
     }
   };
 
@@ -337,7 +337,7 @@ export default function QrMenuPage() {
   const handleDownloadPng = (canvasId: string, filename: string) => {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     if (!canvas) {
-      showToast('QR Canvas element not ready.', 'error');
+      error('QR Canvas element not ready.');
       return;
     }
     const pngUrl = canvas.toDataURL('image/png');
@@ -347,14 +347,14 @@ export default function QrMenuPage() {
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
-    showToast(`Downloaded ${filename}.png`, 'success');
+    success(`Downloaded ${filename}.png`);
   };
 
   // Print Tent Card Window
   const handlePrintTentCards = (items: QrCodeItem[]) => {
     const printWindow = window.open('', '_blank', 'width=900,height=800');
     if (!printWindow) {
-      showToast('Please allow pop-ups to print tent cards.', 'error');
+      error('Please allow pop-ups to print tent cards.');
       return;
     }
 

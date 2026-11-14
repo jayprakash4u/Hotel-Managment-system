@@ -49,6 +49,7 @@ interface PublicMenuData {
   address?: string;
   currency: string;
   welcomeMessage?: string;
+  footerText?: string;
   showPrices: boolean;
   showImages: boolean;
   showDescriptions: boolean;
