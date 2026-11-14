@@ -16,6 +16,8 @@ public class POSProduct : BaseEntity
     public int Stock { get; set; } = 0;
     public bool TrackStock { get; set; } = false;
     public bool IsAvailable { get; set; } = true;
+    public bool IsPublished { get; set; } = true;
+    public int DisplayOrder { get; set; } = 0;
     public string? ImageUrl { get; set; }
     public string? InventoryItemId { get; set; }
     public InventoryItem? InventoryItem { get; set; }

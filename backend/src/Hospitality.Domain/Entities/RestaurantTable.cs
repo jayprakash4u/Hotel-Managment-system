@@ -16,4 +16,5 @@ public class RestaurantTable : BaseEntity
 
     public ICollection<RestaurantOrder> Orders { get; set; } = new List<RestaurantOrder>();
     public ICollection<TableReservation> Reservations { get; set; } = new List<TableReservation>();
+    public ICollection<RestaurantQrCode> QrCodes { get; set; } = new List<RestaurantQrCode>();
 }

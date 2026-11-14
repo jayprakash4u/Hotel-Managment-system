@@ -3122,6 +3122,85 @@ export const taxManagementApi = {
       body: JSON.stringify(dto),
     });
   },
+
+  // ============================================================================
+  // QR DIGITAL MENU (Admin & Public)
+  // ============================================================================
+
+  getQrMenuSettings: (hotelId?: string) => {
+    const q = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : '';
+    return fetcher<any>(`/api/restaurant-qr-menu/settings${q}`, { noCache: true });
+  },
+
+  updateQrMenuSettings: (data: {
+    hotelId?: string;
+    isEnabled: boolean;
+    showPrices: boolean;
+    showImages: boolean;
+    showDescriptions: boolean;
+    restaurantName?: string;
+    logoUrl?: string;
+    coverImageUrl?: string;
+    welcomeMessage?: string;
+    footerText?: string;
+    currencySymbol?: string;
+    isOrderingEnabled?: boolean;
+    tableOrderingMode?: string;
+  }) => {
+    return fetcher<any>('/api/restaurant-qr-menu/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getQrCodes: (hotelId?: string) => {
+    const q = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : '';
+    return fetcher<any[]>(`/api/restaurant-qr-menu/codes${q}`, { noCache: true });
+  },
+
+  generateQrCode: (data: {
+    hotelId?: string;
+    codeType: string;
+    tableId?: string;
+    customLabel?: string;
+  }) => {
+    return fetcher<any>('/api/restaurant-qr-menu/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  generateAllTableQrs: (hotelId?: string) => {
+    const q = hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : '';
+    return fetcher<any>(`/api/restaurant-qr-menu/generate-all-tables${q}`, {
+      method: 'POST',
+    });
+  },
+
+  toggleQrCodeStatus: (id: string, isActive: boolean) => {
+    return fetcher<any>(`/api/restaurant-qr-menu/codes/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    });
+  },
+
+  revokeQrCode: (id: string) => {
+    return fetcher<any>(`/api/restaurant-qr-menu/codes/${id}/revoke`, {
+      method: 'POST',
+    });
+  },
+
+  getPublicMenu: (slug: string, params?: { tableId?: string; qr?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.tableId) q.append('tableId', params.tableId);
+    if (params?.qr) q.append('qr', params.qr);
+    const qs = q.toString();
+    return fetcher<any>(`/api/public/menu/${encodeURIComponent(slug)}${qs ? `?${qs}` : ''}`, { noCache: true });
+  },
+
+  getPublicMenuByQr: (token: string) => {
+    return fetcher<any>(`/api/public/menu/qr/${encodeURIComponent(token)}`, { noCache: true });
+  },
 };
 
 

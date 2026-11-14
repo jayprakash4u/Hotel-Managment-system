@@ -57,6 +57,8 @@ import {
   Sliders,
   Package,
   Bike,
+  Layers,
+  MapPin,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -217,6 +219,23 @@ function TablesContent() {
   const [tableCategories, setTableCategories] = useState<any[]>([]);
   const [isAddingNewCategory, setIsAddingNewCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
+
+  // Clean Executive Area Dropdown & View Mode controls
+  const [isAreaDropdownOpen, setIsAreaDropdownOpen] = useState(false);
+  const [areaSearchQuery, setAreaSearchQuery] = useState('');
+  const [areaViewMode, setAreaViewMode] = useState<'GROUPED' | 'GRID'>('GROUPED');
+  const areaDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (areaDropdownRef.current && !areaDropdownRef.current.contains(e.target as Node)) {
+        setIsAreaDropdownOpen(false);
+        setAreaSearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   useEffect(() => {
     api.getTableCategories()
@@ -1343,17 +1362,36 @@ function TablesContent() {
     return !selectedDate || rDate === selectedDate;
   }).length;
 
+  // Dining Area Statistics: Active areas (with tables) sorted first, then empty areas
+  const areaStats = useMemo(() => {
+    const counts: Record<string, { total: number; occupied: number; available: number }> = {};
+    tables.forEach((t) => {
+      const sec = t.section?.trim() || 'General Area';
+      if (!counts[sec]) counts[sec] = { total: 0, occupied: 0, available: 0 };
+      counts[sec].total += 1;
+      if (isSelectedToday && t.status === 'OCCUPIED') {
+        counts[sec].occupied += 1;
+      } else {
+        counts[sec].available += 1;
+      }
+    });
+
+    const active = Object.keys(counts).map((name) => ({
+      name,
+      ...counts[name],
+    })).sort((a, b) => b.total - a.total);
+
+    const empty = tableCategories
+      .filter((c) => c.name && !counts[c.name])
+      .map((c) => ({ name: c.name, total: 0, occupied: 0, available: 0 }));
+
+    return { active, empty, all: [...active, ...empty] };
+  }, [tables, tableCategories, isSelectedToday]);
+
   // Unique dining areas / categories across table categories and tables
   const allUniqueSections = useMemo(() => {
-    const set = new Set<string>();
-    tableCategories.forEach((c) => {
-      if (c.name) set.add(c.name);
-    });
-    tables.forEach((t) => {
-      if (t.section) set.add(t.section);
-    });
-    return Array.from(set);
-  }, [tableCategories, tables]);
+    return areaStats.all.map((a) => a.name);
+  }, [areaStats]);
 
   // Group filtered tables by Area / Section so multiple areas are clearly organized
   const groupedTablesByArea = useMemo(() => {
@@ -4629,73 +4667,10 @@ function TablesContent() {
       {activeTab === 'FLOOR_PLAN' ? (
         <>
           {/* =========================================================================
-              DYNAMIC DINING AREA SWITCHER (Quick Jump & Status for Every Area)
+              CLEAN & PREMIUM UNIFIED CONTROLS BAR (Date Navigation, Area & Status Filters)
              ========================================================================= */}
-          <div className="flex items-center justify-between gap-2 bg-white dark:bg-surface-card p-2 rounded-[8px] border border-border-default dark:border-border-default shadow-xs mb-3 overflow-x-auto custom-scrollbar">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedSectionFilter('ALL')}
-                className={cn(
-                  'h-8 inline-flex items-center gap-2 whitespace-nowrap rounded-[5px] px-3 text-xs font-bold transition-all shrink-0 cursor-pointer',
-                  selectedSectionFilter === 'ALL'
-                    ? 'bg-[#0B3D32] text-white shadow-2xs'
-                    : 'bg-surface-muted text-slate-700 hover:bg-slate-200/70 dark:bg-slate-800 dark:text-[#A4B8AE]'
-                )}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>All Areas</span>
-                <span className={cn('rounded-[3px] px-1.5 py-0.2 text-[10px] font-mono', selectedSectionFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300')}>
-                  {tables.length}
-                </span>
-              </button>
-
-              {allUniqueSections.map((catName) => {
-                const areaTables = tables.filter((t) => t.section?.toLowerCase() === catName.toLowerCase());
-                const count = areaTables.length;
-                const occupiedInArea = isSelectedToday ? areaTables.filter((t) => t.status === 'OCCUPIED').length : 0;
-                const isSelected = selectedSectionFilter.toLowerCase() === catName.toLowerCase();
-
-                return (
-                  <button
-                    key={catName}
-                    type="button"
-                    onClick={() => setSelectedSectionFilter(catName)}
-                    className={cn(
-                      'h-8 inline-flex items-center gap-2 whitespace-nowrap rounded-[5px] px-3 text-xs font-bold transition-all shrink-0 cursor-pointer',
-                      isSelected
-                        ? 'bg-[#0B3D32] text-white shadow-2xs'
-                        : 'bg-surface-muted text-slate-700 hover:bg-slate-200/70 dark:bg-slate-800 dark:text-[#A4B8AE]'
-                    )}
-                  >
-                    <span>{catName}</span>
-                    <span className={cn('rounded-[3px] px-1.5 py-0.2 text-[10px] font-mono', isSelected ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300')}>
-                      {count}
-                    </span>
-                    {occupiedInArea > 0 && (
-                      <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 animate-pulse" title={`${occupiedInArea} occupied`} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Area Setup Quick Action */}
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="h-8 inline-flex items-center gap-1.5 px-3 rounded-[5px] bg-[#E5EEE9] dark:bg-[#0E362C] hover:bg-[#D5E5DE] text-[#0B3D32] dark:text-emerald-300 text-xs font-bold transition-all shrink-0 cursor-pointer whitespace-nowrap"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ Add Table</span>
-            </button>
-          </div>
-
-          {/* =========================================================================
-              CLEAN & PREMIUM CONTROLS BAR (Date Navigation & Status Filters)
-             ========================================================================= */}
-          <div className="bg-white dark:bg-surface-card p-3 sm:p-3.5 rounded-[6px] border border-border-default dark:border-border-default shadow-xs space-y-2.5 mb-3.5">
-            {/* Row 1: Unified Date Navigation (Left) & Search Bar (Right) */}
+          <div className="bg-white dark:bg-surface-card p-3 sm:p-3.5 rounded-[8px] border border-border-default dark:border-border-default shadow-xs space-y-2.5 mb-3.5">
+            {/* Row 1: Unified Date Navigation (Left) & Area Dropdown + Search (Right) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               {/* Left: Date Stepper, Direct Date Input & Weekday Chip */}
               <div className="flex items-center gap-2 flex-wrap">
@@ -4797,38 +4772,157 @@ function TablesContent() {
                 )}
               </div>
 
-              {/* Right: Clean Search Bar without placeholder */}
-              <div className="relative w-full sm:w-64 md:w-72 shrink-0">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-8 rounded-[4px] border border-border-default bg-surface-muted dark:bg-[#0E362C]/60 pl-8.5 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:text-body transition-colors"
-                />
-                {searchQuery && (
+              {/* Right: Dining Area Selector & Clean Search Bar */}
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                {/* Executive Dining Area Dropdown */}
+                <div className="relative shrink-0" ref={areaDropdownRef}>
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-body p-0.5 rounded transition-colors cursor-pointer"
-                    title="Clear search"
+                    onClick={() => {
+                      const next = !isAreaDropdownOpen;
+                      setIsAreaDropdownOpen(next);
+                      if (next) setAreaSearchQuery('');
+                    }}
+                    className="h-8 inline-flex items-center gap-2 px-3 rounded-[5px] border border-border-default dark:border-border-default bg-surface-muted dark:bg-[#0E362C] hover:bg-white dark:hover:bg-surface-hover text-slate-800 dark:text-slate-100 text-xs font-semibold shadow-2xs transition-all cursor-pointer whitespace-nowrap"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <MapPin className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+                    <span className="text-muted dark:text-[#A4B8AE] font-normal">Area:</span>
+                    <span className="font-bold text-[#0B3D32] dark:text-emerald-300">
+                      {selectedSectionFilter === 'ALL' ? 'All Dining Areas' : selectedSectionFilter}
+                    </span>
+                    <ChevronDown className={cn('w-3.5 h-3.5 text-muted transition-transform duration-200', isAreaDropdownOpen && 'rotate-180')} />
                   </button>
-                )}
+
+                  {isAreaDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white dark:bg-surface-card rounded-[10px] border border-border-default/90 dark:border-border-default shadow-2xl z-50 animate-in fade-in zoom-in-95 overflow-hidden">
+                      {/* Premium Full-Width Search Header */}
+                      <div className="relative flex items-center px-3.5 py-2.5 border-b border-border-default/80 bg-slate-50/80 dark:bg-[#071F1A]">
+                        <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2.5 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={areaSearchQuery}
+                          onChange={(e) => setAreaSearchQuery(e.target.value)}
+                          placeholder="Search dining area..."
+                          autoFocus
+                          className="w-full bg-transparent text-xs font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none border-none p-0"
+                        />
+                        {areaSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setAreaSearchQuery('')}
+                            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer rounded-full hover:bg-slate-200/50"
+                            title="Clear search"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Dining Areas
+                      </div>
+
+                      <div className="max-h-64 overflow-y-auto px-1.5 pb-1.5 custom-scrollbar">
+                        {/* All Areas option */}
+                        {(!areaSearchQuery || 'all dining areas'.includes(areaSearchQuery.toLowerCase())) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedSectionFilter('ALL');
+                              setIsAreaDropdownOpen(false);
+                              setAreaSearchQuery('');
+                            }}
+                            className={cn(
+                              'w-full text-left px-3 py-2 text-xs font-medium flex items-center justify-between rounded-[6px] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer my-0.5',
+                              selectedSectionFilter === 'ALL'
+                                ? 'text-[#0B3D32] dark:text-emerald-300 font-bold bg-[#E5EEE9] dark:bg-[#0E362C]'
+                                : 'text-slate-700 dark:text-slate-200'
+                            )}
+                          >
+                            <span className="flex items-center gap-2.5">
+                              <LayoutGrid className="w-4 h-4 text-slate-400 shrink-0" />
+                              <span>All Dining Areas</span>
+                            </span>
+                            {selectedSectionFilter === 'ALL' && <Check className="w-4 h-4 text-[#0B3D32] dark:text-emerald-300 shrink-0" />}
+                          </button>
+                        )}
+
+                        {allUniqueSections
+                          .filter((secName) => !areaSearchQuery || secName.toLowerCase().includes(areaSearchQuery.toLowerCase()))
+                          .map((secName) => {
+                            const isSelected = selectedSectionFilter.toLowerCase() === secName.toLowerCase();
+                            return (
+                              <button
+                                key={secName}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSectionFilter(secName);
+                                  setIsAreaDropdownOpen(false);
+                                  setAreaSearchQuery('');
+                                }}
+                                className={cn(
+                                  'w-full text-left px-3 py-2 text-xs font-medium flex items-center justify-between rounded-[6px] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer my-0.5',
+                                  isSelected
+                                    ? 'text-[#0B3D32] dark:text-emerald-300 font-bold bg-[#E5EEE9] dark:bg-[#0E362C]'
+                                    : 'text-slate-700 dark:text-slate-200'
+                                )}
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                                  <span>{secName}</span>
+                                </span>
+                                {isSelected && <Check className="w-4 h-4 text-[#0B3D32] dark:text-emerald-300 shrink-0" />}
+                              </button>
+                            );
+                          })}
+
+                        {areaSearchQuery &&
+                          !allUniqueSections.some((secName) =>
+                            secName.toLowerCase().includes(areaSearchQuery.toLowerCase())
+                          ) &&
+                          !'all dining areas'.includes(areaSearchQuery.toLowerCase()) && (
+                            <div className="px-3.5 py-4 text-xs text-center text-slate-400">
+                              No dining area matching &ldquo;{areaSearchQuery}&rdquo;
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Clean Search Bar */}
+                <div className="relative w-full sm:w-52 md:w-60 shrink-0">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-8 rounded-[4px] border border-border-default bg-surface-muted dark:bg-[#0E362C]/60 pl-8.5 pr-7 text-xs font-medium text-body placeholder-[#879B90] shadow-2xs focus:border-[#0B3D32] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:text-body transition-colors"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-body p-0.5 rounded transition-colors cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Row 2: Status Summary Chips (All, Available, Occupied, Reserved, Cleaning, Out of Service) */}
+            {/* Row 2: Status Summary Chips (All, Available, Occupied, Reserved, Cleaning, Out of Service - Clean & No Clutter) */}
             <div className="pt-2 border-t border-border-default/80 dark:border-border-default/80 flex items-center justify-between gap-2.5 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {[
-                  { id: 'ALL', label: 'All', count: tables.length, dot: null },
-                  { id: 'AVAILABLE', label: 'Available', count: availableCount, dot: 'bg-emerald-500' },
-                  { id: 'OCCUPIED', label: 'Occupied', count: occupiedCount, dot: 'bg-[#0B3D32]' },
-                  { id: 'RESERVED', label: 'Reserved', count: reservedCount, dot: 'bg-blue-500' },
-                  { id: 'CLEANING', label: 'Cleaning', count: cleaningCount, dot: 'bg-amber-500' },
-                  { id: 'OUT_OF_SERVICE', label: 'Out of Service', count: outOfServiceCount, dot: 'bg-slate-400' },
+                  { id: 'ALL', label: 'All', dot: null },
+                  { id: 'AVAILABLE', label: 'Available', dot: 'bg-emerald-500' },
+                  { id: 'OCCUPIED', label: 'Occupied', dot: 'bg-[#0B3D32]' },
+                  { id: 'RESERVED', label: 'Reserved', dot: 'bg-blue-500' },
+                  { id: 'CLEANING', label: 'Cleaning', dot: 'bg-amber-500' },
+                  { id: 'OUT_OF_SERVICE', label: 'Out of Service', dot: 'bg-slate-400' },
                 ].map((pill) => {
                   const isSelected = selectedStatus === pill.id;
                   return (
@@ -4837,24 +4931,14 @@ function TablesContent() {
                       type="button"
                       onClick={() => setSelectedStatus(pill.id)}
                       className={cn(
-                        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] px-2.5 py-1 text-xs font-bold transition-all shrink-0 cursor-pointer',
+                        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[5px] px-3 py-1 text-xs font-semibold transition-all shrink-0 cursor-pointer',
                         isSelected
                           ? 'bg-[#0B3D32] text-white shadow-2xs dark:bg-brand'
-                          : 'bg-surface-muted dark:bg-surface-card text-[#4A6B5D] hover:bg-surface-hover dark:text-[#A4B8AE]'
+                          : 'bg-surface-muted dark:bg-surface-card text-slate-700 hover:bg-slate-200/70 dark:text-[#A4B8AE]'
                       )}
                     >
                       {pill.dot && <span className={cn('w-2 h-2 rounded-full shrink-0', isSelected ? 'bg-white' : pill.dot)} />}
                       <span>{pill.label}</span>
-                      <span
-                        className={cn(
-                          'rounded-[2px] px-1.5 py-0.2 text-[10px] font-mono',
-                          isSelected
-                            ? 'bg-white/20 text-white'
-                            : 'bg-white dark:bg-[#0E362C] text-[#4A6B5D] dark:text-[#A4B8AE] border border-border-default/50 dark:border-border-default/50'
-                        )}
-                      >
-                        {pill.count}
-                      </span>
                     </button>
                   );
                 })}
@@ -4865,356 +4949,388 @@ function TablesContent() {
           </div>
 
           {/* =========================================================================
-              GROUPED DINING ZONES / FLOORS (Organized & Uncluttered Layout)
+              CLEAN TABLE GRID & DINING ZONE DISPLAY (Organized & Uncluttered Layout)
              ========================================================================= */}
-          {isTablesLoading && tables.length === 0 ? (
-            <div className="rounded-[4px] border border-border-default bg-white p-12 text-center shadow-2xs dark:border-border-default dark:bg-surface-card">
-              <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto mb-2" />
-              <h3 className="text-sm font-bold text-body dark:text-body">Connecting to database...</h3>
-              <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
-                Loading real tables and live orders from the database.
-              </p>
-            </div>
-          ) : filteredTables.length === 0 ? (
-            <div className="rounded-[8px] border border-border-default bg-white p-12 text-center shadow-xs dark:border-border-default dark:bg-surface-card">
-              <Table2 className="w-10 h-10 text-slate-300 dark:text-muted mx-auto mb-2" />
-              <h3 className="text-sm font-bold text-body dark:text-body">No tables found</h3>
-              <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
-                Try adjusting your search query, area selection, or status filter.
-              </p>
-            </div>
-          ) : (
-            <div className="relative rounded-[16px] bg-[#F8FAFC] dark:bg-[#071F1A] border border-border-default dark:border-border-default p-5 sm:p-7 min-h-[520px] shadow-xs overflow-visible">
-              <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-7 sm:gap-9 justify-items-center">
-                {filteredTables.map((table) => {
-                            const statusMeta = STATUS_CONFIG[table.status] || STATUS_CONFIG.AVAILABLE;
-                            const orderTotal = (table.orders || []).reduce(
-                              (sum, item) => sum + calculateOrderItemTotal(item).total,
-                              0
-                            );
+          {(() => {
+            const renderTableCard = (table: TableItem) => {
+              const statusMeta = STATUS_CONFIG[table.status] || STATUS_CONFIG.AVAILABLE;
+              const orderTotal = (table.orders || []).reduce(
+                (sum, item) => sum + calculateOrderItemTotal(item).total,
+                0
+              );
 
-                            const selectedDateReservations = (table.upcomingReservations || []).filter((r: any) => {
-                              const matchesDate = normalizeDateStr(r.reservationDate) === selectedDate;
-                              const matchesStatus = r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED';
-                              return matchesDate && matchesStatus;
-                            });
+              const selectedDateReservations = (table.upcomingReservations || []).filter((r: any) => {
+                const matchesDate = normalizeDateStr(r.reservationDate) === selectedDate;
+                const matchesStatus = r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'SEATED';
+                return matchesDate && matchesStatus;
+              });
 
-                            const activeRes = selectedDateReservations[0] || null;
+              const activeRes = selectedDateReservations[0] || null;
 
-                            const isOccupied = isSelectedToday && table.status === 'OCCUPIED';
-                            const isBilled = isSelectedToday && table.status === 'BILLED';
-                            const isCleaning = isSelectedToday && (table.status === 'CLEANING' || table.cleaningStatus === 'DIRTY');
-                            const isOutOfService = table.status === 'OUT_OF_SERVICE';
-                            const isAvailable = !isOccupied && !isBilled && !isCleaning && !isOutOfService;
+              const isOccupied = isSelectedToday && table.status === 'OCCUPIED';
+              const isBilled = isSelectedToday && table.status === 'BILLED';
+              const isCleaning = isSelectedToday && (table.status === 'CLEANING' || table.cleaningStatus === 'DIRTY');
+              const isOutOfService = table.status === 'OUT_OF_SERVICE';
+              const isAvailable = !isOccupied && !isBilled && !isCleaning && !isOutOfService;
 
-                            const tableAlert = isSelectedToday
-                              ? alerts.find((a) => a.tableId === table.id && a.status === 'ACTIVE')
-                              : null;
+              const tableAlert = isSelectedToday
+                ? alerts.find((a) => a.tableId === table.id && a.status === 'ACTIVE')
+                : null;
 
-                            return (
-                              <div
-                                key={table.id}
-                                className="relative flex flex-col items-center select-none group w-full max-w-[210px]"
-                              >
-                                {/* THE TABLE ITSELF */}
-                                <div
-                                  onClick={() => {
-                                    setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
-                                  }}
-                                  className={cn(
-                                    'relative cursor-pointer transition-all duration-200 transform group-hover:scale-[1.05] active:scale-[0.98] drop-shadow-sm group-hover:drop-shadow-md rounded-full',
-                                    openTableMenuId === table.id ? 'ring-4 ring-emerald-500/70 ring-offset-2 z-30' : 'z-10',
-                                    tableAlert && 'animate-pulse'
-                                  )}
-                                  title={`Table ${table.tableNumber} · ${table.section || 'General Area'}`}
-                                >
-                                  <DiningTableGraphic
-                                    tableNumber={table.tableNumber}
-                                    capacity={table.capacity}
-                                    status={table.status as any}
-                                    cleaningStatus={table.cleaningStatus}
-                                    hasAlert={!!tableAlert}
-                                    alertSeverity={tableAlert?.severity}
-                                    className="w-[172px] h-[172px]"
-                                  />
+              return (
+                <div
+                  key={table.id}
+                  className="relative flex flex-col items-center select-none group w-full max-w-[210px]"
+                >
+                  {/* THE TABLE GRAPHIC */}
+                  <div
+                    onClick={() => {
+                      setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
+                    }}
+                    className={cn(
+                      'relative cursor-pointer transition-all duration-200 transform group-hover:scale-[1.05] active:scale-[0.98] drop-shadow-sm group-hover:drop-shadow-md rounded-full',
+                      openTableMenuId === table.id ? 'ring-4 ring-emerald-500/70 ring-offset-2 z-30' : 'z-10',
+                      tableAlert && 'animate-pulse'
+                    )}
+                    title={`Table ${table.tableNumber} · ${table.section || 'General Area'}`}
+                  >
+                    <DiningTableGraphic
+                      tableNumber={table.tableNumber}
+                      capacity={table.capacity}
+                      status={table.status as any}
+                      cleaningStatus={table.cleaningStatus}
+                      hasAlert={!!tableAlert}
+                      alertSeverity={tableAlert?.severity}
+                      className="w-[172px] h-[172px]"
+                    />
 
-                                  {/* 3-Dots Contextual Menu button */}
-                                  <div className="absolute top-1 right-1 z-30">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
-                                      }}
-                                      className={cn(
-                                        'w-7 h-7 rounded-full bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all cursor-pointer focus:outline-none hover:bg-slate-50 dark:hover:bg-slate-700',
-                                        openTableMenuId === table.id ? 'opacity-100 ring-2 ring-emerald-500 scale-105' : 'opacity-0 group-hover:opacity-100'
-                                      )}
-                                      title={`Table ${table.tableNumber} Actions`}
-                                      aria-label={`Table ${table.tableNumber} Actions`}
-                                    >
-                                      <MoreVertical className="w-3.5 h-3.5 text-slate-700 dark:text-slate-200" />
-                                    </button>
+                    {/* 3-Dots Contextual Menu button */}
+                    <div className="absolute top-1 right-1 z-30">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
+                        }}
+                        className={cn(
+                          'w-7 h-7 rounded-full bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all cursor-pointer focus:outline-none hover:bg-slate-50 dark:hover:bg-slate-700',
+                          openTableMenuId === table.id ? 'opacity-100 ring-2 ring-emerald-500 scale-105' : 'opacity-0 group-hover:opacity-100'
+                        )}
+                        title={`Table ${table.tableNumber} Actions`}
+                        aria-label={`Table ${table.tableNumber} Actions`}
+                      >
+                        <MoreVertical className="w-3.5 h-3.5 text-slate-700 dark:text-slate-200" />
+                      </button>
 
-                                    {openTableMenuId === table.id && (
-                                      <TableActionsDropdown
-                                        table={table}
-                                        isFutureDate={!isSelectedToday}
-                                        selectedReservation={activeRes}
-                                        onClose={() => setOpenTableMenuId(null)}
-                                        onStartOrder={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleSelectSeatCustomer(t);
-                                        }}
-                                        onSeatWalkIn={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleSelectSeatCustomer(t);
-                                        }}
-                                        onAddItems={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleOpenOrderPage(t.id);
-                                        }}
-                                        onViewOrder={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleOpenOrderPage(t.id);
-                                        }}
-                                        onMarkServed={(t) => {
-                                          handleMarkTableServed(t);
-                                        }}
-                                        onViewOrderHistory={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleViewTableHistory(t);
-                                        }}
-                                        onBookTable={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleOpenNewReservation(t);
-                                        }}
-                                        onViewReservation={(t) => {
-                                          setOpenTableMenuId(null);
-                                          setBookingDetailsModalTable(t);
-                                          setIsBookingDetailsModalOpen(true);
-                                        }}
-                                        onViewBooking={(t) => {
-                                          setOpenTableMenuId(null);
-                                          setBookingDetailsModalTable(t);
-                                          setIsBookingDetailsModalOpen(true);
-                                        }}
-                                        onEditReservation={(t, res) => {
-                                          setOpenTableMenuId(null);
-                                          if (res) handleOpenEditReservation(res);
-                                          else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
-                                        }}
-                                        onCancelReservation={(t, res) => {
-                                          setOpenTableMenuId(null);
-                                          handleCancelReservationFromTable(t, res);
-                                        }}
-                                        onSeatGuests={(t, res) => {
-                                          setOpenTableMenuId(null);
-                                          if (res) handleSeatReservation(res, t.id);
-                                          else if (t.upcomingReservations?.[0]) handleSeatReservation(t.upcomingReservations[0], t.id);
-                                        }}
-                                        onViewBill={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleOpenOrderPage(t.id);
-                                          setIsBillPanelOpen(true);
-                                        }}
-                                        onSettleBill={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleOpenOrderPage(t.id);
-                                          setIsBillPanelOpen(true);
-                                        }}
-                                        onPrintBill={(t) => {
-                                          handlePrintBillForTable(t);
-                                        }}
-                                        onViewPaymentHistory={(t) => {
-                                          setOpenTableMenuId(null);
-                                          handleViewTableHistory(t);
-                                        }}
-                                        onUpdateCleaningStatus={handleUpdateCleaningStatus}
-                                        onUpdateServiceStatus={handleUpdateServiceStatus}
-                                        onViewBookingDetails={(t) => {
-                                          setOpenTableMenuId(null);
-                                          setBookingDetailsModalTable(t);
-                                          setIsBookingDetailsModalOpen(true);
-                                        }}
-                                      />
-                                    )}
-                                  </div>
-                                </div>
+                      {openTableMenuId === table.id && (
+                        <TableActionsDropdown
+                          table={table}
+                          isFutureDate={!isSelectedToday}
+                          selectedReservation={activeRes}
+                          onClose={() => setOpenTableMenuId(null)}
+                          onStartOrder={(t) => {
+                            setOpenTableMenuId(null);
+                            handleSelectSeatCustomer(t);
+                          }}
+                          onSeatWalkIn={(t) => {
+                            setOpenTableMenuId(null);
+                            handleSelectSeatCustomer(t);
+                          }}
+                          onAddItems={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenOrderPage(t.id);
+                          }}
+                          onViewOrder={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenOrderPage(t.id);
+                          }}
+                          onMarkServed={(t) => {
+                            handleMarkTableServed(t);
+                          }}
+                          onViewOrderHistory={(t) => {
+                            setOpenTableMenuId(null);
+                            handleViewTableHistory(t);
+                          }}
+                          onBookTable={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenNewReservation(t);
+                          }}
+                          onViewReservation={(t) => {
+                            setOpenTableMenuId(null);
+                            setBookingDetailsModalTable(t);
+                            setIsBookingDetailsModalOpen(true);
+                          }}
+                          onViewBooking={(t) => {
+                            setOpenTableMenuId(null);
+                            setBookingDetailsModalTable(t);
+                            setIsBookingDetailsModalOpen(true);
+                          }}
+                          onEditReservation={(t, res) => {
+                            setOpenTableMenuId(null);
+                            if (res) handleOpenEditReservation(res);
+                            else if (t.upcomingReservations?.[0]) handleOpenEditReservation(t.upcomingReservations[0]);
+                          }}
+                          onCancelReservation={(t, res) => {
+                            setOpenTableMenuId(null);
+                            handleCancelReservationFromTable(t, res);
+                          }}
+                          onSeatGuests={(t, res) => {
+                            setOpenTableMenuId(null);
+                            if (res) handleSeatReservation(res, t.id);
+                            else if (t.upcomingReservations?.[0]) handleSeatReservation(t.upcomingReservations[0], t.id);
+                          }}
+                          onViewBill={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenOrderPage(t.id);
+                            setIsBillPanelOpen(true);
+                          }}
+                          onSettleBill={(t) => {
+                            setOpenTableMenuId(null);
+                            handleOpenOrderPage(t.id);
+                            setIsBillPanelOpen(true);
+                          }}
+                          onPrintBill={(t) => {
+                            handlePrintBillForTable(t);
+                          }}
+                          onViewPaymentHistory={(t) => {
+                            setOpenTableMenuId(null);
+                            handleViewTableHistory(t);
+                          }}
+                          onUpdateCleaningStatus={handleUpdateCleaningStatus}
+                          onUpdateServiceStatus={handleUpdateServiceStatus}
+                          onViewBookingDetails={(t) => {
+                            setOpenTableMenuId(null);
+                            setBookingDetailsModalTable(t);
+                            setIsBookingDetailsModalOpen(true);
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
 
-                                {/* FLOATING STATUS PILL & QUICK ACTIONS BENEATH TABLE */}
-                                <div className="mt-1 flex flex-col items-center gap-1 w-full max-w-[195px] z-10">
-                                  {/* Status / Active Guest Capsule Badge */}
-                                  <div
-                                    onClick={() => {
-                                      setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
-                                    }}
-                                    className={cn(
-                                      'px-2.5 py-1 rounded-full text-[11px] font-semibold border shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1.5 w-full text-center truncate',
-                                      tableAlert
-                                        ? tableAlert.severity === 'DANGER'
-                                          ? 'bg-rose-500 text-white border-rose-600 animate-pulse'
-                                          : 'bg-amber-400 text-amber-950 border-amber-500 animate-pulse'
-                                        : isOccupied
-                                        ? 'bg-[#0B3D32] text-white border-[#082C24] dark:bg-[#0E362C] dark:border-emerald-700 shadow-2xs'
-                                        : isBilled
-                                        ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700'
-                                        : isCleaning
-                                        ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
-                                        : isOutOfService
-                                        ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-400'
-                                        : 'bg-white text-emerald-800 border-emerald-300/80 dark:bg-surface-card dark:text-emerald-300 dark:border-emerald-800'
-                                    )}
-                                  >
-                                    {tableAlert ? (
-                                      <span className="flex items-center gap-1 font-bold truncate">
-                                        <Bell className="w-3 h-3 shrink-0 animate-bounce" />
-                                        <span>{tableAlert.severity === 'DANGER' ? 'Overdue Alert' : 'Turnover Alert'}</span>
-                                      </span>
-                                    ) : isOccupied ? (
-                                      <span className="truncate flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                                        <span className="truncate font-medium">{table.currentGuest || 'Occupied'}</span>
-                                      </span>
-                                    ) : isBilled ? (
-                                      <span className="truncate flex items-center gap-1 font-bold">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
-                                        <span>Billed</span>
-                                      </span>
-                                    ) : isCleaning ? (
-                                      <span className="truncate flex items-center gap-1 font-medium">
-                                        <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
-                                        <span>Needs Sanitizing</span>
-                                      </span>
-                                    ) : isOutOfService ? (
-                                      <span className="truncate text-muted">Out of Service</span>
-                                    ) : (
-                                      <span className="truncate flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-300">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                                        <span>Available</span>
-                                      </span>
-                                    )}
-                                  </div>
+                  {/* FLOATING STATUS PILL & QUICK ACTIONS BENEATH TABLE */}
+                  <div className="mt-1 flex flex-col items-center gap-1 w-full max-w-[195px] z-10">
+                    {/* Status / Active Guest Capsule Badge */}
+                    <div
+                      onClick={() => {
+                        setOpenTableMenuId(openTableMenuId === table.id ? null : table.id);
+                      }}
+                      className={cn(
+                        'px-2.5 py-1 rounded-full text-[11px] font-semibold border shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1.5 w-full text-center truncate',
+                        tableAlert
+                          ? tableAlert.severity === 'DANGER'
+                            ? 'bg-rose-500 text-white border-rose-600 animate-pulse'
+                            : 'bg-amber-400 text-amber-950 border-amber-500 animate-pulse'
+                          : isOccupied
+                          ? 'bg-[#0B3D32] text-white border-[#082C24] dark:bg-[#0E362C] dark:border-emerald-700 shadow-2xs'
+                          : isBilled
+                          ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700'
+                          : isCleaning
+                          ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                          : isOutOfService
+                          ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-400'
+                          : 'bg-white text-emerald-800 border-emerald-300/80 dark:bg-surface-card dark:text-emerald-300 dark:border-emerald-800'
+                      )}
+                    >
+                      {tableAlert ? (
+                        <span className="flex items-center gap-1 font-bold truncate">
+                          <Bell className="w-3 h-3 shrink-0 animate-bounce" />
+                          <span>{tableAlert.severity === 'DANGER' ? 'Overdue Alert' : 'Turnover Alert'}</span>
+                        </span>
+                      ) : isOccupied ? (
+                        <span className="truncate flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                          <span className="truncate font-medium">{table.currentGuest || 'Occupied'}</span>
+                        </span>
+                      ) : isBilled ? (
+                        <span className="truncate flex items-center gap-1 font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                          <span>Billed</span>
+                        </span>
+                      ) : isCleaning ? (
+                        <span className="truncate flex items-center gap-1 font-medium">
+                          <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span>Needs Sanitizing</span>
+                        </span>
+                      ) : isOutOfService ? (
+                        <span className="truncate text-muted">Out of Service</span>
+                      ) : (
+                        <span className="truncate flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                          <span>Available</span>
+                        </span>
+                      )}
+                    </div>
 
-                                  {/* Next Booking Note if any */}
-                                  {activeRes && !isOccupied && (
-                                    <div className="flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 font-semibold truncate">
-                                      <span>Next: {formatTime12h(activeRes.reservationTime)} ({activeRes.partySize}p)</span>
-                                    </div>
-                                  )}
+                    {/* Next Booking Note if any */}
+                    {activeRes && !isOccupied && (
+                      <div className="flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 font-semibold truncate">
+                        <span>Next: {formatTime12h(activeRes.reservationTime)} ({activeRes.partySize}p)</span>
+                      </div>
+                    )}
 
-                                  {/* Quick Action Button Bar */}
-                                  <div className="flex items-center gap-1 w-full mt-0.5">
-                                    {tableAlert ? (
-                                      <div className="flex items-center gap-1 w-full">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenOrderPage(table.id);
-                                          }}
-                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-[4px] bg-slate-900 text-white font-bold text-[10px] shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
-                                        >
-                                          <Receipt className="w-3 h-3 shrink-0" />
-                                          <span className="truncate">Wrap Up</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => handleAcknowledgeAlert(tableAlert.id, e)}
-                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-[4px] bg-amber-400 text-amber-950 font-bold text-[10px] shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
-                                        >
-                                          <Check className="w-3 h-3 shrink-0" />
-                                          <span className="truncate">Ack</span>
-                                        </button>
-                                      </div>
-                                    ) : isOccupied ? (
-                                      <div className="flex items-center gap-1 w-full">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenOrderPage(table.id);
-                                          }}
-                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold text-[10px] hover:bg-slate-50 shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
-                                        >
-                                          <Plus className="w-3 h-3 shrink-0" />
-                                          <span className="truncate">Add Items</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenOrderPage(table.id);
-                                            setIsBillPanelOpen(true);
-                                          }}
-                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-[#0B3D32] hover:bg-[#07241E] text-white font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
-                                        >
-                                          <Receipt className="w-3 h-3 shrink-0" />
-                                          <span className="truncate">Bill</span>
-                                        </button>
-                                      </div>
-                                    ) : isBilled ? (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenOrderPage(table.id);
-                                          setIsBillPanelOpen(true);
-                                        }}
-                                        className="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10.5px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
-                                      >
-                                        <DollarSign className="w-3 h-3 shrink-0" />
-                                        <span>Settle Payment</span>
-                                      </button>
-                                    ) : isCleaning || table.cleaningStatus === 'DIRTY' ? (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleUpdateCleaningStatus(table, 'CLEAN');
-                                        }}
-                                        className="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10.5px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
-                                      >
-                                        <Sparkles className="w-3 h-3 shrink-0" />
-                                        <span>Mark Cleaned</span>
-                                      </button>
-                                    ) : isOutOfService ? (
-                                      <div className="w-full text-center text-[10px] text-muted py-0.5">Out of Service</div>
-                                    ) : (
-                                      /* Available Table */
-                                      <div className="flex items-center gap-1 w-full">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => handleSelectSeatCustomer(table, e)}
-                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-[#0B3D32] hover:bg-[#07241E] text-white font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
-                                          title="Walk-in seating"
-                                        >
-                                          <UserPlus className="w-3 h-3 shrink-0" />
-                                          <span className="truncate">Walk in</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenNewReservation(table);
-                                          }}
-                                          className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
-                                          title={`Book Table ${table.tableNumber}`}
-                                        >
-                                          <CalendarCheck className="w-3 h-3 shrink-0" />
-                                          <span className="truncate">Book</span>
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            );
+                    {/* Quick Action Button Bar */}
+                    <div className="flex items-center gap-1 w-full mt-0.5">
+                      {tableAlert ? (
+                        <div className="flex items-center gap-1 w-full">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenOrderPage(table.id);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-[4px] bg-slate-900 text-white font-bold text-[10px] shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Receipt className="w-3 h-3 shrink-0" />
+                            <span className="truncate">Wrap Up</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleAcknowledgeAlert(tableAlert.id, e)}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-[4px] bg-amber-400 text-amber-950 font-bold text-[10px] shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Check className="w-3 h-3 shrink-0" />
+                            <span className="truncate">Ack</span>
+                          </button>
+                        </div>
+                      ) : isOccupied ? (
+                        <div className="flex items-center gap-1 w-full">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenOrderPage(table.id);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold text-[10px] hover:bg-slate-50 shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Plus className="w-3 h-3 shrink-0" />
+                            <span className="truncate">Add Items</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenOrderPage(table.id);
+                              setIsBillPanelOpen(true);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-[#0B3D32] hover:bg-[#07241E] text-white font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Receipt className="w-3 h-3 shrink-0" />
+                            <span className="truncate">Bill</span>
+                          </button>
+                        </div>
+                      ) : isBilled ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenOrderPage(table.id);
+                            setIsBillPanelOpen(true);
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10.5px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                        >
+                          <DollarSign className="w-3 h-3 shrink-0" />
+                          <span>Settle Payment</span>
+                        </button>
+                      ) : isCleaning || table.cleaningStatus === 'DIRTY' ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateCleaningStatus(table, 'CLEAN');
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10.5px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                        >
+                          <Sparkles className="w-3 h-3 shrink-0" />
+                          <span>Mark Cleaned</span>
+                        </button>
+                      ) : isOutOfService ? (
+                        <div className="w-full text-center text-[10px] text-muted py-0.5">Out of Service</div>
+                      ) : (
+                        /* Available Table */
+                        <div className="flex items-center gap-1 w-full">
+                          <button
+                            type="button"
+                            onClick={(e) => handleSelectSeatCustomer(table, e)}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-[#0B3D32] hover:bg-[#07241E] text-white font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                            title="Walk-in seating"
+                          >
+                            <UserPlus className="w-3 h-3 shrink-0" />
+                            <span className="truncate">Walk in</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenNewReservation(table);
+                            }}
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-[4px] bg-white border border-[#0B3D32] text-brand hover:bg-[#E8F2EE] dark:bg-surface-card dark:border-emerald-500 dark:text-success font-bold text-[10px] shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                            title={`Book Table ${table.tableNumber}`}
+                          >
+                            <CalendarCheck className="w-3 h-3 shrink-0" />
+                            <span className="truncate">Book</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            };
 
-                })}
+            if (isTablesLoading && tables.length === 0) {
+              return (
+                <div className="rounded-[4px] border border-border-default bg-white p-12 text-center shadow-2xs dark:border-border-default dark:bg-surface-card">
+                  <RefreshCw className="w-8 h-8 text-brand animate-spin mx-auto mb-2" />
+                  <h3 className="text-sm font-bold text-body dark:text-body">Connecting to database...</h3>
+                  <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
+                    Loading real tables and live orders from the database.
+                  </p>
+                </div>
+              );
+            }
+
+            if (filteredTables.length === 0) {
+              return (
+                <div className="rounded-[8px] border border-border-default bg-white p-12 text-center shadow-xs dark:border-border-default dark:bg-surface-card">
+                  <Table2 className="w-10 h-10 text-slate-300 dark:text-muted mx-auto mb-2" />
+                  <h3 className="text-sm font-bold text-body dark:text-body">No tables found</h3>
+                  <p className="text-xs text-muted dark:text-[#A4B8AE] mt-1">
+                    Try adjusting your search query, area selection, or status filter.
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="relative rounded-[16px] bg-[#F8FAFC] dark:bg-[#071F1A] border border-border-default dark:border-border-default p-5 sm:p-7 min-h-[520px] shadow-xs overflow-visible">
+                {areaViewMode === 'GROUPED' && selectedSectionFilter === 'ALL' ? (
+                  <div className="space-y-8">
+                    {Object.entries(groupedTablesByArea).map(([secName, secTables]) => {
+                      if (!secTables || secTables.length === 0) return null;
+                      return (
+                        <div key={secName} className="space-y-4">
+                          <div className="flex items-center gap-2 pb-2 border-b border-border-default/80 dark:border-border-default/60">
+                            <MapPin className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+                            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                              {secName}
+                            </h3>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-7 sm:gap-9 justify-items-center">
+                            {secTables.map((t) => renderTableCard(t))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-7 sm:gap-9 justify-items-center">
+                    {filteredTables.map((table) => renderTableCard(table))}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </>
       ) : activeTab === 'ACTIVE_ORDERS' ? (
         <ActiveOrdersView

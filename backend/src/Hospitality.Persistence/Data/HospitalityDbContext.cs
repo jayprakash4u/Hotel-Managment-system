@@ -63,6 +63,8 @@ public class HospitalityDbContext : DbContext
     public DbSet<LoanObligation> LoanObligations => Set<LoanObligation>();
     public DbSet<LoanRepaymentScheduleItem> LoanRepaymentScheduleItems => Set<LoanRepaymentScheduleItem>();
     public DbSet<LiabilityAccountConfig> LiabilityAccountConfigs => Set<LiabilityAccountConfig>();
+    public DbSet<RestaurantMenuSettings> RestaurantMenuSettings => Set<RestaurantMenuSettings>();
+    public DbSet<RestaurantQrCode> RestaurantQrCodes => Set<RestaurantQrCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -282,5 +284,39 @@ public class HospitalityDbContext : DbContext
 
         modelBuilder.Entity<JournalEntryLine>()
             .HasIndex(l => l.AccountId);
+
+        // QR Menu: Restaurant Menu Display Settings
+        modelBuilder.Entity<RestaurantMenuSettings>()
+            .HasOne(s => s.Hotel)
+            .WithOne(h => h.MenuSettings)
+            .HasForeignKey<RestaurantMenuSettings>(s => s.HotelId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RestaurantMenuSettings>()
+            .HasIndex(s => s.HotelId)
+            .IsUnique();
+
+        // QR Menu: Secure QR Code Tokens
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasOne(q => q.Hotel)
+            .WithMany(h => h.RestaurantQrCodes)
+            .HasForeignKey(q => q.HotelId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasOne(q => q.Table)
+            .WithMany(t => t.QrCodes)
+            .HasForeignKey(q => q.TableId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasIndex(q => q.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasIndex(q => new { q.HotelId, q.CodeType });
+
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasIndex(q => new { q.HotelId, q.TableId });
     }
 }

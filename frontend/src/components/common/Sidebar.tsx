@@ -53,6 +53,7 @@ import {
   ShieldCheck,
   LayoutGrid,
   UserCheck,
+  QrCode,
   LogOut,
   Contact,
   Sparkles,
@@ -221,6 +222,14 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     icon: RestaurantMenuBookIcon,
     tag: 'MENU',
     description: 'Food & drinks catalog, portion rates & categories',
+  },
+  {
+    id: 'qr-menu',
+    name: 'QR Menu',
+    href: '/qr-menu',
+    icon: QrCode,
+    tag: 'QR',
+    description: 'Digital QR menu, table QR codes & customer view settings',
   },
 ];
 const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [];
@@ -512,10 +521,10 @@ export const Sidebar: React.FC<{
         return ['table-board'].includes(item.id);
       }
       if (role === 'POS_CASHIER') {
-        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'menu', 'bills-invoices', 'payments-refunds'].includes(item.id);
+        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'menu', 'qr-menu', 'bills-invoices', 'payments-refunds'].includes(item.id);
       }
       if (role === 'FRONT_DESK') {
-        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'bills-invoices', 'payments-refunds'].includes(item.id);
+        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'qr-menu', 'bills-invoices', 'payments-refunds'].includes(item.id);
       }
       return true;
     });

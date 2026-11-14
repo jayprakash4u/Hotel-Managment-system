@@ -866,45 +866,36 @@ export default function OurMenuTablePage() {
   return (
     <div className="h-full flex flex-col min-h-0 select-none">
       {/* =========================================================================
-          PAGE HEADER: Title, Subtitle & Total Items Counter
+          PAGE HEADER: Title & Actions
          ========================================================================= */}
       <div className="shrink-0 pb-3 border-b border-[#E5EEE9] dark:border-[#145447] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600">
+          <div className="flex h-9 w-9 items-center justify-center rounded-[4px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600">
             <ChefHat className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-[#24352F] dark:text-white font-heading tracking-tight">
               Café Menu
             </h1>
-            <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
-              Multi-variant restaurant & beverage menu management
-            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {dbProducts.length > 0 && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold">
-              <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Database Connected ({dbProducts.length} Items)</span>
-            </span>
-          )}
           <button
             type="button"
             onClick={fetchMenuProducts}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-            title="Refresh menu items from database"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+            title="Refresh menu items"
           >
-            <RotateCcw className={cn('w-3 h-3', isLoading && 'animate-spin')} />
-            <span>{isLoading ? 'Syncing...' : 'Sync DB'}</span>
+            <RotateCcw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
+            <span>Refresh</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleOpenAddModal()}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#082e25] text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] bg-[#0B3D32] hover:bg-[#082e25] text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Add Item</span>
@@ -924,7 +915,7 @@ export default function OurMenuTablePage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search dish or code..."
-            className="w-full pl-9 pr-7 py-2 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] placeholder-[#879B90] focus:outline-none focus:border-[#0B3D32] focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs"
+            className="w-full pl-9 pr-7 py-2 text-xs rounded-[4px] border border-[#DCE3DF] bg-white text-[#24352F] placeholder-[#879B90] focus:outline-none focus:border-[#0B3D32] focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs"
           />
           {searchQuery && (
             <button
@@ -942,9 +933,9 @@ export default function OurMenuTablePage() {
           <select
             value={selectedGroupFilter}
             onChange={(e) => setSelectedGroupFilter(e.target.value)}
-            className="w-full appearance-none pl-3 pr-8 py-2 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-semibold focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs cursor-pointer"
+            className="w-full appearance-none pl-3 pr-8 py-2 text-xs rounded-[4px] border border-[#DCE3DF] bg-white text-[#24352F] font-semibold focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs cursor-pointer"
           >
-            <option value="all">All Categories ({dynamicGroups.length})</option>
+            <option value="all">All Categories</option>
             {dynamicGroups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
@@ -981,9 +972,6 @@ export default function OurMenuTablePage() {
               <h2 className="text-sm sm:text-base font-bold text-[#24352F] dark:text-white font-heading tracking-tight">
                 {group.name}
               </h2>
-              <span className="text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
-                {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
-              </span>
             </div>
 
             {/* Table Container with Fixed 4 Columns */}
@@ -1007,8 +995,13 @@ export default function OurMenuTablePage() {
                         ITEM NAME
                       </th>
 
-                      {/* Fixed Column 4: PRICE (Stacked Variants) */}
-                      <th className="py-2.5 px-4 w-52 sm:w-64 text-left">
+                      {/* Fixed Column 4: UNIT */}
+                      <th className="py-2.5 px-4 w-32 sm:w-40 text-left border-r border-[#E5EEE9] dark:border-[#145447]">
+                        UNIT
+                      </th>
+
+                      {/* Fixed Column 5: PRICE */}
+                      <th className="py-2.5 px-4 w-36 sm:w-48 text-left">
                         PRICE
                       </th>
                     </tr>
@@ -1053,22 +1046,35 @@ export default function OurMenuTablePage() {
                           </div>
                         </td>
 
-                        {/* 4. PRICE: Stacked variants inside this single cell */}
-                        <td className="py-2 px-4 align-middle">
-                          <div className="flex flex-col gap-1">
+                        {/* 4. UNIT */}
+                        <td className="py-2.5 px-4 border-r border-[#E5EEE9] dark:border-[#145447] align-middle">
+                          <div className="flex flex-col gap-1.5">
                             {item.variants && item.variants.length > 0 ? (
                               item.variants.map((v, vIdx) => (
-                                <div
+                                <span
                                   key={vIdx}
-                                  className="flex items-center justify-between sm:justify-start gap-3 text-xs"
+                                  className="font-medium text-slate-700 dark:text-slate-300 text-xs"
                                 >
-                                  <span className="font-medium text-slate-600 dark:text-slate-300 min-w-[70px] sm:min-w-[90px]">
-                                    {v.unit}:
-                                  </span>
-                                  <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-300 whitespace-nowrap">
-                                    Rs. {v.price.toLocaleString()}
-                                  </span>
-                                </div>
+                                  {v.unit}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-slate-400 font-mono text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* 5. PRICE */}
+                        <td className="py-2.5 px-4 align-middle">
+                          <div className="flex flex-col gap-1.5">
+                            {item.variants && item.variants.length > 0 ? (
+                              item.variants.map((v, vIdx) => (
+                                <span
+                                  key={vIdx}
+                                  className="font-mono font-bold text-[#0B3D32] dark:text-emerald-300 text-xs whitespace-nowrap"
+                                >
+                                  Rs. {v.price.toLocaleString()}
+                                </span>
                               ))
                             ) : (
                               <span className="text-slate-400 font-mono text-xs">—</span>
