@@ -9,6 +9,7 @@ namespace Hospitality.Api.Controllers;
 
 [ApiController]
 [Route("api/restaurant/qr-menu")]
+[Route("api/restaurant-qr-menu")]
 public class RestaurantQrMenuController : ControllerBase
 {
     private readonly HospitalityDbContext _db;
@@ -84,6 +85,7 @@ public class RestaurantQrMenuController : ControllerBase
             logoUrl = settings.LogoUrl,
             coverImageUrl = settings.CoverImageUrl,
             welcomeMessage = settings.WelcomeMessage,
+            footerText = settings.FooterText,
             publicMenuUrl = $"/menu/{hotel.Slug}"
         }));
     }
@@ -98,7 +100,8 @@ public class RestaurantQrMenuController : ControllerBase
         string? PublicRestaurantName,
         string? LogoUrl,
         string? CoverImageUrl,
-        string? WelcomeMessage
+        string? WelcomeMessage,
+        string? FooterText
     );
 
     [HttpPut("settings")]
@@ -132,6 +135,7 @@ public class RestaurantQrMenuController : ControllerBase
         if (req.LogoUrl != null) settings.LogoUrl = req.LogoUrl.Trim();
         if (req.CoverImageUrl != null) settings.CoverImageUrl = req.CoverImageUrl.Trim();
         if (req.WelcomeMessage != null) settings.WelcomeMessage = req.WelcomeMessage.Trim();
+        if (req.FooterText != null) settings.FooterText = req.FooterText.Trim();
 
         settings.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -152,6 +156,7 @@ public class RestaurantQrMenuController : ControllerBase
                 logoUrl = settings.LogoUrl,
                 coverImageUrl = settings.CoverImageUrl,
                 welcomeMessage = settings.WelcomeMessage,
+                footerText = settings.FooterText,
                 publicMenuUrl = $"/menu/{hotel.Slug}"
             }
         }));
@@ -179,17 +184,122 @@ public class RestaurantQrMenuController : ControllerBase
             .ToListAsync();
 
         // Also fetch active tables to identify tables that do not have a QR generated yet
-        var tables = await _db.RestaurantTables
+        var dbTables = await _db.RestaurantTables
             .Where(t => t.HotelId == resolvedHotelId && t.Status != "OUT_OF_SERVICE")
             .OrderBy(t => t.TableNumber)
-            .Select(t => new
-            {
-                id = t.Id,
-                tableNumber = t.TableNumber,
-                section = t.Section,
-                capacity = t.Capacity
-            })
             .ToListAsync();
+
+        // Auto-seed default restaurant QR and table QRs if none exist yet
+        if (!existingCodes.Any())
+        {
+            var masterToken = QrTokenSecurity.GenerateSecureToken();
+            var masterQr = new RestaurantQrCode
+            {
+                HotelId = resolvedHotelId,
+                CodeType = "RESTAURANT",
+                Label = $"{hotel.Name} - Main Menu",
+                TokenHash = QrTokenSecurity.HashToken(masterToken),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.RestaurantQrCodes.Add(masterQr);
+
+            if (!dbTables.Any())
+            {
+                var standardTables = new List<RestaurantTable>
+                {
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "T-101", Section = "Indoor Fine Dining", Capacity = 2, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "T-102", Section = "Indoor Fine Dining", Capacity = 4, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "T-103", Section = "Indoor Fine Dining", Capacity = 4, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "T-104", Section = "Indoor Fine Dining", Capacity = 6, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "ROOF - 1", Section = "Skyline Rooftop Terrace", Capacity = 2, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "ROOF - 2", Section = "Skyline Rooftop Terrace", Capacity = 4, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "ROOF - 3", Section = "Skyline Rooftop Terrace", Capacity = 4, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "POOL - 1", Section = "Poolside Lounge & Bar", Capacity = 4, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "POOL - 2", Section = "Poolside Lounge & Bar", Capacity = 2, Status = "AVAILABLE" },
+                    new RestaurantTable { HotelId = resolvedHotelId, TableNumber = "VIP - 1", Section = "Private Executive Dining", Capacity = 10, Status = "AVAILABLE" },
+                };
+                _db.RestaurantTables.AddRange(standardTables);
+                await _db.SaveChangesAsync();
+
+                dbTables = await _db.RestaurantTables
+                    .Where(t => t.HotelId == resolvedHotelId && t.Status != "OUT_OF_SERVICE")
+                    .OrderBy(t => t.TableNumber)
+                    .ToListAsync();
+            }
+
+            foreach (var tbl in dbTables)
+            {
+                var tblToken = QrTokenSecurity.GenerateSecureToken();
+                _db.RestaurantQrCodes.Add(new RestaurantQrCode
+                {
+                    HotelId = resolvedHotelId,
+                    CodeType = "TABLE",
+                    TableId = tbl.Id,
+                    Label = tbl.TableNumber,
+                    TokenHash = QrTokenSecurity.HashToken(tblToken),
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _db.SaveChangesAsync();
+
+            existingCodes = await _db.RestaurantQrCodes
+                .Include(q => q.Table)
+                .Where(q => q.HotelId == resolvedHotelId)
+                .OrderBy(q => q.CodeType == "RESTAURANT" ? 0 : 1)
+                .ThenBy(q => q.Table != null ? q.Table.TableNumber : q.Label)
+                .ToListAsync();
+        }
+
+        // Real-time sync: ensure any tables created from Table Board have their QR code generated
+        var existingTableIdsWithQr = existingCodes
+            .Where(q => q.TableId != null)
+            .Select(q => q.TableId)
+            .ToHashSet();
+
+        bool hasMissingTableQrs = false;
+        foreach (var tbl in dbTables)
+        {
+            if (!existingTableIdsWithQr.Contains(tbl.Id))
+            {
+                var tblToken = QrTokenSecurity.GenerateSecureToken();
+                _db.RestaurantQrCodes.Add(new RestaurantQrCode
+                {
+                    HotelId = resolvedHotelId,
+                    CodeType = "TABLE",
+                    TableId = tbl.Id,
+                    Label = tbl.TableNumber,
+                    TokenHash = QrTokenSecurity.HashToken(tblToken),
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+                hasMissingTableQrs = true;
+            }
+        }
+
+        if (hasMissingTableQrs)
+        {
+            await _db.SaveChangesAsync();
+            existingCodes = await _db.RestaurantQrCodes
+                .Include(q => q.Table)
+                .Where(q => q.HotelId == resolvedHotelId)
+                .OrderBy(q => q.CodeType == "RESTAURANT" ? 0 : 1)
+                .ThenBy(q => q.Table != null ? q.Table.TableNumber : q.Label)
+                .ToListAsync();
+        }
+
+        var tables = dbTables.Select(t => new
+        {
+            id = t.Id,
+            tableNumber = t.TableNumber,
+            section = t.Section,
+            capacity = t.Capacity
+        }).ToList();
 
         var result = existingCodes.Select(q => new
         {
@@ -379,7 +489,7 @@ public class RestaurantQrMenuController : ControllerBase
                     HotelId = resolvedHotelId,
                     CodeType = "TABLE",
                     TableId = table.Id,
-                    Label = $"Table {table.TableNumber} ({table.Section})",
+                    Label = table.TableNumber,
                     TokenHash = tokenHash,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,

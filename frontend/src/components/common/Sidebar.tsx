@@ -16,6 +16,7 @@ import {
   RestaurantTableReservationIcon,
   RestaurantQuickBillPOSIcon,
   RestaurantKitchenDisplayIcon,
+  RestaurantBarDisplayIcon,
   RestaurantOrderTicketIcon,
   RestaurantSetupIcon,
   RestaurantMenuBookIcon,
@@ -58,6 +59,7 @@ import {
   Contact,
   Sparkles,
   BedDouble,
+  Globe,
   BookOpen,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -200,6 +202,14 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     description: 'Live kitchen order tickets & prep queue',
   },
   {
+    id: 'bar-display',
+    name: 'Bar Display',
+    href: '/restaurant-management?section=bar',
+    icon: RestaurantBarDisplayIcon,
+    tag: 'BDS',
+    description: 'Live bar order tickets & drink prep queue',
+  },
+  {
     id: 'orders',
     name: 'Orders',
     href: '/tables?tab=ACTIVE_ORDERS',
@@ -210,7 +220,7 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
   {
     id: 'restaurant-setup',
     name: 'Restaurant Setup',
-    href: '/hotel?category=restaurant-setup',
+    href: '/restaurant-setup',
     icon: RestaurantSetupIcon,
     tag: 'SETUP',
     description: 'Food categories, products setup, table sections & portion rates',
@@ -230,6 +240,22 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     icon: QrCode,
     tag: 'QR',
     description: 'Digital QR menu, table QR codes & customer view settings',
+  },
+  {
+    id: 'menu-item-sales',
+    name: 'Item Sales',
+    href: '/menu-item-sales',
+    icon: BarChart3,
+    tag: 'REPORT',
+    description: 'Menu item sales quantities, revenue & popularity',
+  },
+  {
+    id: 'restaurant-website',
+    name: 'Website',
+    href: '/website',
+    icon: Globe,
+    tag: 'WEB',
+    description: 'Public restaurant website, delivery, gallery & appearance',
   },
 ];
 const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [];
@@ -315,6 +341,9 @@ export const Sidebar: React.FC<{
   const { role } = useRole();
 
   const isRestaurantPath = useMemo(() => {
+    if (pathname === '/hotel' && currentSearch.includes('category=restaurant-setup')) {
+      return true;
+    }
     return [
       '/restaurant-management',
       '/tables',
@@ -323,10 +352,16 @@ export const Sidebar: React.FC<{
       '/kitchen',
       '/cafe',
       '/restaurant-setup',
+      '/qr-menu',
+      '/menu-item-sales',
+      '/website',
     ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-  }, [pathname]);
+  }, [pathname, currentSearch]);
 
   const isHotelPath = useMemo(() => {
+    if (pathname === '/hotel' && currentSearch.includes('category=restaurant-setup')) {
+      return false;
+    }
     return [
       '/hotel-management',
       '/front-desk',
@@ -341,7 +376,7 @@ export const Sidebar: React.FC<{
       '/guests',
       '/hotel',
     ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-  }, [pathname]);
+  }, [pathname, currentSearch]);
 
   const [hotelName, setHotelName] = useState<string>(() => {
     if (typeof localStorage !== 'undefined') {
@@ -515,16 +550,16 @@ export const Sidebar: React.FC<{
     if (!isRestaurantEnabled) return [];
     return RESTAURANT_SIDEBAR_OPTIONS.filter((item) => {
       if (role === 'CHEF') {
-        return ['kitchen-display', 'orders', 'menu', 'restaurant-inventory', 'reports'].includes(item.id);
+        return ['kitchen-display', 'bar-display', 'orders', 'menu', 'restaurant-inventory', 'reports'].includes(item.id);
       }
       if (role === 'HOUSEKEEPING') {
         return ['table-board'].includes(item.id);
       }
       if (role === 'POS_CASHIER') {
-        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'menu', 'qr-menu', 'bills-invoices', 'payments-refunds'].includes(item.id);
+        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'menu', 'qr-menu', 'menu-item-sales', 'restaurant-website', 'bills-invoices', 'payments-refunds'].includes(item.id);
       }
       if (role === 'FRONT_DESK') {
-        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'qr-menu', 'bills-invoices', 'payments-refunds'].includes(item.id);
+        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'qr-menu', 'menu-item-sales', 'restaurant-website', 'bills-invoices', 'payments-refunds'].includes(item.id);
       }
       return true;
     });
@@ -588,7 +623,7 @@ export const Sidebar: React.FC<{
       return (pathname === '/hotel' && (currentSearch.includes('category=room-setup') || !currentSearch || currentSearch === '')) || pathname === '/rooms';
     }
     if (item.id === 'restaurant-setup') {
-      return pathname === '/hotel' && currentSearch.includes('category=restaurant-setup');
+      return pathname === '/restaurant-setup' || (pathname === '/hotel' && currentSearch.includes('category=restaurant-setup'));
     }
     if (item.id === 'hotel-inventory') {
       return pathname.startsWith('/inventory') && (currentSearch.includes('dept=HOTEL') || currentSearch.includes('filter=hotel'));
@@ -603,13 +638,25 @@ export const Sidebar: React.FC<{
       return pathname === '/tables' && currentSearch.includes('tab=ACTIVE_ORDERS');
     }
     if (item.id === 'kitchen-display') {
-      return pathname === '/restaurant-management' && currentSearch.includes('section=kitchen');
+      return pathname === '/kitchen' || (pathname === '/restaurant-management' && currentSearch.includes('section=kitchen'));
+    }
+    if (item.id === 'bar-display') {
+      return pathname === '/bar' || (pathname === '/restaurant-management' && currentSearch.includes('section=bar'));
     }
     if (item.id === 'quick-bill') {
       return pathname.startsWith('/quick-sale');
     }
     if (item.id === 'menu') {
-      return pathname.startsWith('/menu');
+      return pathname === '/menu' || pathname.startsWith('/menu/');
+    }
+    if (item.id === 'menu-item-sales') {
+      return pathname === '/menu-item-sales' || pathname.startsWith('/menu-item-sales/');
+    }
+    if (item.id === 'qr-menu') {
+      return pathname === '/qr-menu' || pathname.startsWith('/qr-menu/');
+    }
+    if (item.id === 'restaurant-website') {
+      return pathname === '/website' || pathname.startsWith('/website/');
     }
     if (item.id === 'restaurant-inventory') {
       return pathname.startsWith('/inventory') && (currentSearch.includes('dept=RESTAURANT') || currentSearch.includes('filter=restaurant'));

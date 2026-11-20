@@ -33,6 +33,7 @@ public class HospitalityDbContext : DbContext
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<Bill> Bills => Set<Bill>();
+    public DbSet<BillDelivery> BillDeliveries => Set<BillDelivery>();
     public DbSet<ReservationAlert> ReservationAlerts => Set<ReservationAlert>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerLedgerEntry> CustomerLedgers => Set<CustomerLedgerEntry>();

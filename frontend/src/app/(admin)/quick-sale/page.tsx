@@ -34,8 +34,10 @@ import {
   Package,
   Table2,
   ExternalLink,
+  Send,
 } from 'lucide-react';
 import { RestaurantReceiptModal, ReceiptModalProps, ReceiptItem } from '@/components/common/RestaurantReceiptModal';
+import { BillDeliveryModal, BillDeliveryData } from '@/components/common/BillDeliveryModal';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -120,6 +122,7 @@ export default function QuickSalePage() {
   const [billMode, setBillMode] = useState<string>('Cash');
   const [billRemarks, setBillRemarks] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [dispatchModalDept, setDispatchModalDept] = useState<'KOT' | 'BOT' | null>(null);
 
   // Order Type & Packing Management (Dine-in, Takeaway, Delivery)
   const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'>('TAKEAWAY');
@@ -177,6 +180,10 @@ export default function QuickSalePage() {
   // Receipt Modal State
   const [receiptData, setReceiptData] = useState<ReceiptModalProps | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
+
+  // Bill Delivery Dialog State
+  const [isDeliveryDialogOpen, setIsDeliveryDialogOpen] = useState<boolean>(false);
+  const [deliveryData, setDeliveryData] = useState<BillDeliveryData | null>(null);
 
   // Daily Sales Summary Modal State
   const [dailySales, setDailySales] = useState<DailySalesSummaryData | null>(null);
@@ -1011,7 +1018,7 @@ export default function QuickSalePage() {
   };
 
   // Dispatch KOT / BOT / All Tickets from Quick Sale
-  const handleDispatchTicket = (targetDept: 'KOT' | 'BOT' | 'ALL') => {
+  const handleDispatchTicket = (targetDept: 'KOT' | 'BOT' | 'ALL', shouldPrint: boolean = true) => {
     if (cart.length === 0) {
       toast.error('Cart Empty', 'Please add items before printing tickets.');
       return;
@@ -1076,28 +1083,35 @@ export default function QuickSalePage() {
       };
     });
 
-    setReceiptData({
-      isOpen: true,
-      onClose: () => setIsReceiptModalOpen(false),
-      orderNumber: activeOrderNumber || 'QS-ORDER',
-      ticketType: (targetDept === 'BOT' ? 'BOT' : targetDept === 'ALL' ? 'ALL' : 'KOT') as any,
-      kotNumber: targetDept !== 'BOT' ? ticketNumber : undefined,
-      botNumber: targetDept === 'BOT' ? ticketNumber : undefined,
-      receiptNumber: ticketNumber,
-      orderType: orderType === 'DINE_IN' ? 'DINE_IN' : orderType === 'DELIVERY' ? 'DELIVERY' : 'TAKEAWAY',
-      tableNumber: null,
-      seatingNote: orderType === 'DINE_IN' ? 'Dine-In' : orderType === 'DELIVERY' ? 'Delivery' : 'Takeaway',
-      createdAt: new Date().toISOString(),
-      serverName: 'ADMIN',
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
-      items: printItems,
-      subtotal: printItems.reduce((s, i) => s + i.total, 0),
-      tax: 0,
-      total: printItems.reduce((s, i) => s + i.total, 0),
-    });
-    setIsReceiptModalOpen(true);
-    toast.celebrate(`Ticket Dispatched!`, `${printItems.length} item(s) printed (${ticketNumber}).`);
+    if (shouldPrint) {
+      setReceiptData({
+        isOpen: true,
+        onClose: () => setIsReceiptModalOpen(false),
+        orderNumber: activeOrderNumber || 'QS-ORDER',
+        ticketType: (targetDept === 'BOT' ? 'BOT' : targetDept === 'ALL' ? 'ALL' : 'KOT') as any,
+        kotNumber: targetDept !== 'BOT' ? ticketNumber : undefined,
+        botNumber: targetDept === 'BOT' ? ticketNumber : undefined,
+        receiptNumber: ticketNumber,
+        orderType: orderType === 'DINE_IN' ? 'DINE_IN' : orderType === 'DELIVERY' ? 'DELIVERY' : 'TAKEAWAY',
+        tableNumber: null,
+        seatingNote: orderType === 'DINE_IN' ? 'Dine-In' : orderType === 'DELIVERY' ? 'Delivery' : 'Takeaway',
+        createdAt: new Date().toISOString(),
+        serverName: 'ADMIN',
+        customerName: customerName.trim() || undefined,
+        customerPhone: customerPhone.trim() || undefined,
+        items: printItems,
+        subtotal: printItems.reduce((s, i) => s + i.total, 0),
+        tax: 0,
+        total: printItems.reduce((s, i) => s + i.total, 0),
+      });
+      setIsReceiptModalOpen(true);
+      toast.celebrate(`Ticket Printed!`, `${printItems.length} item(s) (${ticketNumber}).`);
+    } else {
+      toast.success(
+        `${targetDept} Sent to ${targetDept === 'BOT' ? 'Bar' : 'Kitchen'}!`,
+        `${printItems.length} item(s) dispatched (${ticketNumber}) without printing.`
+      );
+    }
   };
 
 
@@ -1428,7 +1442,27 @@ export default function QuickSalePage() {
           }
         }, 300);
       } else {
-        setIsReceiptModalOpen(true);
+        // Show bill delivery dialog instead of just receipt modal
+        setDeliveryData({
+          orderNumber: savedOrderNumber,
+          receiptNumber: isVatBill && vatInvoiceNum ? vatInvoiceNum : `REC-${savedOrderNumber.replace('QS-', '').replace('ORD-', '')}`,
+          invoiceDate: new Date().toLocaleString(),
+          customerName: isCreditSale && selectedCreditCustomer ? selectedCreditCustomer.name : (customerName.trim() || 'Walk-in Customer'),
+          customerPhone: isCreditSale && selectedCreditCustomer ? selectedCreditCustomer.phone : (customerPhone.trim() || undefined),
+          total: netAmount,
+          paymentMethod: isCreditSale ? 'CREDIT' : billMode,
+          paymentStatus: isCreditSale ? 'CREDIT' : 'PAID',
+          items: receiptProps.items.map((i) => ({
+            productName: i.productName,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            total: i.total,
+          })),
+          subtotal: basicTotal,
+          discountAmount: effectiveDisAmt,
+          tax: isVatBill ? vatAmount : 0,
+        });
+        setIsDeliveryDialogOpen(true);
       }
 
       // Reset cart, tender and credit customer for next customer
@@ -2265,16 +2299,22 @@ export default function QuickSalePage() {
               </span>
             </button>
 
-            {/* 2. Print KOT */}
+            {/* 2. KOT */}
             <button
               type="button"
               disabled={isSubmitting || cart.length === 0}
-              onClick={() => handleDispatchTicket('KOT')}
+              onClick={() => {
+                if (cart.length === 0) {
+                  toast.error('Cart Empty', 'Please add items before dispatching KOT.');
+                  return;
+                }
+                setDispatchModalDept('KOT');
+              }}
               className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#07241E] hover:bg-slate-50 dark:hover:bg-[#0c382f] text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Dispatch and print Kitchen Order Ticket (KOT)"
+              title="Kitchen Order Ticket (KOT) - Send or Print"
             >
               <ChefHat className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-              <span>Print KOT</span>
+              <span>KOT</span>
               {cart.some(
                 (i) => (i.department === 'KOT' || !i.department) && (i.quantity > (i.dispatchedQuantity || 0))
               ) && (
@@ -2286,16 +2326,22 @@ export default function QuickSalePage() {
               )}
             </button>
 
-            {/* 3. Print BOT */}
+            {/* 3. BOT */}
             <button
               type="button"
               disabled={isSubmitting || cart.length === 0}
-              onClick={() => handleDispatchTicket('BOT')}
+              onClick={() => {
+                if (cart.length === 0) {
+                  toast.error('Cart Empty', 'Please add items before dispatching BOT.');
+                  return;
+                }
+                setDispatchModalDept('BOT');
+              }}
               className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#07241E] hover:bg-slate-50 dark:hover:bg-[#0c382f] text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Dispatch and print Bar Order Ticket (BOT)"
+              title="Bar Order Ticket (BOT) - Send or Print"
             >
               <Wine className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-              <span>Print BOT</span>
+              <span>BOT</span>
               {cart.some(
                 (i) => i.department === 'BOT' && (i.quantity > (i.dispatchedQuantity || 0))
               ) && (
@@ -3394,6 +3440,76 @@ export default function QuickSalePage() {
       )}
 
       {/* =========================================================================
+          KOT / BOT DISPATCH OPTIONS MODAL (Send vs Print - Left & Right Side)
+         ========================================================================= */}
+      {dispatchModalDept && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-[340px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={cn(
+                    'w-8 h-8 rounded-lg flex items-center justify-center border',
+                    dispatchModalDept === 'KOT'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/60'
+                      : 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-900/60'
+                  )}
+                >
+                  {dispatchModalDept === 'KOT' ? (
+                    <ChefHat className="w-4 h-4" />
+                  ) : (
+                    <Wine className="w-4 h-4" />
+                  )}
+                </div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {dispatchModalDept === 'KOT' ? 'Kitchen Order Ticket' : 'Bar Order Ticket'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDispatchModalDept(null)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 2 Options: Left and Right Side by Side (Clean, without text descriptions) */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              {/* Left: Send KOT / Send BOT */}
+              <button
+                type="button"
+                onClick={() => {
+                  const dept = dispatchModalDept;
+                  setDispatchModalDept(null);
+                  handleDispatchTicket(dept, false);
+                }}
+                className="h-11 px-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-xs font-bold transition flex items-center justify-center gap-2 shadow-2xs cursor-pointer active:scale-95"
+              >
+                <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Send {dispatchModalDept}</span>
+              </button>
+
+              {/* Right: Print KOT / Print BOT */}
+              <button
+                type="button"
+                onClick={() => {
+                  const dept = dispatchModalDept;
+                  setDispatchModalDept(null);
+                  handleDispatchTicket(dept, true);
+                }}
+                className="h-11 px-3 rounded-xl bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-95"
+              >
+                <Printer className="w-4 h-4 text-white" />
+                <span>Print {dispatchModalDept}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
           PRINTABLE RESTAURANT RECEIPT MODAL
           ========================================================================= */}
       {receiptData && (
@@ -3422,6 +3538,29 @@ export default function QuickSalePage() {
           paymentStatus={receiptData.paymentStatus}
         />
       )}
+
+      {/* =========================================================================
+          BILL DELIVERY DIALOG (after Settle Payment)
+          ========================================================================= */}
+      <BillDeliveryModal
+        isOpen={isDeliveryDialogOpen}
+        onClose={() => setIsDeliveryDialogOpen(false)}
+        data={deliveryData}
+        onPrint={() => {
+          setIsDeliveryDialogOpen(false);
+          setIsReceiptModalOpen(true);
+          setTimeout(() => {
+            if (typeof window !== 'undefined') window.print();
+          }, 300);
+        }}
+        onDownloadPdf={() => {
+          setIsDeliveryDialogOpen(false);
+          setIsReceiptModalOpen(true);
+          setTimeout(() => {
+            if (typeof window !== 'undefined') window.print();
+          }, 300);
+        }}
+      />
     </div>
   );
 }

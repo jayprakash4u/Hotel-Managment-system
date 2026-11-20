@@ -248,6 +248,7 @@ export interface POSProductData {
   variants?: ProductVariant[];
   variantsJson?: string | null;
   department?: 'KOT' | 'BOT';
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
 }
 
 export interface InventoryItemData {
@@ -461,6 +462,8 @@ export interface QuickSaleItem {
   unitPrice: number;
   quantity: number;
   notes?: string;
+  preparationMethod?: string;
+  status?: string;
 }
 
 export interface QuickSalePayload {
@@ -518,6 +521,57 @@ export interface QuickSaleReceipt {
   timestamp: string;
 }
 
+export interface WeeklySalesDayItem {
+  date: string;
+  dayName: string;
+  dayFullName: string;
+  formattedDate: string;
+  sales: number;
+  orderCount: number;
+  isToday: boolean;
+  isHighest: boolean;
+  isLowest: boolean;
+}
+
+export interface RestaurantDashboardSummaryData {
+  todaySales: number;
+  yesterdaySales: number;
+  percentageChange: number;
+  isIncrease: boolean;
+  last7DaysSales: number;
+  todayOrders: number;
+  currency: string;
+  currencySymbol: string;
+  weeklySales: WeeklySalesDayItem[];
+}
+
+export interface MenuItemSalesRecord {
+  menuItem: string;
+  productId?: string;
+  category: string;
+  isVeg?: boolean;
+  quantitySold: number;
+  totalSales: number;
+  averagePrice: number;
+}
+
+export interface MenuItemSalesSummaryResponse {
+  startDate: string;
+  endDate: string;
+  currency: string;
+  currencySymbol: string;
+  totalItemsSold: number;
+  totalSales: number;
+  bestSellingItem: {
+    name: string;
+    quantitySold: number;
+    totalSales: number;
+    category?: string;
+  } | null;
+  categories: string[];
+  items: MenuItemSalesRecord[];
+}
+
 export interface DailySalesSummaryData {
   date: string;
   totalOrders: number;
@@ -561,6 +615,12 @@ export interface RestaurantOrderItemData {
   total: number;
   notes?: string;
   department?: 'KOT' | 'BOT';
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
+  status?: 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
+  preparationStartedAt?: string;
+  preparationCompletedAt?: string;
+  preparedBy?: string;
+  preparationDurationMinutes?: number;
   dispatchedQuantity?: number;
   kotNumber?: string;
   botNumber?: string;
@@ -3485,4 +3545,56 @@ export interface RecordTaxPaymentDto {
   referenceNumber: string;
   taxPeriod?: string;
   notes?: string;
+}
+
+// ----------------------------------------------------
+// Restaurant Website Module Types
+// ----------------------------------------------------
+export interface SocialLinkItem {
+  id: string;
+  platform: 'facebook' | 'instagram' | 'tiktok' | 'youtube' | 'website' | string;
+  url: string;
+  label?: string;
+}
+
+export interface UsefulLinkItem {
+  id: string;
+  title: string;
+  url: string;
+}
+
+export interface GalleryImageItem {
+  id: string;
+  title: string;
+  category: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+export interface RestaurantWebsiteSettings {
+  id?: string;
+  hotelId?: string;
+  restaurantName: string;
+  restaurantSlug: string;
+  publicWebsiteUrl: string;
+  isDeliveryEnabled: boolean;
+  shareMyMenu: boolean;
+  deliveryFee?: number;
+  freeDeliveryAbove?: number;
+  minDeliveryOrder?: number;
+  requireOrderConfirmation?: boolean;
+  isEnabled: boolean;
+  phoneNumber?: string;
+  address?: string;
+  googleMapsUrl?: string;
+  openingHours?: string;
+  publicRestaurantName?: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  welcomeMessage?: string;
+  footerText?: string;
+  theme: 'emerald' | 'slate' | 'warm' | 'midnight' | string;
+  socialLinks: SocialLinkItem[];
+  usefulLinks: UsefulLinkItem[];
+  galleryImages: GalleryImageItem[];
 }

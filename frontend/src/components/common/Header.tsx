@@ -124,7 +124,7 @@ export const Header: React.FC<{
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b px-4 sm:px-6 backdrop-blur-md transition-all bg-[var(--surface-card)]/90 border-[var(--border-default)] text-[var(--text-body)] dark:bg-[var(--surface-card)]/90 dark:border-[var(--border-default)] dark:text-[var(--text-body)] shadow-2xs">
-      {/* Left side: Mobile menu toggle (< lg) + Breadcrumbs */}
+      {/* Left side: Mobile menu toggle (< lg) */}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -134,26 +134,10 @@ export const Header: React.FC<{
         >
           <Menu className="w-4.5 h-4.5" />
         </button>
-
-        <div className="hidden sm:block">
-          <Breadcrumbs />
-        </div>
       </div>
 
-      {/* Right side: Search, Theme Toggle & Profile Trigger */}
+      {/* Right side: Notifications, Theme Toggle & Profile Trigger */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Quick Search Button */}
-        <button
-          onClick={() => setIsSearchOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface-muted)] border border-[var(--border-input)] text-[var(--text-muted)] hover:text-[var(--text-body)] hover:border-[var(--brand-primary)] dark:bg-[var(--surface-muted)] dark:border-[var(--border-input)] dark:text-[var(--text-muted)] dark:hover:text-[var(--text-body)] transition-all text-xs group cursor-pointer"
-        >
-          <Search className="w-3.5 h-3.5 text-[var(--brand-primary)] group-hover:scale-110 transition-transform" />
-          <span className="hidden md:inline font-medium">Quick Search (Rooms, Guests...)</span>
-          <kbd className="hidden md:inline-flex items-center rounded bg-[var(--surface-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] border border-[var(--border-input)] dark:bg-[var(--surface-card)] dark:text-[var(--text-muted)] dark:border-[var(--border-input)] font-mono">
-            ⌘K
-          </kbd>
-        </button>
-
         {/* Reservation & Table Alerts Notification Bell */}
         <div className="relative" ref={alertsDropdownRef}>
           <button

@@ -15,6 +15,7 @@ export interface MenuItemCatalogEntry {
   stock?: number;
   isAvailable?: boolean;
   department?: 'KOT' | 'BOT';
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
 }
 
 // Setted Available Units by group for instant multi-unit ordering
@@ -1161,11 +1162,13 @@ export function resolveItemUnitInfo(
     }
     const cleanBase = item.baseName || baseFromParenthesis;
     const dept: 'KOT' | 'BOT' = item.department || (isBeverageCategory(item.category, cleanBase) ? 'BOT' : 'KOT');
+    const prepMethod = item.preparationMethod || 'NOT_CONFIGURED';
     return {
       baseName: cleanBase,
       unit: currentUnit,
       availableUnits: item.availableUnits,
       department: dept,
+      preparationMethod: prepMethod,
     };
   }
 
@@ -1207,11 +1210,13 @@ export function resolveItemUnitInfo(
     }
 
     const dept: 'KOT' | 'BOT' = match.department || (isBeverageCategory(match.category || (item as any).category, cleanBase) ? 'BOT' : 'KOT');
+    const prepMethod = match.preparationMethod || (item as any).preparationMethod || 'NOT_CONFIGURED';
     return {
       baseName: cleanBase,
       unit: currentUnit,
       availableUnits: match.availableUnits,
       department: dept,
+      preparationMethod: prepMethod,
     };
   }
 
@@ -1236,17 +1241,20 @@ export function resolveItemUnitInfo(
     }
 
     const dept: 'KOT' | 'BOT' = partial.department || (isBeverageCategory(partial.category || (item as any).category, cleanBase) ? 'BOT' : 'KOT');
+    const prepMethod = partial.preparationMethod || (item as any).preparationMethod || 'NOT_CONFIGURED';
     return {
       baseName: cleanBase,
       unit: currentUnit,
       availableUnits: partial.availableUnits,
       department: dept,
+      preparationMethod: prepMethod,
     };
   }
 
   // 3. Fallback for custom items without predefined tiers
   const fallbackUnit = item.unit || (lowerName.includes('half') ? 'Half' : 'Full');
   const fallbackDept: 'KOT' | 'BOT' = (item as any).department || (isBeverageCategory((item as any).category, item.baseName || baseFromParenthesis) ? 'BOT' : 'KOT');
+  const fallbackPrep = (item as any).preparationMethod || 'NOT_CONFIGURED';
   return {
     baseName: item.baseName || baseFromParenthesis,
     unit: fallbackUnit,
@@ -1254,6 +1262,7 @@ export function resolveItemUnitInfo(
       ? item.availableUnits
       : [{ unit: fallbackUnit, price: item.price }],
     department: fallbackDept,
+    preparationMethod: fallbackPrep,
   };
 }
 
@@ -1273,9 +1282,14 @@ export function isBeverageCategory(category?: string, name?: string): boolean {
     c.includes('wine') ||
     c.includes('beer') ||
     c.includes('liquor') ||
+    c.includes('spirits') ||
+    c.includes('alcohol') ||
     c.includes('coffee') ||
     c.includes('tea') ||
     c.includes('juice') ||
+    c.includes('shake') ||
+    c.includes('smoothie') ||
+    c.includes('lassi') ||
     c.includes('cold drink') ||
     n.includes('sprite') ||
     n.includes('coke') ||
@@ -1283,6 +1297,15 @@ export function isBeverageCategory(category?: string, name?: string): boolean {
     n.includes('fanta') ||
     n.includes('pepsi') ||
     n.includes('mojito') ||
-    n.includes('lemonade')
+    n.includes('lemonade') ||
+    n.includes('whiskey') ||
+    n.includes('vodka') ||
+    n.includes('rum') ||
+    n.includes('gin') ||
+    n.includes('beer') ||
+    n.includes('wine') ||
+    n.includes('soda') ||
+    n.includes('water') ||
+    n.includes('tonic')
   );
 }

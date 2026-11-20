@@ -32,14 +32,34 @@ export function getTabInfoForUrl(
   const fullPath = search ? `${pathname}?${search}` : pathname;
 
   // Specific query param routes
+  if (pathname === '/kitchen' || (pathname === '/restaurant-management' && search.includes('section=kitchen'))) {
+    return {
+      id: '/restaurant-management?section=kitchen',
+      path: fullPath,
+      title: 'Kitchen Display',
+      iconName: 'ChefHat',
+      closable: true,
+    };
+  }
+
+  if (pathname === '/bar' || (pathname === '/restaurant-management' && search.includes('section=bar'))) {
+    return {
+      id: '/restaurant-management?section=bar',
+      path: fullPath,
+      title: 'Bar Display',
+      iconName: 'Wine',
+      closable: true,
+    };
+  }
+
   if (pathname === '/tables') {
     if (search.includes('tab=RESERVATIONS')) {
-      return { id: '/tables?tab=RESERVATIONS', path: '/tables?tab=RESERVATIONS', title: 'Table Bookings', iconName: 'CalendarCheck', closable: true };
+      return { id: '/tables?tab=RESERVATIONS', path: '/tables?tab=RESERVATIONS', title: 'Table Reservations', iconName: 'CalendarCheck', closable: true };
     }
     if (search.includes('tab=ACTIVE_ORDERS')) {
-      return { id: '/tables?tab=ACTIVE_ORDERS', path: '/tables?tab=ACTIVE_ORDERS', title: 'Live Orders', iconName: 'Receipt', closable: true };
+      return { id: '/tables?tab=ACTIVE_ORDERS', path: '/tables?tab=ACTIVE_ORDERS', title: 'Orders', iconName: 'Receipt', closable: true };
     }
-    return { id: '/tables', path: '/tables', title: 'Floor & Tables', iconName: 'Table2', closable: true };
+    return { id: '/tables', path: '/tables', title: 'Table Board', iconName: 'Table2', closable: true };
   }
 
   if (pathname === '/inventory') {
@@ -109,9 +129,13 @@ export function getTabInfoForUrl(
     return { id: '/billing', path: '/billing', title: 'Billing & Invoices', iconName: 'FileText', closable: true };
   }
 
+  if (pathname === '/restaurant-setup') {
+    return { id: '/restaurant-setup', path: fullPath, title: 'Restaurant Setup', iconName: 'Building2', closable: true };
+  }
+
   if (pathname === '/hotel') {
     if (search.includes('category=restaurant-setup')) {
-      return { id: '/hotel?category=restaurant-setup', path: fullPath, title: 'Restaurant Setup', iconName: 'Building2', closable: true };
+      return { id: '/restaurant-setup', path: '/restaurant-setup', title: 'Restaurant Setup', iconName: 'Building2', closable: true };
     }
     if (search.includes('category=room-setup')) {
       return { id: '/hotel?category=room-setup', path: fullPath, title: 'Hotel Setup', iconName: 'Building2', closable: true };
@@ -185,8 +209,13 @@ export function getTabInfoForUrl(
     '/hotel': { title: 'Master Setup', iconName: 'Building2', closable: true },
     '/billing': { title: 'Billing & Folios', iconName: 'FileText', closable: true },
     '/restaurant-management': { title: 'Restaurant Overview', iconName: 'UtensilsCrossed', closable: true },
-    '/quick-sale': { title: 'Quick Sale POS', iconName: 'Zap', closable: true },
+    '/kitchen': { title: 'Kitchen Display', iconName: 'ChefHat', closable: true },
+    '/bar': { title: 'Bar Display', iconName: 'Wine', closable: true },
+    '/quick-sale': { title: 'Quick Bill', iconName: 'Zap', closable: true },
     '/menu': { title: 'Menu Management', iconName: 'UtensilsCrossed', closable: true },
+    '/qr-menu': { title: 'QR Menu', iconName: 'QrCode', closable: true },
+    '/menu-item-sales': { title: 'Menu Item Sales', iconName: 'BarChart3', closable: true },
+    '/website': { title: 'Website', iconName: 'Globe', closable: true },
     '/staff': { title: 'Staff', iconName: 'Users', closable: true },
     '/profile': { title: 'User Profile', iconName: 'User', closable: true },
   };
@@ -248,9 +277,15 @@ export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const cleaned = parsed.map((t) => {
-            const info = getTabInfoForUrl(t.path?.split('?')[0] || t.id, t.path?.includes('?') ? t.path.split('?')[1] : '');
+            const parsedPath = t.path?.split('?')[0] || t.id;
+            const parsedSearch = t.path?.includes('?') ? t.path.split('?')[1] : '';
+            const info = getTabInfoForUrl(parsedPath, parsedSearch);
             return {
               ...t,
+              id: info.id,
+              path: t.path || info.path,
+              title: info.title,
+              iconName: info.iconName,
               closable: info.closable,
             };
           });
@@ -276,11 +311,39 @@ export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({
     const currentTabInfo = getTabInfoForUrl(pathname, searchStr);
 
     setTabs((prevTabs) => {
+      // 1. Direct match on tab id
       const exists = prevTabs.some((t) => t.id === currentTabInfo.id);
       if (exists) {
-        // Update path in case query params changed
-        return prevTabs.map((t) => (t.id === currentTabInfo.id ? { ...t, path: currentTabInfo.path } : t));
+        return prevTabs.map((t) =>
+          t.id === currentTabInfo.id
+            ? { ...t, path: currentTabInfo.path, title: currentTabInfo.title, iconName: currentTabInfo.iconName }
+            : t
+        );
       }
+
+      // 2. Legacy / mismatch match on tab path (e.g. tab id was /restaurant-management but path is /restaurant-management?section=kitchen)
+      const pathMatch = prevTabs.some((t) => t.path === currentTabInfo.path);
+      if (pathMatch) {
+        return prevTabs.map((t) =>
+          t.path === currentTabInfo.path
+            ? { ...t, id: currentTabInfo.id, path: currentTabInfo.path, title: currentTabInfo.title, iconName: currentTabInfo.iconName }
+            : t
+        );
+      }
+
+      // 3. If an existing tab with id '/restaurant-management' was open and user navigated to kitchen/bar from it
+      const isRestaurantSection = pathname === '/restaurant-management' && (searchStr.includes('section=kitchen') || searchStr.includes('section=bar'));
+      if (isRestaurantSection) {
+        const overviewIdx = prevTabs.findIndex((t) => t.id === '/restaurant-management');
+        if (overviewIdx !== -1 && prevTabs.length <= 2) {
+          return prevTabs.map((t) =>
+            t.id === '/restaurant-management'
+              ? { ...t, id: currentTabInfo.id, path: currentTabInfo.path, title: currentTabInfo.title, iconName: currentTabInfo.iconName }
+              : t
+          );
+        }
+      }
+
       return [...prevTabs, currentTabInfo];
     });
 

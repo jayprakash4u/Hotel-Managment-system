@@ -53,6 +53,10 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // Background Schedulers
 builder.Services.AddHostedService<Hospitality.Api.Services.TableReservationAlertService>();
 
+// Bill delivery services
+builder.Services.AddScoped<Hospitality.Api.Services.EmailService>();
+builder.Services.AddScoped<Hospitality.Api.Services.InvoicePdfService>();
+
 // Supabase Client (Auth, Postgrest, Storage, Realtime)
 builder.Services.AddSupabase(
     builder.Configuration["Supabase:Url"]!,
@@ -128,7 +132,14 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""inventoryItemId"" text;
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""variantsJson"" text DEFAULT '[]';
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""preparationMethod"" text DEFAULT 'NOT_CONFIGURED';
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationMethod"" text DEFAULT 'NOT_CONFIGURED';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""status"" text DEFAULT 'RECEIVED';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationStartedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationCompletedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparedBy"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationDurationMinutes"" double precision;
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""dispatchedQuantity"" integer DEFAULT 0;
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""kotNumber"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
@@ -1781,6 +1792,49 @@ using (var scope = app.Services.CreateScope())
             );
             CREATE INDEX IF NOT EXISTS ""ix_journalentryline_entry"" ON ""JournalEntryLine"" (""journalEntryId"");
             CREATE INDEX IF NOT EXISTS ""ix_journalentryline_account"" ON ""JournalEntryLine"" (""accountId"");
+
+            CREATE TABLE IF NOT EXISTS ""RestaurantMenuSettings"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""isEnabled"" boolean NOT NULL DEFAULT true,
+                ""showPrices"" boolean NOT NULL DEFAULT true,
+                ""showImages"" boolean NOT NULL DEFAULT true,
+                ""showDescriptions"" boolean NOT NULL DEFAULT true,
+                ""allowOnlineOrdering"" boolean NOT NULL DEFAULT false,
+                ""publicRestaurantName"" text,
+                ""logoUrl"" text,
+                ""coverImageUrl"" text,
+                ""welcomeMessage"" text,
+                ""footerText"" text,
+                ""isDeliveryEnabled"" boolean DEFAULT false,
+                ""shareMyMenu"" boolean DEFAULT true,
+                ""phoneNumber"" text,
+                ""address"" text,
+                ""googleMapsUrl"" text,
+                ""openingHours"" text,
+                ""socialLinksJson"" text DEFAULT '[]',
+                ""usefulLinksJson"" text DEFAULT '[]',
+                ""galleryImagesJson"" text DEFAULT '[]',
+                ""theme"" text DEFAULT 'emerald',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""isDeliveryEnabled"" boolean DEFAULT false;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""shareMyMenu"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""deliveryFee"" numeric DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""freeDeliveryAbove"" numeric DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""minDeliveryOrder"" numeric DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""requireOrderConfirmation"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""phoneNumber"" text;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""address"" text;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""googleMapsUrl"" text;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""openingHours"" text;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""socialLinksJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""usefulLinksJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""galleryImagesJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""theme"" text DEFAULT 'emerald';
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""footerText"" text;
 
         ");
         logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Bills, and Packing tables ready.");

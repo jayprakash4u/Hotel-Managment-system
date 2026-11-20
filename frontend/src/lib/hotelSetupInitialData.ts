@@ -224,9 +224,9 @@ export const MASTER_CATEGORIES: MasterCategory[] = [
       },
       {
         id: 'table-categories-setup',
-        name: 'Table Categories Setup',
+        name: 'Area Setup',
         icon: Building2,
-        description: 'Configure restaurant table sections: Fine Dining, Rooftop Terrace, Poolside Bar, VIP Salon',
+        description: 'Configure restaurant dining areas: Fine Dining, Rooftop Terrace, Poolside Bar, VIP Salon',
       },
       {
         id: 'quantity-setup',
@@ -569,164 +569,8 @@ export const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
     { id: 'agt-3', code: 'AGT-003', name: 'Nepal Vista Tours', description: 'Cultural and heritage tour specialist', contact: 'sales@nepalvista.com', phone: '+977 1-6666666', isActive: true },
     { id: 'agt-4', code: 'AGT-004', name: 'Walk-In Direct', description: 'Direct walk-in guest without agent', contact: '', phone: '', isActive: true },
   ],
-  'categories-setup': [
-    { id: 'cat-1', code: 'APP', name: 'Appetizers & Starters', order: 1, isDefault: true, isActive: true },
-    { id: 'cat-2', code: 'SOUP', name: 'Soups & Salads', order: 2, isActive: true },
-    { id: 'cat-3', code: 'MAIN', name: 'Main Course', order: 3, isActive: true },
-    { id: 'cat-4', code: 'RICE', name: 'Rice & Biryani', order: 4, isActive: true },
-    { id: 'cat-5', code: 'BREAD', name: 'Breads & Tandoori', order: 5, isActive: true },
-    { id: 'cat-6', code: 'PIZZA', name: 'Pizzas & Pastas', order: 6, isActive: true },
-    { id: 'cat-7', code: 'DES', name: 'Desserts & Sweets', order: 7, isActive: true },
-    { id: 'cat-8', code: 'HOTB', name: 'Hot Beverages', order: 8, isActive: true },
-    { id: 'cat-9', code: 'CLDB', name: 'Cold Beverages & Mocktails', order: 9, isActive: true },
-    { id: 'cat-10', code: 'BAR', name: 'Cocktails & Spirits', order: 10, isActive: true },
-  ],
-  'menu-items-setup': [
-    {
-      id: 'mi-1',
-      code: 'MOMO-C',
-      name: 'Chicken Steam Momo',
-      category: 'Appetizers & Starters',
-      basePrice: 280,
-      quantityPrices: [
-        { quantityName: 'Plate (10 Pcs)', price: 280, isDefault: true },
-        { quantityName: 'Half Portion', price: 160 },
-      ],
-      order: 1,
-      isDefault: true,
-      isActive: true,
-    },
-    {
-      id: 'mi-2',
-      code: 'MOMO-V',
-      name: 'Veg Fried Momo',
-      category: 'Appetizers & Starters',
-      basePrice: 220,
-      quantityPrices: [
-        { quantityName: 'Plate (10 Pcs)', price: 220, isDefault: true },
-        { quantityName: 'Half Portion', price: 130 },
-      ],
-      order: 2,
-      isActive: true,
-    },
-    {
-      id: 'mi-3',
-      code: 'PBM-01',
-      name: 'Paneer Butter Masala',
-      category: 'Main Course',
-      basePrice: 420,
-      quantityPrices: [
-        { quantityName: 'Full Portion', price: 420, isDefault: true },
-        { quantityName: 'Half Portion', price: 240 },
-      ],
-      order: 3,
-      isActive: true,
-    },
-    {
-      id: 'mi-4',
-      code: 'CTM-01',
-      name: 'Chicken Tikka Masala',
-      category: 'Main Course',
-      basePrice: 490,
-      quantityPrices: [
-        { quantityName: 'Full Portion', price: 490, isDefault: true },
-        { quantityName: 'Half Portion', price: 280 },
-      ],
-      order: 4,
-      isActive: true,
-    },
-    {
-      id: 'mi-5',
-      code: 'PIZ-MAR',
-      name: 'Margherita Pizza 12"',
-      category: 'Pizzas & Pastas',
-      basePrice: 580,
-      quantityPrices: [
-        { quantityName: 'Regular / Standard', price: 380 },
-        { quantityName: 'Large Portion', price: 580, isDefault: true },
-      ],
-      order: 5,
-      isActive: true,
-    },
-    {
-      id: 'mi-6',
-      code: 'DAL-MKH',
-      name: 'Dal Makhani Handi',
-      category: 'Main Course',
-      basePrice: 320,
-      quantityPrices: [
-        { quantityName: 'Full Portion', price: 320, isDefault: true },
-        { quantityName: 'Half Portion', price: 190 },
-      ],
-      order: 6,
-      isActive: true,
-    },
-    {
-      id: 'mi-7',
-      code: 'BRD-BTR',
-      name: 'Butter Naan',
-      category: 'Breads & Tandoori',
-      basePrice: 70,
-      quantityPrices: [
-        { quantityName: 'Single Piece (1 Pc)', price: 70, isDefault: true },
-        { quantityName: 'Plate (6 Pcs)', price: 380 },
-      ],
-      order: 7,
-      isActive: true,
-    },
-    {
-      id: 'mi-8',
-      code: 'BRY-CHK',
-      name: 'Hyderabadi Chicken Biryani',
-      category: 'Rice & Biryani',
-      basePrice: 480,
-      quantityPrices: [
-        { quantityName: 'Full Portion', price: 480, isDefault: true },
-        { quantityName: 'Half Portion', price: 280 },
-      ],
-      order: 8,
-      isActive: true,
-    },
-    {
-      id: 'mi-9',
-      code: 'DES-GJ',
-      name: 'Gulab Jamun (2 Pcs)',
-      category: 'Desserts & Sweets',
-      basePrice: 150,
-      quantityPrices: [
-        { quantityName: 'Single Piece (1 Pc)', price: 80 },
-        { quantityName: 'Regular / Standard', price: 150, isDefault: true },
-      ],
-      order: 9,
-      isActive: true,
-    },
-    {
-      id: 'mi-10',
-      code: 'COF-CAP',
-      name: 'Fresh Brewed Cappuccino',
-      category: 'Hot Beverages',
-      basePrice: 180,
-      quantityPrices: [
-        { quantityName: 'Cup / Mug', price: 180, isDefault: true },
-        { quantityName: 'Large Portion', price: 240 },
-      ],
-      order: 10,
-      isActive: true,
-    },
-    {
-      id: 'mi-11',
-      code: 'MOK-MOJ',
-      name: 'Virgin Mint Mojito',
-      category: 'Cold Beverages & Mocktails',
-      basePrice: 220,
-      quantityPrices: [
-        { quantityName: 'Glass (250ml)', price: 220, isDefault: true },
-        { quantityName: 'Platter / Family Pack', price: 650 },
-      ],
-      order: 11,
-      isActive: true,
-    },
-  ],
+  'categories-setup': [],
+  'menu-items-setup': [],
   'quantity-setup': [
     { id: 'qty-1', code: 'FULL', name: 'Full Portion', order: 1, isDefault: true, isActive: true },
     { id: 'qty-2', code: 'HALF', name: 'Half Portion', order: 2, isActive: true },
@@ -979,28 +823,8 @@ export const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
       isActive: true,
     },
   ],
-  'table-setup': [
-    { id: 'tbl-1', code: 'T-101', name: 'Table T-101', category: 'Dining Hall', capacity: 4, status: 'AVAILABLE', description: 'Central family dining table', order: 1, isActive: true },
-    { id: 'tbl-2', code: 'T-102', name: 'Table T-102', category: 'Dining Hall', capacity: 4, status: 'AVAILABLE', description: 'Dining hall booth seating', order: 2, isActive: true },
-    { id: 'tbl-3', code: 'T-103', name: 'Table T-103', category: 'Dining Hall', capacity: 6, status: 'AVAILABLE', description: 'Spacious dining hall round table', order: 3, isActive: true },
-    { id: 'tbl-4', code: 'C-01', name: 'Table C-01', category: 'Corridor Side', capacity: 2, status: 'AVAILABLE', description: 'Window view corridor table for two', order: 4, isActive: true },
-    { id: 'tbl-5', code: 'C-02', name: 'Table C-02', category: 'Corridor Side', capacity: 2, status: 'AVAILABLE', description: 'Quiet corridor aisle table', order: 5, isActive: true },
-    { id: 'tbl-6', code: 'C-03', name: 'Table C-03', category: 'Corridor Side', capacity: 4, status: 'AVAILABLE', description: 'Scenic glass corridor table', order: 6, isActive: true },
-    { id: 'tbl-7', code: 'M-01', name: 'Table M-01', category: 'Main Area', capacity: 4, status: 'AVAILABLE', description: 'Prime center restaurant table', order: 7, isActive: true },
-    { id: 'tbl-8', code: 'M-02', name: 'Table M-02', category: 'Main Area', capacity: 4, status: 'AVAILABLE', description: 'Main hall cozy corner table', order: 8, isActive: true },
-    { id: 'tbl-9', code: 'ROOF-1', name: 'Table ROOF-1', category: 'Skyline Rooftop Terrace', capacity: 2, status: 'AVAILABLE', description: 'Panoramic mountain view terrace table', order: 9, isActive: true },
-    { id: 'tbl-10', code: 'POOL-1', name: 'Table POOL-1', category: 'Poolside Lounge & Bar', capacity: 4, status: 'AVAILABLE', description: 'Sunbed poolside cabana table', order: 10, isActive: true },
-  ],
-  'table-categories-setup': [
-    { id: 'sec-dhall', code: 'DHALL', name: 'Dining Hall', description: 'Spacious indoor main dining hall with family seating', order: 1, isDefault: true, isActive: true },
-    { id: 'sec-corr', code: 'CORR', name: 'Corridor Side', description: 'Scenic window aisle and peaceful corridor dining', order: 2, isActive: true },
-    { id: 'sec-main', code: 'MAIN', name: 'Main Area', description: 'Central restaurant hub and vibrant dining floor', order: 3, isActive: true },
-    { id: 'sec-1', code: 'FINE', name: 'Indoor Fine Dining', description: 'Climate-controlled restaurant hall with acoustic ambience', order: 4, isActive: true },
-    { id: 'sec-2', code: 'ROOF', name: 'Skyline Rooftop Terrace', description: 'Open-air terrace with mountain sunset and skyline view', order: 5, isActive: true },
-    { id: 'sec-3', code: 'POOL', name: 'Poolside Lounge & Bar', description: 'Heated poolside deck with casual lounge seating and bar service', order: 6, isActive: true },
-    { id: 'sec-4', code: 'VIP', name: 'Private Executive Dining', description: 'Soundproof luxury private salons for corporate and VIP banquets', order: 7, isActive: true },
-    { id: 'sec-5', code: 'GARDEN', name: 'Garden Patio & Lawn', description: 'Lush green alfresco patio for daytime tea and garden dining', order: 8, isActive: true },
-  ],
+  'table-setup': [],
+  'table-categories-setup': [],
   'employee-setup': [
     { id: 'emp-1', code: 'EMP-001', name: 'Ramesh Thapa', category: 'Front Desk', contact: 'ramesh@hotel.com', phone: '+977 9801122334', description: 'Front Desk Shift Supervisor · Morning Shift', order: 1, isActive: true },
     { id: 'emp-2', code: 'EMP-002', name: 'Priya Sharma', category: 'Food & Beverage', contact: 'priya@hotel.com', phone: '+977 9802233445', description: 'Senior Restaurant Captain · Evening Shift', order: 2, isActive: true },
@@ -1032,7 +856,11 @@ export function getFallbackItemsForSubBox(subId: string, subName: string): Maste
     subId === 'item-setup' ||
     subId === 'product-setup' ||
     subId === 'product-categories-setup' ||
-    subId === 'suppliers-setup'
+    subId === 'suppliers-setup' ||
+    subId === 'table-setup' ||
+    subId === 'table-categories-setup' ||
+    subId === 'menu-items-setup' ||
+    subId === 'categories-setup'
   ) {
     return [];
   }
@@ -1056,8 +884,8 @@ export function getSubBoxEntityName(box: { id: string; name: string }): string {
   if (box.id === 'menu-items-setup') return 'Menu Item';
   if (box.id === 'categories-setup') return 'Food Category';
   if (box.id === 'quantity-setup') return 'Portion / Unit';
-  if (box.id === 'table-setup') return 'Dining Table';
-  if (box.id === 'table-categories-setup') return 'Table Category / Section';
+  if (box.id === 'table-setup') return 'Table';
+  if (box.id === 'table-categories-setup') return 'Area';
   if (box.id === 'employee-setup') return 'Employee / Staff';
   if (box.id === 'staff-roles-setup') return 'Staff Role';
   if (box.id === 'departments-setup') return 'Department';

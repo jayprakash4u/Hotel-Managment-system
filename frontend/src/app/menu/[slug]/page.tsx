@@ -12,6 +12,7 @@ import {
   Clock,
   Info,
   ChevronRight,
+  ChevronDown,
   Leaf,
   Flame,
   X,
@@ -22,6 +23,12 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+
+export interface PublicTableOption {
+  id: string;
+  tableNumber: string;
+  section?: string;
+}
 
 interface PublicVariant {
   unit: string;
@@ -56,6 +63,7 @@ interface PublicMenuData {
   allowOnlineOrdering: boolean;
   tableNumber?: string;
   tableSection?: string;
+  availableTables?: PublicTableOption[];
   categories: string[];
   items: PublicMenuItem[];
   isDisabled?: boolean;
@@ -90,10 +98,16 @@ function PublicMenuContent({ slug }: { slug: string }) {
   const searchParams = useSearchParams();
   const qrToken = searchParams.get('qr') || undefined;
   const tableId = searchParams.get('tableId') || undefined;
+  const tableParam = searchParams.get('table') || undefined;
+  const cabinParam = searchParams.get('cabin') || undefined;
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [menuData, setMenuData] = useState<PublicMenuData | null>(null);
+
+  // Table / Cabin selection state
+  const [selectedTableOverride, setSelectedTableOverride] = useState<{ number: string; section?: string } | null>(null);
+  const [showTableModal, setShowTableModal] = useState(false);
 
   // Filter states
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
@@ -110,7 +124,7 @@ function PublicMenuContent({ slug }: { slug: string }) {
       setLoading(true);
       setErrorMsg(null);
       try {
-        const res = await api.getPublicMenu(slug, { qr: qrToken, tableId });
+        const res = await api.getPublicMenu(slug, { qr: qrToken, tableId, table: tableParam, cabin: cabinParam });
         if (!isMounted) return;
 
         if (res?.data) {
@@ -141,7 +155,25 @@ function PublicMenuContent({ slug }: { slug: string }) {
     return () => {
       isMounted = false;
     };
-  }, [slug, qrToken, tableId]);
+  }, [slug, qrToken, tableId, tableParam, cabinParam]);
+
+  // Current display for Table / Cabin
+  const currentTableDisplay = useMemo(() => {
+    if (selectedTableOverride) {
+      const isCabin =
+        selectedTableOverride.section?.toLowerCase().includes('cabin') ||
+        selectedTableOverride.number.toLowerCase().includes('cabin');
+      const cleanNum = selectedTableOverride.number.replace(/^(cabin|table)\s*/i, '');
+      return isCabin ? `Cabin ${cleanNum}` : `Table ${cleanNum}`;
+    }
+
+    const num = menuData?.tableNumber || cabinParam || tableParam;
+    if (!num) return null;
+    const sec = menuData?.tableSection || (cabinParam ? 'Cabin' : undefined);
+    const isCabin = sec?.toLowerCase().includes('cabin') || num.toLowerCase().includes('cabin');
+    const cleanNum = num.replace(/^(cabin|table)\s*/i, '');
+    return isCabin ? `Cabin ${cleanNum}` : `Table ${cleanNum}`;
+  }, [selectedTableOverride, menuData?.tableNumber, menuData?.tableSection, cabinParam, tableParam]);
 
   // Filtered menu items
   const filteredItems = useMemo(() => {
@@ -372,6 +404,33 @@ function PublicMenuContent({ slug }: { slug: string }) {
           </button>
         </div>
 
+        {/* RESTROX STYLE: DEDICATED CABIN / TABLE STATUS CARD */}
+        {currentTableDisplay && (
+          <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-stone-200/80 flex items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="text-sm font-extrabold text-stone-900 tracking-tight">
+                You are in {currentTableDisplay}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTableModal(true)}
+                className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer transition"
+              >
+                <span>Tap to change</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="w-16 h-12 rounded-xl bg-gradient-to-br from-rose-50 to-amber-50 border border-amber-200/60 overflow-hidden flex items-center justify-center shrink-0 shadow-2xs">
+              <img
+                src="https://images.unsplash.com/photo-1543007630-9710e4a00a20?auto=format&fit=crop&w=200&q=80"
+                alt="Cabin Dining"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        )}
+
         {/* 4. STICKY CATEGORY HORIZONTAL PILLS */}
         <div className="sticky top-2 z-30 bg-[#faf8f5]/95 backdrop-blur-md py-2 -mx-4 px-4 overflow-x-auto no-scrollbar flex items-center gap-2 border-b border-stone-200/60">
           <button
@@ -480,6 +539,12 @@ function PublicMenuContent({ slug }: { slug: string }) {
                               </span>
                             )}
 
+                            {item.variants && item.variants.length > 1 && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white tracking-wide">
+                                {item.variants.length} Variants
+                              </span>
+                            )}
+
                             {!item.isAvailable && (
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200 uppercase">
                                 Sold Out
@@ -513,28 +578,27 @@ function PublicMenuContent({ slug }: { slug: string }) {
                         )}
                       </div>
 
-                      {/* Portion Pricing Grid (Half / Full / Regular) */}
+                      {/* Portion Pricing Grid & Add Button */}
                       {showPrices && (
                         <div className="pt-2 border-t border-stone-100 flex items-center justify-between flex-wrap gap-2">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            {item.variants && item.variants.length > 0 ? (
-                              item.variants.map((v, idx) => (
-                                <div
-                                  key={idx}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-50 border border-stone-200/80 text-xs font-semibold text-stone-800"
-                                >
-                                  <span className="text-stone-400 font-normal text-[11px]">{v.unit}:</span>
-                                  <span className="text-[#0f3e30] font-black">
-                                    {currency} {v.price}
-                                  </span>
-                                </div>
-                              ))
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {item.variants && item.variants.length > 1 ? (
+                              <div className="text-sm font-extrabold text-[#0f3e30]">
+                                {currency} {Math.min(...item.variants.map((v) => v.price))} - {currency} {Math.max(...item.variants.map((v) => v.price))}
+                              </div>
                             ) : (
-                              <div className="text-sm font-black text-[#0f3e30]">
+                              <div className="text-sm font-extrabold text-[#0f3e30]">
                                 {currency} {item.price}
                               </div>
                             )}
                           </div>
+
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-emerald-600 text-emerald-700 text-xs font-bold hover:bg-emerald-50 transition shadow-2xs cursor-pointer"
+                          >
+                            <span>+ ADD</span>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -559,6 +623,74 @@ function PublicMenuContent({ slug }: { slug: string }) {
           </p>
         </div>
       </div>
+
+      {/* MODAL: SELECT CABIN / TABLE */}
+      {showTableModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl border border-stone-200">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div>
+                <h3 className="font-bold text-sm text-stone-900">
+                  Select Your Cabin / Table
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Switch where you are seated in the restaurant
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTableModal(false)}
+                className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-1">
+              {(menuData.availableTables && menuData.availableTables.length > 0
+                ? menuData.availableTables
+                : [
+                    { id: 'c1', tableNumber: '1', section: 'Cabin' },
+                    { id: 'c2', tableNumber: '2', section: 'Cabin' },
+                    { id: 'c3', tableNumber: '3', section: 'Cabin' },
+                    { id: 't1', tableNumber: '1', section: 'Dining' },
+                    { id: 't2', tableNumber: '2', section: 'Dining' },
+                    { id: 't3', tableNumber: '3', section: 'Dining' },
+                  ]
+              ).map((t) => {
+                const isCabin =
+                  t.section?.toLowerCase().includes('cabin') ||
+                  t.tableNumber.toLowerCase().includes('cabin');
+                const cleanNum = t.tableNumber.replace(/^(cabin|table)\s*/i, '');
+                const label = isCabin ? `Cabin ${cleanNum}` : `Table ${cleanNum}`;
+                const isSelected = currentTableDisplay === label;
+
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTableOverride({ number: t.tableNumber, section: t.section });
+                      setShowTableModal(false);
+                    }}
+                    className={cn(
+                      'p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-1 shadow-2xs',
+                      isSelected
+                        ? 'border-[#0f3e30] bg-emerald-50 text-[#0f3e30] font-bold ring-1 ring-[#0f3e30]'
+                        : 'border-stone-200 hover:bg-stone-50 text-stone-700'
+                    )}
+                  >
+                    <span className="text-xs">{label}</span>
+                    <span className="text-[10px] text-stone-400 capitalize">
+                      {t.section || (isCabin ? 'Private Cabin' : 'Dining Area')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

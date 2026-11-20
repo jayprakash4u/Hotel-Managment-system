@@ -1,4 +1,4 @@
-import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse, TaxSummaryResponse, TaxRecordsListResponse, RecordTaxPaymentDto } from './types';
+import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, RestaurantDashboardSummaryData, MenuItemSalesSummaryResponse, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse, TaxSummaryResponse, TaxRecordsListResponse, RecordTaxPaymentDto } from './types';
 
 // ============================================================================
 // DATA CACHING & REQUEST DEDUPLICATION ARCHITECTURE
@@ -353,6 +353,7 @@ export const api = {
     variants?: Array<{ unit: string; price: number }>;
     variantsJson?: string;
     department?: 'KOT' | 'BOT';
+    preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
   }) => {
     return fetcher<POSProductData>('/api/pos/product', {
       method: 'POST',
@@ -371,6 +372,7 @@ export const api = {
       trackStock?: boolean;
       stock?: number;
       department?: 'KOT' | 'BOT';
+      preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
       isAvailable?: boolean;
       imageUrl?: string;
       variants?: Array<{ unit: string; price: number }>;
@@ -380,6 +382,13 @@ export const api = {
     return fetcher<POSProductData>(`/api/pos/product/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  },
+
+  bulkUpdatePreparationMethod: (items: Array<{ id: string; preparationMethod: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED' }>) => {
+    return fetcher<{ updatedCount: number }>('/api/pos/products/bulk-preparation-method', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
     });
   },
 
@@ -558,6 +567,17 @@ export const api = {
     });
   },
 
+  updateRestaurantOrderItemStatus: (
+    orderId: string,
+    itemId: string,
+    data: { status: 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED'; staffName?: string; notes?: string }
+  ) => {
+    return fetcher<any>(`/api/restaurant/orders/${orderId}/items/${itemId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
   generateRestaurantBill: (orderId: string, data?: { discountPercent?: number; discountAmount?: number; roundOff?: number; remarks?: string }) => {
     return fetcher<any>(`/api/restaurant/orders/${orderId}/generate-bill`, {
       method: 'POST',
@@ -603,6 +623,28 @@ export const api = {
   getDailySales: (date?: string) => {
     const query = date ? `?date=${encodeURIComponent(date)}` : '';
     return fetcher<DailySalesSummaryData>(`/api/restaurant/daily-sales${query}`);
+  },
+
+  getRestaurantDashboardSummary: (date?: string) => {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return fetcher<RestaurantDashboardSummaryData>(`/api/restaurant/dashboard-summary${query}`, { noCache: true });
+  },
+
+  getMenuItemSales: (params?: {
+    preset?: string;
+    startDate?: string;
+    endDate?: string;
+    category?: string;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.preset) q.append('preset', params.preset);
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.category) q.append('category', params.category);
+    if (params?.search) q.append('search', params.search);
+    const qs = q.toString();
+    return fetcher<MenuItemSalesSummaryResponse>(`/api/restaurant/menu-item-sales${qs ? `?${qs}` : ''}`, { noCache: true });
   },
 
   // Table Reservations (Workflow & Availability)
@@ -2479,16 +2521,51 @@ export const api = {
     });
   },
 
-  getPublicMenu: (slug: string, params?: { tableId?: string; qr?: string }) => {
+  getPublicMenu: (slug: string, params?: { tableId?: string; qr?: string; table?: string; cabin?: string }) => {
     const q = new URLSearchParams();
     if (params?.tableId) q.append('tableId', params.tableId);
     if (params?.qr) q.append('qr', params.qr);
+    if (params?.table) q.append('table', params.table);
+    if (params?.cabin) q.append('cabin', params.cabin);
     const qs = q.toString();
     return fetcher<any>(`/api/public/menu/${encodeURIComponent(slug)}${qs ? `?${qs}` : ''}`, { noCache: true });
   },
 
   getPublicMenuByQr: (token: string) => {
     return fetcher<any>(`/api/public/menu/qr/${encodeURIComponent(token)}`, { noCache: true });
+  },
+
+  // ----------------------------------------------------
+  // Restaurant Website Module Endpoints
+  // ----------------------------------------------------
+  getWebsiteSettings: (params?: { hotelId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.hotelId) q.append('hotelId', params.hotelId);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').RestaurantWebsiteSettings>(`/api/restaurant/website/settings${qs}`);
+  },
+
+  updateWebsiteSettings: (data: Partial<import('./types').RestaurantWebsiteSettings>) => {
+    return fetcher<{ message: string }>('/api/restaurant/website/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  addWebsiteGalleryImage: (data: { hotelId?: string; title: string; category: string; imageUrl: string }) => {
+    return fetcher<import('./types').GalleryImageItem>('/api/restaurant/website/gallery', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteWebsiteGalleryImage: (id: string, params?: { hotelId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.hotelId) q.append('hotelId', params.hotelId);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<{ message: string }>(`/api/restaurant/website/gallery/${id}${qs}`, {
+      method: 'DELETE',
+    });
   },
 };
 

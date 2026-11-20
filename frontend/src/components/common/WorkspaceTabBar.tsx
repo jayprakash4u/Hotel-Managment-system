@@ -21,10 +21,7 @@ import {
   Zap,
   Receipt,
   User,
-  Plus,
   X,
-  ChevronLeft,
-  ChevronRight,
   MoreVertical,
   Check,
   Calculator,
@@ -38,8 +35,12 @@ import {
   ShieldCheck,
   Scale,
   PieChart,
+  Globe,
+  QrCode,
+  ChefHat,
+  Wine,
 } from 'lucide-react';
-import { useWorkspaceTabs, WorkspaceTab } from '@/context/WorkspaceTabsContext';
+import { useWorkspaceTabs } from '@/context/WorkspaceTabsContext';
 import { cn } from '@/lib/utils';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -73,39 +74,21 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldCheck,
   Scale,
   PieChart,
+  Globe,
+  QrCode,
+  ChefHat,
+  Wine,
 };
 
-const QUICK_MODULES = [
-  { path: '/billing', title: 'Billing & Folios', icon: FileText, desc: 'Guest folios, central invoicing & checkout bills' },
-  { path: '/booking', title: 'Room Booking', icon: CalendarCheck, desc: 'Advance room reservation & rate selector' },
-  { path: '/quick-sale', title: 'Quick Sale POS', icon: Zap, desc: 'Instant counter billing & quick takeaways' },
-  { path: '/tables', title: 'Tables & Floor', icon: Table2, desc: 'Dine-in floor plan & table orders' },
-  { path: '/tables?tab=ACTIVE_ORDERS', title: 'Live Kitchen Orders', icon: Receipt, desc: 'Active order tickets & prep status' },
-  { path: '/front-desk', title: 'Room Board', icon: BedDouble, desc: 'Tape chart & live room grid' },
-  { path: '/accounts', title: 'Accounting Hub', icon: BookOpen, desc: 'Chart of accounts, general ledger & reports' },
-  { path: '/accounts?tab=trial-balance', title: 'Trial Balance', icon: Calculator, desc: 'General ledger debits vs credits verification' },
-  { path: '/accounts?tab=profit-loss', title: 'Profit & Loss', icon: BarChart3, desc: 'Revenue, expenses & net profit report' },
-  { path: '/accounts?tab=balance-sheet', title: 'Balance Sheet', icon: Scale, desc: 'Assets, liabilities & equity statement' },
-  { path: '/accounts?tab=cash-flow', title: 'Cash Flow', icon: Landmark, desc: 'Operating, investing & financing cash flow' },
-  { path: '/inventory', title: 'Inventory Stock', icon: Boxes, desc: 'Kitchen pantry & hotel linen stock' },
-  { path: '/reports', title: 'Reports & Analytics', icon: BarChart3, desc: 'Daily revenue, audits & metrics' },
-  { path: '/hotel-management', title: 'Hotel Overview', icon: LayoutDashboard, desc: 'Manager overview & occupancy summary' },
-];
-
 export const WorkspaceTabBar: React.FC = () => {
-  const { tabs, activeTabId, switchTab, closeTab, closeOtherTabs, closeAllTabs, openTab } = useWorkspaceTabs();
+  const { tabs, activeTabId, switchTab, closeTab, closeOtherTabs, closeAllTabs } = useWorkspaceTabs();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isNewTabOpen, setIsNewTabOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const newTabDropdownRef = useRef<HTMLDivElement>(null);
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns on outside click
+  // Close dropdown on outside click
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
-      if (newTabDropdownRef.current && !newTabDropdownRef.current.contains(e.target as Node)) {
-        setIsNewTabOpen(false);
-      }
       if (menuDropdownRef.current && !menuDropdownRef.current.contains(e.target as Node)) {
         setIsMenuOpen(false);
       }
@@ -123,25 +106,8 @@ export const WorkspaceTabBar: React.FC = () => {
     }
   }, [activeTabId]);
 
-  const handleScrollLeft = () => {
-    if (scrollRef.current) scrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
-  };
-
-  const handleScrollRight = () => {
-    if (scrollRef.current) scrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
-  };
-
   return (
     <div className="relative z-20 flex items-center justify-between bg-[#EAF1EE] dark:bg-[#061C16] border-b border-[#D4E2DE] dark:border-[#13493D] px-2 sm:px-4 pt-1.5 transition-colors select-none">
-      {/* Scroll Left Button (if overflow) */}
-      <button
-        type="button"
-        onClick={handleScrollLeft}
-        className="hidden sm:flex items-center justify-center h-7 w-5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white shrink-0 cursor-pointer"
-        title="Scroll left"
-      >
-        <ChevronLeft className="w-3.5 h-3.5" />
-      </button>
 
       {/* Tabs Container */}
       <div
@@ -196,74 +162,8 @@ export const WorkspaceTabBar: React.FC = () => {
         })}
       </div>
 
-      {/* Scroll Right Button (if overflow) */}
-      <button
-        type="button"
-        onClick={handleScrollRight}
-        className="hidden sm:flex items-center justify-center h-7 w-5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white shrink-0 cursor-pointer"
-        title="Scroll right"
-      >
-        <ChevronRight className="w-3.5 h-3.5" />
-      </button>
-
-      {/* Right Side Actions: + New Tab Dropdown & More Options */}
-      <div className="flex items-center gap-1 shrink-0 ml-2 pb-1">
-        {/* + Quick Open New Tab */}
-        <div className="relative" ref={newTabDropdownRef}>
-          <button
-            type="button"
-            onClick={() => setIsNewTabOpen((prev) => !prev)}
-            className="flex items-center justify-center h-6 w-6 rounded-[3px] bg-white/70 dark:bg-[#093027] border border-[#D4E2DE] dark:border-[#13493D] text-[#0B3D32] dark:text-emerald-300 hover:bg-white dark:hover:bg-[#0E3E33] transition-all cursor-pointer shadow-2xs"
-            title="Open another page in a new tab"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-
-          {isNewTabOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-72 rounded-lg bg-white dark:bg-[#071F1A] border border-border-default dark:border-border-default shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-muted dark:text-muted border-b border-border-default/60 dark:border-border-default/60 mb-1">
-                Open in New Tab
-              </div>
-              <div className="max-h-72 overflow-y-auto space-y-0.5 custom-scrollbar">
-                {QUICK_MODULES.map((mod) => {
-                  const Icon = mod.icon;
-                  const isOpen = tabs.some((t) => t.path === mod.path);
-
-                  return (
-                    <button
-                      key={mod.path}
-                      type="button"
-                      onClick={() => {
-                        openTab({ path: mod.path, title: mod.title });
-                        setIsNewTabOpen(false);
-                      }}
-                      className="w-full flex items-center justify-between p-2 rounded-[4px] hover:bg-slate-50 dark:hover:bg-[#0E3E33] transition-colors text-left group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-[3px] bg-[#EAF1EE] dark:bg-[#0C3026] text-[#0B3D32] dark:text-emerald-400 shrink-0">
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
-                            {mod.title}
-                          </p>
-                          <p className="text-[10px] text-muted truncate">{mod.desc}</p>
-                        </div>
-                      </div>
-                      {isOpen && (
-                        <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 shrink-0 px-1 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60">
-                          Open
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Tab Context Menu (Close other tabs / Close all tabs) */}
+      {/* Right Side Actions: Tab Options (3-dots menu to close tabs) */}
+      <div className="flex items-center shrink-0 ml-2 pb-1">
         <div className="relative" ref={menuDropdownRef}>
           <button
             type="button"

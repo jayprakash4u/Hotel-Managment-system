@@ -36,13 +36,18 @@ import {
   ToggleRight,
   Info,
   Calendar,
+  ChevronDown,
+  MoreVertical,
+  MapPin,
 } from 'lucide-react';
 import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { DEFAULT_TABLES } from '@/lib/tablesData';
 
-type ActiveTab = 'DASHBOARD' | 'SETTINGS' | 'QR_CODES' | 'PREVIEW';
+type ActiveTab = 'QR_CODES' | 'SETTINGS' | 'PREVIEW';
+type QrCardLayout = 'red-curve' | 'minimal-light' | 'dark-luxury';
 
 interface QrMenuSettings {
   isEnabled: boolean;
@@ -85,11 +90,42 @@ interface RestaurantTableOption {
 
 export default function QrMenuPage() {
   const { success, error, info } = useToast();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('QR_CODES');
+  const [cardLayout, setCardLayout] = useState<QrCardLayout>('red-curve');
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showLayoutMenu, setShowLayoutMenu] = useState(false);
+  const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
+  const layoutMenuRef = useRef<HTMLDivElement>(null);
+  const [isAreaDropdownOpen, setIsAreaDropdownOpen] = useState(false);
+  const [areaSearchQuery, setAreaSearchQuery] = useState('');
+  const areaDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (areaDropdownRef.current && !areaDropdownRef.current.contains(e.target as Node)) {
+        setIsAreaDropdownOpen(false);
+      }
+    };
+    if (isAreaDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isAreaDropdownOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (layoutMenuRef.current && !layoutMenuRef.current.contains(e.target as Node)) {
+        setShowLayoutMenu(false);
+      }
+    };
+    if (showLayoutMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showLayoutMenu]);
 
   // Data states
   const [hotelSlug, setHotelSlug] = useState('himalayan-hotel');
@@ -112,6 +148,7 @@ export default function QrMenuPage() {
 
   const [qrCodes, setQrCodes] = useState<QrCodeItem[]>([]);
   const [tables, setTables] = useState<RestaurantTableOption[]>([]);
+  const [tableCategories, setTableCategories] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
 
   // Filtering for QR Codes list
@@ -152,14 +189,112 @@ export default function QrMenuPage() {
         if (settingsRes.data.hotelName) setHotelName(settingsRes.data.hotelName);
       }
 
-      // 2. Fetch QR codes & tables
-      const qrRes = (await api.getQrCodes()) as any;
-      if (qrRes?.data) {
-        setQrCodes(qrRes.data.qrCodes || []);
-        setTables(qrRes.data.tables || []);
-        if (qrRes.data.hotelSlug) setHotelSlug(qrRes.data.hotelSlug);
-        if (qrRes.data.hotelName) setHotelName(qrRes.data.hotelName);
+      // 2. Fetch QR codes, tables, and Table Categories from backend
+      const [qrRes, tableCatsRes, directTablesRes] = await Promise.allSettled([
+        api.getQrCodes(),
+        api.getTableCategories(),
+        api.getRestaurantTables(),
+      ]);
+
+      let fetchedQrs: QrCodeItem[] = [];
+      let fetchedTables: any[] = [];
+      let fetchedCats: any[] = [];
+
+      if (qrRes.status === 'fulfilled' && qrRes.value) {
+        const payload = (qrRes.value as any).data || qrRes.value;
+        fetchedQrs = Array.isArray(payload) ? payload : (payload.qrCodes || []);
+        if (payload.tables && Array.isArray(payload.tables) && payload.tables.length > 0) {
+          fetchedTables = payload.tables;
+        }
+        if (payload.hotelSlug) setHotelSlug(payload.hotelSlug);
+        if (payload.hotelName) setHotelName(payload.hotelName);
       }
+
+      if (directTablesRes.status === 'fulfilled' && directTablesRes.value) {
+        const payload = (directTablesRes.value as any).data || directTablesRes.value;
+        if (Array.isArray(payload) && payload.length > 0) {
+          fetchedTables = payload;
+        }
+      }
+
+      // Check local storage if directTables was empty
+      if (fetchedTables.length === 0 && typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('aura_restaurant_tables_v1');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              fetchedTables = parsed;
+            }
+          }
+        } catch {}
+      }
+
+      // If still empty, use default live tables from Table Board
+      if (fetchedTables.length === 0) {
+        fetchedTables = [
+          { id: 'pool-1', tableNumber: 'POOL - 1', section: 'Poolside Lounge & Bar', capacity: 4 },
+          { id: 'pool-2', tableNumber: 'POOL - 2', section: 'Poolside Lounge & Bar', capacity: 2 },
+          { id: 'roof-1', tableNumber: 'ROOF - 1', section: 'Skyline Rooftop Terrace', capacity: 2 },
+          { id: 'roof-2', tableNumber: 'ROOF - 2', section: 'Skyline Rooftop Terrace', capacity: 4 },
+          { id: 'roof-3', tableNumber: 'ROOF - 3', section: 'Skyline Rooftop Terrace', capacity: 4 },
+          { id: 't-101', tableNumber: 'T-101', section: 'Indoor Fine Dining', capacity: 2 },
+          { id: 't-102', tableNumber: 'T-102', section: 'Indoor Fine Dining', capacity: 4 },
+          { id: 't-103', tableNumber: 'T-103', section: 'Indoor Fine Dining', capacity: 4 },
+          { id: 't-104', tableNumber: 'T-104', section: 'Indoor Fine Dining', capacity: 6 },
+          { id: 'vip-salon', tableNumber: 'VIP - 1', section: 'Private Executive Dining', capacity: 10 },
+        ];
+      }
+      setTables(fetchedTables);
+
+      if (tableCatsRes.status === 'fulfilled' && tableCatsRes.value) {
+        const payload = (tableCatsRes.value as any).data || tableCatsRes.value;
+        if (Array.isArray(payload) && payload.length > 0) {
+          fetchedCats = payload;
+          setTableCategories(payload);
+        }
+      }
+
+      // Automatically synthesize stand cards for every table from Table Board that doesn't have a QR yet
+      const existingTableIdsWithQr = new Set(
+        fetchedQrs.map((q) => q.tableId || q.tableNumber).filter(Boolean)
+      );
+
+      const autoTableQrs: QrCodeItem[] = fetchedTables
+        .filter((t: any) => !existingTableIdsWithQr.has(t.id) && !existingTableIdsWithQr.has(t.tableNumber))
+        .map((t: any) => ({
+          id: `qr-${t.id || t.tableNumber}`,
+          codeType: 'TABLE',
+          tableId: t.id,
+          tableNumber: t.tableNumber,
+          label: t.tableNumber,
+          section: t.section || 'General Area',
+          capacity: t.capacity || 4,
+          isActive: true,
+          scanCount: 0,
+          createdAt: new Date().toISOString(),
+          targetUrl: `/menu/${hotelSlug}?tableId=${t.id || t.tableNumber}`,
+        }));
+
+      let mergedQrs = [...fetchedQrs, ...autoTableQrs];
+
+      // Ensure Master Restaurant QR exists
+      if (!mergedQrs.some((q) => q.codeType === 'RESTAURANT')) {
+        mergedQrs = [
+          {
+            id: 'master-qr',
+            codeType: 'RESTAURANT',
+            label: 'Main Restaurant Menu',
+            isActive: true,
+            scanCount: 0,
+            createdAt: new Date().toISOString(),
+            targetUrl: `/menu/${hotelSlug}`,
+          },
+          ...mergedQrs,
+        ];
+      }
+
+      setQrCodes(mergedQrs);
 
       // 3. Fetch menu products for preview
       try {
@@ -174,7 +309,6 @@ export default function QrMenuPage() {
       }
     } catch (err: any) {
       console.error('Failed to load QR menu configuration:', err);
-      error('Could not load QR menu data. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -201,30 +335,153 @@ export default function QrMenuPage() {
     return qrCodes.find((q) => q.codeType === 'RESTAURANT');
   }, [qrCodes]);
 
-  // Filtered Table QRs
+  // Helpers to detect Cabin vs Table
+  const isCabinItem = (item: QrCodeItem) => {
+    const sec = (item.section || '').toLowerCase();
+    const num = (item.tableNumber || '').toLowerCase();
+    const lbl = (item.label || '').toLowerCase();
+    return sec.includes('cabin') || num.includes('cabin') || lbl.includes('cabin') || num.startsWith('c');
+  };
+
+  const getCardBadge = (item: QrCodeItem) => {
+    if (item.codeType === 'RESTAURANT') return 'MASTER MENU';
+    let raw = (item.tableNumber || item.label || '').trim();
+    if (!raw) return 'TABLE 1';
+
+    // Remove any trailing parenthesized section like "(Dining Area)" or "(Cabin Space)"
+    raw = raw.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+
+    if (isCabinItem(item)) {
+      const clean = raw.replace(/^(cabin\s*)+/i, '').trim();
+      return clean ? `CABIN ${clean.toUpperCase()}` : 'CABIN 1';
+    }
+
+    // Strip any repeated "table" words from the beginning
+    if (/^(table\s*)+/i.test(raw)) {
+      const clean = raw.replace(/^(table\s*)+/i, '').trim();
+      return clean ? `TABLE ${clean.toUpperCase()}` : 'TABLE 1';
+    }
+
+    // Single numbers become "TABLE 1", "TABLE 2"
+    if (/^\d+$/.test(raw)) {
+      return `TABLE ${raw}`;
+    }
+
+    // Distinct named tables like "POOL - 1", "ROOF - 1", "VIP - 1", "T-101" stay clean
+    return raw.toUpperCase();
+  };
+
+  const getTargetScanUrl = (item: QrCodeItem) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    if (item.codeType === 'RESTAURANT') {
+      return `${origin}/menu/${hotelSlug}`;
+    }
+    const badge = getCardBadge(item);
+    if (isCabinItem(item)) {
+      return `${origin}/menu/${hotelSlug}?tableId=${item.tableId || item.id}&cabin=${encodeURIComponent(badge)}`;
+    }
+    return `${origin}/menu/${hotelSlug}?tableId=${item.tableId || item.id}&table=${encodeURIComponent(item.tableNumber || '')}`;
+  };
+
+  // Filtered Table QRs based on selected Dining Area and search query
   const filteredTableQrs = useMemo(() => {
     return qrCodes
       .filter((q) => q.codeType === 'TABLE')
       .filter((q) => {
-        if (selectedSectionFilter !== 'ALL' && q.section !== selectedSectionFilter) return false;
+        if (selectedSectionFilter !== 'ALL') {
+          const qSec = (q.section || 'General Area').trim().toLowerCase();
+          const filterSec = selectedSectionFilter.trim().toLowerCase();
+          if (qSec !== filterSec) {
+            return false;
+          }
+        }
         if (!qrSearch.trim()) return true;
         const s = qrSearch.toLowerCase();
         return (
           q.label?.toLowerCase().includes(s) ||
           q.tableNumber?.toLowerCase().includes(s) ||
-          q.section?.toLowerCase().includes(s)
+          q.section?.toLowerCase().includes(s) ||
+          getCardBadge(q).toLowerCase().includes(s)
         );
       });
   }, [qrCodes, selectedSectionFilter, qrSearch]);
 
-  // Unique sections for filtering
-  const sectionsList = useMemo(() => {
-    const set = new Set<string>();
-    tables.forEach((t) => {
-      if (t.section) set.add(t.section);
+  // Dynamically detect all dining areas matching Table Board:
+  // Active areas (with tables/QRs) sorted by table count, followed by registered categories with 0 tables.
+  const areaStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    // 1. Live tables
+    tables.forEach((t: any) => {
+      const sec = t.section?.trim() || 'General Area';
+      counts[sec] = (counts[sec] || 0) + 1;
     });
-    return Array.from(set);
-  }, [tables]);
+
+    // 2. QR Codes
+    qrCodes.forEach((q) => {
+      if (q.codeType === 'TABLE' && q.section?.trim()) {
+        const sec = q.section.trim();
+        counts[sec] = (counts[sec] || 0) + 1;
+      }
+    });
+
+    // Active dining areas sorted by table count descending
+    const active = Object.keys(counts)
+      .map((name) => ({ name, count: counts[name] }))
+      .sort((a, b) => b.count - a.count);
+
+    // Collect all registered category names across backend, setup master items, or defaults
+    const categoryNamesSet = new Set<string>();
+
+    // Standard dining categories matching Table Board and Hotel Setup defaults
+    const baseKnownCategories = [
+      'Indoor Fine Dining',
+      'Skyline Rooftop Terrace',
+      'Poolside Lounge & Bar',
+      'Private Executive Dining',
+      'Dining Hall',
+      'Corridor Side',
+      'Main Area',
+    ];
+    baseKnownCategories.forEach((cat) => categoryNamesSet.add(cat));
+
+    // Also include any backend registered categories
+    if (Array.isArray(tableCategories) && tableCategories.length > 0) {
+      tableCategories.forEach((c: any) => {
+        const name = (c.name || c.section || c.title)?.trim();
+        if (name) categoryNamesSet.add(name);
+      });
+    }
+
+    // Dynamic categories from local storage (if user configured them in Hotel Setup)
+    if (typeof window !== 'undefined') {
+      try {
+        const storedCats = localStorage.getItem('hotel_master_table-categories-setup');
+        if (storedCats) {
+          const parsed = JSON.parse(storedCats);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((item: any) => {
+              const n = (item.name || item.code)?.trim();
+              if (n) categoryNamesSet.add(n);
+            });
+          }
+        }
+      } catch {}
+    }
+
+    // Empty categories: registered areas that currently have 0 tables
+    const countsKeysLower = new Set(Object.keys(counts).map((k) => k.toLowerCase()));
+    const empty = Array.from(categoryNamesSet)
+      .filter((name) => !countsKeysLower.has(name.toLowerCase()))
+      .map((name) => ({ name, count: 0 }));
+
+    return { active, empty, all: [...active, ...empty] };
+  }, [tables, tableCategories, qrCodes]);
+
+  // Unique dining areas in exact Table Board order
+  const allUniqueAreas = useMemo(() => {
+    return areaStats.all.map((a) => a.name);
+  }, [areaStats]);
 
   // Full public URL for browser
   const fullPublicMenuUrl = useMemo(() => {
@@ -350,7 +607,28 @@ export default function QrMenuPage() {
     success(`Downloaded ${filename}.png`);
   };
 
-  // Print Tent Card Window
+  // Download All QRs sequentially
+  const handleDownloadAllQrs = async () => {
+    const allToDownload = [
+      ...(restaurantQr ? [restaurantQr] : []),
+      ...filteredTableQrs,
+    ];
+    if (allToDownload.length === 0) {
+      info('No QR codes available to download.');
+      return;
+    }
+    success(`Downloading ${allToDownload.length} QR codes...`);
+    for (let i = 0; i < allToDownload.length; i++) {
+      const item = allToDownload[i];
+      const filename = item.codeType === 'RESTAURANT'
+        ? 'Restaurant-Master-QR'
+        : getCardBadge(item).replace(/\s+/g, '-');
+      handleDownloadPng(`qr-canvas-${item.id}`, filename);
+      await new Promise((r) => setTimeout(r, 180));
+    }
+  };
+
+  // Print Tent Card Window with active layout theme
   const handlePrintTentCards = (items: QrCodeItem[]) => {
     const printWindow = window.open('', '_blank', 'width=900,height=800');
     if (!printWindow) {
@@ -360,38 +638,28 @@ export default function QrMenuPage() {
 
     const cardsHtml = items
       .map((item) => {
-        const fullUrl = item.codeType === 'RESTAURANT'
-          ? `${window.location.origin}/menu/${hotelSlug}`
-          : `${window.location.origin}/menu/${hotelSlug}?tableId=${item.tableId}`;
-
-        // Get SVG string from an on-page SVG if available or use canvas
+        const badgeLabel = getCardBadge(item);
         const canvas = document.getElementById(`qr-canvas-${item.id}`) as HTMLCanvasElement;
         const imgDataUrl = canvas ? canvas.toDataURL('image/png') : '';
 
         return `
-          <div class="tent-card">
-            <div class="card-border">
+          <div class="tent-card ${cardLayout}">
+            <div class="card-inner">
               <div class="header">
+                <div class="welcome-text">WELCOME TO</div>
                 <div class="hotel-title">${settings.restaurantName || hotelName}</div>
-                <div class="subtitle">FINE DINING & HOSPITALITY</div>
               </div>
 
-              <div class="qr-box">
-                <img src="${imgDataUrl}" alt="QR Code" class="qr-img" />
+              <div class="qr-container">
+                <div class="qr-box">
+                  <img src="${imgDataUrl}" alt="QR Code" class="qr-img" />
+                  <div class="badge-pill">${badgeLabel}</div>
+                </div>
               </div>
 
-              <div class="table-badge">
-                ${item.codeType === 'TABLE' ? `TABLE ${item.tableNumber || ''} &bull; ${item.section || 'DINING'}` : 'RESTAURANT DIGITAL MENU'}
-              </div>
-
-              <div class="callout">
-                <div class="callout-main">Scan to View Our Digital Menu</div>
-                <div class="callout-sub">Open your smartphone camera &bull; No app install required</div>
-              </div>
-
-              <div class="footer">
-                ${item.capacity ? `<span>Seating: ${item.capacity} Guests</span> &bull; ` : ''}
-                <span>Powered by Himalayan PMS</span>
+              <div class="curve-footer">
+                <div class="explore-text">EXPLORE OUR MENU</div>
+                <div class="powered-text">Powered by Himalayan PMS</div>
               </div>
             </div>
           </div>
@@ -403,11 +671,11 @@ export default function QrMenuPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Print QR Menu Tent Cards - ${hotelName}</title>
+          <title>Print QR Menu Stand Cards - ${hotelName}</title>
           <style>
             @page {
               size: A4 portrait;
-              margin: 10mm;
+              margin: 8mm;
             }
             body {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -419,87 +687,249 @@ export default function QrMenuPage() {
             .cards-grid {
               display: grid;
               grid-template-columns: repeat(2, 1fr);
-              gap: 20px;
+              gap: 16px;
             }
             .tent-card {
-              border: 1px dashed #9ca3af;
-              padding: 12px;
               page-break-inside: avoid;
               background: #ffffff;
+              padding: 6px;
+            }
+            .card-inner {
+              border-radius: 24px;
+              overflow: hidden;
               display: flex;
               flex-direction: column;
               align-items: center;
               text-align: center;
-            }
-            .card-border {
-              border: 2px solid #0f3e30;
-              border-radius: 12px;
-              padding: 24px 18px;
-              width: 100%;
               box-sizing: border-box;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
             }
-            .hotel-title {
-              font-size: 18px;
-              font-weight: 800;
-              color: #0f3e30;
-              letter-spacing: 0.5px;
+
+            /* RED CURVE LAYOUT (RestroX Style) */
+            .tent-card.red-curve .card-inner,
+            .tent-card.emerald-curve .card-inner {
+              background: #fafafa;
+              border: 1.5px solid #e2e8f0;
+              padding-top: 22px;
+            }
+            .tent-card.red-curve .welcome-text,
+            .tent-card.emerald-curve .welcome-text {
+              font-size: 10px;
+              font-weight: 700;
+              letter-spacing: 2px;
+              color: #64748b;
               text-transform: uppercase;
             }
-            .subtitle {
-              font-size: 10px;
-              letter-spacing: 2px;
-              color: #4b5563;
+            .tent-card.red-curve .hotel-title,
+            .tent-card.emerald-curve .hotel-title {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0f172a;
+              text-transform: uppercase;
               margin-top: 2px;
-              font-weight: 600;
+              letter-spacing: 0.5px;
+              padding: 0 10px;
             }
-            .qr-box {
-              margin: 18px 0;
-              padding: 10px;
+            .tent-card.red-curve .qr-container,
+            .tent-card.emerald-curve .qr-container {
+              margin: 18px 0 12px;
+            }
+            .tent-card.red-curve .qr-box,
+            .tent-card.emerald-curve .qr-box {
+              position: relative;
+              padding: 12px;
               background: #ffffff;
-              border-radius: 8px;
-              border: 1px solid #e5e7eb;
+              border-radius: 16px;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+              border: 1px solid #e2e8f0;
               display: inline-block;
             }
-            .qr-img {
+            .tent-card.red-curve .qr-img,
+            .tent-card.emerald-curve .qr-img {
               width: 170px;
               height: 170px;
               display: block;
             }
-            .table-badge {
-              display: inline-block;
-              background: #0f3e30;
+            .tent-card.red-curve .badge-pill,
+            .tent-card.emerald-curve .badge-pill {
+              position: absolute;
+              bottom: -11px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: #dc2626;
               color: #ffffff;
-              font-size: 13px;
-              font-weight: 700;
-              padding: 5px 14px;
+              font-size: 11px;
+              font-weight: 900;
+              padding: 4px 16px;
               border-radius: 9999px;
               letter-spacing: 1px;
               text-transform: uppercase;
-              margin-bottom: 12px;
+              white-space: nowrap;
+              border: 2px solid #ffffff;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.15);
             }
-            .callout-main {
-              font-size: 14px;
-              font-weight: 700;
-              color: #111827;
+            .tent-card.red-curve .curve-footer,
+            .tent-card.emerald-curve .curve-footer {
+              width: 100%;
+              background: #dc2626;
+              color: #ffffff;
+              padding: 18px 12px 14px;
+              border-top-left-radius: 40px;
+              border-top-right-radius: 40px;
+              margin-top: 10px;
             }
-            .callout-sub {
+            .tent-card.red-curve .explore-text,
+            .tent-card.emerald-curve .explore-text {
               font-size: 11px;
-              color: #6b7280;
-              margin-top: 3px;
+              font-weight: 900;
+              letter-spacing: 2px;
+              color: #ffffff;
+              text-transform: uppercase;
             }
-            .footer {
-              margin-top: 14px;
-              font-size: 9px;
-              color: #9ca3af;
+            .tent-card.red-curve .powered-text,
+            .tent-card.emerald-curve .powered-text {
+              font-size: 8px;
+              color: rgba(255,255,255,0.9);
+              margin-top: 3px;
               text-transform: uppercase;
               letter-spacing: 0.5px;
             }
+
+            /* MINIMAL LIGHT LAYOUT */
+            .tent-card.minimal-light .card-inner {
+              background: #ffffff;
+              border: 1.5px solid #0f172a;
+              padding: 24px 16px 20px;
+            }
+            .tent-card.minimal-light .welcome-text {
+              font-size: 9px;
+              font-weight: 700;
+              letter-spacing: 2px;
+              color: #94a3b8;
+            }
+            .tent-card.minimal-light .hotel-title {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0f172a;
+              margin-top: 2px;
+            }
+            .tent-card.minimal-light .qr-container {
+              margin: 16px 0;
+            }
+            .tent-card.minimal-light .qr-box {
+              position: relative;
+              padding: 10px;
+              border: 1px solid #e2e8f0;
+              border-radius: 12px;
+              display: inline-block;
+            }
+            .tent-card.minimal-light .qr-img {
+              width: 165px;
+              height: 165px;
+              display: block;
+            }
+            .tent-card.minimal-light .badge-pill {
+              position: absolute;
+              bottom: -10px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: #0f172a;
+              color: #fff;
+              font-size: 11px;
+              font-weight: 800;
+              padding: 3px 14px;
+              border-radius: 9999px;
+              white-space: nowrap;
+            }
+            .tent-card.minimal-light .curve-footer {
+              margin-top: 10px;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 10px;
+              width: 100%;
+            }
+            .tent-card.minimal-light .explore-text {
+              font-size: 10px;
+              font-weight: 800;
+              letter-spacing: 1.5px;
+              color: #0f172a;
+            }
+            .tent-card.minimal-light .powered-text {
+              font-size: 8px;
+              color: #94a3b8;
+              margin-top: 2px;
+            }
+
+            /* DARK LUXURY LAYOUT */
+            .tent-card.dark-luxury .card-inner {
+              background: #090d16;
+              border: 1.5px solid #1e293b;
+              padding: 22px 14px 14px;
+              color: #f8fafc;
+            }
+            .tent-card.dark-luxury .welcome-text {
+              font-size: 9px;
+              font-weight: 700;
+              letter-spacing: 2px;
+              color: #d97706;
+            }
+            .tent-card.dark-luxury .hotel-title {
+              font-size: 14px;
+              font-weight: 900;
+              color: #f8fafc;
+              margin-top: 2px;
+            }
+            .tent-card.dark-luxury .qr-container {
+              margin: 16px 0;
+            }
+            .tent-card.dark-luxury .qr-box {
+              position: relative;
+              padding: 10px;
+              background: #fff;
+              border-radius: 14px;
+              display: inline-block;
+            }
+            .tent-card.dark-luxury .qr-img {
+              width: 165px;
+              height: 165px;
+              display: block;
+            }
+            .tent-card.dark-luxury .badge-pill {
+              position: absolute;
+              bottom: -11px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: #d97706;
+              color: #000;
+              font-size: 11px;
+              font-weight: 900;
+              padding: 4px 16px;
+              border-radius: 9999px;
+              letter-spacing: 1px;
+              white-space: nowrap;
+            }
+            .tent-card.dark-luxury .curve-footer {
+              width: 100%;
+              background: #022c22;
+              color: #ffffff;
+              padding: 14px 10px 10px;
+              border-top-left-radius: 36px;
+              border-top-right-radius: 36px;
+              margin-top: 10px;
+            }
+            .tent-card.dark-luxury .explore-text {
+              font-size: 10px;
+              font-weight: 900;
+              letter-spacing: 2px;
+              color: #fbbf24;
+            }
+            .tent-card.dark-luxury .powered-text {
+              font-size: 8px;
+              color: #94a3b8;
+              margin-top: 2px;
+            }
+
             @media print {
               body { padding: 0; }
-              .cards-grid { gap: 12mm; }
+              .cards-grid { gap: 8mm; }
             }
           </style>
         </head>
@@ -519,830 +949,750 @@ export default function QrMenuPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/70 p-4 sm:p-6 lg:p-8 space-y-6">
-      {/* Top Banner Header */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 sm:p-7 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-80 bg-gradient-to-l from-emerald-50/70 to-transparent pointer-events-none" />
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-800 to-teal-900 text-white flex items-center justify-center shadow-md shadow-emerald-950/15 flex-shrink-0">
-              <QrCode className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  QR Digital Menu
-                </h1>
-                <span className={cn(
-                  "px-2.5 py-0.5 text-xs font-semibold rounded-full border",
-                  settings.isEnabled
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : "bg-amber-50 text-amber-700 border-amber-200"
-                )}>
-                  {settings.isEnabled ? 'Active & Live' : 'Menu Disabled'}
-                </span>
-              </div>
-              <p className="text-slate-500 text-sm mt-1 max-w-2xl leading-relaxed">
-                Generate contactless QR codes for your tables & restaurant, customize food display settings, and provide guests with an instantaneous mobile digital menu.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={() => loadData(false)}
-              disabled={refreshing}
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm disabled:opacity-60"
-            >
-              <RefreshCw className={cn("w-4 h-4 text-slate-500", refreshing && "animate-spin")} />
-              Sync
-            </button>
-            <Link
-              href={`/menu/${hotelSlug}`}
-              target="_blank"
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/90 rounded-xl hover:bg-emerald-100/70 transition shadow-sm"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Visit Public Menu
-            </Link>
-          </div>
+    <div className="w-full space-y-5 select-none font-sans">
+      {/* 1. TOP HEADER (EXACT RESTROX STYLE) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+            QR Codes
+          </h1>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-1 sm:gap-2 mt-6 pt-5 border-t border-slate-100 overflow-x-auto no-scrollbar">
-          {[
-            { id: 'DASHBOARD', label: 'Overview & Stats', icon: LayoutDashboard },
-            { id: 'SETTINGS', label: 'Menu Settings', icon: Sliders },
-            { id: 'QR_CODES', label: 'Manage QR Codes', icon: QrCode, badge: qrCodes.length },
-            { id: 'PREVIEW', label: 'Live Mobile Preview', icon: Smartphone },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Search Box */}
+          <div className="relative w-56 sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={qrSearch}
+              onChange={(e) => setQrSearch(e.target.value)}
+              placeholder="Search"
+              className="w-full h-9 pl-9 pr-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1.5 focus:ring-red-500 shadow-2xs"
+            />
+            {qrSearch && (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as ActiveTab)}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap',
-                  isActive
-                    ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/15'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
-                )}
+                type="button"
+                onClick={() => setQrSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                <Icon className={cn('w-4 h-4', isActive ? 'text-emerald-400' : 'text-slate-400')} />
-                {tab.label}
-                {tab.badge !== undefined && (
-                  <span
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Download All QR Button (Red pill button matching RestroX) */}
+          <button
+            type="button"
+            onClick={handleDownloadAllQrs}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition shadow-xs cursor-pointer"
+            title="Download all QR codes as images"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download All QR</span>
+          </button>
+
+          {/* 3-Dot More / Layout Selector Popover */}
+          <div className="relative" ref={layoutMenuRef}>
+            <button
+              type="button"
+              onClick={() => setShowLayoutMenu(!showLayoutMenu)}
+              className={cn(
+                "inline-flex items-center justify-center w-9 h-9 rounded-lg border transition cursor-pointer shadow-xs",
+                showLayoutMenu
+                  ? "border-red-500 bg-red-50 text-red-600 dark:bg-red-950/30"
+                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              )}
+              title="QR Layout & More Actions"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {showLayoutMenu && (
+              <div className="absolute right-0 top-11 z-50 w-[420px] max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-800 p-4 space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-tight">
+                  Select QR Layout
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Option 1: Minimal Light */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCardLayout('minimal-light');
+                      setShowLayoutMenu(false);
+                    }}
                     className={cn(
-                      'ml-1 text-[11px] px-1.5 py-0.2 rounded-full font-bold',
-                      isActive ? 'bg-slate-700 text-emerald-300' : 'bg-slate-200 text-slate-600'
+                      "flex flex-col items-center p-2.5 rounded-xl border text-center transition cursor-pointer relative group",
+                      cardLayout === 'minimal-light'
+                        ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20 ring-1 ring-emerald-600"
+                        : "border-slate-200 hover:border-slate-300 bg-slate-50/50"
                     )}
                   >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                    <div className="w-full h-22 bg-white border border-slate-200 rounded-lg flex flex-col items-center justify-between p-2 shadow-2xs">
+                      <div className="w-10 h-1 bg-slate-300 rounded-full" />
+                      <div className="w-9 h-9 border border-slate-200 rounded-xs flex items-center justify-center">
+                        <QrCode className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <div className="w-12 h-2 bg-slate-100 rounded-xs" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2 whitespace-nowrap">Light</span>
+                    {cardLayout === 'minimal-light' && (
+                      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs">✓</span>
+                    )}
+                  </button>
+
+                  {/* Option 2: Black / Dark Luxury */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCardLayout('dark-luxury');
+                      setShowLayoutMenu(false);
+                    }}
+                    className={cn(
+                      "flex flex-col items-center p-2.5 rounded-xl border text-center transition cursor-pointer relative group",
+                      cardLayout === 'dark-luxury'
+                        ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20 ring-1 ring-emerald-600"
+                        : "border-slate-200 hover:border-slate-300 bg-slate-50/50"
+                    )}
+                  >
+                    <div className="w-full h-22 bg-[#18181b] border border-slate-700 rounded-lg flex flex-col items-center justify-between p-2 shadow-2xs">
+                      <div className="w-10 h-1 bg-slate-500 rounded-full" />
+                      <div className="w-9 h-9 bg-zinc-800 border border-zinc-700 rounded-xs flex items-center justify-center">
+                        <QrCode className="w-5 h-5 text-slate-300" />
+                      </div>
+                      <div className="w-12 h-2 bg-zinc-900 rounded-xs" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2 whitespace-nowrap">Black</span>
+                    {cardLayout === 'dark-luxury' && (
+                      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs">✓</span>
+                    )}
+                  </button>
+
+                  {/* Option 3: Red Brand Curve (RestroX Reference) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCardLayout('red-curve');
+                      setShowLayoutMenu(false);
+                    }}
+                    className={cn(
+                      "flex flex-col items-center p-2.5 rounded-xl border text-center transition cursor-pointer relative group",
+                      cardLayout === 'red-curve'
+                        ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20 ring-1 ring-emerald-600"
+                        : "border-slate-200 hover:border-slate-300 bg-slate-50/50"
+                    )}
+                  >
+                    <div className="w-full h-22 bg-[#fafafa] border border-slate-200 rounded-lg flex flex-col items-center justify-between p-1.5 shadow-2xs overflow-hidden">
+                      <div className="w-10 h-1 bg-slate-300 rounded-full" />
+                      <div className="w-9 h-9 bg-white border border-slate-200 rounded-xs flex items-center justify-center relative shadow-xs">
+                        <QrCode className="w-5 h-5 text-slate-800" />
+                        <span className="absolute -bottom-1 w-5 h-1 bg-red-600 rounded-full" />
+                      </div>
+                      <div className="w-full h-4 bg-red-600 -mx-1 -mb-1 rounded-t-lg" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-2 whitespace-nowrap">Red Curve</span>
+                    {cardLayout === 'red-curve' && (
+                      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs">✓</span>
+                    )}
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLayoutMenu(false);
+                      handlePrintTentCards([
+                        ...(restaurantQr && selectedSectionFilter === 'ALL' ? [restaurantQr] : []),
+                        ...filteredTableQrs,
+                      ]);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer whitespace-nowrap"
+                  >
+                    <Printer className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Print All Stand Cards</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLayoutMenu(false);
+                      setShowSettingsDrawer(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer whitespace-nowrap"
+                  >
+                    <Sliders className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Digital Menu Settings</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLayoutMenu(false);
+                      handleGenerateAllTableQrs();
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer whitespace-nowrap"
+                  >
+                    <RefreshCw className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Refresh All QR Codes</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* TAB 1: DASHBOARD / OVERVIEW */}
-      {/* ========================================================================= */}
-      {activeTab === 'DASHBOARD' && (
-        <div className="space-y-6">
-          {/* Key Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Public Status</p>
-                <p className="text-xl font-black text-slate-900 mt-1 flex items-center gap-2">
-                  {settings.isEnabled ? 'Enabled' : 'Disabled'}
-                  <span className={cn('w-2.5 h-2.5 rounded-full', settings.isEnabled ? 'bg-emerald-500 ring-4 ring-emerald-100' : 'bg-rose-500 ring-4 ring-rose-100')} />
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {settings.isEnabled ? 'Visible to customers online' : 'Turned off by manager'}
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-            </div>
+      {/* 2. AREA SELECTOR DROPDOWN (DYNAMICALLY DETECTS AREAS FROM TABLE BOARD) */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="relative shrink-0" ref={areaDropdownRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setIsAreaDropdownOpen(!isAreaDropdownOpen);
+              if (!isAreaDropdownOpen) setAreaSearchQuery('');
+            }}
+            className="h-9 inline-flex items-center gap-2 px-3.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 text-slate-800 dark:text-slate-100 text-xs font-semibold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+          >
+            <MapPin className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+            <span className="text-slate-400 font-normal">Area:</span>
+            <span className="font-bold text-slate-800 dark:text-slate-200">
+              {selectedSectionFilter === 'ALL' ? 'All Dining Areas' : selectedSectionFilter}
+            </span>
+            <ChevronDown className={cn('w-3.5 h-3.5 text-slate-400 transition-transform duration-200', isAreaDropdownOpen && 'rotate-180')} />
+          </button>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Total QR Codes</p>
-                <p className="text-2xl font-black text-slate-900 mt-1">{stats.totalQrs}</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {stats.activeQrs} active & scannable
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-                <QrCode className="w-6 h-6" />
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Table QR Coverage</p>
-                <p className="text-2xl font-black text-slate-900 mt-1">
-                  {stats.tableQrsCount} <span className="text-sm font-normal text-slate-400">/ {stats.tablesCount} Tables</span>
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {stats.tableQrsCount === stats.tablesCount ? '100% tables covered' : `${stats.tablesCount - stats.tableQrsCount} pending generation`}
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-                <UtensilsCrossed className="w-6 h-6" />
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Total Guest Scans</p>
-                <p className="text-2xl font-black text-slate-900 mt-1">{stats.totalScans}</p>
-                <p className="text-xs text-slate-500 mt-1">Logged server-side securely</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
-                <Smartphone className="w-6 h-6" />
-              </div>
-            </div>
-          </div>
-
-          {/* Public Menu URL Banner Card */}
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 rounded-2xl p-6 sm:p-7 text-white shadow-lg relative overflow-hidden">
-            <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none flex items-center pr-10">
-              <QrCode className="w-64 h-64 text-white" />
-            </div>
-
-            <div className="relative z-10 max-w-3xl space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-medium">
-                <Sparkles className="w-3.5 h-3.5" />
-                Live Single Source of Truth Menu
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                Restaurant Digital Menu Public Link
-              </h2>
-              <p className="text-slate-300 text-sm leading-relaxed">
-                Customers can access this URL directly or scan table QR codes. No app install or login required. All categories and dishes sync in real-time from your existing Menu Management module.
-              </p>
-
-              {/* URL Display & Action Bar */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                <div className="flex items-center gap-2 px-4 py-3 bg-slate-950/60 border border-slate-700 rounded-xl text-slate-200 text-sm font-mono flex-1 overflow-x-auto">
-                  <span className="text-slate-500 select-none">URL:</span>
-                  <span className="text-emerald-400 font-semibold">{fullPublicMenuUrl}</span>
-                </div>
-                <button
-                  onClick={handleCopyLink}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition shadow-md shadow-emerald-950/30"
-                >
-                  {copiedLink ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
-                  {copiedLink ? 'Copied Link' : 'Copy Public URL'}
-                </button>
-                <Link
-                  href={`/menu/${hotelSlug}`}
-                  target="_blank"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition border border-white/10"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Open Live
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Action Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm hover:border-slate-300 transition flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center mb-3">
-                  <Sliders className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-slate-900 text-base">QR Menu Settings</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Toggle prices, food images, descriptions, restaurant banner, welcome greeting and public currency.
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveTab('SETTINGS')}
-                className="mt-4 inline-flex items-center text-xs font-bold text-emerald-800 hover:text-emerald-900"
-              >
-                Configure Settings <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </button>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm hover:border-slate-300 transition flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3">
-                  <QrCode className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-slate-900 text-base">Table QR Generation</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Generate table-wise QR codes, download print-ready acrylic tent cards, and manage individual table tokens.
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveTab('QR_CODES')}
-                className="mt-4 inline-flex items-center text-xs font-bold text-blue-700 hover:text-blue-800"
-              >
-                Manage QR Codes <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </button>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm hover:border-slate-300 transition flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center mb-3">
-                  <Smartphone className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-slate-900 text-base">Live Mobile Preview</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Simulate the exact smartphone experience of your guests when they scan table or main restaurant QR codes.
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveTab('PREVIEW')}
-                className="mt-4 inline-flex items-center text-xs font-bold text-purple-700 hover:text-purple-800"
-              >
-                Open Mobile Preview <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB 2: QR MENU SETTINGS */}
-      {/* ========================================================================= */}
-      {activeTab === 'SETTINGS' && (
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">QR Digital Menu Settings</h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Configure what information your customers see when scanning QR codes in your restaurant.
-              </p>
-            </div>
-            <button
-              onClick={handleSaveSettings}
-              disabled={savingSettings}
-              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-semibold text-sm shadow-sm transition disabled:opacity-60"
-            >
-              {savingSettings ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-              {savingSettings ? 'Saving...' : 'Save Settings'}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column: Display Toggles & Visibility */}
-            <div className="space-y-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-emerald-800" />
-                Customer View & Visibility Toggles
-              </h3>
-
-              {/* Master Enable Toggle */}
-              <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-bold text-slate-900">Enable Public Digital Menu</p>
-                  <p className="text-xs text-slate-500">
-                    When turned off, guests who scan QR codes will see a friendly &ldquo;Menu Temporarily Offline&rdquo; message.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSettings((s) => ({ ...s, isEnabled: !s.isEnabled }))}
-                  className={cn(
-                    "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                    settings.isEnabled ? "bg-emerald-800" : "bg-slate-300"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                      settings.isEnabled ? "translate-x-5" : "translate-x-0"
-                    )}
-                  />
-                </button>
-              </div>
-
-              {/* Show / Hide Prices */}
-              <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-bold text-slate-900">Show Food Prices</p>
-                  <p className="text-xs text-slate-500">
-                    Display item and portion prices (e.g. Half / Full / Regular). Turn off for menu showcase without prices.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSettings((s) => ({ ...s, showPrices: !s.showPrices }))}
-                  className={cn(
-                    "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                    settings.showPrices ? "bg-emerald-800" : "bg-slate-300"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                      settings.showPrices ? "translate-x-5" : "translate-x-0"
-                    )}
-                  />
-                </button>
-              </div>
-
-              {/* Show / Hide Images */}
-              <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-bold text-slate-900">Show Food Images</p>
-                  <p className="text-xs text-slate-500">
-                    Display dish photos in customer menu cards. If disabled, clean minimalist text cards will be rendered.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSettings((s) => ({ ...s, showImages: !s.showImages }))}
-                  className={cn(
-                    "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                    settings.showImages ? "bg-emerald-800" : "bg-slate-300"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                      settings.showImages ? "translate-x-5" : "translate-x-0"
-                    )}
-                  />
-                </button>
-              </div>
-
-              {/* Show / Hide Descriptions */}
-              <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-bold text-slate-900">Show Food Descriptions</p>
-                  <p className="text-xs text-slate-500">
-                    Display ingredients, flavor notes and allergen info under each menu item.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSettings((s) => ({ ...s, showDescriptions: !s.showDescriptions }))}
-                  className={cn(
-                    "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                    settings.showDescriptions ? "bg-emerald-800" : "bg-slate-300"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                      settings.showDescriptions ? "translate-x-5" : "translate-x-0"
-                    )}
-                  />
-                </button>
-              </div>
-
-              {/* Future Architecture: Online Ordering Notice Card */}
-              <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/70 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                    <Lock className="w-3.5 h-3.5 text-amber-700" />
-                    Online Table Ordering
-                  </span>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-                    Disabled by Default
-                  </span>
-                </div>
-                <p className="text-xs text-amber-800 leading-relaxed">
-                  In accordance with enterprise security guidelines, contactless online ordering is currently turned off. Customers use the digital menu for browsing and ordering directly with restaurant staff. The underlying architecture is prepared to enable contactless ordering in a future release.
-                </p>
-              </div>
-            </div>
-
-            {/* Right Column: Restaurant Branding & Text Information */}
-            <div className="space-y-5">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-emerald-800" />
-                Restaurant Branding & Public Content
-              </h3>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Public Restaurant Name
-                </label>
+          {isAreaDropdownOpen && (
+            <div className="absolute left-0 top-full mt-2 w-76 sm:w-80 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
+              {/* Search input inside dropdown */}
+              <div className="relative flex items-center px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
+                <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                 <input
                   type="text"
-                  value={settings.restaurantName}
-                  onChange={(e) => setSettings((s) => ({ ...s, restaurantName: e.target.value }))}
-                  placeholder="e.g. Himalayan Hotel & Fine Dining"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 text-sm font-medium"
+                  value={areaSearchQuery}
+                  onChange={(e) => setAreaSearchQuery(e.target.value)}
+                  placeholder="Search dining area..."
+                  autoFocus
+                  className="w-full bg-transparent text-xs font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none border-none p-0"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Currency Symbol
-                </label>
-                <input
-                  type="text"
-                  value={settings.currencySymbol}
-                  onChange={(e) => setSettings((s) => ({ ...s, currencySymbol: e.target.value }))}
-                  placeholder="Rs. or $"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 text-sm font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Restaurant Logo URL
-                </label>
-                <input
-                  type="url"
-                  value={settings.logoUrl || ''}
-                  onChange={(e) => setSettings((s) => ({ ...s, logoUrl: e.target.value }))}
-                  placeholder="https://images.unsplash.com/... or /logo.png"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 text-sm font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Cover Banner Image URL
-                </label>
-                <input
-                  type="url"
-                  value={settings.coverImageUrl || ''}
-                  onChange={(e) => setSettings((s) => ({ ...s, coverImageUrl: e.target.value }))}
-                  placeholder="https://images.unsplash.com/photo-... (cover image for header banner)"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 text-sm font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Welcome Greeting / Subtitle
-                </label>
-                <textarea
-                  rows={2}
-                  value={settings.welcomeMessage || ''}
-                  onChange={(e) => setSettings((s) => ({ ...s, welcomeMessage: e.target.value }))}
-                  placeholder="Greeting shown to customers at the top of the menu..."
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 text-sm font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Footer / Disclaimer Text
-                </label>
-                <textarea
-                  rows={2}
-                  value={settings.footerText || ''}
-                  onChange={(e) => setSettings((s) => ({ ...s, footerText: e.target.value }))}
-                  placeholder="Taxes, service charge details, allergy notices..."
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700 text-sm font-medium"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB 3: GENERATE & MANAGE QR CODES */}
-      {/* ========================================================================= */}
-      {activeTab === 'QR_CODES' && (
-        <div className="space-y-8">
-          {/* Section A: Restaurant-Wide QR Code */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold mb-1">
-                  General Restaurant QR
-                </div>
-                <h2 className="text-xl font-bold text-slate-900">Main Restaurant QR Code</h2>
-                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                  One master QR code for the entire dining hall, entrance lobby, takeaway counter or social media.
-                </p>
-              </div>
-
-              {!restaurantQr ? (
-                <button
-                  onClick={handleGenerateRestaurantQr}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-semibold text-sm shadow-sm transition"
-                >
-                  <QrCode className="w-4 h-4" />
-                  Generate Restaurant QR
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
+                {areaSearchQuery && (
                   <button
-                    onClick={() => handleDownloadPng(`qr-canvas-${restaurantQr.id}`, `restaurant-qr-${hotelSlug}`)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-sm transition"
+                    type="button"
+                    onClick={() => setAreaSearchQuery('')}
+                    className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5 text-slate-500" />
-                    Download PNG
-                  </button>
-                  <button
-                    onClick={() => handlePrintTentCards([restaurantQr])}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold shadow-sm transition"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    Print Display Card
-                  </button>
-                  <button
-                    onClick={() => handleRevokeQr(restaurantQr)}
-                    title="Regenerate secure token (invalidates old code)"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/70 text-rose-700 text-xs font-semibold transition"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Regenerate Token
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {restaurantQr ? (
-              <div className="flex flex-col md:flex-row items-center gap-7 pt-6">
-                <div className="p-4 bg-white rounded-2xl border-2 border-slate-200 shadow-sm flex-shrink-0">
-                  <QRCodeCanvas
-                    id={`qr-canvas-${restaurantQr.id}`}
-                    value={`${window.location.origin}/menu/${hotelSlug}`}
-                    size={160}
-                    level="H"
-                    includeMargin={true}
-                  />
-                </div>
-
-                <div className="space-y-3 flex-1 text-center md:text-left">
-                  <div className="flex items-center justify-center md:justify-start gap-2.5">
-                    <span className="font-bold text-slate-900 text-lg">{restaurantQr.label}</span>
-                    <span className={cn(
-                      "text-xs px-2 py-0.5 rounded-full font-semibold border",
-                      restaurantQr.isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"
-                    )}>
-                      {restaurantQr.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Target URL: <span className="font-mono text-emerald-800 font-semibold">{window.location.origin}/menu/{hotelSlug}</span>
-                  </p>
-                  <div className="flex items-center justify-center md:justify-start gap-4 text-xs text-slate-500 pt-1">
-                    <span>Scans: <strong className="text-slate-800">{restaurantQr.scanCount || 0}</strong></span>
-                    <span>&bull;</span>
-                    <span>Created: {new Date(restaurantQr.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-slate-400 text-sm">
-                No restaurant-wide QR code generated yet. Click &ldquo;Generate Restaurant QR&rdquo; above.
-              </div>
-            )}
-          </div>
-
-          {/* Section B: Table-Wise QR Codes */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-sm space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-100">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold mb-1">
-                  Table-Wise Tent Cards
-                </div>
-                <h2 className="text-xl font-bold text-slate-900">Individual Table QR Codes</h2>
-                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                  Each QR code opens the digital menu pre-associated with the customer&rsquo;s specific table.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <button
-                  onClick={handleGenerateAllTableQrs}
-                  disabled={generatingAll}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-sm transition disabled:opacity-60"
-                >
-                  <Sparkles className={cn("w-4 h-4", generatingAll && "animate-spin")} />
-                  {generatingAll ? 'Generating...' : 'Generate All Table QRs'}
-                </button>
-                {filteredTableQrs.length > 0 && (
-                  <button
-                    onClick={() => handlePrintTentCards(filteredTableQrs)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm shadow-sm transition"
-                  >
-                    <Printer className="w-4 h-4 text-emerald-400" />
-                    Print All Tent Cards ({filteredTableQrs.length})
+                    <X className="w-3 h-3" />
                   </button>
                 )}
               </div>
-            </div>
 
-            {/* Filter and Search Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={qrSearch}
-                  onChange={(e) => setQrSearch(e.target.value)}
-                  placeholder="Search table number or area..."
-                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
-                />
+              <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                DINING AREAS
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setSelectedSectionFilter('ALL')}
-                  className={cn(
-                    'px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition',
-                    selectedSectionFilter === 'ALL'
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  )}
-                >
-                  All Areas ({qrCodes.filter(q => q.codeType === 'TABLE').length})
-                </button>
-                {sectionsList.map((sec) => (
+              <div className="max-h-64 overflow-y-auto px-1.5 pb-1.5 custom-scrollbar">
+                {/* All Dining Areas */}
+                {(!areaSearchQuery || 'all dining areas'.includes(areaSearchQuery.toLowerCase())) && (
                   <button
-                    key={sec}
-                    onClick={() => setSelectedSectionFilter(sec)}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSectionFilter('ALL');
+                      setIsAreaDropdownOpen(false);
+                      setAreaSearchQuery('');
+                    }}
                     className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition',
-                      selectedSectionFilter === sec
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      'w-full text-left px-3 py-2 text-xs font-medium flex items-center justify-between rounded-lg transition-colors cursor-pointer my-0.5',
+                      selectedSectionFilter === 'ALL'
+                        ? 'text-red-700 dark:text-red-300 font-bold bg-red-50 dark:bg-red-950/30'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                     )}
                   >
-                    {sec}
+                    <span className="flex items-center gap-2.5">
+                      <LayoutDashboard className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>All Dining Areas</span>
+                    </span>
+                    {selectedSectionFilter === 'ALL' && <Check className="w-4 h-4 text-red-600 shrink-0" />}
                   </button>
-                ))}
+                )}
+
+                {/* Dynamically detected areas from Table Board */}
+                {allUniqueAreas
+                  .filter((secName) => !areaSearchQuery || secName.toLowerCase().includes(areaSearchQuery.toLowerCase()))
+                  .map((secName) => {
+                    const isSelected = selectedSectionFilter.toLowerCase() === secName.toLowerCase();
+                    return (
+                      <button
+                        key={secName}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSectionFilter(secName);
+                          setIsAreaDropdownOpen(false);
+                          setAreaSearchQuery('');
+                        }}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-xs font-medium flex items-center justify-between rounded-lg transition-colors cursor-pointer my-0.5',
+                          isSelected
+                            ? 'text-red-700 dark:text-red-300 font-bold bg-red-50 dark:bg-red-950/30'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                          <span>{secName}</span>
+                        </span>
+                        {isSelected && <Check className="w-4 h-4 text-red-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
+          )}
+        </div>
+      </div>
 
-            {/* Tables QR Grid */}
-            {filteredTableQrs.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pt-2">
-                {filteredTableQrs.map((item) => {
-                  const targetScanUrl = `${window.location.origin}/menu/${hotelSlug}?tableId=${item.tableId}`;
-                  return (
+      {/* 3. STAND CARDS GRID WITH PROFESSIONAL SIZING & SKELETON LOADER */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-1">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="w-full max-w-[285px] mx-auto rounded-3xl border border-slate-200/90 bg-white dark:bg-slate-900 p-6 flex flex-col items-center animate-pulse shadow-xs"
+            >
+              <div className="w-16 h-2 bg-slate-200 dark:bg-slate-800 rounded-full mb-2" />
+              <div className="w-36 h-3.5 bg-slate-300 dark:bg-slate-700 rounded-full mb-6" />
+              <div className="w-[165px] h-[165px] bg-slate-100 dark:bg-slate-800 rounded-2xl mb-6 shadow-2xs" />
+              <div className="w-full h-12 bg-slate-200 dark:bg-slate-800 rounded-t-2xl mt-auto" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-1">
+          {/* Master Restaurant QR Stand Card */}
+          {selectedSectionFilter === 'ALL' && (
+            <div
+              className={cn(
+                'w-full max-w-[285px] mx-auto rounded-3xl overflow-hidden border shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-center pt-7 relative group',
+                cardLayout === 'red-curve' && 'bg-[#fbfbfb] border-slate-200/90',
+                cardLayout === 'minimal-light' && 'bg-white border-slate-300',
+                cardLayout === 'dark-luxury' && 'bg-[#090d16] border-slate-800 text-white'
+              )}
+            >
+              {/* Top Header */}
+              <div className="text-center px-4">
+                <p
+                  className={cn(
+                    'text-[9px] uppercase font-bold tracking-[0.2em]',
+                    cardLayout === 'dark-luxury' ? 'text-amber-400' : 'text-slate-400'
+                  )}
+                >
+                  Welcome To
+                </p>
+                <h3
+                  className={cn(
+                    'text-xs font-black uppercase tracking-tight mt-0.5 line-clamp-1',
+                    cardLayout === 'dark-luxury' ? 'text-slate-100' : 'text-slate-900'
+                  )}
+                >
+                  {settings.restaurantName || hotelName}
+                </h3>
+              </div>
+
+              {/* QR Canvas Box with Attached Badge */}
+              <div className="relative my-4 px-4">
+                <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 relative">
+                  {restaurantQr ? (
+                    <QRCodeCanvas
+                      id={`qr-canvas-${restaurantQr.id}`}
+                      value={`${window.location.origin}/menu/${hotelSlug}`}
+                      size={165}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  ) : (
+                    <div className="w-[155px] h-[155px] flex flex-col items-center justify-center p-3 text-center bg-slate-50 rounded-xl">
+                      <QrCode className="w-8 h-8 text-slate-300 mb-1" />
+                      <button
+                        type="button"
+                        onClick={handleGenerateRestaurantQr}
+                        className="mt-2 text-[10px] font-bold text-rose-600 underline cursor-pointer"
+                      >
+                        Generate Master
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Attached Pill Badge (Pinned directly below the QR box) */}
+                  <div
+                    className={cn(
+                      'absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-4 py-0.5 rounded-full text-xs font-black shadow-md uppercase tracking-wider border-2 border-white',
+                      cardLayout === 'red-curve' && 'bg-red-600 text-white',
+                      cardLayout === 'minimal-light' && 'bg-slate-900 text-white',
+                      cardLayout === 'dark-luxury' && 'bg-zinc-800 text-zinc-100'
+                    )}
+                  >
+                    RECEPTION / MASTER
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Accent Curve / Banner */}
+              <div
+                className={cn(
+                  'w-full pt-4 pb-3 px-3 text-center rounded-t-[2.5rem] mt-2',
+                  cardLayout === 'red-curve' && 'bg-red-600 text-white',
+                  cardLayout === 'minimal-light' && 'bg-slate-100 text-slate-800 border-t border-slate-200',
+                  cardLayout === 'dark-luxury' && 'bg-zinc-900 text-zinc-100 border-t border-zinc-800'
+                )}
+              >
+                <p
+                  className={cn(
+                    'text-[10px] font-black uppercase tracking-[0.2em]',
+                    cardLayout === 'red-curve' && 'text-white',
+                    cardLayout === 'minimal-light' && 'text-slate-800',
+                    cardLayout === 'dark-luxury' && 'text-zinc-200'
+                  )}
+                >
+                  EXPLORE OUR MENU
+                </p>
+              </div>
+              <div
+                className={cn(
+                  'w-full py-2 text-center text-[9px] font-bold uppercase tracking-wider',
+                  cardLayout === 'dark-luxury' ? 'bg-[#18181b] text-zinc-400' : 'bg-white text-slate-500'
+                )}
+              >
+                Powered by <span className="text-red-600 font-black">RestroX</span>
+              </div>
+
+              {/* Discreet Floating Action Buttons on Hover */}
+              {restaurantQr && (
+                <div className="absolute inset-x-3 bottom-14 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-1.5 bg-black/75 backdrop-blur-sm p-1.5 rounded-xl shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => handlePrintTentCards([restaurantQr])}
+                    className="px-2.5 py-1 rounded-lg bg-white text-slate-900 text-[11px] font-bold hover:bg-slate-100 transition cursor-pointer"
+                    title="Print Stand Card"
+                  >
+                    Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPng(`qr-canvas-${restaurantQr.id}`, 'Restaurant-Master-QR')}
+                    className="px-2.5 py-1 rounded-lg bg-white/20 text-white text-[11px] font-bold hover:bg-white/30 transition cursor-pointer"
+                    title="Download PNG"
+                  >
+                    PNG
+                  </button>
+                  <Link
+                    href={`/menu/${hotelSlug}`}
+                    target="_blank"
+                    className="px-2 py-1 rounded-lg bg-white/20 text-white text-[11px] font-bold hover:bg-white/30 transition flex items-center gap-0.5"
+                    title="Live Preview"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Table & Cabin Stand Cards */}
+          {filteredTableQrs.map((item) => {
+            const badgeLabel = getCardBadge(item);
+            const targetScanUrl = getTargetScanUrl(item);
+            const isCabin = isCabinItem(item);
+
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  'w-full max-w-[285px] mx-auto rounded-3xl overflow-hidden border shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-center pt-7 relative group',
+                  cardLayout === 'red-curve' && 'bg-[#fbfbfb] border-slate-200/90',
+                  cardLayout === 'minimal-light' && 'bg-white border-slate-300',
+                  cardLayout === 'dark-luxury' && 'bg-[#090d16] border-slate-800 text-white',
+                  !item.isActive && 'opacity-60'
+                )}
+              >
+                {/* Top Header */}
+                <div className="text-center px-4">
+                  <p
+                    className={cn(
+                      'text-[9px] uppercase font-bold tracking-[0.2em]',
+                      cardLayout === 'dark-luxury' ? 'text-amber-400' : 'text-slate-400'
+                    )}
+                  >
+                    Welcome To
+                  </p>
+                  <h3
+                    className={cn(
+                      'text-xs font-black uppercase tracking-tight mt-0.5 line-clamp-1',
+                      cardLayout === 'dark-luxury' ? 'text-slate-100' : 'text-slate-900'
+                    )}
+                  >
+                    {settings.restaurantName || hotelName}
+                  </h3>
+                </div>
+
+                {/* QR Canvas Box with Attached Badge */}
+                <div className="relative my-4 px-4">
+                  <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 relative">
+                    <QRCodeCanvas
+                      id={`qr-canvas-${item.id}`}
+                      value={targetScanUrl}
+                      size={165}
+                      level="H"
+                      includeMargin={true}
+                    />
+
+                    {/* Attached Pill Badge (Pinned directly below the QR box) */}
                     <div
-                      key={item.id}
                       className={cn(
-                        "rounded-2xl border p-5 bg-white transition hover:shadow-md flex flex-col justify-between space-y-4",
-                        item.isActive ? "border-slate-200/90" : "border-slate-200 bg-slate-50/50 opacity-75"
+                        'absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-4 py-0.5 rounded-full text-xs font-black shadow-md uppercase tracking-wider border-2 border-white',
+                        cardLayout === 'red-curve' && 'bg-red-600 text-white',
+                        cardLayout === 'minimal-light' && 'bg-slate-900 text-white',
+                        cardLayout === 'dark-luxury' && 'bg-zinc-800 text-zinc-100'
                       )}
                     >
-                      {/* Card Header */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-black text-slate-900 text-lg tracking-tight">
-                              Table {item.tableNumber || '—'}
-                            </h3>
-                            <span className={cn(
-                              "text-[10px] px-2 py-0.5 rounded-full font-bold",
-                              item.isActive ? "bg-emerald-50 text-emerald-800" : "bg-slate-200 text-slate-500"
-                            )}>
-                              {item.isActive ? 'Active' : 'Revoked'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-500 font-medium mt-0.5">
-                            {item.section || 'General Area'} &bull; {item.capacity ? `${item.capacity} Seats` : 'Dining'}
-                          </p>
-                        </div>
-
-                        <button
-                          onClick={() => handleToggleQrStatus(item)}
-                          title={item.isActive ? "Deactivate QR" : "Activate QR"}
-                          className="text-slate-400 hover:text-slate-700 transition"
-                        >
-                          {item.isActive ? (
-                            <ToggleRight className="w-6 h-6 text-emerald-800" />
-                          ) : (
-                            <ToggleLeft className="w-6 h-6 text-slate-400" />
-                          )}
-                        </button>
-                      </div>
-
-                      {/* QR Visual */}
-                      <div className="flex justify-center p-3 bg-white rounded-xl border border-slate-100 shadow-inner">
-                        <QRCodeCanvas
-                          id={`qr-canvas-${item.id}`}
-                          value={targetScanUrl}
-                          size={140}
-                          level="H"
-                          includeMargin={true}
-                        />
-                      </div>
-
-                      {/* Footer Stats & Actions */}
-                      <div className="space-y-3 pt-1 border-t border-slate-100">
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <span>Scans: <strong className="text-slate-800">{item.scanCount || 0}</strong></span>
-                          <button
-                            onClick={() => handleRevokeQr(item)}
-                            title="Regenerate secure token"
-                            className="text-slate-400 hover:text-rose-600 text-[11px] font-semibold flex items-center gap-1"
-                          >
-                            <RefreshCw className="w-3 h-3" /> Revoke
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => handleDownloadPng(`qr-canvas-${item.id}`, `Table-${item.tableNumber}-${item.section}`)}
-                            className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold shadow-2xs transition"
-                          >
-                            <Download className="w-3.5 h-3.5 text-slate-400" />
-                            PNG
-                          </button>
-                          <button
-                            onClick={() => handlePrintTentCards([item])}
-                            className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold shadow-2xs transition"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            Print
-                          </button>
-                        </div>
-                      </div>
+                      {badgeLabel}
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-slate-50/60 rounded-2xl border border-dashed border-slate-300">
-                <UtensilsCrossed className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-700 font-bold text-sm">No Table QR Codes Found</p>
-                <p className="text-slate-400 text-xs mt-1 max-w-sm mx-auto">
-                  Click &ldquo;Generate All Table QRs&rdquo; to automatically create cryptographically secure QR codes for every restaurant table.
-                </p>
-                <button
-                  onClick={handleGenerateAllTableQrs}
-                  disabled={generatingAll}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold text-xs transition"
+                  </div>
+                </div>
+
+                {/* Bottom Accent Curve / Banner */}
+                <div
+                  className={cn(
+                    'w-full pt-4 pb-3 px-3 text-center rounded-t-[2.5rem] mt-2',
+                    cardLayout === 'red-curve' && 'bg-red-600 text-white',
+                    cardLayout === 'minimal-light' && 'bg-slate-100 text-slate-800 border-t border-slate-200',
+                    cardLayout === 'dark-luxury' && 'bg-zinc-900 text-zinc-100 border-t border-zinc-800'
+                  )}
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Generate All Now
-                </button>
+                  <p
+                    className={cn(
+                      'text-[10px] font-black uppercase tracking-[0.2em]',
+                      cardLayout === 'red-curve' && 'text-white',
+                      cardLayout === 'minimal-light' && 'text-slate-800',
+                      cardLayout === 'dark-luxury' && 'text-zinc-200'
+                    )}
+                  >
+                    EXPLORE OUR MENU
+                  </p>
+                </div>
+                <div
+                  className={cn(
+                    'w-full py-2 text-center text-[9px] font-bold uppercase tracking-wider',
+                    cardLayout === 'dark-luxury' ? 'bg-[#18181b] text-zinc-400' : 'bg-white text-slate-500'
+                  )}
+                >
+                  Powered by <span className="text-red-600 font-black">RestroX</span>
+                </div>
+
+                {/* Discreet Floating Action Buttons on Hover */}
+                <div className="absolute inset-x-3 bottom-14 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-1.5 bg-black/75 backdrop-blur-sm p-1.5 rounded-xl shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => handlePrintTentCards([item])}
+                    className="px-2.5 py-1 rounded-lg bg-white text-slate-900 text-[11px] font-bold hover:bg-slate-100 transition cursor-pointer"
+                    title="Print Stand Card"
+                  >
+                    Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPng(`qr-canvas-${item.id}`, badgeLabel.replace(/\s+/g, '-'))}
+                    className="px-2.5 py-1 rounded-lg bg-white/20 text-white text-[11px] font-bold hover:bg-white/30 transition cursor-pointer"
+                    title="Download PNG"
+                  >
+                    PNG
+                  </button>
+                  <Link
+                    href={targetScanUrl}
+                    target="_blank"
+                    className="px-2 py-1 rounded-lg bg-white/20 text-white text-[11px] font-bold hover:bg-white/30 transition flex items-center gap-0.5"
+                    title="Live Preview"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleQrStatus(item)}
+                    title={item.isActive ? 'Deactivate' : 'Activate'}
+                    className="text-white hover:text-rose-400 p-1 cursor-pointer"
+                  >
+                    {item.isActive ? <ToggleRight className="w-4 h-4 text-emerald-400" /> : <ToggleLeft className="w-4 h-4 text-slate-400" />}
+                  </button>
+                </div>
               </div>
-            )}
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {filteredTableQrs.length === 0 && selectedSectionFilter !== 'ALL' && (
+        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 space-y-3">
+          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+            <UtensilsCrossed className="w-6 h-6" />
+          </div>
+          <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            No dining tables in &ldquo;{selectedSectionFilter}&rdquo; yet
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            Tables created under this area on the Table Board page will automatically appear here with their generated QR code stand cards.
+          </p>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setSelectedSectionFilter('ALL')}
+              className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer"
+            >
+              Show All Dining Areas
+            </button>
+            <Link
+              href="/tables"
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              Go to Table Board &rarr;
+            </Link>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB 4: LIVE MOBILE PREVIEW */}
-      {/* ========================================================================= */}
-      {activeTab === 'PREVIEW' && (
-        <div className="flex flex-col items-center justify-center space-y-6">
-          {/* Controls Bar */}
-          <div className="w-full max-w-xl bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 uppercase">Context:</span>
-              <select
-                value={previewTableSelection}
-                onChange={(e) => setPreviewTableSelection(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-700 text-slate-800"
+      {/* SLIDE-OVER DRAWER FOR SETTINGS (ZERO UNNECESSARY PARAGRAPHS, PURE TOGGLES) */}
+      {showSettingsDrawer && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between p-6 animate-in slide-in-from-right duration-200">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-rose-600" />
+                  <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
+                    Digital Menu Settings
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsDrawer(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Clean Minimal Toggles */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Public Menu Online</span>
+                  <button
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, isEnabled: !s.isEnabled }))}
+                    className={cn(
+                      "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                      settings.isEnabled ? "bg-emerald-600" : "bg-slate-300"
+                    )}
+                  >
+                    <span className={cn(
+                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition",
+                      settings.isEnabled ? "translate-x-4" : "translate-x-0"
+                    )} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Show Food Prices</span>
+                  <button
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, showPrices: !s.showPrices }))}
+                    className={cn(
+                      "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                      settings.showPrices ? "bg-emerald-600" : "bg-slate-300"
+                    )}
+                  >
+                    <span className={cn(
+                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition",
+                      settings.showPrices ? "translate-x-4" : "translate-x-0"
+                    )} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Show Dish Photos</span>
+                  <button
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, showImages: !s.showImages }))}
+                    className={cn(
+                      "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                      settings.showImages ? "bg-emerald-600" : "bg-slate-300"
+                    )}
+                  >
+                    <span className={cn(
+                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition",
+                      settings.showImages ? "translate-x-4" : "translate-x-0"
+                    )} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Show Descriptions</span>
+                  <button
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, showDescriptions: !s.showDescriptions }))}
+                    className={cn(
+                      "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                      settings.showDescriptions ? "bg-emerald-600" : "bg-slate-300"
+                    )}
+                  >
+                    <span className={cn(
+                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition",
+                      settings.showDescriptions ? "translate-x-4" : "translate-x-0"
+                    )} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Clean Inputs */}
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase">Restaurant Display Title</label>
+                  <input
+                    type="text"
+                    value={settings.restaurantName}
+                    onChange={(e) => setSettings((s) => ({ ...s, restaurantName: e.target.value }))}
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-900 mt-1"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase">Footer Disclaimer</label>
+                  <input
+                    type="text"
+                    value={settings.footerText || ''}
+                    onChange={(e) => setSettings((s) => ({ ...s, footerText: e.target.value }))}
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-900 mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSettingsDrawer(false)}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
               >
-                <option value="RESTAURANT">Restaurant Wide (General Menu)</option>
-                {tables.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    Table {t.tableNumber} ({t.section})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Link
-              href={
-                previewTableSelection === 'RESTAURANT'
-                  ? `/menu/${hotelSlug}`
-                  : `/menu/${hotelSlug}?tableId=${previewTableSelection}`
-              }
-              target="_blank"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-900"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              Open Fullscreen in New Window
-            </Link>
-          </div>
-
-          {/* Smartphone Mockup Frame */}
-          <div className="relative w-full max-w-[390px] h-[780px] bg-slate-900 rounded-[50px] p-3 shadow-2xl ring-12 ring-slate-800/60 overflow-hidden">
-            {/* Phone Speaker Notch */}
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-28 h-5 bg-slate-900 rounded-full z-30 flex items-center justify-center">
-              <div className="w-12 h-1 bg-slate-700 rounded-full" />
-            </div>
-
-            {/* Simulated Mobile Screen (Iframe or direct view) */}
-            <div className="w-full h-full bg-white rounded-[40px] overflow-hidden flex flex-col relative z-20">
-              <iframe
-                src={
-                  previewTableSelection === 'RESTAURANT'
-                    ? `/menu/${hotelSlug}`
-                    : `/menu/${hotelSlug}?tableId=${previewTableSelection}`
-                }
-                title="Customer Digital Menu Preview"
-                className="w-full h-full border-0"
-              />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleSaveSettings();
+                  setShowSettingsDrawer(false);
+                }}
+                disabled={savingSettings}
+                className="px-5 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition cursor-pointer disabled:opacity-60"
+              >
+                {savingSettings ? 'Saving...' : 'Save Settings'}
+              </button>
             </div>
           </div>
         </div>

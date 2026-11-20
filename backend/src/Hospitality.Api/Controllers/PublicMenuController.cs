@@ -34,6 +34,12 @@ public class PublicMenuController : ControllerBase
         List<PublicVariantDto> Variants
     );
 
+    public record SocialLinkDto(string Id, string Platform, string Url, string? Label);
+    public record UsefulLinkDto(string Id, string Title, string Url);
+    public record GalleryImageDto(string Id, string Title, string Category, string ImageUrl, string CreatedAt);
+
+    public record PublicTableOptionDto(string Id, string TableNumber, string? Section);
+
     public record PublicMenuResponse(
         string RestaurantName,
         string RestaurantSlug,
@@ -47,8 +53,18 @@ public class PublicMenuController : ControllerBase
         bool ShowImages,
         bool ShowDescriptions,
         bool AllowOnlineOrdering,
+        bool IsDeliveryEnabled,
+        bool ShareMyMenu,
+        string? PhoneNumber,
+        string? GoogleMapsUrl,
+        string? OpeningHours,
+        string Theme,
+        List<SocialLinkDto> SocialLinks,
+        List<UsefulLinkDto> UsefulLinks,
+        List<GalleryImageDto> GalleryImages,
         string? TableNumber,
         string? TableSection,
+        List<PublicTableOptionDto> AvailableTables,
         List<string> Categories,
         List<PublicMenuItemDto> Items
     );
@@ -57,7 +73,12 @@ public class PublicMenuController : ControllerBase
     // 1. GET PUBLIC MENU BY RESTAURANT SLUG
     // ----------------------------------------------------
     [HttpGet("{slug}")]
-    public async Task<IActionResult> GetPublicMenu(string slug, [FromQuery] string? qr, [FromQuery] string? tableId)
+    public async Task<IActionResult> GetPublicMenu(
+        string slug,
+        [FromQuery] string? qr,
+        [FromQuery] string? tableId,
+        [FromQuery] string? table,
+        [FromQuery] string? cabin)
     {
         if (string.IsNullOrWhiteSpace(slug))
         {
@@ -114,15 +135,33 @@ public class PublicMenuController : ControllerBase
                 }
             }
         }
-        else if (!string.IsNullOrWhiteSpace(tableId))
+        var allTables = await _db.RestaurantTables
+            .Where(t => t.HotelId == hotel.Id && t.Status != "OUT_OF_SERVICE")
+            .OrderBy(t => t.TableNumber)
+            .Select(t => new PublicTableOptionDto(t.Id, t.TableNumber, t.Section))
+            .ToListAsync();
+
+        string? targetLookup = !string.IsNullOrWhiteSpace(tableId)
+            ? tableId
+            : (!string.IsNullOrWhiteSpace(table) ? table : cabin);
+
+        if (!string.IsNullOrWhiteSpace(targetLookup))
         {
-            // Fallback table resolution for direct preview
-            var table = await _db.RestaurantTables
-                .FirstOrDefaultAsync(t => t.Id == tableId && t.HotelId == hotel.Id);
-            if (table != null)
+            var matchedTable = allTables.FirstOrDefault(t =>
+                t.Id.Equals(targetLookup, StringComparison.OrdinalIgnoreCase) ||
+                t.TableNumber.Equals(targetLookup, StringComparison.OrdinalIgnoreCase) ||
+                (t.Section != null && targetLookup.Contains(t.TableNumber, StringComparison.OrdinalIgnoreCase)));
+
+            if (matchedTable != null)
             {
-                tableNumber = table.TableNumber;
-                tableSection = table.Section;
+                tableNumber = matchedTable.TableNumber;
+                tableSection = matchedTable.Section;
+            }
+            else
+            {
+                // Direct custom identifier passed (e.g. "Cabin 1" or "Table 5")
+                tableNumber = targetLookup;
+                tableSection = targetLookup.Contains("cabin", StringComparison.OrdinalIgnoreCase) ? "Cabin" : "Dining";
             }
         }
 
@@ -199,14 +238,34 @@ public class PublicMenuController : ControllerBase
             ));
         }
 
-        var categories = categorySet.OrderBy(c => c).ToList();
+        var socialLinks = new List<SocialLinkDto>();
+        if (!string.IsNullOrWhiteSpace(settings?.SocialLinksJson))
+        {
+            try { socialLinks = JsonSerializer.Deserialize<List<SocialLinkDto>>(settings.SocialLinksJson) ?? new(); } catch { }
+        }
+
+        var usefulLinks = new List<UsefulLinkDto>();
+        if (!string.IsNullOrWhiteSpace(settings?.UsefulLinksJson))
+        {
+            try { usefulLinks = JsonSerializer.Deserialize<List<UsefulLinkDto>>(settings.UsefulLinksJson) ?? new(); } catch { }
+        }
+
+        var galleryImages = new List<GalleryImageDto>();
+        if (!string.IsNullOrWhiteSpace(settings?.GalleryImagesJson))
+        {
+            try { galleryImages = JsonSerializer.Deserialize<List<GalleryImageDto>>(settings.GalleryImagesJson) ?? new(); } catch { }
+        }
+
+        bool shareMenu = settings?.ShareMyMenu ?? true;
+        var categories = shareMenu ? categorySet.OrderBy(c => c).ToList() : new List<string>();
+        var itemsToReturn = shareMenu ? publicItems : new List<PublicMenuItemDto>();
 
         var response = new PublicMenuResponse(
             RestaurantName: settings?.PublicRestaurantName ?? hotel.Name,
             RestaurantSlug: hotel.Slug,
             LogoUrl: settings?.LogoUrl,
             CoverImageUrl: settings?.CoverImageUrl,
-            Address: hotel.Address,
+            Address: settings?.Address ?? hotel.Address,
             Currency: hotel.Currency,
             WelcomeMessage: settings?.WelcomeMessage,
             FooterText: settings?.FooterText,
@@ -214,10 +273,20 @@ public class PublicMenuController : ControllerBase
             ShowImages: settings?.ShowImages ?? true,
             ShowDescriptions: settings?.ShowDescriptions ?? true,
             AllowOnlineOrdering: settings?.AllowOnlineOrdering ?? false,
+            IsDeliveryEnabled: settings?.IsDeliveryEnabled ?? false,
+            ShareMyMenu: shareMenu,
+            PhoneNumber: settings?.PhoneNumber,
+            GoogleMapsUrl: settings?.GoogleMapsUrl,
+            OpeningHours: settings?.OpeningHours,
+            Theme: settings?.Theme ?? "emerald",
+            SocialLinks: socialLinks,
+            UsefulLinks: usefulLinks,
+            GalleryImages: galleryImages,
             TableNumber: tableNumber,
             TableSection: tableSection,
+            AvailableTables: allTables,
             Categories: categories,
-            Items: publicItems
+            Items: itemsToReturn
         );
 
         return Ok(ApiResponse.Ok(response));

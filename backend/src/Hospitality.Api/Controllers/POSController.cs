@@ -69,6 +69,7 @@ public class POSController : ControllerBase
         string? Outlet,
         string Category,
         string? Department,
+        string? PreparationMethod,
         string Name,
         string? Description,
         double Price,
@@ -139,12 +140,21 @@ public class POSController : ControllerBase
             ? req.Department.Trim().ToUpper() 
             : (req.Category.ToLower().Contains("drink") || req.Category.ToLower().Contains("bar") || req.Category.ToLower().Contains("beverage") ? "BOT" : "KOT");
 
+        var prepMethod = !string.IsNullOrWhiteSpace(req.PreparationMethod)
+            ? req.PreparationMethod.Trim().ToUpper()
+            : "NOT_CONFIGURED";
+        if (prepMethod != "READY_TO_SERVE" && prepMethod != "REQUIRES_PREPARATION" && prepMethod != "NOT_CONFIGURED")
+        {
+            prepMethod = "NOT_CONFIGURED";
+        }
+
         var product = new POSProduct
         {
             HotelId = hotelId,
             Outlet = string.IsNullOrWhiteSpace(req.Outlet) ? "RESTAURANT" : req.Outlet.ToUpper(),
             Category = req.Category.Trim(),
             Department = department,
+            PreparationMethod = prepMethod,
             Name = req.Name.Trim(),
             Description = req.Description?.Trim(),
             Price = req.Price,
@@ -165,7 +175,8 @@ public class POSController : ControllerBase
         string? Outlet,
         string? Category,
         string? Department,
-        string? Name,
+        string? PreparationMethod,
+        string Name,
         string? Description,
         double? Price,
         bool? TrackStock,
@@ -202,6 +213,20 @@ public class POSController : ControllerBase
                 return BadRequest(ApiResponse.Fail("Category cannot be empty."));
             }
             product.Category = req.Category.Trim();
+        }
+
+        if (req.Department != null && !string.IsNullOrWhiteSpace(req.Department))
+        {
+            product.Department = req.Department.Trim().ToUpper();
+        }
+
+        if (req.PreparationMethod != null)
+        {
+            var pm = req.PreparationMethod.Trim().ToUpper();
+            if (pm == "READY_TO_SERVE" || pm == "REQUIRES_PREPARATION" || pm == "NOT_CONFIGURED")
+            {
+                product.PreparationMethod = pm;
+            }
         }
 
         if (req.Outlet != null && !string.IsNullOrWhiteSpace(req.Outlet))
@@ -292,6 +317,40 @@ public class POSController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(ApiResponse.Ok(new { product.Id, product.Name }, $"Product '{product.Name}' deleted."));
+    }
+
+    public record BulkUpdatePreparationMethodItem(string Id, string PreparationMethod);
+    public record BulkUpdatePreparationMethodRequest(List<BulkUpdatePreparationMethodItem> Items);
+
+    [HttpPost("products/bulk-preparation-method")]
+    [HttpPost("products/bulk-prep-method")]
+    public async Task<IActionResult> BulkUpdatePreparationMethod([FromBody] BulkUpdatePreparationMethodRequest req)
+    {
+        if (req?.Items == null || req.Items.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("No items provided for bulk update."));
+        }
+
+        var ids = req.Items.Select(i => i.Id).Distinct().ToList();
+        var products = await _db.POSProducts.Where(p => ids.Contains(p.Id)).ToListAsync();
+        var updatedCount = 0;
+
+        foreach (var update in req.Items)
+        {
+            var prod = products.FirstOrDefault(p => p.Id == update.Id);
+            if (prod != null)
+            {
+                var pm = update.PreparationMethod?.Trim().ToUpper();
+                if (pm == "READY_TO_SERVE" || pm == "REQUIRES_PREPARATION" || pm == "NOT_CONFIGURED")
+                {
+                    prod.PreparationMethod = pm;
+                    updatedCount++;
+                }
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse.Ok(new { updatedCount }, $"Successfully updated preparation method for {updatedCount} products."));
     }
 
     // ----------------------------------------------------

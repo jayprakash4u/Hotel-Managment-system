@@ -63,6 +63,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { CategoryAutocomplete } from '@/app/(admin)/hotel/HotelSetupContent';
 import { TableReservationData, ActiveRestaurantOrderData, ReservationAlertData } from '@/lib/types';
 import { ActiveOrdersView } from '@/components/common/ActiveOrdersView';
 import { RestaurantReceiptModal, ReceiptModalProps } from '@/components/common/RestaurantReceiptModal';
@@ -196,6 +197,7 @@ function TablesContent() {
 
   // Receipt Modal State (Requirement 7)
   const [receiptModalData, setReceiptModalData] = useState<ReceiptModalProps | null>(null);
+  const [dispatchModalDept, setDispatchModalDept] = useState<'KOT' | 'BOT' | null>(null);
 
   // Contextual Table Actions State (Dropdown positioned below 3 dots)
   const [openTableMenuId, setOpenTableMenuId] = useState<string | null>(null);
@@ -339,11 +341,15 @@ function TablesContent() {
     date?: string;
   }>({});
 
-  // Add Table Modal state
+  // Add Table Modal state (Unified with Restaurant Setup)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newTableName, setNewTableName] = useState('');
   const [newTableNumber, setNewTableNumber] = useState('');
   const [newSection, setNewSection] = useState('Indoor Fine Dining');
   const [newCapacity, setNewCapacity] = useState('4');
+  const [newTableOrder, setNewTableOrder] = useState('1');
+  const [newTableDescription, setNewTableDescription] = useState('');
+  const [newTableCreateQr, setNewTableCreateQr] = useState(true);
 
   // Add Order Page State
   const [orderProductName, setOrderProductName] = useState('');
@@ -1393,6 +1399,37 @@ function TablesContent() {
     return areaStats.all.map((a) => a.name);
   }, [areaStats]);
 
+  // Available dining categories formatted for CategoryAutocomplete
+  const availableDiningCategories = useMemo(() => {
+    return allUniqueSections.map((secName, idx) => ({
+      id: `cat-${idx + 1}`,
+      name: secName,
+      code: `TC${idx + 1}`,
+    }));
+  }, [allUniqueSections]);
+
+  const handleAddNewDiningCategory = (catName: string) => {
+    const trimmed = catName.trim();
+    if (!trimmed) return;
+    setNewSection(trimmed);
+    api.createTableCategory({ name: trimmed }).catch(() => {});
+  };
+
+  const handleOpenAddTableModal = () => {
+    const nextNum = tables.length + 1;
+    const defaultSection = selectedSectionFilter !== 'ALL'
+      ? selectedSectionFilter
+      : (allUniqueSections[0] || 'Dining Hall');
+    setNewTableName(`Table ${nextNum}`);
+    setNewTableNumber(`T-${nextNum < 10 ? '0' : ''}${nextNum}`);
+    setNewSection(defaultSection);
+    setNewCapacity('4');
+    setNewTableOrder(nextNum.toString());
+    setNewTableDescription('');
+    setNewTableCreateQr(true);
+    setIsAddModalOpen(true);
+  };
+
   // Group filtered tables by Area / Section so multiple areas are clearly organized
   const groupedTablesByArea = useMemo(() => {
     const groups: Record<string, TableItem[]> = {};
@@ -1794,7 +1831,7 @@ function TablesContent() {
   // ---------------------------------------------------------------------------
   // POS Order Management & Dispatch Workflow: Save, Print KOT, Print BOT, All in One
   // ---------------------------------------------------------------------------
-  const handleDispatchOrder = async (mode: 'SAVE' | 'KOT' | 'BOT' | 'ALL') => {
+  const handleDispatchOrder = async (mode: 'SAVE' | 'KOT' | 'BOT' | 'ALL', shouldPrint: boolean = true) => {
     if (!activeTable) return;
     const currentOrders = activeTable.orders || [];
     if (currentOrders.length === 0) {
@@ -1988,7 +2025,7 @@ function TablesContent() {
       // Persist updated dispatched quantities and ticket numbers to backend immediately
       syncTableOrderToBackend(activeTable.id, updatedOrders, { immediate: true });
 
-      // 4. Open Print Ticket Modal
+      // 4. Open Print Ticket Modal (if shouldPrint is true)
       const printItems = targetItems.map((i) => {
         const remainingQty = i.quantity - (i.dispatchedQuantity || 0);
         const qty = remainingQty > 0 ? remainingQty : i.quantity;
@@ -2001,29 +2038,36 @@ function TablesContent() {
         };
       });
 
-      const ticketType = mode === 'BOT' ? 'BOT' : mode === 'ALL' ? 'ALL' : 'KOT';
-      setReceiptModalData({
-        isOpen: true,
-        onClose: () => setReceiptModalData(null),
-        orderNumber: orderNumber || 'ORD',
-        ticketType: ticketType as any,
-        kotNumber: generatedKot,
-        botNumber: generatedBot,
-        receiptNumber: mode === 'BOT' ? generatedBot : generatedKot,
-        orderType: activeTable.orderType || 'DINE_IN',
-        tableNumber: activeTable.isNoTable ? null : activeTable.tableNumber,
-        seatingNote: activeTable.notes || activeTable.seatingNote,
-        createdAt: new Date().toISOString(),
-        serverName: 'ADMIN',
-        customerName: activeTable.currentGuest && activeTable.currentGuest !== 'Dine-In Guest' ? activeTable.currentGuest : undefined,
-        items: printItems,
-        subtotal: printItems.reduce((s, i) => s + i.total, 0),
-        tax: 0,
-        total: printItems.reduce((s, i) => s + i.total, 0),
-      });
-
       const label = mode === 'KOT' ? `KOT (${generatedKot})` : mode === 'BOT' ? `BOT (${generatedBot})` : 'All in One Ticket';
-      toast.celebrate(`Dispatched Successfully!`, `${printItems.length} item(s) printed (${label}).`);
+
+      if (shouldPrint) {
+        const ticketType = mode === 'BOT' ? 'BOT' : mode === 'ALL' ? 'ALL' : 'KOT';
+        setReceiptModalData({
+          isOpen: true,
+          onClose: () => setReceiptModalData(null),
+          orderNumber: orderNumber || 'ORD',
+          ticketType: ticketType as any,
+          kotNumber: generatedKot,
+          botNumber: generatedBot,
+          receiptNumber: mode === 'BOT' ? generatedBot : generatedKot,
+          orderType: activeTable.orderType || 'DINE_IN',
+          tableNumber: activeTable.isNoTable ? null : activeTable.tableNumber,
+          seatingNote: activeTable.notes || activeTable.seatingNote,
+          createdAt: new Date().toISOString(),
+          serverName: 'ADMIN',
+          customerName: activeTable.currentGuest && activeTable.currentGuest !== 'Dine-In Guest' ? activeTable.currentGuest : undefined,
+          items: printItems,
+          subtotal: printItems.reduce((s, i) => s + i.total, 0),
+          tax: 0,
+          total: printItems.reduce((s, i) => s + i.total, 0),
+        });
+        toast.celebrate(`Dispatched Successfully!`, `${printItems.length} item(s) printed (${label}).`);
+      } else {
+        toast.success(
+          `${mode} Sent to ${mode === 'BOT' ? 'Bar' : 'Kitchen'}!`,
+          `${printItems.length} item(s) dispatched (${label}) without printing.`
+        );
+      }
       fetchTables(selectedDate);
       fetchActiveOrders();
     } catch (err: any) {
@@ -3134,22 +3178,25 @@ function TablesContent() {
   // Add new table
   const handleAddTable = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTableNumber.trim()) return;
+    const effectiveNumber = newTableNumber.trim().toUpperCase() || newTableName.trim().toUpperCase();
+    if (!effectiveNumber) {
+      toast.error('Validation Error', 'Table number or code is required.');
+      return;
+    }
 
-    const effectiveSection = isAddingNewCategory && customCategoryInput.trim()
-      ? customCategoryInput.trim()
-      : (newSection.trim() || 'Dining Hall');
+    const effectiveSection = newSection.trim() || 'Dining Hall';
 
     try {
       const created = await api.createTable({
-        tableNumber: newTableNumber.trim().toUpperCase(),
+        tableNumber: effectiveNumber,
         section: effectiveSection,
         capacity: parseInt(newCapacity, 10) || 4,
+        createQrCode: newTableCreateQr,
       });
 
       const newTable: TableItem = {
         id: created?.data?.id || `tbl-${Date.now()}`,
-        tableNumber: newTableNumber.trim().toUpperCase(),
+        tableNumber: effectiveNumber,
         section: effectiveSection,
         capacity: parseInt(newCapacity, 10) || 4,
         status: 'AVAILABLE',
@@ -3158,7 +3205,9 @@ function TablesContent() {
 
       setTables((prev) => [...prev, newTable]);
       toast.celebrate('Table Added', `Table ${newTable.tableNumber} added to ${effectiveSection}.`);
+      setNewTableName('');
       setNewTableNumber('');
+      setNewTableDescription('');
       setIsAddingNewCategory(false);
       setCustomCategoryInput('');
       setIsAddModalOpen(false);
@@ -4031,16 +4080,22 @@ function TablesContent() {
                   <span>{isSendingOrder ? 'Saving...' : 'Save'}</span>
                 </button>
 
-                {/* 2. Print KOT */}
+                {/* 2. KOT */}
                 <button
                   type="button"
                   disabled={isSendingOrder || activeTableOrders.length === 0}
-                  onClick={() => handleDispatchOrder('KOT')}
+                  onClick={() => {
+                    if (activeTableOrders.length === 0) {
+                      toast.error('Cart Empty', 'Please add items before dispatching KOT.');
+                      return;
+                    }
+                    setDispatchModalDept('KOT');
+                  }}
                   className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                  title="Dispatch and print Kitchen Order Ticket (KOT) for kitchen items only"
+                  title="Kitchen Order Ticket (KOT) - Send or Print"
                 >
                   <ChefHat className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                  <span>Print KOT</span>
+                  <span>KOT</span>
                   {activeTableOrders.some(
                     (i) => (i.department === 'KOT' || !i.department) && (i.quantity > (i.dispatchedQuantity || 0))
                   ) && (
@@ -4052,16 +4107,22 @@ function TablesContent() {
                   )}
                 </button>
 
-                {/* 3. Print BOT */}
+                {/* 3. BOT */}
                 <button
                   type="button"
                   disabled={isSendingOrder || activeTableOrders.length === 0}
-                  onClick={() => handleDispatchOrder('BOT')}
+                  onClick={() => {
+                    if (activeTableOrders.length === 0) {
+                      toast.error('Cart Empty', 'Please add items before dispatching BOT.');
+                      return;
+                    }
+                    setDispatchModalDept('BOT');
+                  }}
                   className="px-3.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-200 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                  title="Dispatch and print Bar Order Ticket (BOT) for beverage items only"
+                  title="Bar Order Ticket (BOT) - Send or Print"
                 >
                   <Wine className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                  <span>Print BOT</span>
+                  <span>BOT</span>
                   {activeTableOrders.some(
                     (i) => i.department === 'BOT' && (i.quantity > (i.dispatchedQuantity || 0))
                   ) && (
@@ -4534,6 +4595,76 @@ function TablesContent() {
             </div>
           )}
 
+          {/* =========================================================================
+              KOT / BOT DISPATCH OPTIONS MODAL (Send vs Print - Left & Right Side)
+             ========================================================================= */}
+          {dispatchModalDept && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+              <div className="w-full max-w-[340px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden p-5 space-y-4 animate-in zoom-in-95 duration-150">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={cn(
+                        'w-8 h-8 rounded-lg flex items-center justify-center border',
+                        dispatchModalDept === 'KOT'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/60'
+                          : 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-900/60'
+                      )}
+                    >
+                      {dispatchModalDept === 'KOT' ? (
+                        <ChefHat className="w-4 h-4" />
+                      ) : (
+                        <Wine className="w-4 h-4" />
+                      )}
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      {dispatchModalDept === 'KOT' ? 'Kitchen Order Ticket' : 'Bar Order Ticket'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDispatchModalDept(null)}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* 2 Options: Left and Right Side by Side (Clean, without text descriptions) */}
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  {/* Left: Send KOT / Send BOT */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dept = dispatchModalDept;
+                      setDispatchModalDept(null);
+                      handleDispatchOrder(dept, false);
+                    }}
+                    className="h-11 px-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-xs font-bold transition flex items-center justify-center gap-2 shadow-2xs cursor-pointer active:scale-95"
+                  >
+                    <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Send {dispatchModalDept}</span>
+                  </button>
+
+                  {/* Right: Print KOT / Print BOT */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dept = dispatchModalDept;
+                      setDispatchModalDept(null);
+                      handleDispatchOrder(dept, true);
+                    }}
+                    className="h-11 px-3 rounded-xl bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <Printer className="w-4 h-4 text-white" />
+                    <span>Print {dispatchModalDept}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* PRINTED BILL / RECEIPT / KOT MODAL (Shows preview first, then user can print) */}
           {receiptModalData && <RestaurantReceiptModal {...receiptModalData} />}
         </div>
@@ -4643,7 +4774,7 @@ function TablesContent() {
               </button>
               <button
                 type="button"
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={handleOpenAddTableModal}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 transition-all cursor-pointer"
                 title="Add Dining Table"
               >
@@ -5386,141 +5517,145 @@ function TablesContent() {
 
 
       {/* =========================================================================
-          ADD TABLE MODAL
+          ADD DINING TABLE MODAL (UNIFIED WITH RESTAURANT SETUP)
          ========================================================================= */}
       {isAddModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
           onClick={() => setIsAddModalOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-[3px] bg-white dark:bg-surface-card border border-border-default dark:border-border-default shadow-2xl overflow-hidden"
+            className="w-full max-w-xl rounded-[3px] bg-white dark:bg-[#071F1A] border border-[#DCE3DF] dark:border-[#145447] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5EEE9] dark:border-border-default bg-surface-muted dark:bg-surface-card">
-              <div>
-                <h3 className="text-sm font-bold text-body dark:text-body font-heading">
-                  Add New Table
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9] dark:bg-[#061B16]">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-[3px] bg-[#0B3D32]/10 dark:bg-emerald-950/70 text-[#0B3D32] dark:text-emerald-300">
+                  <Table2 className="w-3.5 h-3.5 stroke-[2]" />
+                </div>
+                <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
+                  Add Table
                 </h3>
-                <p className="text-[11px] text-muted dark:text-[#A4B8AE]">
-                  Enter table number, dining section and capacity
-                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-[2px] text-muted hover:text-muted dark:hover:text-white"
+                className="p-1 rounded-[2px] text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleAddTable} className="p-5 space-y-3.5">
+              {/* Table Name / Label */}
               <div>
-                <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE] mb-1">
-                  TABLE NUMBER / CODE *
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Table Name / Label <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. T-17"
                   autoFocus
-                  value={newTableNumber}
-                  onChange={(e) => setNewTableNumber(e.target.value)}
-                  className="w-full rounded-[3px] border border-border-default bg-white px-3 py-2 text-xs font-mono font-bold text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:bg-surface-card dark:text-body"
+                  value={newTableName}
+                  onChange={(e) => setNewTableName(e.target.value)}
+                  placeholder="e.g. Table T-101, Window Table 1, Booth 2"
+                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                 />
               </div>
 
+              {/* Area */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE]">
-                    TABLE CATEGORY / AREA *
-                  </label>
-                  {!isAddingNewCategory ? (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingNewCategory(true)}
-                      className="text-[11px] text-amber-600 hover:text-amber-700 font-bold cursor-pointer"
-                    >
-                      + New Area
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingNewCategory(false)}
-                      className="text-[11px] text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
-                    >
-                      Cancel New Area
-                    </button>
-                  )}
-                </div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Area <span className="text-rose-500">*</span>
+                </label>
+                <CategoryAutocomplete
+                  value={newSection}
+                  onChange={(name) => setNewSection(name)}
+                  onAddNewCategory={handleAddNewDiningCategory}
+                  availableCategories={availableDiningCategories}
+                  placeholder="Select or enter area..."
+                />
+              </div>
 
-                {!isAddingNewCategory ? (
-                  <select
-                    value={newSection}
-                    onChange={(e) => {
-                      if (e.target.value === '__NEW__') {
-                        setIsAddingNewCategory(true);
-                      } else {
-                        setNewSection(e.target.value);
-                      }
-                    }}
-                    className="w-full rounded-[3px] border border-border-default bg-white px-3 py-2 text-xs font-semibold text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:bg-surface-card dark:text-body"
-                  >
-                    {Array.from(new Set([
-                      'Dining Hall',
-                      'Corridor Side',
-                      'Main Area',
-                      ...tableCategories.map((c) => c.name),
-                      ...tables.map((t) => t.section).filter(Boolean)
-                    ])).map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                    <option value="__NEW__">+ Add New Area / Category...</option>
-                  </select>
-                ) : (
+              {/* Code, Capacity & Order Grid */}
+              <div className="grid grid-cols-12 gap-3">
+                {/* Table Code / Number */}
+                <div className="col-span-12 sm:col-span-5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    Table Number / Code <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="text"
-                    required={isAddingNewCategory}
-                    autoFocus
-                    value={customCategoryInput}
-                    onChange={(e) => setCustomCategoryInput(e.target.value)}
-                    placeholder="e.g. Corridor Side, Dining Hall, Main Area..."
-                    className="w-full rounded-[3px] border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-amber-600 dark:bg-surface-card dark:text-body"
+                    required
+                    value={newTableNumber}
+                    onChange={(e) => setNewTableNumber(e.target.value)}
+                    placeholder="e.g. T-101, C-01"
+                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs placeholder:normal-case"
                   />
-                )}
+                </div>
+
+                {/* Seating Capacity */}
+                <div className="col-span-6 sm:col-span-4">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    Capacity (Guests) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    required
+                    value={newCapacity}
+                    onChange={(e) => setNewCapacity(e.target.value)}
+                    placeholder="4"
+                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                  />
+                </div>
+
+                {/* Display Order */}
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    Order
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={newTableOrder}
+                    onChange={(e) => setNewTableOrder(e.target.value)}
+                    placeholder="1"
+                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-muted dark:text-[#A4B8AE] mb-1">
-                  CAPACITY (PERSONS) *
+              {/* Menu QR Code Checkbox */}
+              <div className="pt-0.5">
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={newTableCreateQr}
+                    onChange={(e) => setNewTableCreateQr(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-[#0B3D32] focus:ring-[#0B3D32] accent-[#0B3D32] cursor-pointer"
+                  />
+                  <span>Menu QR Code</span>
                 </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  required
-                  value={newCapacity}
-                  onChange={(e) => setNewCapacity(e.target.value)}
-                  className="w-full rounded-[3px] border border-border-default bg-white px-3 py-2 text-xs font-mono font-bold text-body shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-border-default dark:bg-surface-card dark:text-body"
-                />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E5EEE9] dark:border-border-default">
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E5EEE9] dark:border-[#145447]">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="rounded-[3px] border border-border-default bg-white px-3.5 py-1.5 text-xs font-semibold text-muted hover:bg-surface-muted dark:border-border-default dark:bg-surface-card dark:text-[#A4B8AE]"
+                  className="rounded-[3px] border border-[#DCE3DF] bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-[#145447] dark:bg-[#071F1A] dark:text-slate-300 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-[3px] bg-[#0B3D32] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#093027] dark:bg-brand dark:hover:bg-success-subtle0"
+                  className="rounded-[3px] bg-[#0B3D32] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#093027] dark:bg-emerald-600 dark:hover:bg-emerald-500 inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  Add Table
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Save Table</span>
                 </button>
               </div>
             </form>
