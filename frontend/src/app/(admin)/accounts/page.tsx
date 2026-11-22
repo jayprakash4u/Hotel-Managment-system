@@ -15,6 +15,20 @@ import TrialBalanceTab from '@/components/accounts/TrialBalanceTab';
 import SalesTransactionsTab from '@/components/accounts/SalesTransactionsTab';
 import PurchaseTransactionsTab from '@/components/accounts/PurchaseTransactionsTab';
 import SupplierLedgerAccountsTab from '@/components/accounts/SupplierLedgerAccountsTab';
+import CashAccountsTab from '@/components/accounts/CashAccountsTab';
+import BankAndWalletAccountsTab from '@/components/accounts/BankAndWalletAccountsTab';
+import BankReconciliationTab from '@/components/accounts/BankReconciliationTab';
+import IncomeTab from '@/components/accounts/IncomeTab';
+import ExpensesTab from '@/components/accounts/ExpensesTab';
+import FixedAssetsTab from '@/components/accounts/FixedAssetsTab';
+import LiabilitiesTab from '@/components/accounts/LiabilitiesTab';
+import ProfitAndLossTab from '@/components/accounts/ProfitAndLossTab';
+import BalanceSheetTab from '@/components/accounts/BalanceSheetTab';
+import CashFlowStatementTab from '@/components/accounts/CashFlowStatementTab';
+import FinancialSummaryTab from '@/components/accounts/FinancialSummaryTab';
+import TaxManagementTab from '@/components/accounts/TaxManagementTab';
+import ProductLedgerTab from '@/components/accounts/ProductLedgerTab';
+import InventoryValuationTab from '@/components/accounts/InventoryValuationTab';
 
 function AccountsContent() {
   const searchParams = useSearchParams();
@@ -40,6 +54,10 @@ function AccountsContent() {
     return <SalesTransactionsTab />;
   }
 
+  if (currentTab === 'customer-ledger') {
+    return <CustomerLedgerAccountsTab />;
+  }
+
   if (currentTab === 'purchase-transactions') {
     return <PurchaseTransactionsTab />;
   }
@@ -48,45 +66,70 @@ function AccountsContent() {
     return <SupplierLedgerAccountsTab />;
   }
 
-  if (currentTab === 'customer-ledger') {
-    return (
-      <div className="space-y-4 pb-12 select-none">
-        {/* Navigation Breadcrumb Bar */}
-        <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-          <div className="flex items-center gap-2 text-xs">
-            <Link
-              href="/accounts"
-              className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Accounts Hub</span>
-            </Link>
-            <span className="text-slate-300 dark:text-slate-700">/</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-              <Users className="w-3.5 h-3.5 text-teal-600" />
-              <span>Customer Ledger &amp; Receivables</span>
-            </span>
-          </div>
+  if (currentTab === 'product-ledger') {
+    return <ProductLedgerTab />;
+  }
 
-          
-        </div>
+  if (currentTab === 'inventory-valuation') {
+    return <InventoryValuationTab />;
+  }
 
-        {/* Customer Ledger Tab */}
-        <CustomerLedgerAccountsTab />
-      </div>
-    );
+  if (currentTab === 'cash-accounts') {
+    return <CashAccountsTab />;
+  }
+
+  if (currentTab === 'bank-accounts' || currentTab === 'bank-wallet-accounts' || currentTab === 'digital-wallets') {
+    return <BankAndWalletAccountsTab />;
+  }
+
+  if (currentTab === 'bank-reconciliation') {
+    return <BankReconciliationTab />;
+  }
+
+  if (currentTab === 'income') {
+    return <IncomeTab />;
+  }
+
+  if (currentTab === 'expenses') {
+    return <ExpensesTab />;
+  }
+
+  if (currentTab === 'fixed-assets') {
+    return <FixedAssetsTab />;
+  }
+
+  if (currentTab === 'liabilities') {
+    return <LiabilitiesTab />;
+  }
+
+  if (currentTab === 'tax-management' || currentTab === 'tax') {
+    return <TaxManagementTab />;
+  }
+
+  if (currentTab === 'profit-loss') {
+    return <ProfitAndLossTab />;
+  }
+
+  if (currentTab === 'balance-sheet') {
+    return <BalanceSheetTab />;
+  }
+
+  if (currentTab === 'cash-flow') {
+    return <CashFlowStatementTab />;
+  }
+
+  if (currentTab === 'financial-summary') {
+    return <FinancialSummaryTab />;
   }
 
   return (
-    <div className="space-y-6 pb-12">
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Accounts &amp; Financial Management Hub
-          </span>
-        </div>
-        <AccountsNavBoxes activeId={currentTab || ''} />
+    <div className="space-y-4 pb-12">
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Accounts
+        </span>
       </div>
+      <AccountsNavBoxes activeId={currentTab || ''} />
     </div>
   );
 }

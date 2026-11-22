@@ -556,7 +556,7 @@ public class SuppliersController : ControllerBase
             .Sum(e => e.CreditAmount);
 
         var totalPayments = rawEntries
-            .Where(e => e.ReferenceType == "PAYMENT" || e.ReferenceType == "BANK_PAYMENT" || e.ReferenceType == "CASH_PAYMENT")
+            .Where(e => e.ReferenceType == "PAYMENT" || e.ReferenceType == "BANK_PAYMENT" || e.ReferenceType == "CASH_PAYMENT" || e.ReferenceType == "ADVANCE_ALLOCATION")
             .Sum(e => e.DebitAmount);
 
         var purchaseReturns = rawEntries

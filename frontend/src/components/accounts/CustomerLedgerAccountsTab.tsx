@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Users,
   Search,
@@ -553,13 +554,21 @@ export default function CustomerLedgerAccountsTab() {
   return (
     <div className="space-y-4 pb-12 select-none">
       {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Customer Ledger</h1>
-            
-          </div>
-          
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton
+            href="/accounts"
+            label="Back"
+            onClick={selectedCustomer ? () => setSelectedCustomer(null) : undefined}
+          />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <span>Customer Ledger</span>
+            {selectedCustomer && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200 dark:border-teal-900">
+                {selectedCustomer.name}
+              </span>
+            )}
+          </h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -799,78 +808,6 @@ export default function CustomerLedgerAccountsTab() {
             </div>
           </div>
 
-          {/* 7 Financial Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            {/* Opening Balance */}
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Opening Balance</div>
-              <div className="text-base font-black text-slate-800 dark:text-white mt-1 truncate">
-                Rs. {(ledgerSummary?.openingBalance || selectedCustomer.openingBalance || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Total Sales (Debits) */}
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Billed</div>
-              <div className="text-base font-black text-blue-600 dark:text-blue-400 mt-1 truncate">
-                Rs. {(ledgerSummary?.periodDebits || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Total Payments Received */}
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Received</div>
-              <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-                Rs. {(ledgerSummary?.periodCredits || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Outstanding Balance */}
-            <div className="p-3 bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
-                Outstanding Due
-              </div>
-              <div className="text-base font-black text-rose-700 dark:text-rose-300 mt-1 truncate">
-                Rs. {(selectedCustomer.currentOutstanding || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Advance Balance */}
-            <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
-                Advance Deposit
-              </div>
-              <div className="text-base font-black text-blue-700 dark:text-blue-300 mt-1 truncate">
-                Rs. {(selectedCustomer.advanceBalance || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Credit Limit */}
-            <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Credit Limit</div>
-              <div className="text-base font-black text-slate-800 dark:text-white mt-1 truncate">
-                Rs. {(selectedCustomer.creditLimit || 0).toFixed(2)}
-              </div>
-              
-            </div>
-
-            {/* Available Credit */}
-            <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-lg shadow-xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                Available Credit
-              </div>
-              <div className="text-base font-black text-[#0B3D32] dark:text-emerald-300 mt-1 truncate">
-                Rs. {Math.max(0, (selectedCustomer.creditLimit || 0) - (selectedCustomer.currentOutstanding || 0)).toFixed(2)}
-              </div>
-              
-            </div>
-          </div>
-
           {/* Ledger Filter Toolbar */}
           <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
             <div className="flex flex-wrap items-center gap-2">
@@ -950,25 +887,25 @@ export default function CustomerLedgerAccountsTab() {
           </div>
 
           {/* Ledger Table */}
-          <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 rounded-[3px] shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                    <th className="py-2.5 px-3">Date</th>
-                    <th className="py-2.5 px-3">Type</th>
-                    <th className="py-2.5 px-3">Ref / Invoice #</th>
-                    <th className="py-2.5 px-3">Description</th>
-                    <th className="py-2.5 px-3">Due Date</th>
-                    <th className="py-2.5 px-3 text-right">Debit (Rs.)</th>
-                    <th className="py-2.5 px-3 text-right">Credit (Rs.)</th>
-                    <th className="py-2.5 px-3 text-right">Balance (Rs.)</th>
-                    <th className="py-2.5 px-3">Outlet</th>
-                    <th className="py-2.5 px-3">Cashier</th>
+                  <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-t border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 select-none">
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Date</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Type</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Ref / Invoice #</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Description</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Due Date</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Debit (Rs.)</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Credit (Rs.)</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Balance (Rs.)</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Outlet</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Cashier</th>
                     <th className="py-2.5 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                <tbody className="divide-y-0 font-medium">
                   {isLoadingLedger ? (
                     <tr>
                       <td colSpan={11} className="py-12 text-center text-slate-500">
@@ -990,61 +927,49 @@ export default function CustomerLedgerAccountsTab() {
                       const dueDate = e.dueDate ? new Date(e.dueDate) : null;
                       const isOverdue = dueDate && dueDate < new Date() && e.balance > 0;
 
-                      const typeBadge =
-                        e.referenceType === 'CREDIT_BILL' || e.referenceType === 'INVOICE'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                          : e.referenceType === 'PAYMENT'
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                          : e.referenceType === 'CUSTOMER_ADVANCE'
-                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                          : e.referenceType === 'ADVANCE_ADJUSTMENT'
-                          ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
-                          : e.referenceType === 'SALES_RETURN' || e.referenceType === 'CREDIT_NOTE'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                          : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-
                       const debitAmt = e.debitAmount ?? e.debit ?? 0;
                       const creditAmt = e.creditAmount ?? e.credit ?? 0;
 
                       return (
-                        <tr key={e.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
-                          <td className="py-2.5 px-3 whitespace-nowrap text-slate-800 dark:text-slate-200">
+                        <tr
+                          key={e.id || idx}
+                          className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
+                        >
+                          <td className="py-2.5 px-3 whitespace-nowrap text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700/60 font-mono text-[11px]">
                             {entryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${typeBadge}`}>
-                              {e.referenceType?.replace('_', ' ') || 'TRANSACTION'}
-                            </span>
+                          <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60 font-semibold text-xs text-slate-800 dark:text-slate-200">
+                            {e.referenceType?.replace('_', ' ') || 'TRANSACTION'}
                           </td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300">
-                            {e.invoiceNumber || e.billNumber || e.referenceId || e.referenceNumber || '&minus;'}
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
+                            {e.invoiceNumber || e.billNumber || e.referenceId || e.referenceNumber || '—'}
                           </td>
-                          <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 max-w-[240px] truncate">
+                          <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 max-w-[240px] truncate border-r border-slate-200 dark:border-slate-700/60">
                             {e.description}
                           </td>
-                          <td className="py-2.5 px-3 whitespace-nowrap">
+                          <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                             {dueDate ? (
-                              <span className={cn('text-[11px]', isOverdue ? 'text-rose-600 font-bold' : 'text-slate-500')}>
+                              <span className={cn('text-[11px] font-mono', isOverdue ? 'text-rose-600 font-bold' : 'text-slate-500')}>
                                 {dueDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                 {isOverdue && ' (Overdue)'}
                               </span>
                             ) : (
-                              <span className="text-slate-400">&minus;</span>
+                              <span className="text-slate-400 font-mono">—</span>
                             )}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                            {debitAmt > 0 ? debitAmt.toFixed(2) : '-'}
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
+                            {debitAmt > 0 ? debitAmt.toFixed(2) : '—'}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                            {creditAmt > 0 ? creditAmt.toFixed(2) : '-'}
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
+                            {creditAmt > 0 ? creditAmt.toFixed(2) : '—'}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 dark:text-white">
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                             Rs. {(e.balance || 0).toFixed(2)}
                           </td>
-                          <td className="py-2.5 px-3 text-slate-500 text-[11px]">
+                          <td className="py-2.5 px-3 text-slate-500 text-[11px] border-r border-slate-200 dark:border-slate-700/60">
                             {e.outlet || 'Restaurant'}
                           </td>
-                          <td className="py-2.5 px-3 text-slate-500 text-[11px] truncate max-w-[90px]">
+                          <td className="py-2.5 px-3 text-slate-500 text-[11px] truncate max-w-[90px] border-r border-slate-200 dark:border-slate-700/60">
                             {e.createdBy || 'Cashier'}
                           </td>
                           <td className="py-2.5 px-3 text-right whitespace-nowrap">
@@ -1142,7 +1067,7 @@ export default function CustomerLedgerAccountsTab() {
         <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
           <div className="p-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Customer Accounts Directory ({filteredCustomers.length})
+              Customer Accounts Directory
             </span>
             <span className="text-[11px] text-slate-500">
               Click any customer row or &ldquo;View Ledger&rdquo; to inspect statement
@@ -1150,23 +1075,23 @@ export default function CustomerLedgerAccountsTab() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
               <thead>
-                <tr className="bg-slate-50/70 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                  <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">Code</th>
-                  <th className="py-2.5 px-3">Customer Name</th>
-                  <th className="py-2.5 px-3">Phone</th>
-                  <th className="py-2.5 px-3">Type</th>
-                  <th className="py-2.5 px-3 text-right">Credit Limit</th>
-                  <th className="py-2.5 px-3 text-right">Outstanding (Due)</th>
-                  <th className="py-2.5 px-3 text-right">Advance Balance</th>
-                  <th className="py-2.5 px-3 text-right">Available Credit</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
+                <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-t border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 select-none">
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">#</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Code</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Customer Name</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Phone</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Type</th>
+                  <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Credit Limit</th>
+                  <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Outstanding (Due)</th>
+                  <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Advance Balance</th>
+                  <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Available Credit</th>
+                  <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                   <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+              <tbody className="divide-y-0 font-medium">
                 {isLoadingCustomers ? (
                   <tr>
                     <td colSpan={11} className="py-12 text-center text-slate-500">
@@ -1187,52 +1112,51 @@ export default function CustomerLedgerAccountsTab() {
                     <tr
                       key={c.id}
                       onClick={() => handleSelectCustomer(c)}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors cursor-pointer"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60 cursor-pointer"
                     >
-                      <td className="py-2.5 px-3 text-slate-400 text-[11px]">{idx + 1}</td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 text-slate-400 text-[11px] border-r border-slate-200 dark:border-slate-700/60 font-mono">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                         {c.customerCode || `CUST-${c.id.slice(0, 6).toUpperCase()}`}
                       </td>
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-bold text-slate-900 dark:text-white">{c.name}</div>
                         {c.email && <div className="text-[10px] text-slate-400">{c.email}</div>}
                       </td>
-                      <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300">{c.phone}</td>
-                      <td className="py-2.5 px-3">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          {c.customerType}
-                        </span>
+                      <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">{c.phone}</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60 font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        {c.customerType}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {(c.creditLimit || 0).toLocaleString()}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold">
+                      <td className="py-2.5 px-3 text-right font-mono font-bold border-r border-slate-200 dark:border-slate-700/60">
                         {(c.currentOutstanding || 0) > 0 ? (
                           <span className="text-rose-600">Rs. {c.currentOutstanding.toFixed(2)}</span>
                         ) : (
                           <span className="text-slate-400">0.00</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold">
+                      <td className="py-2.5 px-3 text-right font-mono font-bold border-r border-slate-200 dark:border-slate-700/60">
                         {(c.advanceBalance || 0) > 0 ? (
                           <span className="text-blue-600">Rs. {(c.advanceBalance || 0).toFixed(2)}</span>
                         ) : (
                           <span className="text-slate-400">0.00</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600">
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {Math.max(0, (c.creditLimit || 0) - (c.currentOutstanding || 0)).toFixed(2)}
                       </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span
-                          className={cn(
-                            'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider',
-                            c.creditStatus === 'ACTIVE'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                          )}
-                        >
-                          {c.creditStatus}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-600 dark:text-emerald-400">
+                          <span
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full',
+                              c.creditStatus === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'
+                            )}
+                          />
+                          <span className={c.creditStatus === 'ACTIVE' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                            {c.creditStatus}
+                          </span>
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
@@ -1240,7 +1164,7 @@ export default function CustomerLedgerAccountsTab() {
                           <button
                             type="button"
                             onClick={() => handleSelectCustomer(c)}
-                            className="px-2.5 py-1 text-xs font-bold text-white bg-[#0B3D32] hover:bg-[#092e26] rounded flex items-center gap-1 shadow-2xs"
+                            className="px-2.5 py-1 text-xs font-bold text-white bg-[#0B3D32] hover:bg-[#092e26] rounded-[2px] flex items-center gap-1 shadow-2xs cursor-pointer"
                           >
                             <span>View Ledger</span>
                             <ArrowLeft className="w-3 h-3 rotate-180" />

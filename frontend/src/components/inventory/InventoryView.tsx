@@ -4,13 +4,17 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { useBusinessModules } from '@/lib/businessSetup';
+import { BackButton } from '@/components/common/BackButton';
+import { InventoryNavBoxes } from '@/components/common/InventoryNavBoxes';
 import { DepartmentInventoryView, InventoryItem } from './DepartmentInventoryView';
 import { PurchasesView, PurchaseRecord } from './PurchasesView';
 import { SuppliersView, SupplierRecord } from './SuppliersView';
 import { StockTransfersView, StockTransferRecord } from './StockTransfersView';
 import { ItemPurchaseLedgerView } from './ItemPurchaseLedgerView';
 import { StockMovementLedgerView } from './StockMovementLedgerView';
+import { StockAdjustmentsView } from './StockAdjustmentsView';
 import { StockAdjustmentModal } from './StockAdjustmentModal';
+import { AddItemModal } from './AddItemModal';
 import { CategoriesView } from './CategoriesView';
 import { UnitsOfMeasurementView } from './UnitsOfMeasurementView';
 import {
@@ -65,23 +69,17 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
 
   // Determine active tab from search params or business module
   const computeActiveTab = (): InventoryTab => {
-    if (initialTab) return initialTab;
-    if (urlTab === 'overview') return 'OVERVIEW';
-    if (urlTab === 'items') return 'ITEMS';
-    if (urlTab === 'purchase-ledger') return 'PURCHASE_LEDGER';
-    if (urlTab === 'stock-movements') return 'STOCK_MOVEMENTS';
+    if (initialTab && initialTab !== 'PURCHASES' && initialTab !== 'RECEIVE_STOCK') return initialTab;
     if (urlTab === 'suppliers') return 'SUPPLIERS';
-    if (urlTab === 'receive-stock' || urlTab === 'purchases') return 'RECEIVE_STOCK';
+    if (urlTab === 'stock-movements') return 'STOCK_MOVEMENTS';
+    if (urlTab === 'purchase-ledger') return 'PURCHASE_LEDGER';
     if (urlTab === 'stock-adjustments') return 'STOCK_ADJUSTMENT';
     if (urlTab === 'transfers' && isTransfersEnabled) return 'STOCK_TRANSFERS';
     if (urlTab === 'categories') return 'CATEGORIES';
     if (urlTab === 'units') return 'UNITS';
 
-    // Legacy department query params
-    if (urlDept === 'RESTAURANT' && isRestaurantEnabled) return 'ITEMS';
-    if (urlDept === 'HOTEL' && isHotelEnabled) return 'ITEMS';
-
-    return 'OVERVIEW';
+    // Default to items table
+    return 'ITEMS';
   };
 
   const [activeTab, setActiveTab] = useState<InventoryTab>(computeActiveTab);
@@ -89,14 +87,27 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
     isRestaurantEnabled ? 'RESTAURANT' : 'HOTEL'
   );
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
 
   // Sync tab when search params or module setup change
   useEffect(() => {
+    if (urlTab === 'receive-stock' || urlTab === 'purchases' || initialTab === 'PURCHASES' || initialTab === 'RECEIVE_STOCK') {
+      router.replace('/purchases');
+      return;
+    }
+    if (urlTab === 'suppliers' || initialTab === 'SUPPLIERS') {
+      router.replace('/suppliers');
+      return;
+    }
+    if (urlTab === 'stock-movements' || initialTab === 'STOCK_MOVEMENTS') {
+      router.replace('/stock-movements');
+      return;
+    }
     setActiveTab(computeActiveTab());
     if (urlDept === 'RESTAURANT' || urlDept === 'HOTEL') {
       setSelectedDept(urlDept as 'RESTAURANT' | 'HOTEL');
     }
-  }, [urlDept, urlTab, isHotelEnabled, isRestaurantEnabled, isTransfersEnabled]);
+  }, [urlDept, urlTab, isHotelEnabled, isRestaurantEnabled, isTransfersEnabled, initialTab, router]);
 
   // Core Data
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -142,26 +153,24 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
   const handleTabSelect = (tab: InventoryTab) => {
     setActiveTab(tab);
     switch (tab) {
-      case 'OVERVIEW':
-        router.push('/inventory?tab=overview');
-        break;
       case 'ITEMS':
-        router.push(`/inventory?tab=items&dept=${selectedDept}`);
+        router.push('/inventory?tab=items');
         break;
       case 'PURCHASE_LEDGER':
         router.push('/inventory?tab=purchase-ledger');
         break;
       case 'STOCK_MOVEMENTS':
-        router.push('/inventory?tab=stock-movements');
+        router.push('/stock-movements');
         break;
       case 'SUPPLIERS':
-        router.push('/inventory?tab=suppliers');
+        router.push('/suppliers');
         break;
       case 'RECEIVE_STOCK':
-        router.push('/inventory?tab=receive-stock');
+      case 'PURCHASES':
+        router.push('/purchases');
         break;
       case 'STOCK_ADJUSTMENT':
-        router.push('/inventory?tab=stock-adjustments');
+        router.push('/stock-adjustments');
         break;
       case 'STOCK_TRANSFERS':
         router.push('/inventory?tab=transfers');
@@ -173,7 +182,7 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
         router.push('/inventory?tab=units');
         break;
       default:
-        router.push('/inventory?tab=overview');
+        router.push('/inventory?tab=items');
         break;
     }
   };
@@ -226,30 +235,65 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
 
   const tabItems: InventoryTabItem[] = useMemo(() => {
     const list: InventoryTabItem[] = [
-      { id: 'OVERVIEW', label: 'Overview', icon: LayoutDashboard },
-      { id: 'ITEMS', label: 'Inventory Items', icon: Package },
-      { id: 'PURCHASE_LEDGER', label: 'Purchase Ledger', icon: ReceiptIcon },
       { id: 'STOCK_MOVEMENTS', label: 'Stock Movements', icon: Activity },
       { id: 'SUPPLIERS', label: 'Suppliers', icon: Users },
-      { id: 'RECEIVE_STOCK', label: 'Receive Stock', icon: ShoppingBag },
       { id: 'STOCK_ADJUSTMENT', label: 'Adjustments', icon: SlidersHorizontal },
     ];
     if (isTransfersEnabled) {
       list.push({ id: 'STOCK_TRANSFERS', label: 'Transfers', icon: ArrowLeftRight });
     }
-    list.push(
-      { id: 'CATEGORIES', label: 'Categories', icon: Tag },
-      { id: 'UNITS', label: 'Units', icon: Scale }
-    );
     return list;
   }, [isTransfersEnabled]);
 
   return (
-    <div className="space-y-3.5 select-none w-full min-w-0 pb-12 font-sans">
-      {/* =====================================================================
-          SLEEK HORIZONTAL INVENTORY NAVIGATION TAB STRIP
-          ===================================================================== */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border-default dark:border-border-default no-scrollbar">
+    <div className="space-y-3 select-none w-full min-w-0 pb-12 font-sans">
+      {/* 1. Header Bar: Title & Primary Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton label="Back" />
+          <h1
+            onClick={() => handleTabSelect('ITEMS')}
+            className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 cursor-pointer hover:text-[#0B3D32] transition-colors"
+            title="Return to Stock Items"
+          >
+            Inventory
+          </h1>
+          {activeTab !== 'ITEMS' && activeTab !== 'OVERVIEW' && (
+            <button
+              type="button"
+              onClick={() => handleTabSelect('ITEMS')}
+              className="text-xs font-semibold text-[#0B3D32] dark:text-emerald-400 hover:underline cursor-pointer"
+            >
+              ← Back to Stock Items
+            </button>
+          )}
+        </div>
+
+        {/* Action Buttons: Add Item & Refresh */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsAddItemModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Item</span>
+          </button>
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer"
+            title="Refresh inventory"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Navigation Tab Pills (Matching Image 2 exactly) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
         {tabItems.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -259,10 +303,10 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
               type="button"
               onClick={() => handleTabSelect(tab.id)}
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[3px] border transition-all cursor-pointer shrink-0',
+                'inline-flex items-center gap-2 px-3 py-1.5 rounded-[3px] text-xs font-semibold transition-all cursor-pointer border whitespace-nowrap shadow-2xs shrink-0',
                 isActive
-                  ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs dark:bg-emerald-700 dark:border-emerald-600'
-                  : 'bg-white dark:bg-surface-card border-slate-200 dark:border-border-default text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-hover hover:border-slate-300'
+                  ? 'bg-[#0B3D32] text-white border-[#0B3D32]'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60'
               )}
             >
               <Icon className={cn('w-3.5 h-3.5', isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400')} />
@@ -273,22 +317,9 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
       </div>
 
       {/* =====================================================================
-          VIEW 1: INVENTORY OVERVIEW (MAIN COMPREHENSIVE TABLE)
+          VIEW: INVENTORY ITEMS (DEFAULT)
           ===================================================================== */}
-      {activeTab === 'OVERVIEW' && (
-        <DepartmentInventoryView
-          department="ALL"
-          items={items}
-          suppliers={suppliers}
-          loading={loading}
-          onRefresh={loadData}
-        />
-      )}
-
-      {/* =====================================================================
-          VIEW 2: INVENTORY ITEMS
-          ===================================================================== */}
-      {activeTab === 'ITEMS' && (
+      {(activeTab === 'ITEMS' || activeTab === 'OVERVIEW') && (
         <DepartmentInventoryView
           department="ALL"
           items={items}
@@ -345,40 +376,10 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
           VIEW 7: STOCK ADJUSTMENT
           ===================================================================== */}
       {activeTab === 'STOCK_ADJUSTMENT' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-[#071F1A] border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-            <div>
-              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                Stock Adjustments & Corrections
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Record physical counts, damaged stock, expiry, wastage or manual increases/decreases.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsAdjustmentModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[3px] bg-[#DC2626] hover:bg-[#b91c1c] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Record Stock Adjustment</span>
-            </button>
-          </div>
-
-          <StockMovementLedgerView
-            items={items}
-          />
-
-          <StockAdjustmentModal
-            isOpen={isAdjustmentModalOpen}
-            onClose={() => setIsAdjustmentModalOpen(false)}
-            items={items}
-            onSuccess={() => {
-              loadData();
-              setIsAdjustmentModalOpen(false);
-            }}
-          />
-        </div>
+        <StockAdjustmentsView
+          items={items}
+          showHeader={false}
+        />
       )}
 
       {/* =====================================================================
@@ -412,6 +413,20 @@ function InventoryContent({ initialTab }: InventoryViewProps) {
       {activeTab === 'UNITS' && (
         <UnitsOfMeasurementView
           items={items}
+        />
+      )}
+
+      {/* Global Add Item Modal */}
+      {isAddItemModalOpen && (
+        <AddItemModal
+          isOpen={isAddItemModalOpen}
+          onClose={() => setIsAddItemModalOpen(false)}
+          department={selectedDept}
+          existingItems={items.map((i) => ({ name: i.name, department: i.department || selectedDept }))}
+          onItemCreated={() => {
+            setIsAddItemModalOpen(false);
+            loadData();
+          }}
         />
       )}
     </div>

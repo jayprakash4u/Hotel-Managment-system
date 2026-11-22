@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Book,
@@ -373,23 +374,13 @@ export default function GeneralLedgerTab() {
 
   return (
     <div className="space-y-4">
-      {/* 1. Header with Breadcrumb, Mode Switcher & Export Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/accounts"
-              className="p-1 rounded-[3px] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              title="Back to Accounts Hub"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              General Ledger
-            </h1>
-            
-          </div>
-          
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            General Ledger
+          </h1>
         </div>
 
         {/* Top Actions: Mode Switcher & Export */}
@@ -694,38 +685,38 @@ export default function GeneralLedgerTab() {
           {/* Ledger Transactions Table */}
           <div className="rounded-[3px] border border-slate-200 bg-white overflow-hidden shadow-2xs dark:border-slate-800 dark:bg-slate-900/50">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                    <th className="py-3 px-3 w-10 text-center border-r border-slate-200/70 dark:border-slate-800">#</th>
-                    <th className="py-3 px-3 w-24 border-r border-slate-200/70 dark:border-slate-800">DATE</th>
-                    <th className="py-3 px-3 w-28 border-r border-slate-200/70 dark:border-slate-800">JOURNAL NO.</th>
-                    <th className="py-3 px-3 w-24 border-r border-slate-200/70 dark:border-slate-800">REFERENCE</th>
-                    <th className="py-3 px-3 min-w-[180px] border-r border-slate-200/70 dark:border-slate-800">DESCRIPTION</th>
-                    <th className="py-3 px-3 min-w-[140px] border-r border-slate-200/70 dark:border-slate-800">LINE MEMO</th>
-                    <th className="py-3 px-3 w-24 border-r border-slate-200/70 dark:border-slate-800">SOURCE</th>
-                    <th className="py-3 px-3 text-right w-28 border-r border-slate-200/70 dark:border-slate-800">DEBIT (RS.)</th>
-                    <th className="py-3 px-3 text-right w-28 border-r border-slate-200/70 dark:border-slate-800">CREDIT (RS.)</th>
-                    <th className="py-3 px-3 text-right w-32 border-r border-slate-200/70 dark:border-slate-800">RUNNING BAL</th>
-                    <th className="py-3 px-3 text-center w-14">ACTION</th>
+                  <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                    <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                    <th className="py-2.5 px-3 w-24 border-r border-slate-200 dark:border-slate-700">DATE</th>
+                    <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700">JOURNAL NO.</th>
+                    <th className="py-2.5 px-3 w-24 border-r border-slate-200 dark:border-slate-700">REFERENCE</th>
+                    <th className="py-2.5 px-3 min-w-[180px] border-r border-slate-200 dark:border-slate-700">DESCRIPTION</th>
+                    <th className="py-2.5 px-3 min-w-[140px] border-r border-slate-200 dark:border-slate-700">LINE MEMO</th>
+                    <th className="py-2.5 px-3 w-24 border-r border-slate-200 dark:border-slate-700">SOURCE</th>
+                    <th className="py-2.5 px-3 text-right w-28 border-r border-slate-200 dark:border-slate-700">DEBIT (RS.)</th>
+                    <th className="py-2.5 px-3 text-right w-28 border-r border-slate-200 dark:border-slate-700">CREDIT (RS.)</th>
+                    <th className="py-2.5 px-3 text-right w-32 border-r border-slate-200 dark:border-slate-700">RUNNING BAL</th>
+                    <th className="py-2.5 px-3 text-center w-14">ACTION</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                   {/* Row for Opening Balance B/Fwd */}
                   {report && (
-                    <tr className="bg-slate-50/70 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 font-semibold italic text-[11px]">
-                      <td className="py-2.5 px-3 text-center border-r border-slate-100 dark:border-slate-800/60 font-mono text-[10px] text-slate-400">
+                    <tr className="bg-slate-50/70 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 font-semibold italic text-[11px] border-b border-slate-200 dark:border-slate-700/60">
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60 font-mono text-[10px] text-slate-400">
                         —
                       </td>
-                      <td className="py-2.5 px-3 font-mono border-r border-slate-100 dark:border-slate-800/60">
+                      <td className="py-2.5 px-3 font-mono border-r border-slate-200 dark:border-slate-700/60">
                         {fromDate ? new Date(fromDate).toLocaleDateString() : 'Beginning'}
                       </td>
-                      <td className="py-2.5 px-3 border-r border-slate-100 dark:border-slate-800/60" colSpan={5}>
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60" colSpan={5}>
                         <span className="font-bold text-slate-700 dark:text-slate-300">[ Opening Balance B/Fwd ]</span>
                       </td>
-                      <td className="py-2.5 px-3 text-right border-r border-slate-100 dark:border-slate-800/60">—</td>
-                      <td className="py-2.5 px-3 text-right border-r border-slate-100 dark:border-slate-800/60">—</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60">
+                      <td className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700/60">—</td>
+                      <td className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700/60">—</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {formatCurrency(Math.abs(report.openingBalance))}{' '}
                         <span className="text-[10px] font-normal text-slate-500">
                           {getBalanceDesignation(report.openingBalance, report.account?.normalBalance)}
@@ -754,15 +745,15 @@ export default function GeneralLedgerTab() {
                     paginatedTransactions.map((tx, idx) => (
                       <tr
                         key={tx.id}
-                        className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                        className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                       >
-                        <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                           {(safeCurrentPage - 1) * pageSize + idx + 1}
                         </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                           {new Date(tx.entryDate).toLocaleDateString()}
                         </td>
-                        <td className="py-2.5 px-3 font-mono font-bold whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 font-mono font-bold whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                           <button
                             type="button"
                             onClick={() => handleOpenVoucherPreview(tx)}
@@ -771,27 +762,27 @@ export default function GeneralLedgerTab() {
                             {tx.entryNumber}
                           </button>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px] border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px] border-r border-slate-200 dark:border-slate-700/60">
                           {tx.reference || '—'}
                         </td>
-                        <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700/60">
                           <div className="line-clamp-1">{tx.description}</div>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-500 text-[11px] border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 text-slate-500 text-[11px] border-r border-slate-200 dark:border-slate-700/60">
                           {tx.lineDescription || '—'}
                         </td>
-                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
-                          <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                          <span className="font-medium text-slate-700 dark:text-slate-300 font-mono text-[11px]">
                             {tx.sourceModule || 'MANUAL'}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 dark:text-sky-300 border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 dark:text-sky-300 border-r border-slate-200 dark:border-slate-700/60">
                           {tx.debit > 0 ? formatCurrency(tx.debit) : '—'}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 dark:text-amber-300 border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 dark:text-amber-300 border-r border-slate-200 dark:border-slate-700/60">
                           {tx.credit > 0 ? formatCurrency(tx.credit) : '—'}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60">
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                           Rs. {formatCurrency(Math.abs(tx.runningBalance))}{' '}
                           <span className="text-[10px] font-normal text-slate-500">
                             {getBalanceDesignation(tx.runningBalance, report?.account?.normalBalance)}
@@ -934,53 +925,6 @@ export default function GeneralLedgerTab() {
           ========================================================================= */}
       {viewMode === 'ALL_ACCOUNTS' && (
         <>
-          {/* Consolidated Trial Balance / Summary Cards */}
-          {allAccountsReport && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Card 1: Active Accounts Count */}
-              <div className="p-3.5 rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Accounts</span>
-                <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
-                  {allAccountsReport.totalAccounts}
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Posting sub-ledgers evaluated</div>
-              </div>
-
-              {/* Card 2: Total Opening Balance */}
-              <div className="p-3.5 rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Opening Debits</span>
-                <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">
-                  Rs. {formatCurrency(allAccountsReport.totals.openingDebit)}
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">
-                  Opening Credits: Rs. {formatCurrency(allAccountsReport.totals.openingCredit)}
-                </div>
-              </div>
-
-              {/* Card 3: Total Period Turnover */}
-              <div className="p-3.5 rounded-[3px] border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">Period Turnover</span>
-                <div className="text-xl font-black font-mono text-blue-950 dark:text-blue-200 mt-1">
-                  Rs. {formatCurrency(allAccountsReport.totals.periodDebit)}
-                </div>
-                <div className="text-[10px] text-blue-700/80 dark:text-blue-400 mt-0.5">
-                  Balanced Double-Entry Activity
-                </div>
-              </div>
-
-              {/* Card 4: Total Closing Debits */}
-              <div className="p-3.5 rounded-[3px] border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Total Closing Debits</span>
-                <div className="text-xl font-black font-mono text-emerald-950 dark:text-emerald-200 mt-1">
-                  Rs. {formatCurrency(allAccountsReport.totals.closingDebit)}
-                </div>
-                <div className="text-[10px] text-emerald-700/80 dark:text-emerald-400 mt-0.5">
-                  Closing Credits: Rs. {formatCurrency(allAccountsReport.totals.closingCredit)}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Consolidated All Accounts Table */}
           <div className="rounded-[3px] border border-slate-200 bg-white overflow-hidden shadow-2xs dark:border-slate-800 dark:bg-slate-900/50">
             <div className="overflow-x-auto">

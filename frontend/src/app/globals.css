@@ -71,6 +71,72 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
 }
 
+/* ==========================================================================
+   ENTERPRISE BOXED DATATABLE SYSTEM (Classic Grid / Table-Bordered)
+   ========================================================================== */
+.table-boxed {
+  width: 100%;
+  border-collapse: collapse !important;
+  text-align: left;
+}
+
+.table-boxed thead {
+  background-color: #F8F9FA;
+  border-top: 1px solid #E2E8F0;
+  border-bottom: 1px solid #E2E8F0;
+  user-select: none;
+}
+:is(.dark .table-boxed thead) {
+  background-color: rgb(30 41 59);
+  border-color: rgb(51 65 85);
+  color: rgb(226 232 240);
+}
+
+.table-boxed th {
+  padding: 0.625rem 0.75rem;
+  border-right: 1px solid #E2E8F0;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(51 65 85);
+}
+:is(.dark .table-boxed th) {
+  border-right-color: rgb(51 65 85);
+  color: rgb(226 232 240);
+}
+
+.table-boxed tbody tr {
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  transition: background-color 150ms ease;
+}
+:is(.dark .table-boxed tbody tr) {
+  background-color: rgb(15 23 42);
+  border-bottom-color: rgb(51 65 85 / 0.6);
+}
+
+.table-boxed tbody tr:nth-child(even) {
+  background-color: #F9FAFB;
+}
+:is(.dark .table-boxed tbody tr:nth-child(even)) {
+  background-color: rgb(30 41 59 / 0.35);
+}
+
+.table-boxed tbody tr:hover {
+  background-color: #F1F5F9;
+}
+:is(.dark .table-boxed tbody tr:hover) {
+  background-color: rgb(30 41 59 / 0.7);
+}
+
+.table-boxed td {
+  padding: 0.5rem 0.75rem;
+  border-right: 1px solid #E2E8F0;
+  font-size: 12px;
+}
+:is(.dark .table-boxed td) {
+  border-right-color: rgb(51 65 85 / 0.6);
+}
+
 /* ---- Dark mode token overrides ---- */
 html.dark {
   --surface-page: #0B0F19;

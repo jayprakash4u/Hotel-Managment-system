@@ -86,7 +86,9 @@ export default function LoginPage() {
         (c) =>
           c.username?.toLowerCase() === cleanUser.toLowerCase() ||
           c.clientCode === cleanUser ||
-          (c.email && c.email.toLowerCase() === cleanUser.toLowerCase())
+          (c.email && c.email.toLowerCase() === cleanUser.toLowerCase()) ||
+          c.name?.toLowerCase() === cleanUser.toLowerCase() ||
+          c.identifier?.toLowerCase() === cleanUser.toLowerCase()
       );
 
       if (matchedClient) {
@@ -105,6 +107,12 @@ export default function LoginPage() {
           return;
         }
 
+        // Determine business module setup for this client
+        const mods = matchedClient.modules || ['Hotel', 'Restaurant'];
+        const hasHotel = mods.some((m: string) => m.toLowerCase().includes('hotel') || m.toLowerCase().includes('room'));
+        const hasRest = mods.some((m: string) => m.toLowerCase().includes('restaurant') || m.toLowerCase().includes('pos'));
+        const modSetup = hasHotel && hasRest ? 'HOTEL_AND_RESTAURANT' : hasHotel ? 'HOTEL_ONLY' : 'RESTAURANT_ONLY';
+
         // Instant local authentication: Set session immediately (0ms delay)
         const token = `client-token-${matchedClient.id}-${Date.now()}`;
         if (typeof localStorage !== 'undefined') {
@@ -115,8 +123,18 @@ export default function LoginPage() {
           localStorage.setItem('auth_hotel_name', matchedClient.name);
           localStorage.setItem('auth_hotel_id', matchedClient.id);
           localStorage.setItem('auth_client_code', matchedClient.clientCode);
-          localStorage.setItem('auth_modules', JSON.stringify(matchedClient.modules || ['Hotel', 'Restaurant']));
+          localStorage.setItem('auth_modules', JSON.stringify(mods));
+          localStorage.setItem('aura_business_module_setup', modSetup);
+          localStorage.setItem('hospitality_view_mode', hasHotel ? 'HOTEL' : 'RESTAURANT');
           localStorage.setItem('active_hotel', JSON.stringify(matchedClient));
+          localStorage.setItem('hotel_name', matchedClient.name);
+          if (matchedClient.logo) {
+            localStorage.setItem('auth_hotel_logo', matchedClient.logo);
+          } else {
+            localStorage.removeItem('auth_hotel_logo');
+          }
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new CustomEvent('aura_business_module_updated', { detail: modSetup }));
         }
 
         // Background non-blocking sync with backend API (never blocks user login)
@@ -338,7 +356,7 @@ export default function LoginPage() {
 
           {/* Simple Bottom Copyright */}
           <footer className="text-center text-[11px] text-slate-400 pt-4">
-            <p>© 2020-2026 Tanzeera Tech Pvt. Ltd. · Hotel Master ERP</p>
+            <p>© 2026 Hotel Master ERP. All rights reserved.</p>
           </footer>
         </section>
       </div>

@@ -3,24 +3,20 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import {
   ChefHat,
-  Wine,
   Search,
   X,
   ChevronDown,
-  Database,
   RotateCcw,
-  Plus,
-  Trash2,
-  Check,
-  UtensilsCrossed,
+  SlidersHorizontal,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
-import { POSProductData, ProductVariant } from '@/lib/types';
-import { useToast } from '@/components/ui/Toast';
-import { useMasterOptions } from '@/lib/mastersData';
+import { POSProductData } from '@/lib/types';
+import { INITIAL_MASTER_ITEMS } from '@/lib/hotelSetupInitialData';
 
 interface MenuVariant {
   unit: string;
@@ -34,6 +30,7 @@ interface MenuGroupItem {
   category?: string;
   variants: MenuVariant[];
   isVeg?: boolean;
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
 }
 
 interface MenuGroup {
@@ -42,29 +39,6 @@ interface MenuGroup {
   description: string;
   items: MenuGroupItem[];
 }
-
-const PRESET_BEVERAGE_UNITS = [
-  'Glass',
-  'Can',
-  'Pitcher',
-  '500ml Bottle',
-  '1L Bottle',
-  'Bottle (750ml)',
-  'Cup / Mug',
-  'Small',
-  'Medium',
-  'Large',
-];
-
-const PRESET_FOOD_UNITS = [
-  'Single',
-  'Plate',
-  'Full',
-  'Half',
-  'Regular',
-  'Quarter',
-  'Bowl',
-];
 
 const MENU_GROUPS: MenuGroup[] = [
   // 1. Fast Food & Quick Bites
@@ -122,405 +96,607 @@ const MENU_GROUPS: MenuGroup[] = [
         name: 'Veg Fried Momo',
         isVeg: true,
         variants: [
-          { unit: 'Half', price: 90 },
-          { unit: 'Full', price: 160 },
+          { unit: 'Half', price: 100 },
+          { unit: 'Full', price: 170 },
         ],
       },
       {
         id: 'ff-6',
-        code: 'MOMO-CHL',
-        name: 'Chicken Chilly Momo (C-Momo)',
-        variants: [
-          { unit: 'Half', price: 140 },
-          { unit: 'Full', price: 230 },
-        ],
+        code: 'MOMO-CJ',
+        name: 'Chicken Jhol Momo',
+        variants: [{ unit: 'Full', price: 220 }],
       },
       {
         id: 'ff-7',
-        code: 'MOMO-PAN',
-        name: 'Paneer Steam Momo',
-        isVeg: true,
-        variants: [
-          { unit: 'Half', price: 110 },
-          { unit: 'Full', price: 190 },
-        ],
+        code: 'MOMO-CC',
+        name: 'Chicken C. Momo (Chilli)',
+        variants: [{ unit: 'Full', price: 240 }],
       },
       {
         id: 'ff-8',
-        code: 'FRY-01',
-        name: 'Crispy French Fries (Peri Peri / Salted)',
+        code: 'CHOW-C',
+        name: 'Chicken Chowmein',
+        variants: [
+          { unit: 'Half', price: 110 },
+          { unit: 'Full', price: 180 },
+        ],
+      },
+      {
+        id: 'ff-9',
+        code: 'CHOW-V',
+        name: 'Veg Chowmein',
         isVeg: true,
         variants: [
-          { unit: 'Half', price: 90 },
-          { unit: 'Full', price: 150 },
+          { unit: 'Half', price: 80 },
+          { unit: 'Full', price: 140 },
         ],
+      },
+      {
+        id: 'ff-10',
+        code: 'CHOW-E',
+        name: 'Egg Chowmein',
+        variants: [
+          { unit: 'Half', price: 95 },
+          { unit: 'Full', price: 160 },
+        ],
+      },
+      {
+        id: 'ff-11',
+        code: 'CHOW-M',
+        name: 'Mixed Chowmein (Chicken + Egg)',
+        variants: [{ unit: 'Full', price: 230 }],
+      },
+      {
+        id: 'ff-12',
+        code: 'THUK-C',
+        name: 'Chicken Thukpa',
+        variants: [{ unit: 'Full', price: 190 }],
+      },
+      {
+        id: 'ff-13',
+        code: 'THUK-V',
+        name: 'Veg Thukpa',
+        isVeg: true,
+        variants: [{ unit: 'Full', price: 150 }],
+      },
+      {
+        id: 'ff-14',
+        code: 'SNK-FF',
+        name: 'French Fries',
+        isVeg: true,
+        variants: [{ unit: 'Plate', price: 160 }],
+      },
+      {
+        id: 'ff-15',
+        code: 'SNK-CF',
+        name: 'Crispy Fried Chicken (3 pcs)',
+        variants: [{ unit: 'Plate', price: 280 }],
+      },
+      {
+        id: 'ff-16',
+        code: 'SNK-CW',
+        name: 'Spicy Chicken Wings (6 pcs)',
+        variants: [{ unit: 'Plate', price: 320 }],
+      },
+      {
+        id: 'ff-17',
+        code: 'SNK-SN',
+        name: 'Chicken Sausage (Fried, 4 pcs)',
+        variants: [{ unit: 'Plate', price: 180 }],
       },
     ],
   },
 
-  // 2. Main Course & Curries
+  // 2. Main Course & Traditional Meals
   {
     id: 'main-course',
-    name: 'Main Course & Curries',
-    description: 'Traditional curries, gravies, and slow-cooked handi dishes',
+    name: 'Main Course & Khana Sets',
+    description: 'Authentic Nepali thali sets, biryanis, curries, naan & rice bowls',
     items: [
       {
         id: 'mc-1',
-        code: 'PBM-01',
-        name: 'Paneer Butter Masala',
-        isVeg: true,
-        variants: [
-          { unit: 'Half', price: 240 },
-          { unit: 'Full', price: 420 },
-        ],
+        code: 'SET-THN',
+        name: 'Nepali Non-Veg Khana Set (Chicken)',
+        variants: [{ unit: 'Full Set', price: 420 }],
       },
       {
         id: 'mc-2',
-        code: 'CTM-01',
-        name: 'Chicken Tikka Masala',
-        variants: [
-          { unit: 'Half', price: 280 },
-          { unit: 'Full', price: 490 },
-        ],
+        code: 'SET-THM',
+        name: 'Nepali Mutton Khana Set',
+        variants: [{ unit: 'Full Set', price: 550 }],
       },
       {
         id: 'mc-3',
-        code: 'DAL-MKH',
-        name: 'Dal Makhani Handi',
+        code: 'SET-THV',
+        name: 'Nepali Veg Khana Set',
         isVeg: true,
-        variants: [
-          { unit: 'Half', price: 190 },
-          { unit: 'Full', price: 320 },
-        ],
+        variants: [{ unit: 'Full Set', price: 280 }],
       },
       {
         id: 'mc-4',
-        code: 'CHK-KAD',
-        name: 'Chicken Kadai Peshawari',
+        code: 'CUR-CKD',
+        name: 'Chicken Curry (Local / Broiler)',
         variants: [
-          { unit: 'Half', price: 290 },
-          { unit: 'Full', price: 510 },
+          { unit: 'Half', price: 200 },
+          { unit: 'Full', price: 350 },
         ],
       },
       {
         id: 'mc-5',
-        code: 'MUT-ROG',
-        name: 'Mutton Rogan Josh Handi',
+        code: 'CUR-MTN',
+        name: 'Mutton Rogan Josh',
         variants: [
-          { unit: 'Half', price: 340 },
+          { unit: 'Half', price: 320 },
           { unit: 'Full', price: 580 },
         ],
       },
       {
         id: 'mc-6',
-        code: 'MIX-VEG',
-        name: 'Seasonal Mixed Vegetable Curry',
-        isVeg: true,
-        variants: [
-          { unit: 'Half', price: 170 },
-          { unit: 'Full', price: 290 },
-        ],
+        code: 'CUR-BTR',
+        name: 'Butter Chicken (Murgh Makhani)',
+        variants: [{ unit: 'Full', price: 420 }],
       },
       {
         id: 'mc-7',
-        code: 'BRY-CHK',
-        name: 'Hyderabadi Dum Chicken Biryani',
-        variants: [
-          { unit: 'Half', price: 280 },
-          { unit: 'Full', price: 480 },
-        ],
+        code: 'CUR-PNR',
+        name: 'Paneer Butter Masala',
+        isVeg: true,
+        variants: [{ unit: 'Full', price: 340 }],
       },
       {
         id: 'mc-8',
-        code: 'RICE-PL',
-        name: 'Kashmiri Saffron Veg Pulao',
+        code: 'CUR-KDI',
+        name: 'Kadai Chicken',
+        variants: [{ unit: 'Full', price: 380 }],
+      },
+      {
+        id: 'mc-9',
+        code: 'CUR-DAL',
+        name: 'Dal Makhani (Slow-cooked)',
+        isVeg: true,
+        variants: [{ unit: 'Full', price: 220 }],
+      },
+      {
+        id: 'mc-10',
+        code: 'CUR-DFY',
+        name: 'Dal Fry / Dal Tadka',
+        isVeg: true,
+        variants: [{ unit: 'Full', price: 160 }],
+      },
+      {
+        id: 'mc-11',
+        code: 'BRY-CHK',
+        name: 'Hyderabadi Chicken Biryani',
+        variants: [{ unit: 'Full with Raita', price: 390 }],
+      },
+      {
+        id: 'mc-12',
+        code: 'BRY-MTN',
+        name: 'Dum Mutton Biryani',
+        variants: [{ unit: 'Full with Raita', price: 540 }],
+      },
+      {
+        id: 'mc-13',
+        code: 'BRY-VEG',
+        name: 'Subz Veg Biryani',
+        isVeg: true,
+        variants: [{ unit: 'Full with Raita', price: 260 }],
+      },
+      {
+        id: 'mc-14',
+        code: 'RIC-FRY',
+        name: 'Chicken Fried Rice',
+        variants: [
+          { unit: 'Half', price: 110 },
+          { unit: 'Full', price: 180 },
+        ],
+      },
+      {
+        id: 'mc-15',
+        code: 'RIC-VFR',
+        name: 'Veg Fried Rice',
         isVeg: true,
         variants: [
-          { unit: 'Half', price: 160 },
-          { unit: 'Full', price: 260 },
+          { unit: 'Half', price: 80 },
+          { unit: 'Full', price: 140 },
         ],
+      },
+      {
+        id: 'mc-16',
+        code: 'RIC-EFR',
+        name: 'Egg Fried Rice',
+        variants: [
+          { unit: 'Half', price: 95 },
+          { unit: 'Full', price: 160 },
+        ],
+      },
+      {
+        id: 'mc-17',
+        code: 'BRD-NAN',
+        name: 'Butter Naan / Garlic Naan',
+        isVeg: true,
+        variants: [{ unit: 'Piece', price: 70 }],
+      },
+      {
+        id: 'mc-18',
+        code: 'BRD-ROT',
+        name: 'Tandoori Roti',
+        isVeg: true,
+        variants: [{ unit: 'Piece', price: 35 }],
       },
     ],
   },
 
-  // 3. Hot Tea & Coffee
+  // 3. Sekuwa, Tandoori & Sizzlers
   {
-    id: 'tea-coffee',
-    name: 'Tea & Coffee',
-    description: 'Aromatic milk teas, artisan espresso brews, and herbal infusions',
+    id: 'grill-tandoori',
+    name: 'Sekuwa, Grills & Tandoori',
+    description: 'Charcoal fire roasted sekuwa, tandoori platters, sizzlers & kebabs',
     items: [
       {
-        id: 'tc-1',
-        code: 'TEA-MSL',
-        name: 'Special Masala Milk Tea',
-        isVeg: true,
+        id: 'gt-1',
+        code: 'SEK-CHK',
+        name: 'Chicken Sekuwa (Charcoal Roasted)',
         variants: [
-          { unit: 'Small', price: 40 },
-          { unit: 'Medium', price: 70 },
-          { unit: 'Large', price: 120 },
+          { unit: 'Quarter (250g)', price: 280 },
+          { unit: 'Half (500g)', price: 520 },
+          { unit: 'Full (1 Kg)', price: 980 },
         ],
       },
       {
-        id: 'tc-2',
-        code: 'COF-FR',
-        name: 'Fresh Brewed Coffee',
+        id: 'gt-2',
+        code: 'SEK-MTN',
+        name: 'Mutton Sekuwa',
+        variants: [
+          { unit: 'Quarter (250g)', price: 420 },
+          { unit: 'Half (500g)', price: 800 },
+          { unit: 'Full (1 Kg)', price: 1550 },
+        ],
+      },
+      {
+        id: 'gt-3',
+        code: 'SEK-POK',
+        name: 'Pork Sekuwa',
+        variants: [
+          { unit: 'Quarter (250g)', price: 320 },
+          { unit: 'Half (500g)', price: 600 },
+          { unit: 'Full (1 Kg)', price: 1150 },
+        ],
+      },
+      {
+        id: 'gt-4',
+        code: 'TND-CHK',
+        name: 'Tandoori Chicken (Whole / Half)',
+        variants: [
+          { unit: 'Half', price: 380 },
+          { unit: 'Full', price: 720 },
+        ],
+      },
+      {
+        id: 'gt-5',
+        code: 'TND-TIK',
+        name: 'Chicken Tikka (Boneless)',
+        variants: [{ unit: 'Plate (6 pcs)', price: 380 }],
+      },
+      {
+        id: 'gt-6',
+        code: 'TND-PTK',
+        name: 'Paneer Tikka (Tandoori)',
+        isVeg: true,
+        variants: [{ unit: 'Plate (6 pcs)', price: 320 }],
+      },
+      {
+        id: 'gt-7',
+        code: 'SIZ-CHK',
+        name: 'Chicken Sizzler with Fries & Veggies',
+        variants: [{ unit: 'Full Sizzler', price: 480 }],
+      },
+      {
+        id: 'gt-8',
+        code: 'SIZ-STK',
+        name: 'Grilled Steak Sizzler with Mushroom Sauce',
+        variants: [{ unit: 'Full Sizzler', price: 550 }],
+      },
+    ],
+  },
+
+  // 4. Hot Beverages
+  {
+    id: 'hot-drinks',
+    name: 'Coffee & Hot Beverages',
+    description: 'Espresso-based coffees, Himalayan milk tea, herbal teas and hot chocolate',
+    items: [
+      {
+        id: 'hd-1',
+        code: 'TEA-MLK',
+        name: 'Special Masala Milk Tea',
+        isVeg: true,
+        variants: [{ unit: 'Cup', price: 45 }],
+      },
+      {
+        id: 'hd-2',
+        code: 'TEA-BLK',
+        name: 'Black Tea (Organic Ilam)',
+        isVeg: true,
+        variants: [{ unit: 'Cup', price: 30 }],
+      },
+      {
+        id: 'hd-3',
+        code: 'TEA-LMN',
+        name: 'Fresh Hot Lemon Tea with Honey',
+        isVeg: true,
+        variants: [{ unit: 'Cup', price: 60 }],
+      },
+      {
+        id: 'hd-4',
+        code: 'TEA-GRN',
+        name: 'Green Tea (Himalayan Leaves)',
+        isVeg: true,
+        variants: [{ unit: 'Pot (serves 2)', price: 120 }],
+      },
+      {
+        id: 'hd-5',
+        code: 'COF-ESP',
+        name: 'Espresso (Single Shot)',
         isVeg: true,
         variants: [
-          { unit: 'Small', price: 80 },
-          { unit: 'Medium', price: 120 },
+          { unit: 'Single', price: 90 },
+          { unit: 'Double', price: 130 },
+        ],
+      },
+      {
+        id: 'hd-6',
+        code: 'COF-AME',
+        name: 'Caffe Americano',
+        isVeg: true,
+        variants: [
+          { unit: 'Regular', price: 120 },
           { unit: 'Large', price: 160 },
         ],
       },
       {
-        id: 'tc-3',
-        code: 'COF-LAT',
-        name: 'Café Latte / Cappuccino',
+        id: 'hd-7',
+        code: 'COF-CAP',
+        name: 'Cappuccino (Velvety Foam)',
         isVeg: true,
         variants: [
-          { unit: 'Small', price: 110 },
-          { unit: 'Medium', price: 150 },
+          { unit: 'Regular', price: 150 },
           { unit: 'Large', price: 190 },
         ],
       },
       {
-        id: 'tc-4',
-        code: 'TEA-LEM',
-        name: 'Hot Lemon Honey Ginger',
+        id: 'hd-8',
+        code: 'COF-LAT',
+        name: 'Caffe Latte',
         isVeg: true,
         variants: [
-          { unit: 'Small', price: 60 },
-          { unit: 'Medium', price: 90 },
+          { unit: 'Regular', price: 160 },
+          { unit: 'Large', price: 210 },
         ],
       },
       {
-        id: 'tc-5',
-        code: 'TEA-GRN',
-        name: 'Himalayan Organic Green Tea',
+        id: 'hd-9',
+        code: 'COF-MOCH',
+        name: 'Cafe Mocha (Dark Chocolate)',
         isVeg: true,
-        variants: [
-          { unit: 'Small', price: 50 },
-          { unit: 'Medium', price: 80 },
-        ],
+        variants: [{ unit: 'Regular', price: 210 }],
+      },
+      {
+        id: 'hd-10',
+        code: 'COF-HCH',
+        name: 'Hot Chocolate Deluxe with Marshmallows',
+        isVeg: true,
+        variants: [{ unit: 'Mug', price: 180 }],
       },
     ],
   },
 
-  // 4. Cold Drinks, Sodas & Mocktails (Multi-Size Beverages)
+  // 5. Cold Drinks & Mocktails
   {
-    id: 'drinks',
-    name: 'Cold Drinks & Mocktails',
-    description: 'Chilled sodas, signature mocktails, coolers, and traditional lassis',
+    id: 'cold-drinks',
+    name: 'Cold Drinks, Juices & Mocktails',
+    description: 'Chilled sodas, iced coffees, seasonal fruit smoothies and refreshing mocktails',
     items: [
       {
-        id: 'dr-sprite',
-        code: 'BEV-SPR',
+        id: 'cd-1',
+        code: 'SOD-CC',
+        name: 'Coca Cola',
+        isVeg: true,
+        variants: [
+          { unit: 'Can (330ml)', price: 100 },
+          { unit: '500ml Bottle', price: 120 },
+        ],
+      },
+      {
+        id: 'cd-2',
+        code: 'SOD-SP',
         name: 'Sprite',
         isVeg: true,
         variants: [
-          { unit: 'Glass', price: 150 },
-          { unit: 'Can', price: 100 },
-          { unit: '500ml Bottle', price: 180 },
+          { unit: 'Can (330ml)', price: 100 },
+          { unit: '500ml Bottle', price: 120 },
         ],
       },
       {
-        id: 'dr-1',
+        id: 'cd-3',
+        code: 'SOD-FN',
+        name: 'Fanta Orange',
+        isVeg: true,
+        variants: [
+          { unit: 'Can (330ml)', price: 100 },
+          { unit: '500ml Bottle', price: 120 },
+        ],
+      },
+      {
+        id: 'cd-4',
+        code: 'WAT-MIN',
+        name: 'Mineral Water (Aquafina / Kinley)',
+        isVeg: true,
+        variants: [{ unit: '1L Bottle', price: 35 }],
+      },
+      {
+        id: 'cd-5',
         code: 'MOK-MOJ',
         name: 'Virgin Mint Mojito',
         isVeg: true,
-        variants: [
-          { unit: 'Glass', price: 180 },
-          { unit: 'Pitcher', price: 550 },
-        ],
+        variants: [{ unit: 'Tall Glass', price: 190 }],
       },
       {
-        id: 'dr-2',
-        code: 'LIME-01',
-        name: 'Fresh Lime Soda (Sweet / Salt)',
-        isVeg: true,
-        variants: [
-          { unit: 'Glass', price: 90 },
-          { unit: 'Pitcher', price: 280 },
-        ],
-      },
-      {
-        id: 'dr-3',
-        code: 'LAS-MNG',
-        name: 'Sweet Mango Lassi',
-        isVeg: true,
-        variants: [
-          { unit: 'Glass', price: 140 },
-          { unit: 'Pitcher', price: 420 },
-        ],
-      },
-      {
-        id: 'dr-4',
+        id: 'cd-6',
         code: 'MOK-BLU',
-        name: 'Blue Lagoon Citrus Cooler',
+        name: 'Blue Lagoon Mocktail',
         isVeg: true,
-        variants: [
-          { unit: 'Glass', price: 190 },
-          { unit: 'Pitcher', price: 580 },
-        ],
+        variants: [{ unit: 'Tall Glass', price: 210 }],
       },
       {
-        id: 'dr-5',
-        code: 'COF-CLD',
-        name: 'Cold Coffee with Ice Cream Float',
+        id: 'cd-7',
+        code: 'SHK-STR',
+        name: 'Fresh Strawberry Milkshake',
         isVeg: true,
-        variants: [{ unit: 'Glass', price: 170 }],
-      },
-    ],
-  },
-
-  // 5. Tandoori Breads & Naan
-  {
-    id: 'breads',
-    name: 'Tandoori Breads & Naan',
-    description: 'Clay oven baked fresh breads and stuffed kulchas',
-    items: [
-      {
-        id: 'br-1',
-        code: 'ROT-PLN',
-        name: 'Plain Tandoori Roti',
-        isVeg: true,
-        variants: [
-          { unit: 'Single', price: 30 },
-          { unit: 'Plate', price: 110 },
-        ],
+        variants: [{ unit: 'Glass', price: 180 }],
       },
       {
-        id: 'br-2',
-        code: 'ROT-BTR',
-        name: 'Butter Tandoori Roti',
+        id: 'cd-8',
+        code: 'SHK-CHO',
+        name: 'Chocolate Oreo Milkshake',
         isVeg: true,
-        variants: [
-          { unit: 'Single', price: 40 },
-          { unit: 'Plate', price: 150 },
-        ],
+        variants: [{ unit: 'Glass', price: 220 }],
       },
       {
-        id: 'br-3',
-        code: 'NAN-PLN',
-        name: 'Plain Tandoori Naan',
+        id: 'cd-9',
+        code: 'COF-ICE',
+        name: 'Iced Americano / Cold Brew',
         isVeg: true,
-        variants: [
-          { unit: 'Single', price: 55 },
-          { unit: 'Plate', price: 200 },
-        ],
+        variants: [{ unit: 'Glass', price: 160 }],
       },
       {
-        id: 'br-4',
-        code: 'NAN-BTR',
-        name: 'Butter Naan',
+        id: 'cd-10',
+        code: 'JUC-ORG',
+        name: 'Fresh Seasonal Orange Juice',
         isVeg: true,
-        variants: [
-          { unit: 'Single', price: 70 },
-          { unit: 'Plate', price: 260 },
-        ],
+        variants: [{ unit: 'Glass', price: 180 }],
       },
       {
-        id: 'br-5',
-        code: 'NAN-GAR',
-        name: 'Garlic Butter Naan',
+        id: 'cd-11',
+        code: 'JUC-WAT',
+        name: 'Fresh Watermelon Juice',
         isVeg: true,
-        variants: [
-          { unit: 'Single', price: 90 },
-          { unit: 'Plate', price: 320 },
-        ],
+        variants: [{ unit: 'Glass', price: 150 }],
+      },
+      {
+        id: 'cd-12',
+        code: 'LAS-SWT',
+        name: 'Sweet Curd Lassi',
+        isVeg: true,
+        variants: [{ unit: 'Glass', price: 110 }],
       },
     ],
   },
 
-  // 6. Desserts & Sweets
+  // 6. Alcoholic Beverages & Beers
   {
-    id: 'desserts',
-    name: 'Desserts & Sweets',
-    description: 'Warm gulab jamuns, rasgullas, and artisan ice creams',
+    id: 'bar-drinks',
+    name: 'Bar, Beers & Spirits',
+    description: 'Chilled domestic & imported beers, single malts, whiskeys, rum and cocktails',
     items: [
       {
-        id: 'des-1',
-        code: 'GJ-01',
-        name: 'Hot Gulab Jamun with Pistachio',
-        isVeg: true,
+        id: 'bar-1',
+        code: 'BER-GOR',
+        name: 'Gorkha Premium Beer (650ml)',
+        variants: [{ unit: 'Bottle (650ml)', price: 420 }],
+      },
+      {
+        id: 'bar-2',
+        code: 'BER-TUB',
+        name: 'Tuborg Green Beer (650ml)',
+        variants: [{ unit: 'Bottle (650ml)', price: 440 }],
+      },
+      {
+        id: 'bar-3',
+        code: 'BER-CAR',
+        name: 'Carlsberg Danish Pilsner (650ml)',
+        variants: [{ unit: 'Bottle (650ml)', price: 480 }],
+      },
+      {
+        id: 'bar-4',
+        code: 'BER-BRH',
+        name: 'Barahsinghe Craft Beer (650ml)',
+        variants: [{ unit: 'Bottle (650ml)', price: 460 }],
+      },
+      {
+        id: 'bar-5',
+        code: 'WHI-KHU',
+        name: 'Old Monk / Khukri Coronation Rum',
         variants: [
-          { unit: 'Single', price: 70 },
-          { unit: 'Plate', price: 130 },
+          { unit: 'Peg (30ml)', price: 140 },
+          { unit: 'Double (60ml)', price: 260 },
+          { unit: 'Quarter (180ml)', price: 680 },
+          { unit: 'Full Bottle', price: 2200 },
         ],
       },
       {
-        id: 'des-2',
-        code: 'RAS-01',
-        name: 'Bengali Spongy Rasgulla',
-        isVeg: true,
+        id: 'bar-6',
+        code: 'WHI-SIG',
+        name: 'Signature Premier Grain Whisky',
         variants: [
-          { unit: 'Single', price: 60 },
-          { unit: 'Plate', price: 110 },
+          { unit: 'Peg (30ml)', price: 180 },
+          { unit: 'Double (60ml)', price: 340 },
+          { unit: 'Quarter (180ml)', price: 890 },
+          { unit: 'Full Bottle', price: 2900 },
         ],
       },
       {
-        id: 'des-3',
-        code: 'ICE-VAN',
-        name: 'Vanilla / Chocolate Ice Cream Scoop',
-        isVeg: true,
+        id: 'bar-7',
+        code: 'WHI-JRW',
+        name: 'Johnnie Walker Red Label',
         variants: [
-          { unit: 'Single', price: 80 },
-          { unit: 'Plate', price: 150 },
+          { unit: 'Peg (30ml)', price: 280 },
+          { unit: 'Double (60ml)', price: 520 },
+          { unit: 'Quarter (180ml)', price: 1400 },
+          { unit: 'Full Bottle', price: 4800 },
         ],
       },
       {
-        id: 'des-4',
-        code: 'BRW-ICE',
-        name: 'Sizzling Hot Brownie with Vanilla Float',
-        isVeg: true,
-        variants: [{ unit: 'Plate', price: 240 }],
+        id: 'bar-8',
+        code: 'WHI-JRB',
+        name: 'Johnnie Walker Black Label (12 Yrs)',
+        variants: [
+          { unit: 'Peg (30ml)', price: 420 },
+          { unit: 'Double (60ml)', price: 780 },
+          { unit: 'Full Bottle', price: 7900 },
+        ],
+      },
+      {
+        id: 'bar-9',
+        code: 'VOD-ABS',
+        name: 'Absolut Swedish Vodka',
+        variants: [
+          { unit: 'Peg (30ml)', price: 320 },
+          { unit: 'Double (60ml)', price: 600 },
+          { unit: 'Full Bottle', price: 5500 },
+        ],
+      },
+      {
+        id: 'bar-10',
+        code: 'WIN-RED',
+        name: 'House Red Wine (Chilean Cabernet)',
+        variants: [
+          { unit: 'Glass (150ml)', price: 380 },
+          { unit: 'Bottle (750ml)', price: 1800 },
+        ],
       },
     ],
   },
 ];
 
-interface CustomMenuItem {
-  id: string;
-  code: string;
-  name: string;
-  category: string;
-  variants: MenuVariant[];
-  isVeg?: boolean;
-  department?: 'KOT' | 'BOT';
-}
-
-export default function OurMenuTablePage() {
-  const toast = useToast();
+export default function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('all');
   const [dbProducts, setDbProducts] = useState<POSProductData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Custom added items from local state / localStorage
-  const [customItems, setCustomItems] = useState<CustomMenuItem[]>([]);
-
-  // Fetch dynamic units from master setup
-  const { activeItems: masterUnits } = useMasterOptions('units');
-
-  // Combined available units suggestions
-  const allUnitOptions = useMemo(() => {
-    const set = new Set<string>();
-    PRESET_BEVERAGE_UNITS.forEach((u) => set.add(u));
-    PRESET_FOOD_UNITS.forEach((u) => set.add(u));
-    masterUnits.forEach((m) => set.add(m.name));
-    return Array.from(set);
-  }, [masterUnits]);
-
-  // Add Item Modal State
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [formItemName, setFormItemName] = useState('');
-  const [formItemCode, setFormItemCode] = useState('');
-  const [formCategory, setFormCategory] = useState('Fast Food & Momos');
-  const [customCategoryInput, setCustomCategoryInput] = useState('');
-  const [formDepartment, setFormDepartment] = useState<'KOT' | 'BOT'>('KOT');
-  const [formIsVeg, setFormIsVeg] = useState(false);
-  const [formVariants, setFormVariants] = useState<{ unit: string; price: string }[]>([
-    { unit: '', price: '' },
-  ]);
+  // Master menu items loaded from Restaurant Setup
+  const [masterMenuItems, setMasterMenuItems] = useState<any[]>([]);
 
   const fetchMenuProducts = async () => {
     setIsLoading(true);
@@ -538,39 +714,51 @@ export default function OurMenuTablePage() {
 
   useEffect(() => {
     fetchMenuProducts();
-    if (typeof window !== 'undefined') {
+
+    const loadMasterItems = () => {
+      if (typeof window === 'undefined') return;
       try {
-        const stored = localStorage.getItem('custom_menu_items');
+        const stored = localStorage.getItem('hotel_master_menu-items-setup');
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            // Backward-compatibility: convert legacy `prices` object to `variants` array
-            const migrated = parsed.map((item: any) => {
-              if (item.variants && Array.isArray(item.variants)) {
-                return item;
-              }
-              const variants: MenuVariant[] = [];
-              if (item.prices && typeof item.prices === 'object') {
-                Object.entries(item.prices).forEach(([unit, price]) => {
-                  const num = Number(price);
-                  if (!isNaN(num) && num > 0) {
-                    variants.push({ unit, price: num });
-                  }
-                });
-              }
-              return {
-                ...item,
-                variants: variants.length > 0 ? variants : [{ unit: 'Regular', price: 0 }],
-              };
-            });
-            setCustomItems(migrated);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMasterMenuItems(parsed);
+            return;
           }
         }
-      } catch (err) {}
-    }
+        const fallbackHotel = localStorage.getItem('hotel_menu_items');
+        if (fallbackHotel) {
+          const parsedFallback = JSON.parse(fallbackHotel);
+          if (Array.isArray(parsedFallback) && parsedFallback.length > 0) {
+            setMasterMenuItems(parsedFallback);
+            return;
+          }
+        }
+        if (INITIAL_MASTER_ITEMS['menu-items-setup']) {
+          setMasterMenuItems(INITIAL_MASTER_ITEMS['menu-items-setup']);
+        }
+      } catch (err) {
+        console.warn('Failed to load menu items from setup:', err);
+      }
+    };
+
+    loadMasterItems();
+
+    const handleUpdate = () => {
+      loadMasterItems();
+      fetchMenuProducts();
+    };
+
+    window.addEventListener('menu_items_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('menu_items_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
-  // Compute clean groups merging default MENU_GROUPS, customItems, and database products
+  // Build merged groups
   const dynamicGroups = useMemo(() => {
     const groupMap = new Map<string, MenuGroup>();
 
@@ -578,380 +766,245 @@ export default function OurMenuTablePage() {
     MENU_GROUPS.forEach((g) => {
       groupMap.set(g.name.toLowerCase().trim(), {
         ...g,
-        items: g.items.map((it) => ({
-          ...it,
-          variants: it.variants.map((v) => ({ ...v })),
-        })),
+        items: [],
       });
     });
 
-    // 2. Merge locally added custom items
-    customItems.forEach((ci) => {
-      const catKey = (ci.category || 'Special Dishes').toLowerCase().trim();
-      let grp = groupMap.get(catKey);
-      if (!grp) {
-        grp = {
-          id: ci.category.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-          name: ci.category,
-          description: `Dishes & beverages in ${ci.category}`,
+    const categoriesList = INITIAL_MASTER_ITEMS['categories-setup'] || [];
+    categoriesList.forEach((cat) => {
+      const key = cat.name.toLowerCase().trim();
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          id: cat.id || cat.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          name: cat.name,
+          description: `Dishes & beverages in ${cat.name}`,
           items: [],
-        };
-        groupMap.set(catKey, grp);
-      }
-
-      const existingIndex = grp.items.findIndex(
-        (it) => it.id === ci.id || it.code.toLowerCase() === ci.code.toLowerCase()
-      );
-
-      if (existingIndex >= 0) {
-        grp.items[existingIndex] = {
-          ...grp.items[existingIndex],
-          name: ci.name,
-          variants: ci.variants,
-          isVeg: ci.isVeg,
-        };
-      } else {
-        grp.items.push({
-          id: ci.id,
-          code: ci.code,
-          name: ci.name,
-          category: ci.category,
-          variants: ci.variants,
-          isVeg: ci.isVeg,
         });
       }
     });
 
-    // 3. Merge database products
-    dbProducts.forEach((p) => {
-      const catKey = (p.category || 'Special Dishes').toLowerCase().trim();
+    // 2. Primary Source: masterMenuItems from Restaurant Setup
+    const activeMasterList =
+      masterMenuItems && masterMenuItems.length > 0
+        ? masterMenuItems
+        : INITIAL_MASTER_ITEMS['menu-items-setup'] || [];
+
+    activeMasterList.forEach((item: any) => {
+      if (item.isActive === false) return;
+
+      const catName = item.category || 'Special Dishes';
+      const catKey = catName.toLowerCase().trim();
       let grp = groupMap.get(catKey);
       if (!grp) {
         grp = {
-          id: p.category ? p.category.toLowerCase().replace(/[^a-z0-9]/g, '-') : 'special-dishes',
-          name: p.category || 'Special Dishes',
-          description: `Fresh dishes & beverages in ${p.category || 'Special Dishes'}`,
+          id: catName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          name: catName,
+          description: `Dishes & beverages in ${catName}`,
           items: [],
         };
         groupMap.set(catKey, grp);
       }
 
-      // Check for structured variants
       let variants: MenuVariant[] = [];
-      if (p.variants && Array.isArray(p.variants) && p.variants.length > 0) {
-        variants = p.variants;
-      } else if (p.variantsJson) {
-        try {
-          const parsed = JSON.parse(p.variantsJson);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            variants = parsed.map((v: any) => ({
-              unit: v.unit || v.name || 'Regular',
-              price: Number(v.price) || 0,
-            }));
-          }
-        } catch {
-          // fallback
-        }
+      if (item.quantityPrices && Array.isArray(item.quantityPrices) && item.quantityPrices.length > 0) {
+        variants = item.quantityPrices.map((qp: any) => ({
+          unit: qp.quantityName || qp.unit || 'Regular',
+          price: Number(qp.price) || 0,
+        }));
+      } else if (item.variants && Array.isArray(item.variants) && item.variants.length > 0) {
+        variants = item.variants;
+      } else if (item.basePrice !== undefined) {
+        variants = [{ unit: 'Regular', price: Number(item.basePrice) || 0 }];
+      } else {
+        variants = [{ unit: 'Regular', price: 0 }];
       }
 
-      // If no variants array, extract from (Half)/(Full) or single price
-      const baseName = p.name.replace(/\s*\([^)]*\)$/, '').trim();
-      const isFull = p.name.toLowerCase().includes('(full)');
-      const isHalf = p.name.toLowerCase().includes('(half)');
-
-      const existing = grp.items.find(
-        (it) =>
-          it.name.toLowerCase() === baseName.toLowerCase() ||
-          it.code.toLowerCase() === p.id.slice(0, 8).toLowerCase()
+      const existingIndex = grp.items.findIndex(
+        (it) => it.id === item.id || it.code.toLowerCase() === (item.code || '').toLowerCase()
       );
 
-      if (variants.length > 0) {
-        if (existing) {
-          existing.variants = variants;
-        } else {
-          grp.items.push({
-            id: p.id,
-            code: p.id.slice(0, 8).toUpperCase(),
-            name: baseName,
-            category: p.category,
-            variants,
-          });
-        }
-      } else if (existing) {
-        if (isFull) {
-          const hasFull = existing.variants.some((v) => v.unit.toLowerCase() === 'full');
-          if (!hasFull) existing.variants.push({ unit: 'Full', price: p.price });
-        } else if (isHalf) {
-          const hasHalf = existing.variants.some((v) => v.unit.toLowerCase() === 'half');
-          if (!hasHalf) existing.variants.push({ unit: 'Half', price: p.price });
-        } else {
-          const hasReg = existing.variants.some((v) => v.unit.toLowerCase() === 'regular');
-          if (!hasReg) existing.variants.push({ unit: 'Regular', price: p.price });
-        }
+      const isVeg =
+        item.isVeg ??
+        (item.name.toLowerCase().includes('veg') && !item.name.toLowerCase().includes('non-veg'));
+
+      const mappedItem: MenuGroupItem = {
+        id: item.id || `item-${item.code}`,
+        code: item.code || 'ITEM',
+        name: item.name,
+        category: catName,
+        variants,
+        isVeg,
+        preparationMethod: item.preparationMethod || 'NOT_CONFIGURED',
+      };
+
+      if (existingIndex >= 0) {
+        grp.items[existingIndex] = mappedItem;
       } else {
-        const itemVariants: MenuVariant[] = [];
-        if (isFull) itemVariants.push({ unit: 'Full', price: p.price });
-        else if (isHalf) itemVariants.push({ unit: 'Half', price: p.price });
-        else itemVariants.push({ unit: 'Regular', price: p.price });
+        grp.items.push(mappedItem);
+      }
+    });
+
+    // 3. Fallback: If group still empty, populate from template
+    MENU_GROUPS.forEach((tpl) => {
+      const key = tpl.name.toLowerCase().trim();
+      const existing = groupMap.get(key);
+      if (existing && existing.items.length === 0) {
+        existing.items = [...tpl.items];
+      }
+    });
+
+    // 4. Incorporate products from database
+    dbProducts.forEach((prod) => {
+      const catName = prod.category || 'General Menu';
+      const catKey = catName.toLowerCase().trim();
+      let grp = groupMap.get(catKey);
+      if (!grp) {
+        grp = {
+          id: catName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          name: catName,
+          description: `Dishes & beverages in ${catName}`,
+          items: [],
+        };
+        groupMap.set(catKey, grp);
+      }
+
+      const itemCode = (prod as any).code || (prod as any).sku || prod.name.slice(0, 4).toUpperCase();
+      const alreadyIn = grp.items.some(
+        (it) => it.id === prod.id || it.code.toLowerCase() === itemCode.toLowerCase()
+      );
+
+      if (!alreadyIn) {
+        let variants: MenuVariant[] = [];
+        if (prod.variants && Array.isArray(prod.variants) && prod.variants.length > 0) {
+          variants = prod.variants.map((v) => ({ unit: v.unit, price: v.price }));
+        } else {
+          variants = [{ unit: (prod as any).unit || 'Regular', price: prod.price || 0 }];
+        }
 
         grp.items.push({
-          id: p.id,
-          code: p.id.slice(0, 8).toUpperCase(),
-          name: baseName,
-          category: p.category,
-          variants: itemVariants,
+          id: prod.id,
+          code: itemCode,
+          name: prod.name,
+          category: catName,
+          variants,
+          isVeg: prod.name.toLowerCase().includes('veg') && !prod.name.toLowerCase().includes('non-veg'),
+          preparationMethod: prod.preparationMethod || 'NOT_CONFIGURED',
         });
       }
     });
 
     return Array.from(groupMap.values()).filter((g) => g.items.length > 0);
-  }, [dbProducts, customItems]);
+  }, [masterMenuItems, dbProducts]);
 
-  // Filtered menu groups & items
+  // Filter groups & items
   const filteredGroups = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
+    let result = dynamicGroups;
 
-    return dynamicGroups
-      .map((group) => {
-        // Check group filter
-        if (selectedGroupFilter !== 'all' && group.id !== selectedGroupFilter) {
-          return { ...group, items: [] };
-        }
-
-        // Check search query
-        if (!q) {
-          return group;
-        }
-
-        const matchingItems = group.items.filter(
-          (item) =>
-            item.name.toLowerCase().includes(q) ||
-            item.code.toLowerCase().includes(q) ||
-            group.name.toLowerCase().includes(q)
-        );
-
-        return {
-          ...group,
-          items: matchingItems,
-        };
-      })
-      .filter((group) => group.items.length > 0);
-  }, [dynamicGroups, searchQuery, selectedGroupFilter]);
-
-  // Open modal with fresh state
-  const handleOpenAddModal = (presetCategory?: string) => {
-    const cat = presetCategory || dynamicGroups[0]?.name || 'Cold Drinks & Mocktails';
-    const isBev =
-      cat.toLowerCase().includes('drink') ||
-      cat.toLowerCase().includes('beverage') ||
-      cat.toLowerCase().includes('mocktail') ||
-      cat.toLowerCase().includes('coffee') ||
-      cat.toLowerCase().includes('tea') ||
-      cat.toLowerCase().includes('bar');
-
-    setFormItemName('');
-    setFormItemCode('');
-    setFormCategory(cat);
-    setFormDepartment(isBev ? 'BOT' : 'KOT');
-    setCustomCategoryInput('');
-    setFormIsVeg(false);
-    setFormVariants([
-      { unit: '', price: '' },
-    ]);
-    setIsAddModalOpen(true);
-  };
-
-  // Add a new unit & price row dynamically
-  const handleAddVariantRow = () => {
-    setFormVariants((prev) => [...prev, { unit: '', price: '' }]);
-  };
-
-  // Save new menu item
-  const handleSaveMenuItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formItemName.trim()) {
-      toast.error('Item Name Required', 'Please provide a name for the menu item.');
-      return;
+    if (selectedGroupFilter !== 'all') {
+      result = result.filter((g) => g.id === selectedGroupFilter);
     }
 
-    const category =
-      formCategory === '__NEW__'
-        ? customCategoryInput.trim() || 'Special Dishes'
-        : formCategory;
-
-    // Build valid variants array
-    const validVariants: MenuVariant[] = [];
-    formVariants.forEach((tier) => {
-      const u = tier.unit.trim();
-      const num = parseFloat(tier.price);
-      if (u && !isNaN(num) && num >= 0) {
-        validVariants.push({ unit: u, price: num });
-      }
-    });
-
-    if (validVariants.length === 0) {
-      toast.error('Price Required', 'Please enter at least one unit with a valid price.');
-      return;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result
+        .map((g) => ({
+          ...g,
+          items: g.items.filter(
+            (it) =>
+              it.name.toLowerCase().includes(q) ||
+              it.code.toLowerCase().includes(q) ||
+              (it.category && it.category.toLowerCase().includes(q))
+          ),
+        }))
+        .filter((g) => g.items.length > 0);
     }
 
-    const code =
-      formItemCode.trim().toUpperCase() ||
-      formItemName.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-    const newCustomItem: CustomMenuItem = {
-      id: `custom-${Date.now()}`,
-      code,
-      name: formItemName.trim(),
-      category,
-      variants: validVariants,
-      isVeg: formIsVeg,
-      department: formDepartment,
-    };
-
-    const updatedList = [...customItems, newCustomItem];
-    setCustomItems(updatedList);
-
-    // Persist to custom_menu_items in localStorage
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('custom_menu_items', JSON.stringify(updatedList));
-
-        // Sync to hotel_menu_items so Master Setup has it too
-        const existingHotel = JSON.parse(localStorage.getItem('hotel_menu_items') || '[]');
-        const newHotelEntry = {
-          id: newCustomItem.id,
-          code: newCustomItem.code,
-          name: newCustomItem.name,
-          category: newCustomItem.category,
-          department: formDepartment,
-          basePrice: validVariants[0]?.price || 0,
-          variants: validVariants,
-          quantityPrices: validVariants.map((v) => ({
-            quantityName: v.unit,
-            price: v.price,
-          })),
-          order: existingHotel.length + 1,
-          isActive: true,
-        };
-        localStorage.setItem(
-          'hotel_menu_items',
-          JSON.stringify([...existingHotel, newHotelEntry])
-        );
-      } catch (err) {}
-    }
-
-    // Persist to .NET backend with variants, variantsJson and department
-    try {
-      await api.createPOSProduct({
-        category: newCustomItem.category,
-        name: newCustomItem.name,
-        price: validVariants[0]?.price || 0,
-        department: formDepartment,
-        trackStock: false,
-        isAvailable: true,
-        variants: validVariants,
-        variantsJson: JSON.stringify(validVariants),
-      });
-    } catch {
-      // Local persistence holds
-    }
-
-    toast.success(
-      'Menu Item Added',
-      `"${newCustomItem.name}" with ${validVariants.length} variant(s) added successfully.`
-    );
-    setIsAddModalOpen(false);
-  };
+    return result;
+  }, [dynamicGroups, selectedGroupFilter, searchQuery]);
 
   return (
-    <div className="h-full flex flex-col min-h-0 select-none">
+    <div className="w-full space-y-4 pb-12 select-none font-sans text-slate-800 dark:text-slate-100">
       {/* =========================================================================
-          PAGE HEADER: Title, Subtitle & Total Items Counter
+          1. HEADER: Title, Refresh & Setup Link
          ========================================================================= */}
-      <div className="shrink-0 pb-3 border-b border-[#E5EEE9] dark:border-[#145447] flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white shadow-2xs dark:bg-emerald-600">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700/60">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
             <ChefHat className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-[#24352F] dark:text-white font-heading tracking-tight">
-              Café Menu
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Menu
             </h1>
-            <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE]">
-              Multi-variant restaurant & beverage menu management
-            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {dbProducts.length > 0 && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold">
-              <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Database Connected ({dbProducts.length} Items)</span>
-            </span>
-          )}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={fetchMenuProducts}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#07241E] text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-750 transition shadow-sm cursor-pointer disabled:opacity-60"
             title="Refresh menu items from database"
           >
-            <RotateCcw className={cn('w-3 h-3', isLoading && 'animate-spin')} />
-            <span>{isLoading ? 'Syncing...' : 'Sync DB'}</span>
+            <RotateCcw className={cn('w-3.5 h-3.5 text-slate-500', isLoading && 'animate-spin')} />
+            <span>{isLoading ? 'Syncing...' : 'Refresh'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleOpenAddModal()}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#082e25] text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+          <Link
+            href="/restaurant-setup?sub=menu-items-setup"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition shadow-sm"
+            title="Manage and configure menu items in Restaurant Setup"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Add Item</span>
-          </button>
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Menu Setup</span>
+            <ExternalLink className="w-3 h-3 opacity-70" />
+          </Link>
         </div>
       </div>
 
       {/* =========================================================================
-          TOOLBAR: Search Bar, Category Filter Dropdown & Clear Filters
+          2. TOOLBAR: Search & Category Filter
          ========================================================================= */}
-      <div className="shrink-0 py-3 flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#879B90]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search dish or code..."
-            className="w-full pl-9 pr-7 py-2 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] placeholder-[#879B90] focus:outline-none focus:border-[#0B3D32] focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#879B90] hover:text-[#24352F] dark:hover:text-white"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-850 shadow-sm">
+        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          {/* Search */}
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search dish or code..."
+              className="w-full h-8 pl-8 pr-7 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
-        {/* Category Dropdown */}
-        <div className="relative sm:w-56">
-          <select
-            value={selectedGroupFilter}
-            onChange={(e) => setSelectedGroupFilter(e.target.value)}
-            className="w-full appearance-none pl-3 pr-8 py-2 text-xs rounded-[3px] border border-[#DCE3DF] bg-white text-[#24352F] font-semibold focus:outline-none focus:border-[#0B3D32] dark:border-[#145447] dark:bg-[#061B16] dark:text-white dark:focus:border-emerald-500 shadow-2xs cursor-pointer"
-          >
-            <option value="all">All Categories ({dynamicGroups.length})</option>
-            {dynamicGroups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-[#879B90] pointer-events-none" />
+          {/* Category Dropdown */}
+          <div className="relative sm:w-60">
+            <select
+              value={selectedGroupFilter}
+              onChange={(e) => setSelectedGroupFilter(e.target.value)}
+              className="w-full h-8 appearance-none pl-3 pr-8 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+            >
+              <option value="all">All Categories</option>
+              {dynamicGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
         </div>
 
         {/* Clear filter */}
@@ -962,130 +1015,143 @@ export default function OurMenuTablePage() {
               setSearchQuery('');
               setSelectedGroupFilter('all');
             }}
-            className="text-xs font-semibold text-[#0B3D32] hover:underline dark:text-emerald-400 px-1"
+            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline px-1 self-start sm:self-auto cursor-pointer"
           >
-            Clear filter
+            Reset Filters
           </button>
         )}
       </div>
 
       {/* =========================================================================
-          MENU GROUPS: FIXED 4-COLUMN TABLE (#, CODE, ITEM NAME, PRICE)
-          No dynamic columns created. All variants stacked vertically in PRICE cell.
+          3. MENU CATEGORY TABLES (READ-ONLY, NO EDIT/DELETE, CLEAN GRID)
          ========================================================================= */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-10">
+      <div className="space-y-5">
         {filteredGroups.map((group) => (
-          <div key={group.id} className="space-y-1.5">
+          <div
+            key={group.id}
+            className="rounded border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-850 shadow-sm overflow-hidden"
+          >
             {/* Category Header */}
-            <div className="px-1 flex items-center justify-between">
-              <h2 className="text-sm sm:text-base font-bold text-[#24352F] dark:text-white font-heading tracking-tight">
-                {group.name}
-              </h2>
-              <span className="text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
-                {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
-              </span>
+            <div className="px-3.5 py-2.5 bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700/60 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <h2 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
+                  {group.name}
+                </h2>
+              </div>
             </div>
 
-            {/* Table Container with Fixed 4 Columns */}
-            <div className="overflow-hidden rounded-[3px] border border-[#DCE3DF] bg-white shadow-2xs dark:border-[#145447] dark:bg-[#07241E]">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#DCE3DF] bg-[#F4F7F5] dark:border-[#145447] dark:bg-[#061B16] text-[10px] font-bold text-[#4D6358] dark:text-[#A4B8AE] uppercase tracking-wider">
-                      {/* Fixed Column 1: # */}
-                      <th className="py-2.5 px-3 w-12 text-center border-r border-[#E5EEE9] dark:border-[#145447]">
-                        #
-                      </th>
+            {/* Table with Vertical Column Lines */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead>
+                  <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 select-none">
+                    {/* Column 1: # */}
+                    <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700">
+                      SN
+                    </th>
 
-                      {/* Fixed Column 2: CODE */}
-                      <th className="py-2.5 px-3 w-28 text-center border-r border-[#E5EEE9] dark:border-[#145447]">
-                        CODE
-                      </th>
+                    {/* Column 2: CODE (Plain font-mono, no box!) */}
+                    <th className="py-2.5 px-3 w-32 border-r border-slate-200 dark:border-slate-700 font-mono">
+                      CODE
+                    </th>
 
-                      {/* Fixed Column 3: ITEM NAME */}
-                      <th className="py-2.5 px-4 border-r border-[#E5EEE9] dark:border-[#145447]">
-                        ITEM NAME
-                      </th>
+                    {/* Column 3: ITEM NAME */}
+                    <th className="py-2.5 px-4 border-r border-slate-200 dark:border-slate-700">
+                      ITEM NAME
+                    </th>
 
-                      {/* Fixed Column 4: PRICE (Stacked Variants) */}
-                      <th className="py-2.5 px-4 w-52 sm:w-64 text-left">
-                        PRICE
-                      </th>
-                    </tr>
-                  </thead>
+                    {/* Column 4: PORTION / UNIT */}
+                    <th className="py-2.5 px-4 w-44 border-r border-slate-200 dark:border-slate-700">
+                      PORTION / UNIT
+                    </th>
 
-                  <tbody className="divide-y divide-[#E5EEE9] dark:divide-[#145447] text-xs">
-                    {group.items.map((item, index) => (
-                      <tr
-                        key={item.id}
-                        className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
-                      >
-                        {/* 1. # (Order) */}
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20 font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE] align-middle">
-                          {index + 1}
-                        </td>
+                    {/* Column 5: PRICE */}
+                    <th className="py-2.5 px-4 w-40 text-right">
+                      PRICE (NPR)
+                    </th>
+                  </tr>
+                </thead>
 
-                        {/* 2. CODE */}
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] align-middle">
-                          <span className="inline-block rounded-[2px] bg-[#EEF4F1] dark:bg-[#0D362C] px-1.5 py-0.5 text-[10px] font-mono font-bold text-[#0B3D32] dark:text-emerald-300 border border-[#D8E6DF] dark:border-[#145447]">
-                            {item.code}
+                <tbody>
+                  {group.items.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors even:bg-slate-50/30 dark:even:bg-slate-900/10"
+                    >
+                      {/* 1. SN */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 font-mono text-xs text-slate-400 dark:text-slate-500 align-middle">
+                        {index + 1}
+                      </td>
+
+                      {/* 2. CODE - Clean plain font-mono text, NO rounded outline box */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 font-mono text-xs font-medium text-slate-700 dark:text-slate-300 align-middle">
+                        {item.code}
+                      </td>
+
+                      {/* 3. ITEM NAME */}
+                      <td className="py-2.5 px-4 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <div className="flex items-center gap-2">
+                          {item.isVeg !== undefined && (
+                            <span
+                              className={cn(
+                                'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
+                                item.isVeg ? 'bg-emerald-500' : 'bg-rose-500'
+                              )}
+                              title={item.isVeg ? 'Vegetarian' : 'Non-Vegetarian'}
+                            />
+                          )}
+                          <span className="font-semibold text-xs text-slate-900 dark:text-slate-100">
+                            {item.name}
                           </span>
-                        </td>
+                        </div>
+                      </td>
 
-                        {/* 3. ITEM NAME */}
-                        <td className="py-2.5 px-4 border-r border-[#E5EEE9] dark:border-[#145447] align-middle">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-xs sm:text-[13px] text-[#24352F] dark:text-white">
-                              {item.name}
-                            </span>
-                            {item.isVeg !== undefined && (
+                      {/* 4. PORTION / UNIT */}
+                      <td className="py-2.5 px-4 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <div className="flex flex-col gap-0.5 py-0.5">
+                          {item.variants && item.variants.length > 0 ? (
+                            item.variants.map((v, vIdx) => (
                               <span
-                                className={cn(
-                                  'text-[9px] font-bold px-1.5 py-0.2 rounded-[2px] border shrink-0',
-                                  item.isVeg
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                    : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300'
-                                )}
+                                key={vIdx}
+                                className="text-xs font-medium text-slate-600 dark:text-slate-300"
                               >
-                                {item.isVeg ? 'VEG' : 'NON-VEG'}
+                                {v.unit}
                               </span>
-                            )}
-                          </div>
-                        </td>
+                            ))
+                          ) : (
+                            <span className="text-slate-400 font-mono text-xs">—</span>
+                          )}
+                        </div>
+                      </td>
 
-                        {/* 4. PRICE: Stacked variants inside this single cell */}
-                        <td className="py-2 px-4 align-middle">
-                          <div className="flex flex-col gap-1">
-                            {item.variants && item.variants.length > 0 ? (
-                              item.variants.map((v, vIdx) => (
-                                <div
-                                  key={vIdx}
-                                  className="flex items-center justify-between sm:justify-start gap-3 text-xs"
-                                >
-                                  <span className="font-medium text-slate-600 dark:text-slate-300 min-w-[70px] sm:min-w-[90px]">
-                                    {v.unit}:
-                                  </span>
-                                  <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-300 whitespace-nowrap">
-                                    Rs. {v.price.toLocaleString()}
-                                  </span>
-                                </div>
-                              ))
-                            ) : (
-                              <span className="text-slate-400 font-mono text-xs">—</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      {/* 5. PRICE (NPR) */}
+                      <td className="py-2.5 px-4 text-right align-middle">
+                        <div className="flex flex-col gap-0.5 py-0.5 items-end">
+                          {item.variants && item.variants.length > 0 ? (
+                            item.variants.map((v, vIdx) => (
+                              <span
+                                key={vIdx}
+                                className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
+                              >
+                                Rs. {v.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-slate-400 font-mono text-xs">—</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         ))}
 
         {filteredGroups.length === 0 && (
-          <div className="py-16 text-center text-xs text-[#879B90] bg-white dark:bg-[#07241E] rounded-[3px] border border-[#DCE3DF] dark:border-[#145447]">
+          <div className="py-16 text-center text-xs text-slate-500 bg-white dark:bg-slate-850 rounded border border-slate-200 dark:border-slate-700/60 shadow-sm">
             <span>No menu items match your search or filter</span>
             <div className="mt-2">
               <button
@@ -1094,244 +1160,14 @@ export default function OurMenuTablePage() {
                   setSearchQuery('');
                   setSelectedGroupFilter('all');
                 }}
-                className="text-xs font-semibold text-[#0B3D32] hover:underline dark:text-emerald-400"
+                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
               >
-                Reset filter
+                Reset filters
               </button>
             </div>
           </div>
         )}
       </div>
-
-      {/* =========================================================================
-          ADD MENU ITEM MODAL: Dynamic Variants (Beverage & Food Sizes)
-         ========================================================================= */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsAddModalOpen(false)}
-          />
-
-          {/* Modal Container */}
-          <div className="relative w-full max-w-xl rounded-lg bg-white shadow-2xl border border-slate-200 dark:bg-[#07241E] dark:border-[#145447] overflow-hidden z-10 flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-[#145447] bg-[#F7F9F8] dark:bg-[#061B16]">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-[3px] bg-[#0B3D32] text-white dark:bg-emerald-600">
-                  <UtensilsCrossed className="w-3.5 h-3.5" />
-                </div>
-                <h3 className="text-sm font-bold text-[#24352F] dark:text-white font-heading">
-                  Add Menu Item
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-[3px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-[#0A2E26] dark:hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSaveMenuItem} className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-              {/* Dish / Drink Name */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Item Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  value={formItemName}
-                  onChange={(e) => setFormItemName(e.target.value)}
-                  className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500"
-                />
-              </div>
-
-              {/* Code, Category & Department Dropdown */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Item Code
-                  </label>
-                  <input
-                    type="text"
-                    value={formItemCode}
-                    onChange={(e) => setFormItemCode(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-bold uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Menu Category <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormCategory(val);
-                      const isBev =
-                        val.toLowerCase().includes('drink') ||
-                        val.toLowerCase().includes('beverage') ||
-                        val.toLowerCase().includes('mocktail') ||
-                        val.toLowerCase().includes('coffee') ||
-                        val.toLowerCase().includes('tea') ||
-                        val.toLowerCase().includes('bar');
-                      setFormDepartment(isBev ? 'BOT' : 'KOT');
-                    }}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
-                  >
-                    {dynamicGroups.map((g) => (
-                      <option key={g.id} value={g.name}>
-                        {g.name}
-                      </option>
-                    ))}
-                    <option value="__NEW__">+ Add Custom Category</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Department <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formDepartment}
-                    onChange={(e) => setFormDepartment(e.target.value as 'KOT' | 'BOT')}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500 cursor-pointer"
-                  >
-                    <option value="KOT">KOT – Kitchen</option>
-                    <option value="BOT">BOT – Bar/Beverage</option>
-                  </select>
-                </div>
-              </div>
-
-              {formCategory === '__NEW__' && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    New Category Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={customCategoryInput}
-                    onChange={(e) => setCustomCategoryInput(e.target.value)}
-                    className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white dark:focus:border-emerald-500"
-                  />
-                </div>
-              )}
-
-              {/* Dynamic Variants: Unit Dropdown + Price Input */}
-              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-[#145447]">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Variants &amp; Unit Prices <span className="text-rose-500">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddVariantRow}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-[#0B3D32] hover:text-[#082b23] dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors cursor-pointer bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-[3px] border border-emerald-200 dark:border-emerald-800"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Unit</span>
-                  </button>
-                </div>
-
-                {/* Datalist for autocomplete suggestions */}
-                <datalist id="unit-options-list">
-                  {allUnitOptions.map((unit) => (
-                    <option key={unit} value={unit} />
-                  ))}
-                </datalist>
-
-                {/* Selected Unit & Price Inputs */}
-                <div className="space-y-2">
-                  {formVariants.map((tier, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 p-1.5 rounded-[3px] border border-[#DCE3DF] bg-white dark:bg-[#07241E] dark:border-[#145447] shadow-2xs"
-                    >
-                      {/* Unit Selector / Input with Datalist */}
-                      <div className="flex-1 min-w-0">
-                        <input
-                          type="text"
-                          list="unit-options-list"
-                          required
-                          value={tier.unit}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setFormVariants((prev) =>
-                              prev.map((t, i) => (i === idx ? { ...t, unit: val } : t))
-                            );
-                          }}
-                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-2.5 py-1.5 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none dark:border-[#145447] dark:bg-[#071F1A] dark:text-white"
-                        />
-                      </div>
-
-                      {/* Price Input */}
-                      <div className="w-32 sm:w-40 relative shrink-0">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500 pointer-events-none select-none">
-                          Rs.
-                        </span>
-                        <input
-                          type="number"
-                          min={0}
-                          step="any"
-                          required
-                          value={tier.price}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setFormVariants((prev) =>
-                              prev.map((t, i) => (i === idx ? { ...t, price: val } : t))
-                            );
-                          }}
-                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-1.5 pl-9 pr-3 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none dark:border-[#145447] dark:bg-[#071F1A] dark:text-white"
-                        />
-                      </div>
-
-                      {/* Remove Row Button */}
-                      {formVariants.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFormVariants((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-[3px] hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shrink-0 cursor-pointer"
-                          title="Remove unit variant"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#145447]">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-[3px] dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#0B3D32] hover:bg-[#082b23] dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-[3px] shadow-xs transition-colors cursor-pointer"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Save Menu Item</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

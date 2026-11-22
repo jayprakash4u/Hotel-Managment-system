@@ -53,6 +53,10 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // Background Schedulers
 builder.Services.AddHostedService<Hospitality.Api.Services.TableReservationAlertService>();
 
+// Bill delivery services
+builder.Services.AddScoped<Hospitality.Api.Services.EmailService>();
+builder.Services.AddScoped<Hospitality.Api.Services.InvoicePdfService>();
+
 // Supabase Client (Auth, Postgrest, Storage, Realtime)
 builder.Services.AddSupabase(
     builder.Configuration["Supabase:Url"]!,
@@ -128,7 +132,14 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""inventoryItemId"" text;
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""variantsJson"" text DEFAULT '[]';
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""preparationMethod"" text DEFAULT 'NOT_CONFIGURED';
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationMethod"" text DEFAULT 'NOT_CONFIGURED';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""status"" text DEFAULT 'RECEIVED';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationStartedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationCompletedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparedBy"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationDurationMinutes"" double precision;
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""dispatchedQuantity"" integer DEFAULT 0;
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""kotNumber"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
@@ -151,8 +162,30 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""destinationDepartment"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""transferNumber"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""referenceNumber"" text;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""referenceType"" text;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""notes"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""previousBalance"" integer;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""resultingBalance"" integer;
+
+            CREATE TABLE IF NOT EXISTS ""StockAdjustment"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""adjustmentNumber"" text NOT NULL,
+                ""adjustmentDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""department"" text NOT NULL DEFAULT 'SHARED',
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""adjustmentType"" text NOT NULL DEFAULT 'INCREASE',
+                ""itemCount"" integer NOT NULL DEFAULT 1,
+                ""totalQuantity"" integer NOT NULL DEFAULT 0,
+                ""primaryReason"" text NOT NULL DEFAULT 'Stock Correction',
+                ""notes"" text,
+                ""adjustedBy"" text NOT NULL DEFAULT 'Inventory Manager',
+                ""approvedBy"" text,
+                ""approvedAt"" timestamp with time zone,
+                ""itemsJson"" text NOT NULL DEFAULT '[]',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""code"" text DEFAULT '';
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""panVatNumber"" text;
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""notes"" text;
@@ -203,6 +236,431 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""allocationsJson"" text;
             ALTER TABLE IF EXISTS ""SupplierLedgerEntry"" ADD COLUMN IF NOT EXISTS ""notes"" text;
 
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text DEFAULT 'Main Restaurant';
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""responsibleEmployee"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""bankName"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""accountNumber"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""accountHolderName"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""walletProvider"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""merchantId"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""registeredMobileNumber"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""settlementBankAccountId"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""directBankSettlement"" boolean DEFAULT false;
+
+            CREATE TABLE IF NOT EXISTS ""IncomeCategory"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""categoryName"" text NOT NULL,
+                ""categoryType"" text NOT NULL DEFAULT 'OPERATING',
+                ""accountId"" text NOT NULL,
+                ""accountCode"" text NOT NULL,
+                ""accountName"" text NOT NULL,
+                ""description"" text,
+                ""isSystem"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""displayOrder"" integer NOT NULL DEFAULT 0,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""IncomeTransaction"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""voucherNumber"" text NOT NULL,
+                ""incomeDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""categoryId"" text NOT NULL,
+                ""categoryName"" text NOT NULL,
+                ""categoryType"" text NOT NULL DEFAULT 'OPERATING',
+                ""incomeAccountId"" text NOT NULL,
+                ""incomeAccountCode"" text NOT NULL,
+                ""incomeAccountName"" text NOT NULL,
+                ""description"" text NOT NULL,
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""receivedThrough"" text NOT NULL DEFAULT 'CASH',
+                ""receivingAccountId"" text NOT NULL,
+                ""receivingAccountCode"" text NOT NULL,
+                ""receivingAccountName"" text NOT NULL,
+                ""referenceNumber"" text,
+                ""payerName"" text,
+                ""attachmentUrl"" text,
+                ""notes"" text,
+                ""branchOrOutlet"" text DEFAULT 'Main Restaurant',
+                ""status"" text NOT NULL DEFAULT 'DRAFT',
+                ""journalEntryId"" text,
+                ""journalEntryNumber"" text,
+                ""reversalJournalEntryId"" text,
+                ""reversalJournalEntryNumber"" text,
+                ""reversalReason"" text,
+                ""reversedBy"" text,
+                ""reversedAt"" timestamp with time zone,
+                ""createdBy"" text NOT NULL DEFAULT 'Staff',
+                ""postedBy"" text,
+                ""postedAt"" timestamp with time zone,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""ExpenseCategory"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""categoryName"" text NOT NULL,
+                ""categoryType"" text NOT NULL DEFAULT 'OPERATING',
+                ""accountId"" text NOT NULL,
+                ""accountCode"" text NOT NULL,
+                ""accountName"" text NOT NULL,
+                ""description"" text,
+                ""isSystem"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""displayOrder"" integer NOT NULL DEFAULT 0,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""ExpenseTransaction"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""voucherNumber"" text NOT NULL,
+                ""expenseDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""categoryId"" text NOT NULL,
+                ""categoryName"" text NOT NULL,
+                ""categoryType"" text NOT NULL DEFAULT 'OPERATING',
+                ""expenseAccountId"" text NOT NULL,
+                ""expenseAccountCode"" text NOT NULL,
+                ""expenseAccountName"" text NOT NULL,
+                ""description"" text NOT NULL,
+                ""totalAmount"" double precision NOT NULL DEFAULT 0,
+                ""paidAmount"" double precision NOT NULL DEFAULT 0,
+                ""remainingPayable"" double precision NOT NULL DEFAULT 0,
+                ""paymentStatus"" text NOT NULL DEFAULT 'PAID',
+                ""paymentMode"" text NOT NULL DEFAULT 'CASH',
+                ""paymentAccountId"" text NOT NULL,
+                ""paymentAccountCode"" text NOT NULL,
+                ""paymentAccountName"" text NOT NULL,
+                ""paidTo"" text,
+                ""referenceNumber"" text,
+                ""attachmentUrl"" text,
+                ""notes"" text,
+                ""dueDate"" timestamp with time zone,
+                ""branchOrOutlet"" text DEFAULT 'Main Restaurant',
+                ""status"" text NOT NULL DEFAULT 'DRAFT',
+                ""journalEntryId"" text,
+                ""journalEntryNumber"" text,
+                ""reversalJournalEntryId"" text,
+                ""reversalJournalEntryNumber"" text,
+                ""reversalReason"" text,
+                ""reversedBy"" text,
+                ""reversedAt"" timestamp with time zone,
+                ""createdBy"" text NOT NULL DEFAULT 'Staff',
+                ""postedBy"" text,
+                ""postedAt"" timestamp with time zone,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""ExpensePayment"" (
+                ""id"" text PRIMARY KEY,
+                ""expenseTransactionId"" text NOT NULL,
+                ""paymentReceiptNumber"" text NOT NULL,
+                ""paymentDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""paymentMode"" text NOT NULL DEFAULT 'CASH',
+                ""paymentAccountId"" text NOT NULL,
+                ""paymentAccountCode"" text NOT NULL,
+                ""paymentAccountName"" text NOT NULL,
+                ""referenceNumber"" text,
+                ""paidBy"" text,
+                ""notes"" text,
+                ""journalEntryId"" text,
+                ""journalEntryNumber"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""AssetCategory"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""categoryName"" text NOT NULL,
+                ""codePrefix"" text NOT NULL DEFAULT 'AST',
+                ""assetAccountId"" text NOT NULL,
+                ""assetAccountCode"" text NOT NULL,
+                ""assetAccountName"" text NOT NULL,
+                ""accumulatedDepreciationAccountId"" text NOT NULL,
+                ""accumulatedDepreciationAccountCode"" text NOT NULL,
+                ""accumulatedDepreciationAccountName"" text NOT NULL,
+                ""depreciationExpenseAccountId"" text NOT NULL,
+                ""depreciationExpenseAccountCode"" text NOT NULL,
+                ""depreciationExpenseAccountName"" text NOT NULL,
+                ""defaultUsefulLifeYears"" integer NOT NULL DEFAULT 5,
+                ""defaultDepreciationMethod"" text NOT NULL DEFAULT 'STRAIGHT_LINE',
+                ""defaultResidualValuePercentage"" double precision NOT NULL DEFAULT 0,
+                ""description"" text,
+                ""isSystem"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""displayOrder"" integer NOT NULL DEFAULT 0,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""FixedAsset"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""assetCode"" text NOT NULL,
+                ""assetName"" text NOT NULL,
+                ""categoryId"" text NOT NULL,
+                ""categoryName"" text NOT NULL,
+                ""description"" text,
+                ""location"" text NOT NULL DEFAULT 'Main Kitchen',
+                ""department"" text NOT NULL DEFAULT 'Kitchen',
+                ""assignedTo"" text,
+                ""serialNumber"" text,
+                ""barcode"" text,
+                ""branchOrOutlet"" text DEFAULT 'Main Restaurant',
+                ""purchaseDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""supplierName"" text,
+                ""supplierInvoiceNumber"" text,
+                ""purchaseCost"" double precision NOT NULL DEFAULT 0,
+                ""additionalCapitalizedCosts"" double precision NOT NULL DEFAULT 0,
+                ""totalCapitalizedCost"" double precision NOT NULL DEFAULT 0,
+                ""acquisitionPaymentMode"" text NOT NULL DEFAULT 'BANK',
+                ""paymentAccountId"" text,
+                ""paymentAccountCode"" text,
+                ""paymentAccountName"" text,
+                ""paymentReference"" text,
+                ""attachmentUrl"" text,
+                ""notes"" text,
+                ""acquisitionJournalEntryId"" text,
+                ""acquisitionJournalEntryNumber"" text,
+                ""depreciationMethod"" text NOT NULL DEFAULT 'STRAIGHT_LINE',
+                ""usefulLifeYears"" integer NOT NULL DEFAULT 5,
+                ""usefulLifeMonths"" integer NOT NULL DEFAULT 60,
+                ""residualValue"" double precision NOT NULL DEFAULT 0,
+                ""depreciableAmount"" double precision NOT NULL DEFAULT 0,
+                ""annualDepreciation"" double precision NOT NULL DEFAULT 0,
+                ""monthlyDepreciation"" double precision NOT NULL DEFAULT 0,
+                ""depreciationStartDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""depreciationFrequency"" text NOT NULL DEFAULT 'MONTHLY',
+                ""accumulatedDepreciation"" double precision NOT NULL DEFAULT 0,
+                ""currentBookValue"" double precision NOT NULL DEFAULT 0,
+                ""lastDepreciationDate"" timestamp with time zone,
+                ""depreciationPeriodsPostedCount"" integer NOT NULL DEFAULT 0,
+                ""assetAccountId"" text NOT NULL,
+                ""assetAccountCode"" text NOT NULL,
+                ""assetAccountName"" text NOT NULL,
+                ""accumulatedDepreciationAccountId"" text NOT NULL,
+                ""accumulatedDepreciationAccountCode"" text NOT NULL,
+                ""accumulatedDepreciationAccountName"" text NOT NULL,
+                ""depreciationExpenseAccountId"" text NOT NULL,
+                ""depreciationExpenseAccountCode"" text NOT NULL,
+                ""depreciationExpenseAccountName"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'ACTIVE',
+                ""disposalDate"" timestamp with time zone,
+                ""disposalType"" text,
+                ""disposalAmount"" double precision NOT NULL DEFAULT 0,
+                ""disposalReceivingAccountId"" text,
+                ""disposalReceivingAccountCode"" text,
+                ""disposalReceivingAccountName"" text,
+                ""netBookValueAtDisposal"" double precision NOT NULL DEFAULT 0,
+                ""gainOrLossAmount"" double precision NOT NULL DEFAULT 0,
+                ""isGain"" boolean NOT NULL DEFAULT false,
+                ""disposalReason"" text,
+                ""disposalReference"" text,
+                ""disposalJournalEntryId"" text,
+                ""disposalJournalEntryNumber"" text,
+                ""disposedBy"" text,
+                ""disposedAt"" timestamp with time zone,
+                ""createdBy"" text NOT NULL DEFAULT 'Staff',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""AssetDepreciationEntry"" (
+                ""id"" text PRIMARY KEY,
+                ""fixedAssetId"" text NOT NULL,
+                ""periodKey"" text NOT NULL,
+                ""periodNumber"" integer NOT NULL,
+                ""periodDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""openingBookValue"" double precision NOT NULL DEFAULT 0,
+                ""depreciationAmount"" double precision NOT NULL DEFAULT 0,
+                ""accumulatedDepreciation"" double precision NOT NULL DEFAULT 0,
+                ""closingBookValue"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'PENDING',
+                ""journalEntryId"" text,
+                ""journalEntryNumber"" text,
+                ""postedAt"" timestamp with time zone,
+                ""postedBy"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""AssetMovement"" (
+                ""id"" text PRIMARY KEY,
+                ""fixedAssetId"" text NOT NULL,
+                ""transferDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""fromLocation"" text,
+                ""toLocation"" text,
+                ""fromDepartment"" text,
+                ""toDepartment"" text,
+                ""fromAssignedTo"" text,
+                ""toAssignedTo"" text,
+                ""reason"" text,
+                ""transferredBy"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""lastReconciledDate"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""lastReconciledBalance"" double precision;
+
+            CREATE TABLE IF NOT EXISTS ""BankReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""accountId"" text NOT NULL,
+                ""accountType"" text NOT NULL DEFAULT 'BANK',
+                ""statementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""periodStartDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""periodEndDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""statementOpeningBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementEndingBalance"" double precision NOT NULL DEFAULT 0,
+                ""bookOpeningBalance"" double precision NOT NULL DEFAULT 0,
+                ""bookEndingBalance"" double precision NOT NULL DEFAULT 0,
+                ""totalDepositsCleared"" double precision NOT NULL DEFAULT 0,
+                ""totalPaymentsCleared"" double precision NOT NULL DEFAULT 0,
+                ""totalDepositsInTransit"" double precision NOT NULL DEFAULT 0,
+                ""totalOutstandingChecks"" double precision NOT NULL DEFAULT 0,
+                ""bankCharges"" double precision NOT NULL DEFAULT 0,
+                ""interestEarned"" double precision NOT NULL DEFAULT 0,
+                ""reconciledBalance"" double precision NOT NULL DEFAULT 0,
+                ""adjustedBookBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'IN_PROGRESS',
+                ""reconciledBy"" text NOT NULL DEFAULT 'Accountant',
+                ""approvedBy"" text,
+                ""completedAt"" timestamp with time zone,
+                ""notes"" text,
+                ""statementFileName"" text,
+                ""statementFormat"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""BankReconciliationLine"" (
+                ""id"" text PRIMARY KEY,
+                ""reconciliationId"" text NOT NULL,
+                ""lineSource"" text NOT NULL DEFAULT 'SYSTEM',
+                ""journalEntryLineId"" text,
+                ""journalEntryNumber"" text,
+                ""transactionDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""referenceNumber"" text,
+                ""description"" text NOT NULL DEFAULT '',
+                ""payeeOrPayer"" text,
+                ""debit"" double precision NOT NULL DEFAULT 0,
+                ""credit"" double precision NOT NULL DEFAULT 0,
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""transactionType"" text NOT NULL DEFAULT 'DEPOSIT',
+                ""isMatched"" boolean NOT NULL DEFAULT false,
+                ""matchedLineId"" text,
+                ""matchedAt"" timestamp with time zone,
+                ""matchRule"" text,
+                ""status"" text NOT NULL DEFAULT 'UNMATCHED',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""branchOrOutlet"" text DEFAULT 'Main Restaurant';
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""responsibleEmployee"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""bankName"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""accountNumber"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""accountHolderName"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""walletProvider"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""merchantId"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""registeredMobileNumber"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""settlementBankAccountId"" text;
+            ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""directBankSettlement"" boolean DEFAULT false;
+
             ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""purchaseUnit"" text;
             ALTER TABLE IF EXISTS ""InventoryItem"" ADD COLUMN IF NOT EXISTS ""conversionFactor"" double precision DEFAULT 1.0;
 
@@ -222,6 +680,90 @@ using (var scope = app.Services.CreateScope())
                 ""internalNotes"" text,
                 ""reservationCode"" text NOT NULL,
                 ""orderId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
@@ -263,6 +805,90 @@ using (var scope = app.Services.CreateScope())
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
 
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
             CREATE UNIQUE INDEX IF NOT EXISTS ""ix_bill_hotel_number"" ON ""Bill"" (""hotelId"", ""billNumber"");
             CREATE INDEX IF NOT EXISTS ""ix_bill_type"" ON ""Bill"" (""billingType"");
             CREATE INDEX IF NOT EXISTS ""ix_bill_status"" ON ""Bill"" (""paymentStatus"");
@@ -288,6 +914,90 @@ using (var scope = app.Services.CreateScope())
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
 
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
             CREATE INDEX IF NOT EXISTS ""ix_reservationalert_status"" ON ""ReservationAlert"" (""status"");
             CREATE INDEX IF NOT EXISTS ""ix_reservationalert_res_type"" ON ""ReservationAlert"" (""reservationId"", ""alertType"");
             CREATE INDEX IF NOT EXISTS ""ix_reservationalert_hotel_status"" ON ""ReservationAlert"" (""hotelId"", ""status"");
@@ -301,6 +1011,90 @@ using (var scope = app.Services.CreateScope())
                 ""currency"" text NOT NULL DEFAULT 'NPR',
                 ""timezone"" text NOT NULL DEFAULT 'Asia/Kathmandu',
                 ""status"" text NOT NULL DEFAULT 'ACTIVE',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
@@ -349,6 +1143,90 @@ using (var scope = app.Services.CreateScope())
                 ""notes"" text,
                 ""createdBy"" text,
                 ""updatedBy"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
@@ -466,6 +1344,90 @@ using (var scope = app.Services.CreateScope())
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
+
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
             ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""categoryId"" text;
             ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""section"" text DEFAULT 'Main Area';
 
@@ -480,6 +1442,90 @@ using (var scope = app.Services.CreateScope())
                 ""minStockThreshold"" integer NOT NULL DEFAULT 20,
                 ""status"" text NOT NULL DEFAULT 'ACTIVE',
                 ""inventoryItemId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
@@ -531,6 +1577,90 @@ using (var scope = app.Services.CreateScope())
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
+
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
             ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""parentId"" text;
             ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""accountLevel"" integer NOT NULL DEFAULT 3;
             ALTER TABLE IF EXISTS ""Account"" ADD COLUMN IF NOT EXISTS ""isGroup"" boolean NOT NULL DEFAULT false;
@@ -553,6 +1683,90 @@ using (var scope = app.Services.CreateScope())
                 ""discountAccountId"" text,
                 ""description"" text,
                 ""isActive"" boolean NOT NULL DEFAULT true,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""walletProvider"" text NOT NULL DEFAULT 'eSewa',
+                ""walletAccountName"" text NOT NULL,
+                ""merchantId"" text NOT NULL,
+                ""registeredMobileNumber"" text,
+                ""merchantReference"" text,
+                ""branchOrOutlet"" text NOT NULL DEFAULT 'Main Restaurant',
+                ""currency"" text NOT NULL DEFAULT 'NPR',
+                ""openingBalance"" double precision NOT NULL DEFAULT 0,
+                ""openingBalanceDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""currentBalance"" double precision NOT NULL DEFAULT 0,
+                ""settlementBankAccountId"" text,
+                ""accountId"" text,
+                ""directBankSettlement"" boolean NOT NULL DEFAULT false,
+                ""isActive"" boolean NOT NULL DEFAULT true,
+                ""description"" text,
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletSettlement"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""settlementNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""settlementDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""settlementReference"" text NOT NULL,
+                ""grossAmount"" double precision NOT NULL DEFAULT 0,
+                ""walletCharges"" double precision NOT NULL DEFAULT 0,
+                ""otherDeductions"" double precision NOT NULL DEFAULT 0,
+                ""netAmount"" double precision NOT NULL DEFAULT 0,
+                ""destinationBankAccountId"" text NOT NULL,
+                ""bankReference"" text,
+                ""description"" text,
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletRefund"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""refundNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""originalBillId"" text,
+                ""originalTransactionRef"" text,
+                ""refundDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""amount"" double precision NOT NULL DEFAULT 0,
+                ""providerReference"" text NOT NULL,
+                ""refundReason"" text NOT NULL,
+                ""status"" text NOT NULL DEFAULT 'APPROVED',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
+                ""createdBy"" text NOT NULL DEFAULT 'Admin',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WalletReconciliation"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""reconciliationNumber"" text NOT NULL,
+                ""walletAccountId"" text NOT NULL,
+                ""reconciliationDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""systemBalance"" double precision NOT NULL DEFAULT 0,
+                ""statementBalance"" double precision NOT NULL DEFAULT 0,
+                ""difference"" double precision NOT NULL DEFAULT 0,
+                ""totalReceipts"" double precision NOT NULL DEFAULT 0,
+                ""totalSettlements"" double precision NOT NULL DEFAULT 0,
+                ""totalRefunds"" double precision NOT NULL DEFAULT 0,
+                ""totalCharges"" double precision NOT NULL DEFAULT 0,
+                ""status"" text NOT NULL DEFAULT 'MATCHED',
+                ""explanation"" text,
+                ""reconciledBy"" text NOT NULL DEFAULT 'Admin',
+                ""approvedBy"" text,
+                ""journalEntryId"" text,
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
@@ -600,6 +1814,49 @@ using (var scope = app.Services.CreateScope())
             );
             CREATE INDEX IF NOT EXISTS ""ix_journalentryline_entry"" ON ""JournalEntryLine"" (""journalEntryId"");
             CREATE INDEX IF NOT EXISTS ""ix_journalentryline_account"" ON ""JournalEntryLine"" (""accountId"");
+
+            CREATE TABLE IF NOT EXISTS ""RestaurantMenuSettings"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""isEnabled"" boolean NOT NULL DEFAULT true,
+                ""showPrices"" boolean NOT NULL DEFAULT true,
+                ""showImages"" boolean NOT NULL DEFAULT true,
+                ""showDescriptions"" boolean NOT NULL DEFAULT true,
+                ""allowOnlineOrdering"" boolean NOT NULL DEFAULT false,
+                ""publicRestaurantName"" text,
+                ""logoUrl"" text,
+                ""coverImageUrl"" text,
+                ""welcomeMessage"" text,
+                ""footerText"" text,
+                ""isDeliveryEnabled"" boolean DEFAULT false,
+                ""shareMyMenu"" boolean DEFAULT true,
+                ""phoneNumber"" text,
+                ""address"" text,
+                ""googleMapsUrl"" text,
+                ""openingHours"" text,
+                ""socialLinksJson"" text DEFAULT '[]',
+                ""usefulLinksJson"" text DEFAULT '[]',
+                ""galleryImagesJson"" text DEFAULT '[]',
+                ""theme"" text DEFAULT 'emerald',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""isDeliveryEnabled"" boolean DEFAULT false;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""shareMyMenu"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""deliveryFee"" numeric DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""freeDeliveryAbove"" numeric DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""minDeliveryOrder"" numeric DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""requireOrderConfirmation"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""phoneNumber"" text;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""address"" text;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""googleMapsUrl"" text;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""openingHours"" text;
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""socialLinksJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""usefulLinksJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""galleryImagesJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""theme"" text DEFAULT 'emerald';
+            ALTER TABLE IF EXISTS ""RestaurantMenuSettings"" ADD COLUMN IF NOT EXISTS ""footerText"" text;
 
         ");
         logger.LogInformation("Database schema verified: POSProduct, RestaurantOrder, TableReservation, Bills, and Packing tables ready.");

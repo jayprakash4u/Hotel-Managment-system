@@ -388,6 +388,27 @@ export const RestaurantKitchenDisplayIcon: React.FC<IconProps> = ({ className = 
   </svg>
 );
 
+// 15B. Restaurant: Bar Display System (Cocktail / Wine Glass / BDS)
+export const RestaurantBarDisplayIcon: React.FC<IconProps> = ({ className = 'w-6 h-6', ...props }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.25"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    {/* Martini / Cocktail Glass Bowl */}
+    <path d="M4 4h16l-8 8-8-8z" />
+    {/* Stem & Base */}
+    <path d="M12 12v8M8 20h8" />
+    {/* Beverage Liquid Level & Olive Pick */}
+    <path d="M7 7h10M17 3l-6 6" />
+  </svg>
+);
+
 // 16. Restaurant: Kitchen Order Ticket / KOT (Orders)
 export const RestaurantOrderTicketIcon: React.FC<IconProps> = ({ className = 'w-6 h-6', ...props }) => (
   <svg

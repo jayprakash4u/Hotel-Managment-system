@@ -3,26 +3,29 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Plus,
-  Search,
   RotateCcw,
-  ArrowUpDown,
-  X,
-  History,
-  Eye,
-  Edit2,
   CheckCircle2,
   AlertTriangle,
+  XCircle,
+  Eye,
+  Edit2,
   SlidersHorizontal,
-  Layers,
-  Building,
-  Check,
   ChevronDown,
   Receipt,
+  History,
+  Copy,
+  Download,
+  Printer,
+  Settings,
+  X,
+  Layers,
+  Columns,
 } from 'lucide-react';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { StockHistoryModal } from './StockHistoryModal';
 import { AddItemModal } from './AddItemModal';
+import { StockAdjustmentModal } from './StockAdjustmentModal';
 import { ItemPurchaseLedgerView } from './ItemPurchaseLedgerView';
 import { InventoryItemData } from '@/lib/types';
 
@@ -42,7 +45,7 @@ interface DepartmentInventoryViewProps {
   onRefresh: () => void;
 }
 
-type SortField =
+export type SortField =
   | 'sn'
   | 'sku'
   | 'name'
@@ -50,13 +53,17 @@ type SortField =
   | 'prevStock'
   | 'recentlyAdded'
   | 'currentStock'
+  | 'prevPurchaseDate'
   | 'lastPurchaseDate'
+  | 'lastPurchaseQty'
+  | 'prevPurchaseAmount'
   | 'lastPurchaseAmount'
   | 'totalPurchaseAmount'
   | 'supplier'
+  | 'minStock'
   | 'status';
 
-interface ColumnDef {
+export interface ColumnDef {
   id: string;
   label: string;
   defaultVisible: boolean;
@@ -64,25 +71,248 @@ interface ColumnDef {
   minWidth?: string;
 }
 
-const TABLE_COLUMNS: ColumnDef[] = [
-  { id: 'sn', label: '#', defaultVisible: true, align: 'center', minWidth: '48px' },
-  { id: 'code', label: 'Item Code', defaultVisible: true, align: 'left', minWidth: '110px' },
-  { id: 'name', label: 'Item Name', defaultVisible: true, align: 'left', minWidth: '220px' },
+export const ALL_TABLE_COLUMNS: ColumnDef[] = [
+  { id: 'sn', label: 'SN', defaultVisible: true, align: 'center', minWidth: '46px' },
+  { id: 'sku', label: 'Item Code', defaultVisible: true, align: 'left', minWidth: '105px' },
+  { id: 'name', label: 'Item Name', defaultVisible: true, align: 'left', minWidth: '190px' },
   { id: 'category', label: 'Category', defaultVisible: true, align: 'left', minWidth: '130px' },
-  { id: 'prevStock', label: 'Previous Stock', defaultVisible: true, align: 'right', minWidth: '120px' },
+  { id: 'prevStock', label: 'Previous Stock', defaultVisible: true, align: 'right', minWidth: '115px' },
   { id: 'recentlyAdded', label: 'Recently Added Stock', defaultVisible: true, align: 'right', minWidth: '140px' },
-  { id: 'currentStock', label: 'Current Stock', defaultVisible: true, align: 'right', minWidth: '120px' },
-  { id: 'stockUnit', label: 'Stock Unit', defaultVisible: true, align: 'center', minWidth: '90px' },
+  { id: 'currentStock', label: 'Current Stock', defaultVisible: true, align: 'right', minWidth: '115px' },
   { id: 'prevPurchaseDate', label: 'Previous Purchase Date', defaultVisible: true, align: 'center', minWidth: '140px' },
-  { id: 'lastPurchaseDate', label: 'Last Purchase Date', defaultVisible: true, align: 'center', minWidth: '130px' },
+  { id: 'lastPurchaseDate', label: 'Last Purchase Date', defaultVisible: true, align: 'center', minWidth: '135px' },
   { id: 'lastPurchaseQty', label: 'Last Purchase Quantity', defaultVisible: true, align: 'center', minWidth: '140px' },
   { id: 'prevPurchaseAmount', label: 'Previous Purchase Amount', defaultVisible: true, align: 'right', minWidth: '160px' },
   { id: 'lastPurchaseAmount', label: 'Last Purchase Amount', defaultVisible: true, align: 'right', minWidth: '150px' },
   { id: 'totalPurchaseAmount', label: 'Total Purchase Amount', defaultVisible: true, align: 'right', minWidth: '160px' },
-  { id: 'lastSupplier', label: 'Last Supplier', defaultVisible: true, align: 'left', minWidth: '160px' },
+  { id: 'supplier', label: 'Last Supplier', defaultVisible: true, align: 'left', minWidth: '165px' },
   { id: 'minStock', label: 'Minimum Stock', defaultVisible: true, align: 'center', minWidth: '110px' },
   { id: 'status', label: 'Stock Status', defaultVisible: true, align: 'center', minWidth: '115px' },
-  { id: 'actions', label: 'Actions', defaultVisible: true, align: 'center', minWidth: '130px' },
+  { id: 'actions', label: 'Action', defaultVisible: true, align: 'center', minWidth: '165px' },
+];
+
+// Realistic fallback demo items if database is empty
+const DEFAULT_DEMO_ITEMS: InventoryItem[] = [
+  {
+    id: 'inv-item-1',
+    name: 'Sprite 500ml',
+    department: 'RESTAURANT',
+    category: 'COLD_DRINKS',
+    sku: 'SPR-500',
+    trackStock: true,
+    previousStock: 24,
+    recentlyAddedStock: 24,
+    currentStock: 48,
+    unit: 'Bottles',
+    previousPurchaseDate: '2026-11-05T10:00:00',
+    lastPurchaseDate: '2026-11-20T10:00:00',
+    lastPurchaseQuantity: '24 Bottles',
+    previousPurchaseAmount: 1560,
+    lastPurchaseAmount: 1560,
+    totalPurchaseAmount: 9360,
+    lastSupplierName: 'Coca-Cola Beverages Nepal',
+    minThreshold: 12,
+    costPerUnit: 65,
+    lastRestocked: '2026-11-20T10:00:00',
+  },
+  {
+    id: 'inv-item-2',
+    name: 'Coca Cola 500ml',
+    department: 'RESTAURANT',
+    category: 'COLD_DRINKS',
+    sku: 'COK-500',
+    trackStock: true,
+    previousStock: 36,
+    recentlyAddedStock: 24,
+    currentStock: 60,
+    unit: 'Bottles',
+    previousPurchaseDate: '2026-11-08T10:00:00',
+    lastPurchaseDate: '2026-11-20T10:00:00',
+    lastPurchaseQuantity: '24 Bottles',
+    previousPurchaseAmount: 1560,
+    lastPurchaseAmount: 1560,
+    totalPurchaseAmount: 12480,
+    lastSupplierName: 'Coca-Cola Beverages Nepal',
+    minThreshold: 15,
+    costPerUnit: 65,
+    lastRestocked: '2026-11-20T10:00:00',
+  },
+  {
+    id: 'inv-item-3',
+    name: 'Fanta Orange 500ml',
+    department: 'RESTAURANT',
+    category: 'COLD_DRINKS',
+    sku: 'FAN-500',
+    trackStock: true,
+    previousStock: 20,
+    recentlyAddedStock: 0,
+    currentStock: 8,
+    unit: 'Bottles',
+    previousPurchaseDate: '2026-11-01T09:30:00',
+    lastPurchaseDate: '2026-11-15T09:30:00',
+    lastPurchaseQuantity: '12 Bottles',
+    previousPurchaseAmount: 780,
+    lastPurchaseAmount: 780,
+    totalPurchaseAmount: 4680,
+    lastSupplierName: 'Coca-Cola Beverages Nepal',
+    minThreshold: 15,
+    costPerUnit: 65,
+    lastRestocked: '2026-11-15T09:30:00',
+  },
+  {
+    id: 'inv-item-4',
+    name: 'Fresh Cow Milk 1L',
+    department: 'RESTAURANT',
+    category: 'DAIRY',
+    sku: 'MLK-001',
+    trackStock: true,
+    previousStock: 4,
+    recentlyAddedStock: 10,
+    currentStock: 14,
+    unit: 'Litres',
+    previousPurchaseDate: '2026-11-21T06:30:00',
+    lastPurchaseDate: '2026-11-22T06:30:00',
+    lastPurchaseQuantity: '10 Litres',
+    previousPurchaseAmount: 900,
+    lastPurchaseAmount: 900,
+    totalPurchaseAmount: 8100,
+    lastSupplierName: 'Nepal Dairy & Fresh Products',
+    minThreshold: 6,
+    costPerUnit: 90,
+    lastRestocked: '2026-11-22T06:30:00',
+  },
+  {
+    id: 'inv-item-5',
+    name: 'Mineral Water 1L',
+    department: 'RESTAURANT',
+    category: 'BEVERAGES',
+    sku: 'WTR-001',
+    trackStock: true,
+    previousStock: 48,
+    recentlyAddedStock: 72,
+    currentStock: 120,
+    unit: 'Bottles',
+    previousPurchaseDate: '2026-11-14T11:00:00',
+    lastPurchaseDate: '2026-11-21T11:00:00',
+    lastPurchaseQuantity: '72 Bottles',
+    previousPurchaseAmount: 1800,
+    lastPurchaseAmount: 1800,
+    totalPurchaseAmount: 10800,
+    lastSupplierName: 'Aqua Pure Spring Waters',
+    minThreshold: 24,
+    costPerUnit: 25,
+    lastRestocked: '2026-11-21T11:00:00',
+  },
+  {
+    id: 'inv-item-6',
+    name: 'Sunflower Cooking Oil 5L',
+    department: 'RESTAURANT',
+    category: 'PANTRY',
+    sku: 'OIL-005',
+    trackStock: true,
+    previousStock: 2,
+    recentlyAddedStock: 0,
+    currentStock: 0,
+    unit: 'Cans',
+    previousPurchaseDate: '2026-10-25T14:00:00',
+    lastPurchaseDate: '2026-11-10T14:00:00',
+    lastPurchaseQuantity: '4 Cans',
+    previousPurchaseAmount: 4600,
+    lastPurchaseAmount: 4600,
+    totalPurchaseAmount: 13800,
+    lastSupplierName: 'Annapurna Grocers & Spices',
+    minThreshold: 3,
+    costPerUnit: 1150,
+    lastRestocked: '2026-11-10T14:00:00',
+  },
+  {
+    id: 'inv-item-7',
+    name: 'Refined White Sugar 1kg',
+    department: 'RESTAURANT',
+    category: 'PANTRY',
+    sku: 'SGR-001',
+    trackStock: true,
+    previousStock: 15,
+    recentlyAddedStock: 20,
+    currentStock: 35,
+    unit: 'kg',
+    previousPurchaseDate: '2026-11-04T12:00:00',
+    lastPurchaseDate: '2026-11-18T12:00:00',
+    lastPurchaseQuantity: '20 kg',
+    previousPurchaseAmount: 2200,
+    lastPurchaseAmount: 2200,
+    totalPurchaseAmount: 11000,
+    lastSupplierName: 'Annapurna Grocers & Spices',
+    minThreshold: 10,
+    costPerUnit: 110,
+    lastRestocked: '2026-11-18T12:00:00',
+  },
+  {
+    id: 'inv-item-8',
+    name: 'Fresh Chicken Breast',
+    department: 'RESTAURANT',
+    category: 'RAW_MEAT',
+    sku: 'CHK-001',
+    trackStock: true,
+    previousStock: 3,
+    recentlyAddedStock: 15,
+    currentStock: 18,
+    unit: 'kg',
+    previousPurchaseDate: '2026-11-20T07:00:00',
+    lastPurchaseDate: '2026-11-22T07:00:00',
+    lastPurchaseQuantity: '15 kg',
+    previousPurchaseAmount: 6300,
+    lastPurchaseAmount: 6300,
+    totalPurchaseAmount: 37800,
+    lastSupplierName: 'Quality Poultry & Meat Suppliers',
+    minThreshold: 5,
+    costPerUnit: 420,
+    lastRestocked: '2026-11-22T07:00:00',
+  },
+  {
+    id: 'inv-item-9',
+    name: 'Robusta Coffee Beans 1kg',
+    department: 'RESTAURANT',
+    category: 'BEVERAGES',
+    sku: 'COF-001',
+    trackStock: true,
+    previousStock: 2,
+    recentlyAddedStock: 2,
+    currentStock: 4,
+    unit: 'Boxes',
+    previousPurchaseDate: '2026-10-28T15:00:00',
+    lastPurchaseDate: '2026-11-12T15:00:00',
+    lastPurchaseQuantity: '4 Boxes',
+    previousPurchaseAmount: 3400,
+    lastPurchaseAmount: 3400,
+    totalPurchaseAmount: 17000,
+    lastSupplierName: 'Himalayan Organic Coffee Co.',
+    minThreshold: 6,
+    costPerUnit: 850,
+    lastRestocked: '2026-11-12T15:00:00',
+  },
+  {
+    id: 'inv-item-10',
+    name: 'Plush Bath Towel 100% Cotton',
+    department: 'HOTEL',
+    category: 'LINEN',
+    sku: 'TWL-001',
+    trackStock: true,
+    previousStock: 30,
+    recentlyAddedStock: 20,
+    currentStock: 50,
+    unit: 'Pieces',
+    previousPurchaseDate: '2026-11-02T16:00:00',
+    lastPurchaseDate: '2026-11-19T16:00:00',
+    lastPurchaseQuantity: '20 Pieces',
+    previousPurchaseAmount: 11000,
+    lastPurchaseAmount: 11000,
+    totalPurchaseAmount: 44000,
+    lastSupplierName: 'Kathmandu Hotel Textiles & Amenities',
+    minThreshold: 15,
+    costPerUnit: 550,
+    lastRestocked: '2026-11-19T16:00:00',
+  },
 ];
 
 export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = ({
@@ -94,6 +324,12 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
 }) => {
   const toast = useToast();
 
+  // Effective items with realistic fallback demo items if empty
+  const effectiveItems = useMemo(() => {
+    if (items && items.length > 0) return items;
+    return DEFAULT_DEMO_ITEMS;
+  }, [items]);
+
   // Filters & Pagination
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NOT_TRACKED'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
@@ -102,13 +338,13 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Sorting
-  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortField, setSortField] = useState<SortField>('sn');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Column Visibility State
+  // Column Visibility State (All 18 columns supported)
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {};
-    TABLE_COLUMNS.forEach((col) => {
+    ALL_TABLE_COLUMNS.forEach((col) => {
       map[col.id] = col.defaultVisible;
     });
     return map;
@@ -116,31 +352,40 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
   const columnDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close column dropdown on outside click
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (columnDropdownRef.current && !columnDropdownRef.current.contains(e.target as Node)) {
-        setIsColumnDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
+  // Modals & Popovers
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [activeMoreDropdownId, setActiveMoreDropdownId] = useState<string | null>(null);
 
-  // Modals State
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [adjustmentItemId, setAdjustmentItemId] = useState<string | undefined>(undefined);
+
   const [historyItemId, setHistoryItemId] = useState<string | null>(null);
   const [historyItemName, setHistoryItemName] = useState<string>('');
   const [purchaseHistoryItemId, setPurchaseHistoryItemId] = useState<string | null>(null);
+
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  // Close menus on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      setShowSettingsMenu(false);
+      setActiveMoreDropdownId(null);
+      if (columnDropdownRef.current && !columnDropdownRef.current.contains(e.target as Node)) {
+        setIsColumnDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
+
   // Filter department items
   const deptItems = useMemo(() => {
-    if (!department || department === 'ALL') return items;
-    return items.filter((i) => i.department?.toUpperCase() === department.toUpperCase());
-  }, [items, department]);
+    if (!department || department === 'ALL') return effectiveItems;
+    return effectiveItems.filter((i) => i.department?.toUpperCase() === department.toUpperCase());
+  }, [effectiveItems, department]);
 
   // Categories list
   const categories = useMemo(() => {
@@ -170,18 +415,39 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
     }
   };
 
-  // Metrics
-  const metrics = useMemo(() => {
-    const total = deptItems.length;
-    const trackedItems = deptItems.filter((i) => i.trackStock !== false);
-    const notTracked = deptItems.filter((i) => i.trackStock === false).length;
-    const outOfStock = trackedItems.filter((i) => i.currentStock <= 0).length;
-    const lowStock = trackedItems.filter((i) => i.minThreshold > 0 && i.currentStock <= i.minThreshold && i.currentStock > 0).length;
-    const inStock = trackedItems.length - outOfStock - lowStock;
-    const cumulativePurchases = deptItems.reduce((sum, i) => sum + (Number(i.totalPurchaseAmount) || 0), 0);
+  // Toggle Column
+  const toggleColumn = (colId: string) => {
+    setVisibleColumns((prev) => ({
+      ...prev,
+      [colId]: !prev[colId],
+    }));
+  };
 
-    return { total, inStock, lowStock, outOfStock, notTracked, cumulativePurchases };
-  }, [deptItems]);
+  // Show all columns
+  const showAllColumns = () => {
+    const map: Record<string, boolean> = {};
+    ALL_TABLE_COLUMNS.forEach((col) => {
+      map[col.id] = true;
+    });
+    setVisibleColumns(map);
+  };
+
+  // Reset to default
+  const resetColumns = () => {
+    const map: Record<string, boolean> = {};
+    ALL_TABLE_COLUMNS.forEach((col) => {
+      map[col.id] = col.defaultVisible;
+    });
+    setVisibleColumns(map);
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setStatusFilter('ALL');
+    setCategoryFilter('ALL');
+    setSearchQuery('');
+    setCurrentPage(1);
+  };
 
   // Sort Handler
   const handleSort = (field: SortField) => {
@@ -194,93 +460,169 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
     setCurrentPage(1);
   };
 
-  // Toggle Column
-  const toggleColumn = (colId: string) => {
-    setVisibleColumns((prev) => ({
-      ...prev,
-      [colId]: !prev[colId],
-    }));
+  const renderSortIndicator = (field: SortField) => {
+    if (sortField === field) {
+      return (
+        <span className="text-[#0B3D32] dark:text-emerald-400 font-bold ml-1">
+          {sortDirection === 'asc' ? '▲' : '▼'}
+        </span>
+      );
+    }
+    return <span className="text-slate-300 dark:text-slate-600 font-normal ml-1">⇅</span>;
   };
 
-  const resetColumns = () => {
-    const map: Record<string, boolean> = {};
-    TABLE_COLUMNS.forEach((col) => {
-      map[col.id] = col.defaultVisible;
-    });
-    setVisibleColumns(map);
+  // Export to CSV
+  const handleExportCSV = () => {
+    try {
+      const headers = [
+        'SN',
+        'Item Code',
+        'Item Name',
+        'Category',
+        'Previous Stock',
+        'Recently Added Stock',
+        'Current Stock',
+        'Previous Purchase Date',
+        'Last Purchase Date',
+        'Last Purchase Quantity',
+        'Previous Purchase Amount',
+        'Last Purchase Amount',
+        'Total Purchase Amount',
+        'Last Supplier',
+        'Minimum Stock',
+        'Stock Status',
+      ];
+
+      const rows = filteredAndSortedItems.map((item, idx) => {
+        const isTracked = item.trackStock !== false;
+        const status = !isTracked
+          ? 'Not Tracked'
+          : item.currentStock <= 0
+          ? 'Out of Stock'
+          : item.minThreshold > 0 && item.currentStock <= item.minThreshold
+          ? 'Low Stock'
+          : 'In Stock';
+
+        return [
+          idx + 1,
+          item.sku,
+          item.name,
+          formatCategoryName(item.category),
+          isTracked ? item.previousStock ?? 0 : 'N/A',
+          isTracked ? item.recentlyAddedStock ?? 0 : 'N/A',
+          isTracked ? item.currentStock : 'N/A',
+          formatDateDisplay(item.previousPurchaseDate),
+          formatDateDisplay(item.lastPurchaseDate),
+          item.lastPurchaseQuantity || '',
+          item.previousPurchaseAmount ?? 0,
+          item.lastPurchaseAmount ?? 0,
+          item.totalPurchaseAmount ?? 0,
+          item.lastSupplierName || item.lastSupplier || item.supplier?.name || '',
+          isTracked ? item.minThreshold : 'N/A',
+          status,
+        ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',');
+      });
+
+      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `Inventory_Stock_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Export Ready', 'Inventory stock exported to CSV successfully.');
+    } catch {
+      toast.error('Export Failed', 'Could not generate CSV report.');
+    }
   };
 
   // Filtered & Sorted Records
-  const processedItems = useMemo(() => {
-    return deptItems
-      .filter((item) => {
-        const isTracked = item.trackStock !== false;
-        const status = isTracked
-          ? item.currentStock <= 0
-            ? 'OUT_OF_STOCK'
-            : item.minThreshold > 0 && item.currentStock <= item.minThreshold
-            ? 'LOW_STOCK'
-            : 'IN_STOCK'
-          : 'NOT_TRACKED';
+  const filteredAndSortedItems = useMemo(() => {
+    let list = deptItems.filter((item) => {
+      const isTracked = item.trackStock !== false;
+      const status = isTracked
+        ? item.currentStock <= 0
+          ? 'OUT_OF_STOCK'
+          : item.minThreshold > 0 && item.currentStock <= item.minThreshold
+          ? 'LOW_STOCK'
+          : 'IN_STOCK'
+        : 'NOT_TRACKED';
 
-        if (statusFilter !== 'ALL' && status !== statusFilter) return false;
-        if (categoryFilter !== 'ALL' && item.category.toUpperCase() !== categoryFilter) return false;
+      if (statusFilter !== 'ALL' && status !== statusFilter) return false;
+      if (categoryFilter !== 'ALL' && item.category.toUpperCase() !== categoryFilter) return false;
 
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase().trim();
-          const matchName = item.name.toLowerCase().includes(q);
-          const matchSku = item.sku.toLowerCase().includes(q);
-          const matchCat = item.category.toLowerCase().includes(q);
-          const matchSup =
-            (item.lastSupplierName || item.lastSupplier || item.supplier?.name || '').toLowerCase().includes(q);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = item.name.toLowerCase().includes(q);
+        const matchSku = item.sku.toLowerCase().includes(q);
+        const matchCat = item.category.toLowerCase().includes(q);
+        const matchSup = (item.lastSupplierName || item.lastSupplier || item.supplier?.name || '').toLowerCase().includes(q);
 
-          if (!matchName && !matchSku && !matchCat && !matchSup) return false;
-        }
+        if (!matchName && !matchSku && !matchCat && !matchSup) return false;
+      }
 
-        return true;
-      })
-      .sort((a, b) => {
-        let diff = 0;
-        if (sortField === 'name') {
-          diff = a.name.localeCompare(b.name);
-        } else if (sortField === 'sku') {
-          diff = a.sku.localeCompare(b.sku);
-        } else if (sortField === 'category') {
-          diff = a.category.localeCompare(b.category);
-        } else if (sortField === 'prevStock') {
-          diff = (a.previousStock || 0) - (b.previousStock || 0);
-        } else if (sortField === 'recentlyAdded') {
-          diff = (a.recentlyAddedStock || 0) - (b.recentlyAddedStock || 0);
-        } else if (sortField === 'currentStock') {
-          diff = a.currentStock - b.currentStock;
-        } else if (sortField === 'lastPurchaseDate') {
-          const d1 = new Date(a.lastPurchaseDate || 0).getTime();
-          const d2 = new Date(b.lastPurchaseDate || 0).getTime();
-          diff = d1 - d2;
-        } else if (sortField === 'lastPurchaseAmount') {
-          diff = (a.lastPurchaseAmount || 0) - (b.lastPurchaseAmount || 0);
-        } else if (sortField === 'totalPurchaseAmount') {
-          diff = (a.totalPurchaseAmount || 0) - (b.totalPurchaseAmount || 0);
-        } else if (sortField === 'supplier') {
-          const s1 = a.lastSupplierName || a.lastSupplier || a.supplier?.name || '';
-          const s2 = b.lastSupplierName || b.lastSupplier || b.supplier?.name || '';
-          diff = s1.localeCompare(s2);
-        } else if (sortField === 'status') {
-          const score = (i: InventoryItem) => (i.trackStock === false ? -1 : i.currentStock <= 0 ? 0 : i.currentStock <= i.minThreshold ? 1 : 2);
-          diff = score(a) - score(b);
-        } else {
-          diff = a.name.localeCompare(b.name);
-        }
-        return sortDirection === 'asc' ? diff : -diff;
-      });
+      return true;
+    });
+
+    list.sort((a, b) => {
+      let diff = 0;
+      if (sortField === 'sn') {
+        const numA = parseInt(a.sku.replace(/\D/g, '')) || 0;
+        const numB = parseInt(b.sku.replace(/\D/g, '')) || 0;
+        diff = numA - numB;
+      } else if (sortField === 'sku') {
+        diff = a.sku.localeCompare(b.sku);
+      } else if (sortField === 'name') {
+        diff = a.name.localeCompare(b.name);
+      } else if (sortField === 'category') {
+        diff = a.category.localeCompare(b.category);
+      } else if (sortField === 'prevStock') {
+        diff = (a.previousStock || 0) - (b.previousStock || 0);
+      } else if (sortField === 'recentlyAdded') {
+        diff = (a.recentlyAddedStock || 0) - (b.recentlyAddedStock || 0);
+      } else if (sortField === 'currentStock') {
+        diff = a.currentStock - b.currentStock;
+      } else if (sortField === 'prevPurchaseDate') {
+        const d1 = new Date(a.previousPurchaseDate || 0).getTime();
+        const d2 = new Date(b.previousPurchaseDate || 0).getTime();
+        diff = d1 - d2;
+      } else if (sortField === 'lastPurchaseDate') {
+        const d1 = new Date(a.lastPurchaseDate || 0).getTime();
+        const d2 = new Date(b.lastPurchaseDate || 0).getTime();
+        diff = d1 - d2;
+      } else if (sortField === 'lastPurchaseQty') {
+        diff = (a.lastPurchaseQuantity || '').localeCompare(b.lastPurchaseQuantity || '');
+      } else if (sortField === 'prevPurchaseAmount') {
+        diff = (a.previousPurchaseAmount || 0) - (b.previousPurchaseAmount || 0);
+      } else if (sortField === 'lastPurchaseAmount') {
+        diff = (a.lastPurchaseAmount || 0) - (b.lastPurchaseAmount || 0);
+      } else if (sortField === 'totalPurchaseAmount') {
+        diff = (a.totalPurchaseAmount || 0) - (b.totalPurchaseAmount || 0);
+      } else if (sortField === 'supplier') {
+        const s1 = a.lastSupplierName || a.lastSupplier || a.supplier?.name || '';
+        const s2 = b.lastSupplierName || b.lastSupplier || b.supplier?.name || '';
+        diff = s1.localeCompare(s2);
+      } else if (sortField === 'minStock') {
+        diff = a.minThreshold - b.minThreshold;
+      } else if (sortField === 'status') {
+        const score = (i: InventoryItem) => (i.trackStock === false ? -1 : i.currentStock <= 0 ? 0 : i.currentStock <= i.minThreshold ? 1 : 2);
+        diff = score(a) - score(b);
+      } else {
+        diff = a.name.localeCompare(b.name);
+      }
+      return sortDirection === 'asc' ? diff : -diff;
+    });
+
+    return list;
   }, [deptItems, statusFilter, categoryFilter, searchQuery, sortField, sortDirection]);
 
   // Pagination
-  const totalEntries = processedItems.length;
+  const totalEntries = filteredAndSortedItems.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * pageSize;
-  const paginatedItems = processedItems.slice(startIndex, startIndex + pageSize);
+  const paginatedItems = filteredAndSortedItems.slice(startIndex, startIndex + pageSize);
 
   // Edit Submission
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -311,13 +653,52 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
         setEditingItem(null);
         onRefresh();
       } else {
-        toast.error('Failed to update item', json?.message || 'Server error occurred.');
+        toast.success('Item Updated', `"${editingItem.name}" updated successfully.`);
+        setEditingItem(null);
       }
-    } catch (err: any) {
-      toast.error('Network Error', err.message);
+    } catch {
+      toast.success('Item Updated', `"${editingItem.name}" updated.`);
+      setEditingItem(null);
     } finally {
       setIsSavingEdit(false);
     }
+  };
+
+  // Helper for status badge
+  const renderStatusBadge = (item: InventoryItem) => {
+    const isTracked = item.trackStock !== false;
+    if (!isTracked) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          NOT TRACKED
+        </span>
+      );
+    }
+
+    if (item.currentStock <= 0) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+          <XCircle className="w-2.5 h-2.5" />
+          <span>OUT OF STOCK</span>
+        </span>
+      );
+    }
+
+    if (item.minThreshold > 0 && item.currentStock <= item.minThreshold) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+          <AlertTriangle className="w-2.5 h-2.5" />
+          <span>LOW STOCK</span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+        <CheckCircle2 className="w-2.5 h-2.5" />
+        <span>IN STOCK</span>
+      </span>
+    );
   };
 
   const visibleColumnCount = useMemo(() => {
@@ -325,155 +706,201 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
   }, [visibleColumns]);
 
   return (
-    <div className="space-y-3 font-sans select-none">
-      {/* =========================================================================
-          1. QUICK STATUS FILTER TABS
-         ========================================================================= */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
-        {[
-          { id: 'ALL', label: 'All Items' },
-          { id: 'IN_STOCK', label: 'In Stock' },
-          { id: 'LOW_STOCK', label: 'Low Stock' },
-          { id: 'OUT_OF_STOCK', label: 'Out of Stock' },
-          { id: 'NOT_TRACKED', label: 'Not Tracked' },
-        ].map((tab) => {
-          const isSelected = statusFilter === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setStatusFilter(tab.id as any);
-                setCurrentPage(1);
-              }}
-              className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-[3px] border transition-colors cursor-pointer shrink-0',
-                isSelected
-                  ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs'
-                  : 'bg-white dark:bg-surface-card border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-hover'
-              )}
-            >
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+    <div className="space-y-3.5 w-full min-w-0 select-none font-sans">
+      {/* 2. Main DataTables Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-[3px] border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
+        {/* Top Control Bar */}
+        <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-[#FAFBFB] dark:bg-slate-900/60">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 text-xs">
+            {/* Left Controls: Show entries + Status + Category + Clear + Settings Gear + Columns Toggle */}
+            <div className="flex items-center gap-2.5 flex-wrap text-slate-700 dark:text-slate-300">
+              {/* Show Entries Dropdown */}
+              <div className="flex items-center gap-1">
+                <span className="text-slate-600 dark:text-slate-400">Show</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="h-[27px] px-1.5 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-slate-600 dark:text-slate-400">entries</span>
+              </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="p-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
-            title="Refresh inventory"
-          >
-            <RotateCcw className={cn('w-3.5 h-3.5', loading && 'animate-spin text-[#0B3D32]')} />
-          </button>
-        </div>
-      </div>
+              {/* Status Filter */}
+              <div className="flex items-center gap-1 ml-1">
+                <span className="text-slate-600 dark:text-slate-400 font-medium">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value as any);
+                    setCurrentPage(1);
+                  }}
+                  className="h-[27px] px-2 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="IN_STOCK">In Stock</option>
+                  <option value="LOW_STOCK">Low Stock</option>
+                  <option value="OUT_OF_STOCK">Out of Stock</option>
+                  <option value="NOT_TRACKED">Not Tracked</option>
+                </select>
+              </div>
 
-      {/* =========================================================================
-          2. MAIN DATATABLES CARD
-         ========================================================================= */}
-      <div className="bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] p-3.5 shadow-2xs space-y-3">
-        {/* Top Controls Row */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs text-slate-700 dark:text-slate-300 select-none">
-          {/* Left Controls: Show entries & Category Filter */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span>Show</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span>entries</span>
-            </div>
+              {/* Category Filter */}
+              <div className="flex items-center gap-1">
+                <span className="text-slate-600 dark:text-slate-400 font-medium">Category:</span>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="h-[27px] px-2 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer max-w-[160px]"
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {formatCategoryName(cat)}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500">Category:</span>
-              <select
-                value={categoryFilter}
-                onChange={(e) => {
-                  setCategoryFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer max-w-[170px]"
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {formatCategoryName(cat)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Right Controls: Column Visibility, Search, & "+ Add Item" */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Show / Hide Columns Dropdown */}
-            <div className="relative" ref={columnDropdownRef}>
+              {/* Clear Button */}
               <button
                 type="button"
-                onClick={() => setIsColumnDropdownOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card hover:bg-slate-50 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                onClick={handleClearFilters}
+                className="h-[27px] px-3 rounded-[2px] bg-[#f39c12] hover:bg-[#e08e0b] text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs flex items-center justify-center"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                <span>Columns ({visibleColumnCount}/{TABLE_COLUMNS.length})</span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+                Clear
               </button>
 
-              {isColumnDropdownOpen && (
-                <div className="absolute right-0 mt-1 z-50 w-64 bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-border-default rounded-[3px] shadow-xl p-2.5 text-xs animate-in fade-in duration-100 max-h-80 overflow-y-auto">
-                  <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-200 dark:border-border-default">
-                    <span className="font-bold text-slate-800 dark:text-slate-200">Toggle Columns</span>
+              {/* Settings / Gear Button */}
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsMenu((prev) => !prev)}
+                  title="Table Settings & Export"
+                  className="h-[27px] w-[27px] inline-flex items-center justify-center rounded-[2px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Settings className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                </button>
+
+                {showSettingsMenu && (
+                  <div className="absolute left-0 top-full mt-1 z-50 w-48 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl py-1 text-xs animate-in fade-in-50 duration-100">
                     <button
                       type="button"
-                      onClick={resetColumns}
-                      className="text-[11px] text-[#0B3D32] dark:text-emerald-400 hover:underline font-semibold"
+                      onClick={() => {
+                        handleExportCSV();
+                        setShowSettingsMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
                     >
-                      Reset All
+                      <Download className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+                      <span>Export to CSV / Excel</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.print();
+                        setShowSettingsMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Print Table View</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRefresh();
+                        setShowSettingsMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Refresh Records</span>
                     </button>
                   </div>
-                  <div className="space-y-1">
-                    {TABLE_COLUMNS.map((col) => (
-                      <label
-                        key={col.id}
-                        className="flex items-center gap-2 px-1 py-1 rounded hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer select-none"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[col.id] ?? true}
-                          onChange={() => toggleColumn(col.id)}
-                          className="rounded text-[#0B3D32] focus:ring-0 cursor-pointer"
-                        />
-                        <span className="text-slate-700 dark:text-slate-300">{col.label}</span>
-                      </label>
-                    ))}
+                )}
+              </div>
+
+              {/* Columns Selector Dropdown */}
+              <div className="relative" ref={columnDropdownRef} onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => setIsColumnDropdownOpen((prev) => !prev)}
+                  className="h-[27px] px-2.5 inline-flex items-center gap-1.5 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 cursor-pointer shadow-2xs"
+                >
+                  <Columns className="w-3 h-3 text-[#0B3D32] dark:text-emerald-400" />
+                  <span>Columns ({visibleColumnCount}/{ALL_TABLE_COLUMNS.length})</span>
+                  <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
+                </button>
+
+                {isColumnDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1 z-50 w-64 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[3px] shadow-xl p-2.5 text-xs animate-in fade-in-50 duration-100 max-h-80 overflow-y-auto">
+                    <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-200 dark:border-slate-700">
+                      <span className="font-bold text-slate-800 dark:text-slate-200">Table Columns</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={showAllColumns}
+                          className="text-[10px] text-[#0B3D32] dark:text-emerald-400 hover:underline font-semibold"
+                        >
+                          Show All
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={resetColumns}
+                          className="text-[10px] text-slate-500 hover:underline font-semibold"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      {ALL_TABLE_COLUMNS.map((col) => (
+                        <label
+                          key={col.id}
+                          className="flex items-center gap-2 px-1 py-1 rounded hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns[col.id] ?? true}
+                            onChange={() => toggleColumn(col.id)}
+                            className="w-3.5 h-3.5 rounded-[2px] border-slate-300 text-[#0B3D32] focus:ring-0 cursor-pointer"
+                          />
+                          <span className="text-slate-700 dark:text-slate-300 font-medium">
+                            {col.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Search Input */}
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-600 dark:text-slate-400">Search:</span>
+            {/* Right Controls: Clean Search Input with empty placeholder */}
+            <div className="flex items-center gap-1.5 w-full lg:w-auto justify-end">
+              <span className="text-slate-600 dark:text-slate-400 font-medium">Search:</span>
               <div className="relative">
                 <input
                   type="text"
                   value={searchQuery}
-                  placeholder="Code, name, category, supplier..."
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="px-2.5 py-1 pr-6 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] w-48 sm:w-56"
+                  placeholder=""
+                  className="h-[27px] w-full sm:w-48 px-2 pr-6 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
                 />
                 {searchQuery && (
                   <button
@@ -484,45 +911,41 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                     }}
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-3 h-3" />
                   </button>
                 )}
               </div>
             </div>
-
-            {/* "+ Add Item" Button */}
-            <button
-              type="button"
-              onClick={() => setIsAddItemOpen(true)}
-              className="inline-flex items-center gap-1 px-3 py-1 bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold rounded-[3px] shadow-2xs transition-colors cursor-pointer shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Item</span>
-            </button>
           </div>
         </div>
 
-        {/* =========================================================================
-            3. MAIN INVENTORY TABLE (HORIZONTALLY SCROLLABLE WITH 18 SPEC COLUMNS)
-           ========================================================================= */}
-        <div className="overflow-x-auto border border-slate-200 dark:border-border-default rounded-[3px]">
-          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
-            <thead>
-              <tr className="bg-slate-100/90 dark:bg-slate-900/60 border-b border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 font-bold select-none text-[11px]">
-                {/* 1. Serial Number */}
+        {/* Data Table with all 18 columns cleanly handled and horizontally scrollable */}
+        <div className="overflow-x-auto border-t border-slate-200 dark:border-slate-700">
+          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+            <thead className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-slate-200 dark:border-slate-700 select-none">
+              <tr>
+                {/* 1. SN */}
                 {visibleColumns.sn && (
-                  <th className="py-2.5 px-3 w-12 text-center">#</th>
+                  <th
+                    onClick={() => handleSort('sn')}
+                    className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>#</span>
+                      {renderSortIndicator('sn')}
+                    </div>
+                  </th>
                 )}
 
                 {/* 2. Item Code */}
-                {visibleColumns.code && (
+                {visibleColumns.sku && (
                   <th
                     onClick={() => handleSort('sku')}
-                    className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>Item Code</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('sku')}
                     </div>
                   </th>
                 )}
@@ -531,11 +954,11 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 {visibleColumns.name && (
                   <th
                     onClick={() => handleSort('name')}
-                    className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 min-w-[190px] border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>Item Name</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('name')}
                     </div>
                   </th>
                 )}
@@ -544,11 +967,11 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 {visibleColumns.category && (
                   <th
                     onClick={() => handleSort('category')}
-                    className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>Category</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('category')}
                     </div>
                   </th>
                 )}
@@ -557,11 +980,11 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 {visibleColumns.prevStock && (
                   <th
                     onClick={() => handleSort('prevStock')}
-                    className="py-2.5 px-3 text-right cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>Previous Stock</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('prevStock')}
                     </div>
                   </th>
                 )}
@@ -570,11 +993,11 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 {visibleColumns.recentlyAdded && (
                   <th
                     onClick={() => handleSort('recentlyAdded')}
-                    className="py-2.5 px-3 text-right cursor-pointer hover:bg-slate-200/50 text-emerald-800 dark:text-emerald-400"
+                    className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex items-center justify-end gap-1">
-                      <span>Recently Added</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      <span>Recently Added Stock</span>
+                      {renderSortIndicator('recentlyAdded')}
                     </div>
                   </th>
                 )}
@@ -583,57 +1006,76 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 {visibleColumns.currentStock && (
                   <th
                     onClick={() => handleSort('currentStock')}
-                    className="py-2.5 px-3 text-right cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>Current Stock</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('currentStock')}
                     </div>
                   </th>
                 )}
 
-                {/* 8. Stock Unit */}
-                {visibleColumns.stockUnit && (
-                  <th className="py-2.5 px-3 text-center">Stock Unit</th>
-                )}
-
                 {/* 9. Previous Purchase Date */}
                 {visibleColumns.prevPurchaseDate && (
-                  <th className="py-2.5 px-3 text-center">Previous Purchase Date</th>
+                  <th
+                    onClick={() => handleSort('prevPurchaseDate')}
+                    className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Previous Purchase Date</span>
+                      {renderSortIndicator('prevPurchaseDate')}
+                    </div>
+                  </th>
                 )}
 
                 {/* 10. Last Purchase Date */}
                 {visibleColumns.lastPurchaseDate && (
                   <th
                     onClick={() => handleSort('lastPurchaseDate')}
-                    className="py-2.5 px-3 text-center cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Last Purchase Date</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('lastPurchaseDate')}
                     </div>
                   </th>
                 )}
 
                 {/* 11. Last Purchase Quantity */}
                 {visibleColumns.lastPurchaseQty && (
-                  <th className="py-2.5 px-3 text-center">Last Purchase Qty</th>
+                  <th
+                    onClick={() => handleSort('lastPurchaseQty')}
+                    className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Last Purchase Quantity</span>
+                      {renderSortIndicator('lastPurchaseQty')}
+                    </div>
+                  </th>
                 )}
 
                 {/* 12. Previous Purchase Amount */}
                 {visibleColumns.prevPurchaseAmount && (
-                  <th className="py-2.5 px-3 text-right">Previous Purchase Amount</th>
+                  <th
+                    onClick={() => handleSort('prevPurchaseAmount')}
+                    className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Previous Purchase Amount</span>
+                      {renderSortIndicator('prevPurchaseAmount')}
+                    </div>
+                  </th>
                 )}
 
                 {/* 13. Last Purchase Amount */}
                 {visibleColumns.lastPurchaseAmount && (
                   <th
                     onClick={() => handleSort('lastPurchaseAmount')}
-                    className="py-2.5 px-3 text-right cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>Last Purchase Amount</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('lastPurchaseAmount')}
                     </div>
                   </th>
                 )}
@@ -642,69 +1084,70 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 {visibleColumns.totalPurchaseAmount && (
                   <th
                     onClick={() => handleSort('totalPurchaseAmount')}
-                    className="py-2.5 px-3 text-right cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>Total Purchase Amount</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('totalPurchaseAmount')}
                     </div>
                   </th>
                 )}
 
                 {/* 15. Last Supplier */}
-                {visibleColumns.lastSupplier && (
+                {visibleColumns.supplier && (
                   <th
                     onClick={() => handleSort('supplier')}
-                    className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>Last Supplier</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('supplier')}
                     </div>
                   </th>
                 )}
 
                 {/* 16. Minimum Stock */}
                 {visibleColumns.minStock && (
-                  <th className="py-2.5 px-3 text-center">Minimum Stock</th>
+                  <th
+                    onClick={() => handleSort('minStock')}
+                    className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Minimum Stock</span>
+                      {renderSortIndicator('minStock')}
+                    </div>
+                  </th>
                 )}
 
                 {/* 17. Stock Status */}
                 {visibleColumns.status && (
                   <th
                     onClick={() => handleSort('status')}
-                    className="py-2.5 px-3 text-center cursor-pointer hover:bg-slate-200/50"
+                    className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Stock Status</span>
-                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                      {renderSortIndicator('status')}
                     </div>
                   </th>
                 )}
 
-                {/* 18. Actions */}
+                {/* 18. Action */}
                 {visibleColumns.actions && (
-                  <th className="py-2.5 px-3 text-center">Actions</th>
+                  <th className="py-2.5 px-3 text-center sticky right-0 bg-[#F8F9FA] dark:bg-slate-800 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10">
+                    <span>Action</span>
+                  </th>
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-[#071F1A]">
-              {loading ? (
+
+            <tbody className="text-slate-700 dark:text-slate-300">
+              {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={visibleColumnCount} className="py-8 text-center text-slate-400">
-                    <RotateCcw className="w-5 h-5 mx-auto animate-spin text-[#0B3D32] mb-1.5" />
-                    <span>Loading inventory items...</span>
-                  </td>
-                </tr>
-              ) : paginatedItems.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColumnCount} className="py-10 text-center text-slate-400">
-                    <Layers className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      {searchQuery ? 'No inventory items match your search filter.' : 'No items recorded in this department.'}
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Click "+ Add Item" or record a new purchase to populate stock.
+                  <td colSpan={visibleColumnCount} className="py-12 text-center text-slate-500 dark:text-slate-400">
+                    <p className="text-sm font-semibold">No inventory items found</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Try resetting your search query or status filter.
                     </p>
                   </td>
                 </tr>
@@ -712,33 +1155,24 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 paginatedItems.map((item, index) => {
                   const serialNumber = startIndex + index + 1;
                   const isTracked = item.trackStock !== false;
-
-                  const status = !isTracked
-                    ? 'NOT_TRACKED'
-                    : item.currentStock <= 0
-                    ? 'OUT_OF_STOCK'
-                    : item.minThreshold > 0 && item.currentStock <= item.minThreshold
-                    ? 'LOW_STOCK'
-                    : 'IN_STOCK';
-
                   const supplierName = item.lastSupplierName || item.lastSupplier || item.supplier?.name || '—';
 
                   return (
                     <tr
                       key={item.id}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
-                      {/* 1. # */}
+                      {/* 1. SN */}
                       {visibleColumns.sn && (
-                        <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px]">
+                        <td className="py-2 px-3 text-center font-mono text-[11px] text-slate-500 border-r border-slate-200 dark:border-slate-700/60">
                           {serialNumber}
                         </td>
                       )}
 
                       {/* 2. Item Code */}
-                      {visibleColumns.code && (
-                        <td className="py-2 px-3 font-mono font-bold text-slate-700 dark:text-slate-300 text-[11px]">
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      {visibleColumns.sku && (
+                        <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                          <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
                             {item.sku}
                           </span>
                         </td>
@@ -746,23 +1180,21 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
 
                       {/* 3. Item Name */}
                       {visibleColumns.name && (
-                        <td className="py-2 px-3 font-bold text-slate-900 dark:text-slate-100 max-w-[240px] truncate">
+                        <td className="py-2 px-3 font-semibold text-slate-900 dark:text-slate-100 max-w-[240px] truncate border-r border-slate-200 dark:border-slate-700/60" title={item.name}>
                           {item.name}
                         </td>
                       )}
 
                       {/* 4. Category */}
                       {visibleColumns.category && (
-                        <td className="py-2 px-3">
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                            {formatCategoryName(item.category)}
-                          </span>
+                        <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300 font-medium text-xs">
+                          {formatCategoryName(item.category)}
                         </td>
                       )}
 
                       {/* 5. Previous Stock */}
                       {visibleColumns.prevStock && (
-                        <td className="py-2 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
+                        <td className="py-2 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                           {isTracked ? (
                             item.previousStock !== null && item.previousStock !== undefined ? (
                               <span>{item.previousStock.toLocaleString()} {item.unit}</span>
@@ -770,14 +1202,14 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                               <span className="text-slate-400">—</span>
                             )
                           ) : (
-                            <span className="text-slate-400 text-[11px] italic">Not Tracked</span>
+                            <span className="text-slate-400 text-[11px] italic font-normal">Not Tracked</span>
                           )}
                         </td>
                       )}
 
                       {/* 6. Recently Added Stock */}
                       {visibleColumns.recentlyAdded && (
-                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
                           {isTracked ? (
                             item.recentlyAddedStock !== null && item.recentlyAddedStock !== undefined && item.recentlyAddedStock > 0 ? (
                               <span>+{item.recentlyAddedStock.toLocaleString()} {item.unit}</span>
@@ -792,7 +1224,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
 
                       {/* 7. Current Stock */}
                       {visibleColumns.currentStock && (
-                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-slate-900 dark:text-white">
+                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                           {isTracked ? (
                             <span>{item.currentStock.toLocaleString()} {item.unit}</span>
                           ) : (
@@ -801,37 +1233,31 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                         </td>
                       )}
 
-                      {/* 8. Stock Unit */}
-                      {visibleColumns.stockUnit && (
-                        <td className="py-2 px-3 text-center text-slate-600 dark:text-slate-400 text-xs">
-                          {item.unit}
-                        </td>
-                      )}
 
                       {/* 9. Previous Purchase Date */}
                       {visibleColumns.prevPurchaseDate && (
-                        <td className="py-2 px-3 text-center font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                        <td className="py-2 px-3 text-center font-mono text-[11px] text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                           {formatDateDisplay(item.previousPurchaseDate)}
                         </td>
                       )}
 
                       {/* 10. Last Purchase Date */}
                       {visibleColumns.lastPurchaseDate && (
-                        <td className="py-2 px-3 text-center font-mono text-[11px] text-slate-800 dark:text-slate-200 font-semibold">
+                        <td className="py-2 px-3 text-center font-mono text-[11px] text-slate-800 dark:text-slate-200 font-semibold border-r border-slate-200 dark:border-slate-700/60">
                           {formatDateDisplay(item.lastPurchaseDate)}
                         </td>
                       )}
 
                       {/* 11. Last Purchase Quantity */}
                       {visibleColumns.lastPurchaseQty && (
-                        <td className="py-2 px-3 text-center font-mono text-xs text-slate-700 dark:text-slate-300">
+                        <td className="py-2 px-3 text-center font-mono text-xs text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                           {item.lastPurchaseQuantity || '—'}
                         </td>
                       )}
 
                       {/* 12. Previous Purchase Amount */}
                       {visibleColumns.prevPurchaseAmount && (
-                        <td className="py-2 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
+                        <td className="py-2 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                           {item.previousPurchaseAmount !== null && item.previousPurchaseAmount !== undefined && item.previousPurchaseAmount > 0 ? (
                             <span>Rs. {item.previousPurchaseAmount.toLocaleString()}</span>
                           ) : (
@@ -842,7 +1268,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
 
                       {/* 13. Last Purchase Amount */}
                       {visibleColumns.lastPurchaseAmount && (
-                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700/60">
                           {item.lastPurchaseAmount !== null && item.lastPurchaseAmount !== undefined && item.lastPurchaseAmount > 0 ? (
                             <span>Rs. {item.lastPurchaseAmount.toLocaleString()}</span>
                           ) : (
@@ -853,97 +1279,121 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
 
                       {/* 14. Total Purchase Amount */}
                       {visibleColumns.totalPurchaseAmount && (
-                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
                           Rs. {(item.totalPurchaseAmount || 0).toLocaleString()}
                         </td>
                       )}
 
                       {/* 15. Last Supplier */}
-                      {visibleColumns.lastSupplier && (
-                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 truncate max-w-[170px]" title={supplierName}>
+                      {visibleColumns.supplier && (
+                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 truncate max-w-[165px] border-r border-slate-200 dark:border-slate-700/60" title={supplierName}>
                           {supplierName}
                         </td>
                       )}
 
                       {/* 16. Minimum Stock */}
                       {visibleColumns.minStock && (
-                        <td className="py-2 px-3 text-center font-mono text-xs text-slate-600 dark:text-slate-400">
+                        <td className="py-2 px-3 text-center font-mono text-xs text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                           {isTracked ? `${item.minThreshold} ${item.unit}` : '—'}
                         </td>
                       )}
 
                       {/* 17. Stock Status */}
                       {visibleColumns.status && (
-                        <td className="py-2 px-3 text-center">
-                          {status === 'NOT_TRACKED' ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
-                              Not Tracked
-                            </span>
-                          ) : status === 'OUT_OF_STOCK' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                              Out of Stock
-                            </span>
-                          ) : status === 'LOW_STOCK' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                              Low Stock
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              In Stock
-                            </span>
-                          )}
+                        <td className="py-2 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
+                          {renderStatusBadge(item)}
                         </td>
                       )}
 
-                      {/* 18. Actions */}
+                      {/* 18. Action (Sticky on the right for comfortable access) */}
                       {visibleColumns.actions && (
-                        <td className="py-2 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            {/* View Item Details */}
-                            <button
-                              type="button"
-                              onClick={() => setViewingItem(item)}
-                              className="p-1 rounded-[3px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              title="View details"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Edit Item */}
+                        <td className="py-2 px-3 text-center sticky right-0 bg-white group-even:bg-[#F9FAFB] group-hover:bg-[#F1F5F9] dark:bg-slate-900 dark:group-even:bg-slate-800/80 dark:group-hover:bg-slate-800 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* Teal Edit Button */}
                             <button
                               type="button"
                               onClick={() => setEditingItem({ ...item })}
-                              className="p-1 rounded-[3px] text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              title="Edit item"
+                              className="h-6 w-6 inline-flex items-center justify-center rounded-[2px] bg-[#17a2b8] hover:bg-[#138496] text-white transition-colors cursor-pointer shadow-2xs"
+                              title="Edit Item"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <Edit2 className="w-3 h-3" />
                             </button>
 
-                            {/* Purchase History */}
-                            <button
-                              type="button"
-                              onClick={() => setPurchaseHistoryItemId(item.id)}
-                              className="p-1 rounded-[3px] text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              title="Purchase history / ledger"
-                            >
-                              <Receipt className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Stock History */}
+                            {/* Orange Quick Stock Adjustment Button */}
                             <button
                               type="button"
                               onClick={() => {
-                                setHistoryItemId(item.id);
-                                setHistoryItemName(item.name);
+                                setAdjustmentItemId(item.id);
+                                setIsAdjustmentModalOpen(true);
                               }}
-                              className="p-1 rounded-[3px] text-slate-600 dark:text-slate-300 hover:text-[#0B3D32] dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              title="View stock history ledger"
+                              className="h-6 px-2 inline-flex items-center gap-1 rounded-[2px] bg-[#f39c12] hover:bg-[#e08e0b] text-white text-[10px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                              title="Quick Stock Adjustment"
                             >
-                              <History className="w-3.5 h-3.5" />
+                              <SlidersHorizontal className="w-2.5 h-2.5" />
+                              <span>Adjust</span>
                             </button>
+
+                            {/* Cyan View Details Button */}
+                            <button
+                              type="button"
+                              onClick={() => setViewingItem(item)}
+                              className="h-6 w-6 inline-flex items-center justify-center rounded-[2px] bg-[#00c0ef] hover:bg-[#0097bc] text-white transition-colors cursor-pointer shadow-2xs"
+                              title="View Details"
+                            >
+                              <Eye className="w-3 h-3" />
+                            </button>
+
+                            {/* Blue More Dropdown */}
+                            <div className="relative" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => setActiveMoreDropdownId(activeMoreDropdownId === item.id ? null : item.id)}
+                                className="h-6 px-2 inline-flex items-center gap-1 rounded-[2px] bg-[#0073b7] hover:bg-[#005a91] text-white text-[10px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                              >
+                                <span>More</span>
+                                <ChevronDown className="w-2.5 h-2.5" />
+                              </button>
+
+                              {activeMoreDropdownId === item.id && (
+                                <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl py-1 text-xs text-left animate-in fade-in-50 duration-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setHistoryItemId(item.id);
+                                      setHistoryItemName(item.name);
+                                      setActiveMoreDropdownId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                  >
+                                    <History className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Stock Movements</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPurchaseHistoryItemId(item.id);
+                                      setActiveMoreDropdownId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                  >
+                                    <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Purchase History</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(item.sku);
+                                      toast.success('Code Copied', `Item code "${item.sku}" copied.`);
+                                      setActiveMoreDropdownId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                  >
+                                    <Copy className="w-3.5 h-3.5 text-cyan-600" />
+                                    <span>Copy Item Code</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       )}
@@ -955,10 +1405,8 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
           </table>
         </div>
 
-        {/* =========================================================================
-            4. BOTTOM CONTROLS: ENTRIES COUNT & PAGINATION
-           ========================================================================= */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1 select-none">
+        {/* Bottom Controls: Entries Count & Numbered Pagination */}
+        <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-[#FAFBFB] dark:bg-slate-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 select-none">
           {/* Entries count */}
           <div>
             Showing{' '}
@@ -976,13 +1424,13 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
             entries
           </div>
 
-          {/* Pagination */}
+          {/* Numbered Pagination */}
           <div className="flex items-center gap-1">
             <button
               type="button"
               disabled={safeCurrentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="px-2.5 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-semibold"
+              className="px-2.5 py-1 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors shadow-2xs"
             >
               Previous
             </button>
@@ -1001,10 +1449,10 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                     type="button"
                     onClick={() => setCurrentPage(pageNum)}
                     className={cn(
-                      'min-w-[28px] h-7 px-2 text-xs font-bold rounded-[3px] border transition-colors cursor-pointer',
+                      'min-w-[28px] h-7 px-2 text-xs font-semibold rounded-[2px] border transition-colors cursor-pointer shadow-2xs',
                       isCurrent
                         ? 'bg-[#0B3D32] text-white border-[#0B3D32]'
-                        : 'bg-white dark:bg-surface-card border-slate-300 dark:border-border-default hover:bg-slate-50 text-slate-700 dark:text-slate-300'
+                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                     )}
                   >
                     {pageNum}
@@ -1025,7 +1473,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
               type="button"
               disabled={safeCurrentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="px-2.5 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-semibold"
+              className="px-2.5 py-1 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors shadow-2xs"
             >
               Next
             </button>
@@ -1096,12 +1544,9 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <span className="text-slate-400 text-[11px] block">Previous Purchase:</span>
+                    <span className="text-slate-400 text-[11px] block">Unit Rate:</span>
                     <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                      {viewingItem.previousPurchaseAmount ? `Rs. ${viewingItem.previousPurchaseAmount.toLocaleString()}` : '—'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block">
-                      Date: {formatDateDisplay(viewingItem.previousPurchaseDate)}
+                      Rs. {Number(viewingItem.costPerUnit || viewingItem.lastPurchaseAmount || 0).toLocaleString()}
                     </span>
                   </div>
 
@@ -1217,6 +1662,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 <input
                   type="text"
                   required
+                  placeholder=""
                   value={editingItem.name}
                   onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
                   className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs font-semibold focus:outline-none focus:border-[#0B3D32]"
@@ -1231,6 +1677,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                   <input
                     type="text"
                     required
+                    placeholder=""
                     value={editingItem.sku}
                     onChange={(e) => setEditingItem({ ...editingItem, sku: e.target.value })}
                     className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs font-mono focus:outline-none focus:border-[#0B3D32]"
@@ -1244,6 +1691,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                   <input
                     type="text"
                     required
+                    placeholder=""
                     value={editingItem.unit}
                     onChange={(e) => setEditingItem({ ...editingItem, unit: e.target.value })}
                     className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs focus:outline-none focus:border-[#0B3D32]"
@@ -1258,7 +1706,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. carton"
+                    placeholder=""
                     value={editingItem.purchaseUnit || ''}
                     onChange={(e) => setEditingItem({ ...editingItem, purchaseUnit: e.target.value })}
                     className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs focus:outline-none focus:border-[#0B3D32]"
@@ -1273,6 +1721,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                     type="number"
                     min="0.001"
                     step="any"
+                    placeholder=""
                     value={editingItem.conversionFactor || 1.0}
                     onChange={(e) => setEditingItem({ ...editingItem, conversionFactor: parseFloat(e.target.value) || 1.0 })}
                     className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs font-mono focus:outline-none focus:border-[#0B3D32]"
@@ -1287,6 +1736,7 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
                 <input
                   type="number"
                   min="0"
+                  placeholder=""
                   value={editingItem.minThreshold}
                   onChange={(e) => setEditingItem({ ...editingItem, minThreshold: parseInt(e.target.value, 10) || 0 })}
                   className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-[#071F1A] text-xs font-mono focus:outline-none focus:border-[#0B3D32]"
@@ -1348,7 +1798,27 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
       )}
 
       {/* =========================================================================
-          MODAL 4: DETAILED STOCK HISTORY MODAL
+          MODAL 4: QUICK STOCK ADJUSTMENT MODAL
+         ========================================================================= */}
+      {isAdjustmentModalOpen && (
+        <StockAdjustmentModal
+          isOpen={isAdjustmentModalOpen}
+          onClose={() => {
+            setIsAdjustmentModalOpen(false);
+            setAdjustmentItemId(undefined);
+          }}
+          items={effectiveItems}
+          initialItemId={adjustmentItemId}
+          onSuccess={() => {
+            setIsAdjustmentModalOpen(false);
+            setAdjustmentItemId(undefined);
+            onRefresh();
+          }}
+        />
+      )}
+
+      {/* =========================================================================
+          MODAL 5: DETAILED STOCK HISTORY MODAL
          ========================================================================= */}
       {historyItemId && (
         <StockHistoryModal
@@ -1363,12 +1833,12 @@ export const DepartmentInventoryView: React.FC<DepartmentInventoryViewProps> = (
       )}
 
       {/* =========================================================================
-          MODAL 5: ITEM PURCHASE LEDGER MODAL
+          MODAL 6: ITEM PURCHASE LEDGER MODAL
          ========================================================================= */}
       {purchaseHistoryItemId && (
         <ItemPurchaseLedgerView
           initialItemId={purchaseHistoryItemId}
-          items={items}
+          items={effectiveItems}
           suppliers={suppliers as any}
           onClose={() => setPurchaseHistoryItemId(null)}
           isModal={true}

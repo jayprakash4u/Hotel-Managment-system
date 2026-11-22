@@ -340,15 +340,15 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
         </div>
 
         {/* Table Container */}
-        <div className="overflow-x-auto border border-slate-200 dark:border-border-default rounded-[3px]">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 rounded-[3px]">
+          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
             {/* Table Header (Matching Reference Screenshot with ⇅ sorting arrows) */}
             <thead>
-              <tr className="bg-[#F8F9FA] dark:bg-surface-muted border-b border-slate-200 dark:border-border-default text-slate-700 dark:text-slate-200 font-bold text-[11px] select-none">
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] select-none">
                 {/* 1. SN */}
                 <th
                   onClick={() => handleSort('sn')}
-                  className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-100 dark:hover:bg-surface-hover"
+                  className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>SN</span>
@@ -359,7 +359,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                 {/* 2. Client / Customer */}
                 <th
                   onClick={() => handleSort('client')}
-                  className="py-2.5 px-3 w-48 sm:w-52 max-w-[220px] border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-100 dark:hover:bg-surface-hover"
+                  className="py-2.5 px-3 w-48 sm:w-52 max-w-[220px] border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>Client / Customer</span>
@@ -370,7 +370,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                 {/* 3. Table */}
                 <th
                   onClick={() => handleSort('table')}
-                  className="py-2.5 px-3 w-28 sm:w-32 border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-100 dark:hover:bg-surface-hover"
+                  className="py-2.5 px-3 w-28 sm:w-32 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>Table</span>
@@ -381,7 +381,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                 {/* 4. Date */}
                 <th
                   onClick={() => handleSort('date')}
-                  className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-100 dark:hover:bg-surface-hover"
+                  className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>Date</span>
@@ -392,7 +392,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                 {/* 5. Time */}
                 <th
                   onClick={() => handleSort('time')}
-                  className="py-2.5 px-3 w-36 sm:w-40 border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-100 dark:hover:bg-surface-hover"
+                  className="py-2.5 px-3 w-36 sm:w-40 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>Time</span>
@@ -403,7 +403,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                 {/* 6. Party Size */}
                 <th
                   onClick={() => handleSort('party')}
-                  className="py-2.5 px-3 w-16 text-center border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-100 dark:hover:bg-surface-hover"
+                  className="py-2.5 px-3 w-16 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
                 >
                   <div className="inline-flex items-center gap-1 justify-center">
                     <span>Pax</span>
@@ -414,7 +414,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                 {/* 7. Status */}
                 <th
                   onClick={() => handleSort('status')}
-                  className="py-2.5 px-3 w-32 text-center border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-100 dark:hover:bg-surface-hover"
+                  className="py-2.5 px-3 w-32 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
                 >
                   <div className="inline-flex items-center gap-1 justify-center">
                     <span>Status</span>
@@ -425,7 +425,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                 {/* 8. Remarks */}
                 <th
                   onClick={() => handleSort('remarks')}
-                  className="py-2.5 px-3 min-w-[140px] border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-100 dark:hover:bg-surface-hover"
+                  className="py-2.5 px-3 min-w-[140px] border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>Remarks</span>
@@ -441,7 +441,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
             </thead>
 
             {/* Table Body */}
-            <tbody className="divide-y divide-slate-200 dark:divide-border-default">
+            <tbody className="divide-y-0">
               {paginatedList.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-xs text-muted dark:text-muted">
@@ -471,18 +471,15 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                   return (
                     <tr
                       key={res.id}
-                      className={cn(
-                        'hover:bg-[#F2F6F4] dark:hover:bg-surface-hover transition-colors',
-                        idx % 2 === 1 ? 'bg-[#FAFAFA] dark:bg-surface-card/60' : 'bg-white dark:bg-surface-card'
-                      )}
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
                       {/* 1. SN */}
-                      <td className="py-2.5 px-3 text-center font-mono text-xs text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-border-default">
+                      <td className="py-2.5 px-3 text-center font-mono text-xs text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                         {sn}
                       </td>
 
                       {/* 2. Client / Customer */}
-                      <td className="py-2.5 px-3 w-48 sm:w-52 max-w-[220px] border-r border-slate-200 dark:border-border-default">
+                      <td className="py-2.5 px-3 w-48 sm:w-52 max-w-[220px] border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-bold text-slate-900 dark:text-white text-xs truncate">
                           {customerName}
                         </div>
@@ -497,7 +494,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                       </td>
 
                       {/* 3. Table */}
-                      <td className="py-2.5 px-3 w-28 sm:w-32 border-r border-slate-200 dark:border-border-default font-medium">
+                      <td className="py-2.5 px-3 w-28 sm:w-32 border-r border-slate-200 dark:border-slate-700/60 font-medium">
                         {tableNumber ? (
                           <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 whitespace-nowrap">
                             {tableNumber.toString().toLowerCase().startsWith('table')
@@ -519,22 +516,22 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                       </td>
 
                       {/* 4. Date */}
-                      <td className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-border-default font-mono text-xs text-slate-800 dark:text-slate-200">
+                      <td className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700/60 font-mono text-xs text-slate-800 dark:text-slate-200">
                         {formatTableDate(res.reservationDate)}
                       </td>
 
                       {/* 5. Time */}
-                      <td className="py-2.5 px-3 w-36 sm:w-40 border-r border-slate-200 dark:border-border-default font-mono text-xs text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                      <td className="py-2.5 px-3 w-36 sm:w-40 border-r border-slate-200 dark:border-slate-700/60 font-mono text-xs text-slate-800 dark:text-slate-200 whitespace-nowrap">
                         {formatTimeRange(res)}
                       </td>
 
                       {/* 6. Party Size */}
-                      <td className="py-2.5 px-3 w-16 text-center border-r border-slate-200 dark:border-border-default font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      <td className="py-2.5 px-3 w-16 text-center border-r border-slate-200 dark:border-slate-700/60 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
                         {res.partySize}
                       </td>
 
                       {/* 7. Status Dropdown (Matching Screenshot Options) */}
-                      <td className="py-2.5 px-3 w-32 text-center border-r border-slate-200 dark:border-border-default">
+                      <td className="py-2.5 px-3 w-32 text-center border-r border-slate-200 dark:border-slate-700/60">
                         <select
                           value={res.status}
                           onChange={(e) => {
@@ -570,7 +567,7 @@ export const TableReservationsView: React.FC<TableReservationsViewProps> = ({
                       </td>
 
                       {/* 8. Remarks */}
-                      <td className="py-2.5 px-3 min-w-[140px] border-r border-slate-200 dark:border-border-default text-xs text-slate-600 dark:text-slate-300">
+                      <td className="py-2.5 px-3 min-w-[140px] border-r border-slate-200 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300">
                         {res.specialRequests || res.internalNotes || '—'}
                       </td>
 

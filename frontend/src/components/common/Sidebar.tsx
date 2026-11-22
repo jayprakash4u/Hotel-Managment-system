@@ -16,6 +16,7 @@ import {
   RestaurantTableReservationIcon,
   RestaurantQuickBillPOSIcon,
   RestaurantKitchenDisplayIcon,
+  RestaurantBarDisplayIcon,
   RestaurantOrderTicketIcon,
   RestaurantSetupIcon,
   RestaurantMenuBookIcon,
@@ -53,10 +54,12 @@ import {
   ShieldCheck,
   LayoutGrid,
   UserCheck,
+  QrCode,
   LogOut,
   Contact,
   Sparkles,
   BedDouble,
+  Globe,
   BookOpen,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -199,17 +202,25 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     description: 'Live kitchen order tickets & prep queue',
   },
   {
+    id: 'bar-display',
+    name: 'Bar Display',
+    href: '/restaurant-management?section=bar',
+    icon: RestaurantBarDisplayIcon,
+    tag: 'BDS',
+    description: 'Live bar order tickets & drink prep queue',
+  },
+  {
     id: 'orders',
     name: 'Orders',
-    href: '/tables?tab=ACTIVE_ORDERS',
+    href: '/orders',
     icon: RestaurantOrderTicketIcon,
     tag: 'ORDERS',
-    description: 'Live table, walk-in & takeaway active orders',
+    description: 'Centralized order tracking, status & fulfillment',
   },
   {
     id: 'restaurant-setup',
     name: 'Restaurant Setup',
-    href: '/hotel?category=restaurant-setup',
+    href: '/restaurant-setup',
     icon: RestaurantSetupIcon,
     tag: 'SETUP',
     description: 'Food categories, products setup, table sections & portion rates',
@@ -221,6 +232,30 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
     icon: RestaurantMenuBookIcon,
     tag: 'MENU',
     description: 'Food & drinks catalog, portion rates & categories',
+  },
+  {
+    id: 'qr-menu',
+    name: 'QR Menu',
+    href: '/qr-menu',
+    icon: QrCode,
+    tag: 'QR',
+    description: 'Digital QR menu, table QR codes & customer view settings',
+  },
+  {
+    id: 'menu-item-sales',
+    name: 'Item Sales',
+    href: '/menu-item-sales',
+    icon: BarChart3,
+    tag: 'REPORT',
+    description: 'Menu item sales quantities, revenue & popularity',
+  },
+  {
+    id: 'restaurant-website',
+    name: 'Website',
+    href: '/website',
+    icon: Globe,
+    tag: 'WEB',
+    description: 'Public restaurant website, delivery, gallery & appearance',
   },
 ];
 const BOTTOM_NAV_OPTIONS: NavBoxItem[] = [];
@@ -235,7 +270,7 @@ export const SHARED_QUICK_MODULES = [
   {
     id: 'master-setup',
     name: 'Master Setup',
-    href: '/hotel?category=general',
+    href: '/master-setup',
     icon: Building2,
   },
   {
@@ -247,7 +282,7 @@ export const SHARED_QUICK_MODULES = [
   {
     id: 'purchases',
     name: 'Purchase',
-    href: '/inventory?tab=receive-stock',
+    href: '/purchases',
     icon: ShoppingCart,
   },
   {
@@ -306,6 +341,9 @@ export const Sidebar: React.FC<{
   const { role } = useRole();
 
   const isRestaurantPath = useMemo(() => {
+    if (pathname === '/hotel' && currentSearch.includes('category=restaurant-setup')) {
+      return true;
+    }
     return [
       '/restaurant-management',
       '/tables',
@@ -314,10 +352,16 @@ export const Sidebar: React.FC<{
       '/kitchen',
       '/cafe',
       '/restaurant-setup',
+      '/qr-menu',
+      '/menu-item-sales',
+      '/website',
     ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-  }, [pathname]);
+  }, [pathname, currentSearch]);
 
   const isHotelPath = useMemo(() => {
+    if (pathname === '/hotel' && currentSearch.includes('category=restaurant-setup')) {
+      return false;
+    }
     return [
       '/hotel-management',
       '/front-desk',
@@ -332,7 +376,101 @@ export const Sidebar: React.FC<{
       '/guests',
       '/hotel',
     ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
-  }, [pathname]);
+  }, [pathname, currentSearch]);
+
+  const [hotelName, setHotelName] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('auth_hotel_name');
+      if (stored && stored !== 'HOTEL MASTER') return stored;
+      try {
+        const rawActive = localStorage.getItem('active_hotel');
+        if (rawActive) {
+          const parsed = JSON.parse(rawActive);
+          if (parsed?.name) return parsed.name;
+        }
+      } catch {}
+      return stored || 'HOTEL MASTER';
+    }
+    return 'HOTEL MASTER';
+  });
+
+  const [hotelLogo, setHotelLogo] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('auth_hotel_logo');
+      if (stored) return stored;
+      try {
+        const rawActive = localStorage.getItem('active_hotel');
+        if (rawActive) {
+          const parsed = JSON.parse(rawActive);
+          if (parsed?.logo) return parsed.logo;
+        }
+      } catch {}
+      try {
+        const rawClients = localStorage.getItem('superadmin_clean_clients');
+        if (rawClients) {
+          const parsedList = JSON.parse(rawClients);
+          const activeId = localStorage.getItem('auth_hotel_id');
+          const activeName = localStorage.getItem('auth_hotel_name')?.toLowerCase().trim();
+          const found = parsedList.find((c: any) =>
+            (activeId && c.id === activeId && c.logo) ||
+            (activeName && c.name?.toLowerCase().trim() === activeName && c.logo) ||
+            (c.logo && parsedList.length === 1)
+          );
+          if (found?.logo) return found.logo;
+        }
+      } catch {}
+    }
+    return '';
+  });
+
+  useEffect(() => {
+    const updateLogoAndName = () => {
+      if (typeof localStorage !== 'undefined') {
+        let name = localStorage.getItem('auth_hotel_name');
+        if (!name || name === 'HOTEL MASTER') {
+          try {
+            const rawActive = localStorage.getItem('active_hotel');
+            if (rawActive) {
+              const parsed = JSON.parse(rawActive);
+              if (parsed?.name) name = parsed.name;
+            }
+          } catch {}
+        }
+        if (name) setHotelName(name);
+
+        let logo = localStorage.getItem('auth_hotel_logo') || '';
+        if (!logo) {
+          try {
+            const rawActive = localStorage.getItem('active_hotel');
+            if (rawActive) {
+              const parsed = JSON.parse(rawActive);
+              if (parsed?.logo) logo = parsed.logo;
+            }
+          } catch {}
+        }
+        if (!logo) {
+          try {
+            const rawClients = localStorage.getItem('superadmin_clean_clients');
+            if (rawClients) {
+              const parsedList = JSON.parse(rawClients);
+              const activeId = localStorage.getItem('auth_hotel_id');
+              const activeName = (name || localStorage.getItem('auth_hotel_name') || '').toLowerCase().trim();
+              const found = parsedList.find((c: any) =>
+                (activeId && c.id === activeId && c.logo) ||
+                (activeName && c.name?.toLowerCase().trim() === activeName && c.logo) ||
+                (c.logo && parsedList.length === 1)
+              );
+              if (found?.logo) logo = found.logo;
+            }
+          } catch {}
+        }
+        setHotelLogo(logo);
+      }
+    };
+    updateLogoAndName();
+    window.addEventListener('storage', updateLogoAndName);
+    return () => window.removeEventListener('storage', updateLogoAndName);
+  }, []);
 
   const [viewMode, setViewMode] = useState<'RESTAURANT' | 'HOTEL'>(() => {
     if (typeof window !== 'undefined') {
@@ -412,16 +550,16 @@ export const Sidebar: React.FC<{
     if (!isRestaurantEnabled) return [];
     return RESTAURANT_SIDEBAR_OPTIONS.filter((item) => {
       if (role === 'CHEF') {
-        return ['kitchen-display', 'orders', 'menu', 'restaurant-inventory', 'reports'].includes(item.id);
+        return ['kitchen-display', 'bar-display', 'orders', 'menu', 'restaurant-inventory', 'reports'].includes(item.id);
       }
       if (role === 'HOUSEKEEPING') {
         return ['table-board'].includes(item.id);
       }
       if (role === 'POS_CASHIER') {
-        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'menu', 'bills-invoices', 'payments-refunds'].includes(item.id);
+        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'menu', 'qr-menu', 'menu-item-sales', 'restaurant-website', 'bills-invoices', 'payments-refunds'].includes(item.id);
       }
       if (role === 'FRONT_DESK') {
-        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'bills-invoices', 'payments-refunds'].includes(item.id);
+        return ['dashboard', 'table-board', 'table-reservations', 'orders', 'quick-bill', 'qr-menu', 'menu-item-sales', 'restaurant-website', 'bills-invoices', 'payments-refunds'].includes(item.id);
       }
       return true;
     });
@@ -485,7 +623,7 @@ export const Sidebar: React.FC<{
       return (pathname === '/hotel' && (currentSearch.includes('category=room-setup') || !currentSearch || currentSearch === '')) || pathname === '/rooms';
     }
     if (item.id === 'restaurant-setup') {
-      return pathname === '/hotel' && currentSearch.includes('category=restaurant-setup');
+      return pathname === '/restaurant-setup' || (pathname === '/hotel' && currentSearch.includes('category=restaurant-setup'));
     }
     if (item.id === 'hotel-inventory') {
       return pathname.startsWith('/inventory') && (currentSearch.includes('dept=HOTEL') || currentSearch.includes('filter=hotel'));
@@ -500,19 +638,44 @@ export const Sidebar: React.FC<{
       return pathname === '/tables' && currentSearch.includes('tab=ACTIVE_ORDERS');
     }
     if (item.id === 'kitchen-display') {
-      return pathname === '/restaurant-management' && currentSearch.includes('section=kitchen');
+      return pathname === '/kitchen' || (pathname === '/restaurant-management' && currentSearch.includes('section=kitchen'));
+    }
+    if (item.id === 'bar-display') {
+      return pathname === '/bar' || (pathname === '/restaurant-management' && currentSearch.includes('section=bar'));
     }
     if (item.id === 'quick-bill') {
       return pathname.startsWith('/quick-sale');
     }
     if (item.id === 'menu') {
-      return pathname.startsWith('/menu');
+      return pathname === '/menu' || pathname.startsWith('/menu/');
+    }
+    if (item.id === 'menu-item-sales') {
+      return pathname === '/menu-item-sales' || pathname.startsWith('/menu-item-sales/');
+    }
+    if (item.id === 'qr-menu') {
+      return pathname === '/qr-menu' || pathname.startsWith('/qr-menu/');
+    }
+    if (item.id === 'restaurant-website') {
+      return pathname === '/website' || pathname.startsWith('/website/');
     }
     if (item.id === 'restaurant-inventory') {
       return pathname.startsWith('/inventory') && (currentSearch.includes('dept=RESTAURANT') || currentSearch.includes('filter=restaurant'));
     }
+    if (item.id === 'inventory') {
+      return (
+        pathname.startsWith('/inventory') ||
+        pathname.startsWith('/stock-movements') ||
+        pathname.startsWith('/stock-adjustments') ||
+        pathname.startsWith('/suppliers')
+      );
+    }
     if (item.id === 'purchases') {
-      return pathname.startsWith('/inventory') && currentSearch.includes('tab=purchases');
+      return (
+        pathname === '/purchases' ||
+        pathname.startsWith('/purchases/') ||
+        (pathname.startsWith('/inventory') &&
+          (currentSearch.includes('tab=purchases') || currentSearch.includes('tab=receive-stock')))
+      );
     }
     if (item.id === 'bills-invoices') {
       return pathname.startsWith('/billing') && (!currentSearch || !currentSearch.includes('status=PAID'));
@@ -562,40 +725,52 @@ export const Sidebar: React.FC<{
             : '-translate-x-full lg:translate-x-0 lg:w-[68px] lg:sticky lg:top-0 lg:h-screen lg:shrink-0'
         )}
       >
-        {/* ===================== BRAND HEADER ===================== */}
+        {/* ===================== BRAND HEADER (LOGO ONLY WHEN PRESENT, PROPERTY NAME IF NO LOGO) ===================== */}
         {isOpen ? (
-          <div className="flex h-16 items-center justify-between px-4 border-b border-[var(--border-divider)] bg-[var(--surface-card)] dark:bg-[var(--surface-card)] dark:border-[var(--border-default)] shrink-0">
-            <Link href="/" className="flex items-center gap-2.5 group min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-primary)] text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
-              <div className="truncate">
-                <h1 className="text-sm font-black tracking-wide text-[var(--text-heading)] dark:text-[var(--text-heading)] leading-tight font-heading">
-                  AURA GRAND
-                </h1>
-                <p className="text-[10px] font-semibold text-[var(--text-muted)] dark:text-[var(--text-muted)] truncate">
-                  {viewMode === 'RESTAURANT' ? 'Restaurant POS & Outlets' : 'Hospitality OS · Front Desk'}
-                </p>
-              </div>
+          <div className="flex h-16 items-center justify-between px-3 border-b border-[var(--border-divider)] bg-[var(--surface-card)] dark:bg-[var(--surface-card)] dark:border-[var(--border-default)] shrink-0">
+            <Link href="/" className="flex items-center justify-center flex-1 min-w-0 py-1" title={hotelName || "Property Dashboard"}>
+              {hotelLogo ? (
+                <img
+                  src={hotelLogo}
+                  alt={hotelName || "Property Logo"}
+                  className="max-h-12 max-w-[210px] w-auto object-contain transition-transform hover:scale-[1.02]"
+                />
+              ) : (
+                <div className="truncate text-center w-full px-2">
+                  <h1 className="text-sm font-black tracking-tight text-[var(--text-heading)] dark:text-[var(--text-heading)] leading-tight uppercase font-heading truncate" title={hotelName}>
+                    {hotelName}
+                  </h1>
+                </div>
+              )}
             </Link>
 
             <button
               type="button"
               onClick={onClose}
-              className="flex lg:hidden items-center justify-center h-8 w-8 rounded-md hover:bg-slate-100 text-slate-500 dark:hover:bg-slate-800 dark:text-slate-400"
+              className="flex lg:hidden items-center justify-center h-8 w-8 rounded-md hover:bg-slate-100 text-slate-500 dark:hover:bg-slate-800 dark:text-slate-400 shrink-0 ml-1 cursor-pointer"
               aria-label="Close navigation"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         ) : (
-          <div className="flex h-16 items-center justify-center border-b border-[var(--border-divider)] bg-[var(--surface-card)] dark:bg-[var(--surface-card)] dark:border-[var(--border-default)] shrink-0">
+          <div className="flex h-16 items-center justify-center border-b border-[var(--border-divider)] bg-[var(--surface-card)] dark:bg-[var(--surface-card)] dark:border-[var(--border-default)] shrink-0 px-2">
             <Link
               href="/"
-              title="Aura Grand Hospitality OS"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-primary)] text-white shadow-xs hover:scale-105 transition-transform shrink-0"
+              title={hotelName || "Property Dashboard"}
+              className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden hover:scale-105 transition-transform"
             >
-              <Building2 className="w-5 h-5 text-white" />
+              {hotelLogo ? (
+                <img
+                  src={hotelLogo}
+                  alt={hotelName || "Logo"}
+                  className="max-h-9 max-w-9 object-contain"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#DC2626] text-white font-black text-xs shadow-xs" title={hotelName}>
+                  {(hotelName || 'HM').slice(0, 2).toUpperCase()}
+                </div>
+              )}
             </Link>
           </div>
         )}

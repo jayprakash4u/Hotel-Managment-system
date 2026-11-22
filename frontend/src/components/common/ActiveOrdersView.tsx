@@ -22,6 +22,9 @@ import {
   Bike,
   Plus,
   Trash2,
+  ChefHat,
+  Wine,
+  BedDouble,
 } from 'lucide-react';
 import { ActiveRestaurantOrderData } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -47,12 +50,84 @@ export interface ActiveOrdersViewProps {
   onNewOnlineOrder?: () => void;
 }
 
-type SortField = 'sn' | 'orderNumber' | 'table' | 'customer' | 'items' | 'total' | 'status' | 'payment' | 'time';
+type SortField = 'sn' | 'orderNumber' | 'ticket' | 'table' | 'customer' | 'items' | 'total' | 'status' | 'payment' | 'time';
 
 const isGenericLabel = (str: string) => {
   return /^(takeaway\s*(customer|order)?|online\s*(customer|order)?|walk-in\s*(customer|guest)?|dine-in\s*(guest|order)?|delivery\s*(customer|order)?)$/i.test(
     str.trim()
   );
+};
+
+export const isBeverageCategory = (cat?: string, name?: string) => {
+  const c = (cat || '').toLowerCase();
+  const n = (name || '').toLowerCase();
+  return (
+    c.includes('drink') ||
+    c.includes('beverage') ||
+    c.includes('bar') ||
+    c.includes('wine') ||
+    c.includes('beer') ||
+    c.includes('cocktail') ||
+    c.includes('liquor') ||
+    c.includes('juice') ||
+    c.includes('whiskey') ||
+    c.includes('whisky') ||
+    c.includes('vodka') ||
+    c.includes('rum') ||
+    c.includes('gin') ||
+    c.includes('mocktail') ||
+    c.includes('coffee') ||
+    c.includes('tea') ||
+    n.includes('beer') ||
+    n.includes('wine') ||
+    n.includes('carlsberg') ||
+    n.includes('tuborg') ||
+    n.includes('coke') ||
+    n.includes('sprite') ||
+    n.includes('fanta') ||
+    n.includes('soda') ||
+    n.includes('water') ||
+    n.includes('whisky') ||
+    n.includes('vodka') ||
+    n.includes('rum') ||
+    n.includes('cocktail') ||
+    n.includes('mocktail')
+  );
+};
+
+export const getOrderDepartmentInfo = (ord: ActiveRestaurantOrderData) => {
+  const items = ord.items || [];
+  let hasKot = Boolean(ord.kotNumber);
+  let hasBot = Boolean(ord.botNumber);
+
+  for (const it of items) {
+    const dept = (it as any).department;
+    if (dept === 'BOT' || it.botNumber) {
+      hasBot = true;
+    } else if (dept === 'KOT' || it.kotNumber) {
+      hasKot = true;
+    } else if (isBeverageCategory((it as any).category, it.productName)) {
+      hasBot = true;
+    } else {
+      hasKot = true;
+    }
+  }
+
+  // If no items yet or neither explicitly detected
+  if (!hasKot && !hasBot) {
+    if (ord.botNumber) hasBot = true;
+    else hasKot = true;
+  }
+
+  return {
+    hasKot,
+    hasBot,
+    isBoth: hasKot && hasBot,
+    isKotOnly: hasKot && !hasBot,
+    isBotOnly: !hasKot && hasBot,
+    kotNumber: ord.kotNumber,
+    botNumber: ord.botNumber,
+  };
 };
 
 export const getCustomerInfo = (ord: ActiveRestaurantOrderData) => {
@@ -118,7 +193,8 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
   const [serviceTypeFilter, setServiceTypeFilter] = useState<
     'ALL' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY' | 'OPEN_ORDERS'
   >(initialFilter);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNPAID' | 'PAID' | 'PREPARING' | 'READY'>('ALL');
+  const [departmentFilter, setDepartmentFilter] = useState<'ALL' | 'KOT' | 'BOT' | 'BOTH'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNPAID' | 'PAID' | 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED'>('ALL');
 
   // Sync initialFilter prop if it changes via URL
   useEffect(() => {
@@ -235,19 +311,32 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
         if (!isDeliveryOrder(order)) return false;
       }
 
-      // 2. Status Filter
+      // 2. Department Filter (Kitchen KOT, Bar BOT, Both)
+      if (departmentFilter !== 'ALL') {
+        const dept = getOrderDepartmentInfo(order);
+        if (departmentFilter === 'KOT' && !dept.hasKot) return false;
+        if (departmentFilter === 'BOT' && !dept.hasBot) return false;
+        if (departmentFilter === 'BOTH' && !dept.isBoth) return false;
+      }
+
+      // 3. Status Filter
       if (statusFilter === 'UNPAID' && order.isPaid) return false;
       if (statusFilter === 'PAID' && !order.isPaid) return false;
+      if (statusFilter === 'RECEIVED' && order.status !== 'RECEIVED') return false;
       if (statusFilter === 'PREPARING' && order.status !== 'PREPARING') return false;
       if (statusFilter === 'READY' && order.status !== 'READY') return false;
+      if (statusFilter === 'SERVED' && order.status !== 'SERVED') return false;
 
-      // 3. Search Query
+      // 4. Search Query
       if (!q) return true;
 
       const cust = getCustomerInfo(order);
-      const orderNo = order.orderNumber.toLowerCase();
+      const orderNo = (order.orderNumber || '').toLowerCase();
       const kotNo = (order.kotNumber || '').toLowerCase();
+      const botNo = (order.botNumber || '').toLowerCase();
       const tableNo = (order.table?.tableNumber || '').toLowerCase();
+      const roomNo = (order.room?.number || '').toLowerCase();
+      const serverName = (order.serverName || '').toLowerCase();
       const custName = cust.name.toLowerCase();
       const custPhone = (cust.phone || '').toLowerCase();
       const notes = (order.notes || '').toLowerCase();
@@ -256,14 +345,17 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
       return (
         orderNo.includes(q) ||
         kotNo.includes(q) ||
+        botNo.includes(q) ||
         tableNo.includes(q) ||
+        roomNo.includes(q) ||
+        serverName.includes(q) ||
         custName.includes(q) ||
         custPhone.includes(q) ||
         notes.includes(q) ||
         itemMatch
       );
     });
-  }, [allCombinedOrders, serviceTypeFilter, statusFilter, searchQuery]);
+  }, [allCombinedOrders, serviceTypeFilter, departmentFilter, statusFilter, searchQuery]);
 
   // Sorting
   const sortedOrders = useMemo(() => {
@@ -271,6 +363,10 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
       let diff = 0;
       if (sortField === 'orderNumber') {
         diff = a.orderNumber.localeCompare(b.orderNumber);
+      } else if (sortField === 'ticket') {
+        const aT = a.kotNumber || a.botNumber || '';
+        const bT = b.kotNumber || b.botNumber || '';
+        diff = aT.localeCompare(bT);
       } else if (sortField === 'table') {
         const aT = a.table?.tableNumber || a.orderType || '';
         const bT = b.table?.tableNumber || b.orderType || '';
@@ -410,9 +506,26 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
           })}
         </div>
 
-        {/* Right Side: Status Filter Dropdown, Compact Search Box & Refresh */}
+        {/* Right Side: Department Filter, Status Filter Dropdown, Compact Search Box & Refresh */}
         <div className="flex items-center gap-2 flex-wrap md:flex-nowrap justify-between md:justify-end">
-          {/* Quick Status Dropdown */}
+          {/* Department Filter (Kitchen / Bar / Both) */}
+          <div className="relative">
+            <select
+              value={departmentFilter}
+              onChange={(e) => {
+                setDepartmentFilter(e.target.value as any);
+                setCurrentPage(1);
+              }}
+              className="h-[30px] rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card px-2 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-2xs focus:border-[#0B3D32] focus:outline-none cursor-pointer"
+            >
+              <option value="ALL">All Departments</option>
+              <option value="KOT">Kitchen (KOT)</option>
+              <option value="BOT">Bar (BOT)</option>
+              <option value="BOTH">Kitchen &amp; Bar</option>
+            </select>
+          </div>
+
+          {/* Prep Status Dropdown */}
           <div className="relative">
             <select
               value={statusFilter}
@@ -420,18 +533,20 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                 setStatusFilter(e.target.value as any);
                 setCurrentPage(1);
               }}
-              className="h-[30px] rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-2xs focus:border-[#0B3D32] focus:outline-none cursor-pointer"
+              className="h-[30px] rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card px-2 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-2xs focus:border-[#0B3D32] focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Status</option>
               <option value="UNPAID">Unpaid Only</option>
               <option value="PAID">Paid Only</option>
+              <option value="RECEIVED">Received</option>
               <option value="PREPARING">Preparing</option>
               <option value="READY">Ready</option>
+              <option value="SERVED">Served</option>
             </select>
           </div>
 
           {/* Search Box */}
-          <div className="relative w-full sm:w-56 shrink-0">
+          <div className="relative w-full sm:w-48 shrink-0">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -440,7 +555,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search order #, table, customer..."
+              placeholder=""
               className="w-full h-[30px] rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card pl-8 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
             />
             {searchQuery && (
@@ -470,17 +585,17 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
       </div>
 
       {/* -------------------------------------------------------------------
-          MAIN ORDERS TABLE (Clean, Spacious, Customer-First Layout)
+          MAIN ORDERS TABLE (Clean DataTables Grid with Vertical Lines)
           ------------------------------------------------------------------- */}
-      <div className="bg-white dark:bg-surface-card border border-slate-200 dark:border-border-default rounded-[4px] shadow-2xs overflow-hidden">
+      <div className="border border-slate-200 dark:border-slate-700/60 rounded overflow-hidden bg-white dark:bg-slate-850 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="bg-[#EAF1EE] dark:bg-[#07241E] text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-border-default select-none font-bold">
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-t border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 select-none">
                 {/* 1. SN */}
                 <th
                   onClick={() => handleSort('sn')}
-                  className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1 justify-center">
                     <span>#</span>
@@ -491,7 +606,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                 {/* 2. Order # */}
                 <th
                   onClick={() => handleSort('orderNumber')}
-                  className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>Order #</span>
@@ -499,32 +614,43 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                   </div>
                 </th>
 
-                {/* 3. Service / Table */}
+                {/* 3. Ticket # (KOT / BOT) */}
+                <th
+                  onClick={() => handleSort('ticket')}
+                  className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Ticket (KOT/BOT)</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-70" />
+                  </div>
+                </th>
+
+                {/* 3. Source */}
                 <th
                   onClick={() => handleSort('table')}
-                  className="py-2.5 px-3 w-32 border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3 w-32 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1">
-                    <span>Service / Table</span>
+                    <span>Source</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-70" />
                   </div>
                 </th>
 
-                {/* 4. Customer Details */}
+                {/* 4. Customer & Staff */}
                 <th
                   onClick={() => handleSort('customer')}
-                  className="py-2.5 px-3.5 min-w-[170px] border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3.5 min-w-[160px] border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1">
-                    <span>Customer Details</span>
+                    <span>Customer &amp; Staff</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-70" />
                   </div>
                 </th>
 
-                {/* 5. Items */}
+                {/* 5. Items & Department */}
                 <th
                   onClick={() => handleSort('items')}
-                  className="py-2.5 px-3 min-w-[150px] border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3 min-w-[180px] border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>Ordered Items</span>
@@ -535,7 +661,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                 {/* 6. Amount */}
                 <th
                   onClick={() => handleSort('total')}
-                  className="py-2.5 px-3 w-28 text-right border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3 w-28 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1 justify-end">
                     <span>Total Amount</span>
@@ -543,13 +669,13 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                   </div>
                 </th>
 
-                {/* 7. Kitchen Status */}
+                {/* 7. Preparation / Fulfillment Status (KOT & BOT) */}
                 <th
                   onClick={() => handleSort('status')}
-                  className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3 w-28 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1 justify-center">
-                    <span>Kitchen</span>
+                    <span>Prep Status</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-70" />
                   </div>
                 </th>
@@ -557,7 +683,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                 {/* 8. Payment Status */}
                 <th
                   onClick={() => handleSort('payment')}
-                  className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1 justify-center">
                     <span>Payment</span>
@@ -568,7 +694,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                 {/* 9. Time */}
                 <th
                   onClick={() => handleSort('time')}
-                  className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-border-default cursor-pointer hover:bg-slate-200/60"
+                  className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750"
                 >
                   <div className="inline-flex items-center gap-1">
                     <span>Time</span>
@@ -581,10 +707,10 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-200 dark:divide-border-default">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {paginatedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-xs text-muted">
+                  <td colSpan={11} className="py-12 text-center text-xs text-slate-400">
                     {serviceTypeFilter === 'OPEN_ORDERS'
                       ? 'No active open orders / running tabs found.'
                       : 'No orders found matching the selected filters.'}
@@ -600,6 +726,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                   const isOpenTab = !ord.isPaid && ord.status !== 'COMPLETED' && ord.status !== 'CANCELLED';
 
                   const cust = getCustomerInfo(ord);
+                  const dept = getOrderDepartmentInfo(ord);
                   const totalItemsQty = (ord.items || []).reduce((sum: number, i: any) => sum + i.quantity, 0);
 
                   const itemsList = ord.items || [];
@@ -612,91 +739,139 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                   return (
                     <tr
                       key={ord.id}
-                      className={cn(
-                        'hover:bg-[#F2F6F4] dark:hover:bg-surface-hover transition-colors',
-                        isOpenTab && 'bg-amber-50/20 dark:bg-amber-950/10',
-                        idx % 2 === 1 && !isOpenTab ? 'bg-[#FAFAFA] dark:bg-surface-card/60' : ''
-                      )}
+                      className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors even:bg-slate-50/30 dark:even:bg-slate-900/10"
                     >
                       {/* 1. SN */}
-                      <td className="py-2.5 px-3 text-center font-mono text-xs text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-border-default">
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-400 dark:text-slate-500 text-[11px] border-r border-slate-200 dark:border-slate-700 align-middle">
                         {sn}
                       </td>
 
                       {/* 2. Order # */}
-                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-border-default font-mono">
-                        <div className="font-bold text-slate-900 dark:text-white text-xs">{ord.orderNumber}</div>
-                        {ord.kotNumber && (
-                          <span
-                            className={cn(
-                              'text-[10px] font-bold block',
-                              isQuickBill
-                                ? 'text-amber-800 dark:text-amber-300'
-                                : 'text-emerald-700 dark:text-emerald-400'
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">
+                          {ord.orderNumber}
+                        </span>
+                      </td>
+
+                      {/* 3. Ticket # (KOT / BOT) */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        {dept.isBoth ? (
+                          <div className="font-mono text-xs space-y-0.5 leading-tight">
+                            <div className="font-semibold text-emerald-700 dark:text-emerald-400">
+                              {dept.kotNumber ? (dept.kotNumber.startsWith('KOT') ? dept.kotNumber : `KOT-${dept.kotNumber}`) : 'KOT'}
+                            </div>
+                            <div className="font-semibold text-violet-700 dark:text-violet-400">
+                              {dept.botNumber ? (dept.botNumber.startsWith('BOT') ? dept.botNumber : `BOT-${dept.botNumber}`) : 'BOT'}
+                            </div>
+                          </div>
+                        ) : dept.hasKot ? (
+                          <span className="font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                            {dept.kotNumber ? (dept.kotNumber.startsWith('KOT') ? dept.kotNumber : `KOT-${dept.kotNumber}`) : 'KOT'}
+                          </span>
+                        ) : dept.hasBot ? (
+                          <span className="font-mono text-xs font-semibold text-violet-700 dark:text-violet-400">
+                            {dept.botNumber ? (dept.botNumber.startsWith('BOT') ? dept.botNumber : `BOT-${dept.botNumber}`) : 'BOT'}
+                          </span>
+                        ) : isQuickBill && ord.kotNumber ? (
+                          <span className="font-mono text-xs font-semibold text-amber-700 dark:text-amber-400">
+                            Tab #{ord.kotNumber}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">—</span>
+                        )}
+                      </td>
+
+                      {/* 3. Service / Table - Clean plain text & subtle icon, NO outline box */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        {isTable ? (
+                          <div>
+                            <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                              <Table2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span>Table {ord.table!.tableNumber}</span>
+                            </span>
+                            {ord.table?.section && (
+                              <div className="text-[10px] text-slate-400 pl-5">{ord.table.section}</div>
                             )}
-                          >
-                            {ord.kotNumber}
+                          </div>
+                        ) : ord.room?.number ? (
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <BedDouble className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span>Room {ord.room.number}</span>
+                          </span>
+                        ) : isDelivery ? (
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Bike className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                            <span>Delivery</span>
+                          </span>
+                        ) : isTakeaway ? (
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <ShoppingBag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                            <span>Takeaway</span>
+                          </span>
+                        ) : isQuickBill ? (
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span>Open Tab ({ord.kotNumber || 'Counter'})</span>
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Armchair className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                            <span>Dine-in (No Table)</span>
                           </span>
                         )}
                       </td>
 
-                      {/* 3. Service / Table */}
-                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-border-default font-medium">
-                        {isTable ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold whitespace-nowrap">
-                            <Table2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            <span>Table {ord.table!.tableNumber}</span>
-                          </div>
-                        ) : isDelivery ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-sky-50 dark:bg-sky-950/60 text-sky-900 dark:text-sky-300 border border-sky-200 dark:border-sky-800 text-[11px] font-bold whitespace-nowrap">
-                            <Bike className="w-3.5 h-3.5 text-sky-600" />
-                            <span>Delivery</span>
-                          </div>
-                        ) : isTakeaway ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[11px] font-bold whitespace-nowrap">
-                            <ShoppingBag className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>Takeaway</span>
-                          </div>
-                        ) : isQuickBill ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100/80 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-bold whitespace-nowrap">
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>Open Tab ({ord.kotNumber || 'Counter'})</span>
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold whitespace-nowrap">
-                            <Armchair className="w-3.5 h-3.5 text-purple-600" />
-                            <span>Dine-in (No Table)</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* 4. Customer Details */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-border-default">
+                      {/* 4. Customer & Staff */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         <div className="flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="font-bold text-slate-900 dark:text-white text-xs truncate max-w-[160px]">
+                          <span className="font-medium text-slate-900 dark:text-white text-xs truncate max-w-[160px]">
                             {cust.name}
                           </span>
                         </div>
-                        {cust.phone ? (
-                          <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 pl-5">
-                            <Phone className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                            <span>{cust.phone}</span>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 pl-5 italic">Direct order</span>
-                        )}
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 pl-5 flex items-center gap-1.5">
+                          {cust.phone ? (
+                            <span className="font-mono">{cust.phone}</span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic">Direct order</span>
+                          )}
+                          {ord.serverName && ord.serverName !== 'Cashier' && ord.serverName !== 'Staff' && (
+                            <>
+                              <span className="text-slate-300 dark:text-slate-600">·</span>
+                              <span className="truncate max-w-[80px]" title={`Server: ${ord.serverName}`}>{ord.serverName}</span>
+                            </>
+                          )}
+                        </div>
                       </td>
 
-                      {/* 5. Ordered Items */}
-                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-border-default">
+                      {/* 5. Ordered Items & Department */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
                             {totalItemsQty} {totalItemsQty === 1 ? 'item' : 'items'}
                           </span>
+                          <span className="text-slate-300 dark:text-slate-600">·</span>
+                          {dept.isBoth ? (
+                            <span className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1 font-medium">
+                              <ChefHat className="w-3 h-3 text-emerald-600" />
+                              <span>Kitchen &amp;</span>
+                              <Wine className="w-3 h-3 text-violet-600" />
+                              <span>Bar</span>
+                            </span>
+                          ) : dept.hasBot ? (
+                            <span className="text-[11px] text-violet-700 dark:text-violet-400 flex items-center gap-1 font-medium">
+                              <Wine className="w-3 h-3" />
+                              <span>Bar (BOT)</span>
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                              <ChefHat className="w-3 h-3" />
+                              <span>Kitchen (KOT)</span>
+                            </span>
+                          )}
                         </div>
                         <div
-                          className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[180px] mt-0.5"
+                          className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[200px] mt-0.5"
                           title={itemsPreview}
                         >
                           {itemsPreview || 'No items listed'}
@@ -704,45 +879,70 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                       </td>
 
                       {/* 6. Total Amount */}
-                      <td className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-border-default font-mono font-bold text-xs text-slate-900 dark:text-white">
+                      <td className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-400 align-middle">
                         {formatCurrency(ord.total)}
                       </td>
 
-                      {/* 7. Kitchen Status */}
-                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-border-default">
-                        <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border', statusConf.cls)}>
-                          {statusConf.label}
+                      {/* 7. Preparation / Fulfillment Status (KOT & BOT) */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                          <span
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full shrink-0',
+                              ord.status === 'RECEIVED' && 'bg-amber-500 animate-pulse',
+                              ord.status === 'PREPARING' && 'bg-blue-500',
+                              ord.status === 'READY' && 'bg-emerald-500',
+                              ord.status === 'SERVED' && 'bg-teal-500',
+                              ord.status === 'BILLED' && 'bg-purple-500',
+                              ord.status === 'COMPLETED' && 'bg-slate-400',
+                              ord.status === 'CANCELLED' && 'bg-rose-500'
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              ord.status === 'RECEIVED' && 'text-amber-700 dark:text-amber-400',
+                              ord.status === 'PREPARING' && 'text-blue-700 dark:text-blue-400',
+                              ord.status === 'READY' && 'text-emerald-700 dark:text-emerald-400',
+                              ord.status === 'SERVED' && 'text-teal-700 dark:text-teal-400',
+                              ord.status === 'BILLED' && 'text-purple-700 dark:text-purple-400',
+                              ord.status === 'COMPLETED' && 'text-slate-600 dark:text-slate-400',
+                              ord.status === 'CANCELLED' && 'text-rose-700 dark:text-rose-400'
+                            )}
+                          >
+                            {statusConf.label}
+                          </span>
                         </span>
                       </td>
 
-                      {/* 8. Payment Status */}
-                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-border-default">
-                        <span
-                          className={cn(
-                            'px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider inline-block',
-                            ord.isPaid
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                              : 'bg-amber-500 text-white animate-pulse'
-                          )}
-                        >
-                          {ord.isPaid ? 'PAID' : 'OPEN'}
+                      {/* 8. Payment Status - Clean dot + label, NO badge box */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                          <span
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full shrink-0',
+                              ord.isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+                            )}
+                          />
+                          <span className={ord.isPaid ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400 font-semibold'}>
+                            {ord.isPaid ? 'PAID' : 'OPEN'}
+                          </span>
                         </span>
                       </td>
 
                       {/* 9. Time */}
-                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-border-default font-mono text-xs text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 font-mono text-xs text-slate-700 dark:text-slate-300 align-middle">
                         <div>{timeStr}</div>
-                        <div className="text-[10px] text-muted">{minsAgo}m ago</div>
+                        <div className="text-[10px] text-slate-400 font-sans">{minsAgo}m ago</div>
                       </td>
 
-                      {/* 10. Actions (Clean, Direct & Useful) */}
-                      <td className="py-2 px-3 text-center">
+                      {/* 10. Actions */}
+                      <td className="py-2.5 px-3 text-center align-middle">
                         <div className="inline-flex items-center gap-1 justify-center">
                           {/* Manage / Add Items */}
                           <button
                             type="button"
                             onClick={() => handleManageOrderClick(ord)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#082e25] text-white text-[11px] font-bold transition-colors cursor-pointer shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#0B3D32] hover:bg-[#082e25] text-white text-xs font-medium transition-colors cursor-pointer shadow-2xs"
                             title={isQuickBill ? 'Reopen in Quick Sale to append items/rounds' : 'Manage & add items to order'}
                           >
                             <UtensilsCrossed className="w-3 h-3" />
@@ -754,7 +954,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleSettleOrderClick(ord)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-[3px] bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold transition-colors cursor-pointer shadow-2xs"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors cursor-pointer shadow-2xs"
                               title="Settle bill & payment"
                             >
                               <Receipt className="w-3 h-3" />
@@ -766,7 +966,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                           <button
                             type="button"
                             onClick={() => onPrintReceipt(ord)}
-                            className="p-1 rounded-[3px] border border-slate-300 dark:border-border-default text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-2xs"
+                            className="p-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-2xs"
                             title="Print receipt or ticket"
                           >
                             <Printer className="w-3.5 h-3.5" />
@@ -777,7 +977,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleCancelQuickBill(ord)}
-                              className="p-1 rounded-[3px] border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors cursor-pointer shadow-2xs"
+                              className="p-1 rounded border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors cursor-pointer shadow-2xs"
                               title="Cancel open order"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -788,7 +988,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                           <button
                             type="button"
                             onClick={() => setViewingOrder(ord)}
-                            className="p-1 rounded-[3px] border border-slate-300 dark:border-border-default text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-2xs"
+                            className="p-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-2xs"
                             title="View full order details"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -804,9 +1004,9 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
         </div>
 
         {/* -------------------------------------------------------------------
-            PAGINATION BAR
+            PAGINATION BAR (DataTables layout: Showing 1 to 10 of X orders | Previous 1 2 3 ... Next)
             ------------------------------------------------------------------- */}
-        <div className="p-3 border-t border-slate-200 dark:border-border-default flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 select-none">
+        <div className="p-2.5 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs bg-slate-50/50 dark:bg-slate-900/40 select-none">
           {/* Entries summary */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
@@ -817,7 +1017,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                   setEntriesPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="h-[28px] px-2 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+                className="h-7 px-2 border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer shadow-2xs"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -829,62 +1029,58 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
 
             <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
 
-            <div>
-              Showing <strong className="text-slate-800 dark:text-slate-200">{totalEntries > 0 ? startIndex + 1 : 0}</strong> to{' '}
-              <strong className="text-slate-800 dark:text-slate-200">{Math.min(startIndex + entriesPerPage, totalEntries)}</strong> of{' '}
-              <strong className="text-slate-800 dark:text-slate-200">{totalEntries}</strong> orders
+            <div className="text-slate-500 dark:text-slate-400">
+              Showing <span className="font-semibold text-slate-700 dark:text-slate-200">{totalEntries > 0 ? startIndex + 1 : 0}</span> to{' '}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.min(startIndex + entriesPerPage, totalEntries)}</span> of{' '}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">{totalEntries}</span> orders
             </div>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1.5 text-xs font-medium">
-              <button
-                type="button"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Previous</span>
-              </button>
+          <div className="flex items-center gap-1 text-xs font-medium">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition shadow-2xs text-xs font-medium"
+            >
+              Previous
+            </button>
 
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                .map((pageNum, idx, arr) => {
-                  const prev = arr[idx - 1];
-                  const showEllipsis = prev && pageNum - prev > 1;
-                  const isActive = pageNum === currentPage;
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+              .map((pageNum, idx, arr) => {
+                const prev = arr[idx - 1];
+                const showEllipsis = prev && pageNum - prev > 1;
+                const isActive = pageNum === currentPage;
 
-                  return (
-                    <React.Fragment key={pageNum}>
-                      {showEllipsis && <span className="px-1 text-slate-400 select-none font-bold">…</span>}
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={cn(
-                          'min-w-[28px] h-7 px-2 font-mono text-xs font-bold rounded-[3px] transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
-                          isActive
-                            ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-700 dark:border-emerald-700'
-                            : 'bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        )}
-                      >
-                        {pageNum}
-                      </button>
-                    </React.Fragment>
-                  );
-                })}
+                return (
+                  <React.Fragment key={pageNum}>
+                    {showEllipsis && <span className="px-1 text-slate-400 select-none font-bold">…</span>}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={cn(
+                        'min-w-[28px] h-7 px-2 font-mono text-xs font-semibold rounded transition cursor-pointer flex items-center justify-center shadow-2xs',
+                        isActive
+                          ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-600 dark:border-emerald-600'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
 
-              <button
-                type="button"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs font-medium"
-              >
-                <span>Next</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition shadow-2xs text-xs font-medium"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 
@@ -958,7 +1154,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                   </div>
 
                   <div>
-                    <span className="block text-[10px] font-bold text-muted uppercase">Service / Table</span>
+                    <span className="block text-[10px] font-bold text-muted uppercase">Source</span>
                     <span className="font-bold text-slate-900 dark:text-white text-xs">
                       {viewingOrder.table?.tableNumber
                         ? `Table ${viewingOrder.table.tableNumber}`
@@ -973,7 +1169,7 @@ export const ActiveOrdersView: React.FC<ActiveOrdersViewProps> = ({
                   </div>
 
                   <div>
-                    <span className="block text-[10px] font-bold text-muted uppercase">Kitchen Status</span>
+                    <span className="block text-[10px] font-bold text-muted uppercase">Prep Status</span>
                     <span className="font-bold text-slate-900 dark:text-white text-xs">
                       {viewingOrder.status}
                     </span>

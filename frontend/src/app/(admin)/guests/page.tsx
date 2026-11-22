@@ -477,22 +477,20 @@ function GuestDirectoryContent() {
     switch (tier) {
       case 'PLATINUM':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
-            <Award className="w-2.5 h-2.5" />
-            PLATINUM
+          <span className="font-bold text-[10px] text-purple-600 dark:text-purple-400">
+            (PLATINUM)
           </span>
         );
       case 'GOLD':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
-            <Award className="w-2.5 h-2.5" />
-            GOLD
+          <span className="font-bold text-[10px] text-amber-600 dark:text-amber-400">
+            (GOLD)
           </span>
         );
       case 'SILVER':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-            SILVER
+          <span className="font-bold text-[10px] text-slate-500 dark:text-slate-400">
+            (SILVER)
           </span>
         );
       default:
@@ -507,9 +505,8 @@ function GuestDirectoryContent() {
           ----------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <Contact className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
-            <span>Guest Directory</span>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+            Guest Directory
           </h1>
         </div>
 
@@ -575,8 +572,8 @@ function GuestDirectoryContent() {
           ----------------------------------------------------------------------- */}
       <div className="rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+            <thead className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
               <tr>
                 <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
                 <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">GUEST NAME</th>
@@ -588,7 +585,7 @@ function GuestDirectoryContent() {
                 <th className="py-2.5 px-3 text-center w-36">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+            <tbody className="divide-y-0">
               {paginatedGuests.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
@@ -603,15 +600,15 @@ function GuestDirectoryContent() {
                   return (
                     <tr
                       key={g.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
                       {/* 1. Serial Number */}
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-400 border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                         {startIndex + idx + 1}
                       </td>
 
                       {/* 2. Guest Name with VIP Tier & Nationality */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <button
                             type="button"
@@ -635,7 +632,7 @@ function GuestDirectoryContent() {
                       </td>
 
                       {/* 3. Contact (Phone & Email) */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 font-mono text-[11px]">
                           <Phone className="w-3 h-3 text-slate-400 shrink-0" />
                           <span>{g.phone || '—'}</span>
@@ -649,7 +646,7 @@ function GuestDirectoryContent() {
                       </td>
 
                       {/* 4. Visits & Nights */}
-                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-800 whitespace-nowrap">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60 whitespace-nowrap">
                         <div className="font-semibold text-slate-800 dark:text-slate-200">
                           {g.totalStays} {g.totalStays === 1 ? 'Stay' : 'Stays'}
                         </div>
@@ -659,17 +656,17 @@ function GuestDirectoryContent() {
                       </td>
 
                       {/* 5. Total Lifetime Spend */}
-                      <td className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono font-bold text-slate-900 dark:text-white">
+                      <td className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700/60 whitespace-nowrap font-mono font-bold text-slate-900 dark:text-white">
                         Rs. {g.totalSpent.toLocaleString()}
                       </td>
 
                       {/* 6. Current / Last Stay Room */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-800 whitespace-nowrap">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 whitespace-nowrap">
                         {isInHouse ? (
                           <div>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
-                              <BedDouble className="w-3 h-3 text-emerald-600" />
-                              In-House (Rm {g.currentRoom})
+                            <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-600 dark:text-emerald-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>In-House (Rm {g.currentRoom})</span>
                             </span>
                             <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                               Depart: {g.lastStayCheckOut}
@@ -677,9 +674,9 @@ function GuestDirectoryContent() {
                           </div>
                         ) : isReserved ? (
                           <div>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
-                              <Clock className="w-3 h-3 text-blue-600" />
-                              Reserved (Rm {g.currentRoom})
+                            <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-blue-600 dark:text-blue-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              <span>Reserved (Rm {g.currentRoom})</span>
                             </span>
                             <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                               Arrive: {g.lastStayCheckIn}
@@ -700,7 +697,7 @@ function GuestDirectoryContent() {
                       </td>
 
                       {/* 7. ID / KYC Details */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">
                           {g.idType || 'ID Document'}
                         </div>

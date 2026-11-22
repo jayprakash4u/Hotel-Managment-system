@@ -4,6 +4,7 @@ using Hospitality.Application.Common.Models;
 using Hospitality.Domain.Entities;
 using Hospitality.Persistence.Data;
 using Hospitality.Api.Services;
+using Hospitality.Infrastructure.Security;
 using System.Text.Json;
 
 namespace Hospitality.Api.Controllers;
@@ -23,9 +24,17 @@ public class RestaurantController : ControllerBase
         [FromQuery] string? outlet, 
         [FromQuery] string? status,
         [FromQuery] string? tableId,
+        [FromQuery] string? tableNumber,
+        [FromQuery] string? roomId,
         [FromQuery] string? orderType,
         [FromQuery] bool? activeOnly,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] bool? isPaid,
+        [FromQuery] string? paymentStatus,
+        [FromQuery] string? serverName,
+        [FromQuery] string? customerPhone)
     {
         var query = _db.RestaurantOrders
             .Include(o => o.Items)
@@ -71,6 +80,18 @@ public class RestaurantController : ControllerBase
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(tableNumber))
+        {
+            var cleanT = tableNumber.Trim().ToLower();
+            query = query.Where(o => o.Table != null && o.Table.TableNumber.ToLower() == cleanT);
+        }
+
+        if (!string.IsNullOrWhiteSpace(roomId))
+        {
+            var cleanR = roomId.Trim().ToLower();
+            query = query.Where(o => o.RoomId == roomId || (o.Room != null && o.Room.Number.ToLower() == cleanR));
+        }
+
         if (!string.IsNullOrWhiteSpace(orderType))
         {
             var types = orderType.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -79,12 +100,47 @@ public class RestaurantController : ControllerBase
             query = query.Where(o => types.Contains(o.OrderType.ToUpper()));
         }
 
+        if (isPaid.HasValue)
+        {
+            query = query.Where(o => o.IsPaid == isPaid.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(serverName))
+        {
+            var cleanS = serverName.Trim().ToLower();
+            query = query.Where(o => o.ServerName.ToLower().Contains(cleanS));
+        }
+
+        if (!string.IsNullOrWhiteSpace(customerPhone))
+        {
+            var cleanP = customerPhone.Trim();
+            query = query.Where(o => o.CustomerPhone != null && o.CustomerPhone.Contains(cleanP));
+        }
+
+        if (startDate.HasValue)
+        {
+            var startUtc = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+            query = query.Where(o => o.CreatedAt >= startUtc);
+        }
+
+        if (endDate.HasValue)
+        {
+            var endUtc = DateTime.SpecifyKind(endDate.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(o => o.CreatedAt < endUtc);
+        }
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
             query = query.Where(o => 
                 o.OrderNumber.ToLower().Contains(s) ||
+                (o.KotNumber != null && o.KotNumber.ToLower().Contains(s)) ||
+                (o.BotNumber != null && o.BotNumber.ToLower().Contains(s)) ||
+                (o.CustomerName != null && o.CustomerName.ToLower().Contains(s)) ||
+                (o.CustomerPhone != null && o.CustomerPhone.ToLower().Contains(s)) ||
                 (o.Table != null && o.Table.TableNumber.ToLower().Contains(s)) ||
+                (o.Room != null && o.Room.Number.ToLower().Contains(s)) ||
+                (o.Guest != null && (o.Guest.FirstName.ToLower().Contains(s) || o.Guest.LastName.ToLower().Contains(s))) ||
                 (o.ServerName != null && o.ServerName.ToLower().Contains(s)) ||
                 (o.Notes != null && o.Notes.ToLower().Contains(s)) ||
                 o.Items.Any(i => i.ProductName.ToLower().Contains(s))
@@ -95,7 +151,115 @@ public class RestaurantController : ControllerBase
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 
+        // Attach associated Bill and BillPaymentStatus records
+        if (orders.Count > 0)
+        {
+            var orderIds = orders.Select(o => o.Id).ToList();
+            var orderNumbers = orders.Select(o => o.OrderNumber).ToList();
+            var bills = await _db.Bills
+                .Where(b => (b.OrderId != null && orderIds.Contains(b.OrderId)) || (b.OrderNumber != null && orderNumbers.Contains(b.OrderNumber)))
+                .ToListAsync();
+
+            var billByOrderId = new Dictionary<string, Bill>();
+            var billByOrderNum = new Dictionary<string, Bill>();
+            foreach (var b in bills)
+            {
+                if (!string.IsNullOrEmpty(b.OrderId) && !billByOrderId.ContainsKey(b.OrderId)) billByOrderId[b.OrderId] = b;
+                if (!string.IsNullOrEmpty(b.OrderNumber) && !billByOrderNum.ContainsKey(b.OrderNumber)) billByOrderNum[b.OrderNumber] = b;
+            }
+
+            foreach (var o in orders)
+            {
+                if (billByOrderId.TryGetValue(o.Id, out var bill) || billByOrderNum.TryGetValue(o.OrderNumber, out bill))
+                {
+                    o.Bill = bill;
+                    o.BillPaymentStatus = bill.PaymentStatus;
+                }
+                else
+                {
+                    o.BillPaymentStatus = o.IsPaid ? "PAID" : "UNPAID";
+                }
+            }
+
+            // In-memory paymentStatus filter if requested
+            if (!string.IsNullOrWhiteSpace(paymentStatus))
+            {
+                var pFilter = paymentStatus.Trim().ToUpper();
+                if (pFilter == "PAID")
+                {
+                    orders = orders.Where(o => o.IsPaid || o.BillPaymentStatus == "PAID").ToList();
+                }
+                else if (pFilter == "UNPAID")
+                {
+                    orders = orders.Where(o => !o.IsPaid && (o.BillPaymentStatus == "UNPAID" || string.IsNullOrEmpty(o.BillPaymentStatus))).ToList();
+                }
+                else if (pFilter == "PARTIAL")
+                {
+                    orders = orders.Where(o => o.BillPaymentStatus == "PARTIAL").ToList();
+                }
+                else if (pFilter == "REFUNDED")
+                {
+                    orders = orders.Where(o => o.BillPaymentStatus == "REFUNDED" || o.BillPaymentStatus == "VOID").ToList();
+                }
+            }
+        }
+
         return Ok(ApiResponse.Ok(orders));
+    }
+
+    [HttpGet("api/restaurant/orders/metrics")]
+    public async Task<IActionResult> GetOrderMetrics(
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] string? outlet)
+    {
+        var query = _db.RestaurantOrders.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(outlet))
+        {
+            query = query.Where(o => o.Outlet.ToUpper() == outlet.ToUpper());
+        }
+
+        if (startDate.HasValue)
+        {
+            var startUtc = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+            query = query.Where(o => o.CreatedAt >= startUtc);
+        }
+
+        if (endDate.HasValue)
+        {
+            var endUtc = DateTime.SpecifyKind(endDate.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(o => o.CreatedAt < endUtc);
+        }
+
+        var orders = await query
+            .Select(o => new { o.Id, o.Status, o.IsPaid, o.Total, o.CreatedAt })
+            .ToListAsync();
+
+        var totalOrders = orders.Count;
+        var pendingOrders = orders.Count(o => o.Status == "RECEIVED" || o.Status == "PENDING");
+        var preparingOrders = orders.Count(o => o.Status == "PREPARING");
+        var readyOrders = orders.Count(o => o.Status == "READY");
+        var servedOrders = orders.Count(o => o.Status == "SERVED");
+        var completedOrders = orders.Count(o => o.Status == "COMPLETED" && o.Status != "CANCELLED");
+        var cancelledOrders = orders.Count(o => o.Status == "CANCELLED");
+
+        // Sales follows strict financial rules: only paid orders, excluding cancelled
+        var salesTotal = Math.Round(orders.Where(o => o.IsPaid && o.Status != "CANCELLED").Sum(o => o.Total), 2);
+        var unpaidValue = Math.Round(orders.Where(o => !o.IsPaid && o.Status != "CANCELLED").Sum(o => o.Total), 2);
+
+        return Ok(ApiResponse.Ok(new
+        {
+            totalOrders,
+            pendingOrders,
+            preparingOrders,
+            readyOrders,
+            servedOrders,
+            completedOrders,
+            cancelledOrders,
+            salesTotal,
+            unpaidValue
+        }));
     }
 
     [HttpGet("api/restaurant/orders/{id}")]
@@ -111,6 +275,17 @@ public class RestaurantController : ControllerBase
         if (order == null)
         {
             return NotFound(ApiResponse.Fail($"Order '{id}' not found."));
+        }
+
+        var bill = await _db.Bills.FirstOrDefaultAsync(b => b.OrderId == order.Id || b.OrderNumber == order.OrderNumber);
+        if (bill != null)
+        {
+            order.Bill = bill;
+            order.BillPaymentStatus = bill.PaymentStatus;
+        }
+        else
+        {
+            order.BillPaymentStatus = order.IsPaid ? "PAID" : "UNPAID";
         }
 
         return Ok(ApiResponse.Ok(order));
@@ -213,6 +388,36 @@ public class RestaurantController : ControllerBase
         }
     }
 
+    private async Task<string> ResolveItemPreparationMethodAsync(string? requestedPrepMethod, string? productId, string? productName)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedPrepMethod))
+        {
+            var pm = requestedPrepMethod.Trim().ToUpper();
+            if (pm == "READY_TO_SERVE" || pm == "REQUIRES_PREPARATION" || pm == "NOT_CONFIGURED")
+                return pm;
+        }
+
+        POSProduct? product = null;
+        if (!string.IsNullOrWhiteSpace(productId))
+        {
+            product = await _db.POSProducts.FirstOrDefaultAsync(p => p.Id == productId);
+        }
+        if (product == null && !string.IsNullOrWhiteSpace(productName))
+        {
+            var cleanName = productName.Trim().ToLower();
+            product = await _db.POSProducts.FirstOrDefaultAsync(p => p.Name.ToLower() == cleanName);
+        }
+
+        if (product != null && !string.IsNullOrWhiteSpace(product.PreparationMethod))
+        {
+            var pm = product.PreparationMethod.Trim().ToUpper();
+            if (pm == "READY_TO_SERVE" || pm == "REQUIRES_PREPARATION" || pm == "NOT_CONFIGURED")
+                return pm;
+        }
+
+        return "NOT_CONFIGURED";
+    }
+
     public record CreateRestaurantOrderRequest(
         string? Outlet,
         string? TableId,
@@ -234,6 +439,8 @@ public class RestaurantController : ControllerBase
         int Quantity,
         string? Notes,
         string? Department = "KOT",
+        string? PreparationMethod = null,
+        string? Status = "RECEIVED",
         int? DispatchedQuantity = 0,
         string? KotNumber = null,
         string? BotNumber = null
@@ -243,6 +450,11 @@ public class RestaurantController : ControllerBase
     public async Task<IActionResult> CreateOrder([FromBody] CreateRestaurantOrderRequest req)
     {
         var items = req.Items ?? new List<RestaurantOrderItemDto>();
+
+        if (items.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("Cannot create an order with no items. At least one item is required."));
+        }
 
         foreach (var item in items)
         {
@@ -346,6 +558,7 @@ public class RestaurantController : ControllerBase
                     // Append new items to the existing active order
                     foreach (var item in items)
                     {
+                        var prepMethod = await ResolveItemPreparationMethodAsync(item.PreparationMethod, item.ProductId, item.ProductName);
                         existingOrder.Items.Add(new RestaurantOrderItem
                         {
                             OrderId = existingOrder.Id,
@@ -356,6 +569,8 @@ public class RestaurantController : ControllerBase
                             Total = item.UnitPrice * item.Quantity,
                             Notes = item.Notes,
                             Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                            PreparationMethod = prepMethod,
+                            Status = !string.IsNullOrWhiteSpace(item.Status) ? item.Status : "RECEIVED",
                             DispatchedQuantity = item.DispatchedQuantity ?? 0,
                             KotNumber = item.KotNumber,
                             BotNumber = item.BotNumber
@@ -533,6 +748,7 @@ public class RestaurantController : ControllerBase
 
             foreach (var item in items)
             {
+                var prepMethod = await ResolveItemPreparationMethodAsync(item.PreparationMethod, item.ProductId, item.ProductName);
                 order.Items.Add(new RestaurantOrderItem
                 {
                     OrderId = order.Id,
@@ -543,6 +759,8 @@ public class RestaurantController : ControllerBase
                     Total = item.UnitPrice * item.Quantity,
                     Notes = item.Notes,
                     Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                    PreparationMethod = prepMethod,
+                    Status = !string.IsNullOrWhiteSpace(item.Status) ? item.Status : "RECEIVED",
                     DispatchedQuantity = item.DispatchedQuantity ?? 0,
                     KotNumber = item.KotNumber,
                     BotNumber = item.BotNumber
@@ -673,6 +891,7 @@ public class RestaurantController : ControllerBase
                     }
                 }
 
+                var prepMethod = await ResolveItemPreparationMethodAsync(item.PreparationMethod, item.ProductId, item.ProductName);
                 order.Items.Add(new RestaurantOrderItem
                 {
                     OrderId = order.Id,
@@ -683,6 +902,8 @@ public class RestaurantController : ControllerBase
                     Total = item.UnitPrice * item.Quantity,
                     Notes = item.Notes,
                     Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                    PreparationMethod = prepMethod,
+                    Status = !string.IsNullOrWhiteSpace(item.Status) ? item.Status : "RECEIVED",
                     DispatchedQuantity = item.DispatchedQuantity ?? 0,
                     KotNumber = item.KotNumber,
                     BotNumber = item.BotNumber
@@ -756,6 +977,7 @@ public class RestaurantController : ControllerBase
             {
                 if (item.Quantity > 0)
                 {
+                    var prepMethod = await ResolveItemPreparationMethodAsync(item.PreparationMethod, item.ProductId, item.ProductName);
                     order.Items.Add(new RestaurantOrderItem
                     {
                         OrderId = order.Id,
@@ -766,6 +988,8 @@ public class RestaurantController : ControllerBase
                         Total = item.UnitPrice * item.Quantity,
                         Notes = item.Notes,
                         Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                        PreparationMethod = prepMethod,
+                        Status = !string.IsNullOrWhiteSpace(item.Status) ? item.Status : "RECEIVED",
                         DispatchedQuantity = item.DispatchedQuantity ?? 0,
                         KotNumber = item.KotNumber,
                         BotNumber = item.BotNumber
@@ -1107,6 +1331,11 @@ public class RestaurantController : ControllerBase
         if (order.Status == "COMPLETED")
         {
             return Ok(ApiResponse.Ok(order, "Order is already completed and paid."));
+        }
+
+        if (order.Items == null || order.Items.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("Cannot complete or settle an order with no items."));
         }
 
         using var transaction = await _db.Database.BeginTransactionAsync();
@@ -1512,8 +1741,36 @@ public class RestaurantController : ControllerBase
             }
         }
 
+        if ((newStatus == "COMPLETED" || newStatus == "BILLED" || newStatus == "SERVED") && (order.Items == null || order.Items.Count == 0))
+        {
+            return BadRequest(ApiResponse.Fail($"Cannot change status of order {order.OrderNumber} to {newStatus} because it has no items."));
+        }
+
         order.Status = newStatus;
         order.UpdatedAt = DateTime.UtcNow;
+
+        // Synchronize active order item statuses when full ticket status changes
+        if (newStatus == "SERVED")
+        {
+            foreach (var it in order.Items.Where(i => i.Status != "CANCELLED"))
+            {
+                it.Status = "SERVED";
+                if (!it.PreparationCompletedAt.HasValue) it.PreparationCompletedAt = DateTime.UtcNow;
+            }
+        }
+        else if (newStatus == "READY")
+        {
+            foreach (var it in order.Items.Where(i => i.Status != "CANCELLED" && i.Status != "SERVED"))
+            {
+                it.Status = "READY";
+                if (!it.PreparationCompletedAt.HasValue) it.PreparationCompletedAt = DateTime.UtcNow;
+                if (it.PreparationStartedAt.HasValue && !it.PreparationDurationMinutes.HasValue)
+                {
+                    it.PreparationDurationMinutes = Math.Round((DateTime.UtcNow - it.PreparationStartedAt.Value).TotalMinutes, 1);
+                }
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(req.Notes))
         {
             order.Notes = string.IsNullOrEmpty(order.Notes) ? req.Notes : $"{order.Notes} | {req.Notes}";
@@ -1532,6 +1789,109 @@ public class RestaurantController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(ApiResponse.Ok(order, $"Order {order.OrderNumber} status updated to {newStatus}."));
+    }
+
+    public record UpdateOrderItemStatusRequest(
+        string Status,
+        string? StaffName = null,
+        string? Notes = null
+    );
+
+    [HttpPatch("api/restaurant/orders/{orderId}/items/{itemId}/status")]
+    public async Task<IActionResult> UpdateOrderItemStatus(
+        string orderId,
+        string itemId,
+        [FromBody] UpdateOrderItemStatusRequest req)
+    {
+        var order = await _db.RestaurantOrders
+            .Include(o => o.Items)
+            .Include(o => o.Table)
+            .FirstOrDefaultAsync(o => o.Id == orderId || o.OrderNumber == orderId);
+
+        if (order == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order '{orderId}' was not found."));
+        }
+
+        var orderItem = order.Items.FirstOrDefault(i => i.Id == itemId);
+        if (orderItem == null)
+        {
+            return NotFound(ApiResponse.Fail($"Order item '{itemId}' was not found in Order '{order.OrderNumber}'."));
+        }
+
+        var newStatus = req.Status.Trim().ToUpper();
+        var validStatuses = new[] { "RECEIVED", "PREPARING", "READY", "SERVED", "CANCELLED" };
+        if (!validStatuses.Contains(newStatus))
+        {
+            return BadRequest(ApiResponse.Fail($"Invalid status '{req.Status}'. Allowed: {string.Join(", ", validStatuses)}"));
+        }
+
+        var staff = !string.IsNullOrWhiteSpace(req.StaffName) ? req.StaffName.Trim() : (order.ServerName ?? "Bar Staff");
+
+        // Concurrency / conflict check
+        if (orderItem.Status == newStatus)
+        {
+            return Ok(ApiResponse.Ok(order, $"Item '{orderItem.ProductName}' is already {newStatus}."));
+        }
+
+        orderItem.Status = newStatus;
+
+        if (newStatus == "PREPARING")
+        {
+            if (!orderItem.PreparationStartedAt.HasValue)
+            {
+                orderItem.PreparationStartedAt = DateTime.UtcNow;
+            }
+            orderItem.PreparedBy = staff;
+        }
+        else if (newStatus == "READY")
+        {
+            orderItem.PreparationCompletedAt = DateTime.UtcNow;
+            if (orderItem.PreparationStartedAt.HasValue)
+            {
+                orderItem.PreparationDurationMinutes = Math.Round((DateTime.UtcNow - orderItem.PreparationStartedAt.Value).TotalMinutes, 1);
+            }
+            orderItem.PreparedBy = staff;
+        }
+        else if (newStatus == "SERVED")
+        {
+            if (!orderItem.PreparationCompletedAt.HasValue)
+            {
+                orderItem.PreparationCompletedAt = DateTime.UtcNow;
+            }
+        }
+
+        // Recalculate ticket-level status based on active items
+        var activeItems = order.Items.Where(i => i.Status != "CANCELLED").ToList();
+        if (activeItems.Count > 0)
+        {
+            if (activeItems.All(i => i.Status == "SERVED"))
+            {
+                order.Status = "SERVED";
+            }
+            else if (activeItems.All(i => i.Status == "READY" || i.Status == "SERVED"))
+            {
+                order.Status = "READY";
+            }
+            else if (activeItems.Any(i => i.Status == "PREPARING" || i.Status == "READY" || i.Status == "SERVED"))
+            {
+                order.Status = "PREPARING";
+            }
+            else
+            {
+                order.Status = "RECEIVED";
+            }
+        }
+
+        order.UpdatedAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(req.Notes))
+        {
+            order.Notes = string.IsNullOrEmpty(order.Notes) ? req.Notes : $"{order.Notes} | {req.Notes}";
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ApiResponse.Ok(order, $"Drink '{orderItem.ProductName}' status updated to {newStatus}."));
     }
 
     [HttpPost("api/restaurant/orders/{id}/cancel")]
@@ -1682,7 +2042,8 @@ public class RestaurantController : ControllerBase
         string TableNumber,
         int? Capacity,
         string? Section,
-        string? CategoryId
+        string? CategoryId,
+        bool? CreateQrCode = true
     );
 
     public record UpdateTableDetailsRequest(
@@ -1698,7 +2059,8 @@ public class RestaurantController : ControllerBase
         int Count,
         int Capacity,
         string? CategoryId,
-        string? Section
+        string? Section,
+        bool? CreateQrCode = true
     );
 
     [HttpGet("api/restaurant/table-categories")]
@@ -1902,6 +2264,24 @@ public class RestaurantController : ControllerBase
         _db.RestaurantTables.Add(table);
         await _db.SaveChangesAsync();
 
+        if (req.CreateQrCode ?? true)
+        {
+            var token = QrTokenSecurity.GenerateSecureToken();
+            var qr = new RestaurantQrCode
+            {
+                HotelId = hotelId,
+                CodeType = "TABLE",
+                TableId = table.Id,
+                Label = table.TableNumber,
+                TokenHash = QrTokenSecurity.HashToken(token),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.RestaurantQrCodes.Add(qr);
+            await _db.SaveChangesAsync();
+        }
+
         return Ok(ApiResponse.Ok(table, $"Table {table.TableNumber} created successfully in {table.Section}."));
     }
 
@@ -1920,6 +2300,14 @@ public class RestaurantController : ControllerBase
                 return BadRequest(ApiResponse.Fail($"Table number '{cleanNum}' is already in use."));
             }
             table.TableNumber = cleanNum;
+
+            // Sync updated table name to linked QR codes
+            var linkedQrs = await _db.RestaurantQrCodes.Where(q => q.TableId == table.Id).ToListAsync();
+            foreach (var qr in linkedQrs)
+            {
+                qr.Label = cleanNum;
+                qr.UpdatedAt = DateTime.UtcNow;
+            }
         }
 
         if (req.Capacity.HasValue && req.Capacity.Value > 0)
@@ -1958,6 +2346,12 @@ public class RestaurantController : ControllerBase
         if (table.Status == "OCCUPIED" || table.Orders.Any(o => o.Status != "COMPLETED" && o.Status != "CANCELLED"))
         {
             return BadRequest(ApiResponse.Fail("Cannot delete table while it has active or unpaid dining orders. Please release or settle the table first."));
+        }
+
+        var linkedQrs = await _db.RestaurantQrCodes.Where(q => q.TableId == table.Id).ToListAsync();
+        if (linkedQrs.Any())
+        {
+            _db.RestaurantQrCodes.RemoveRange(linkedQrs);
         }
 
         _db.RestaurantTables.Remove(table);
@@ -2021,6 +2415,27 @@ public class RestaurantController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
+
+        if (req.CreateQrCode ?? true)
+        {
+            foreach (var tbl in created)
+            {
+                var token = QrTokenSecurity.GenerateSecureToken();
+                _db.RestaurantQrCodes.Add(new RestaurantQrCode
+                {
+                    HotelId = hotelId,
+                    CodeType = "TABLE",
+                    TableId = tbl.Id,
+                    Label = tbl.TableNumber,
+                    TokenHash = QrTokenSecurity.HashToken(token),
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+            await _db.SaveChangesAsync();
+        }
+
         return Ok(ApiResponse.Ok(created, $"Successfully created {created.Count} tables in {sectionName}."));
     }
 
@@ -3072,7 +3487,7 @@ public class RestaurantController : ControllerBase
                     OrderType = "DINE_IN",
                     ServerName = req?.ServerName ?? "Waiter",
                     Status = "RECEIVED",
-                    Notes = $"Reservation {res.ReservationCode} - {res.CustomerName} ({res.PartySize} guests). {(string.IsNullOrWhiteSpace(res.SpecialRequests) ? "" : "Special: " + res.SpecialRequests)}".Trim(),
+                    Notes = null,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -3083,10 +3498,6 @@ public class RestaurantController : ControllerBase
             else
             {
                 order.ReservationId = res.Id;
-                if (!string.IsNullOrWhiteSpace(res.CustomerName))
-                {
-                    order.Notes = $"Reservation {res.ReservationCode} - {res.CustomerName}. {order.Notes}".Trim();
-                }
             }
 
             res.OrderId = order.Id;
@@ -3133,6 +3544,7 @@ public class RestaurantController : ControllerBase
         int Quantity,
         string? Notes,
         string? Department = "KOT",
+        string? PreparationMethod = null,
         string? Unit = null
     );
 
@@ -3406,6 +3818,7 @@ public class RestaurantController : ControllerBase
 
             foreach (var item in req.Items)
             {
+                var prepMethod = await ResolveItemPreparationMethodAsync(item.PreparationMethod, item.ProductId, item.ProductName);
                 order.Items.Add(new RestaurantOrderItem
                 {
                     ProductId = item.ProductId ?? Guid.NewGuid().ToString("N"),
@@ -3415,6 +3828,8 @@ public class RestaurantController : ControllerBase
                     Total = Math.Round(item.UnitPrice * item.Quantity, 2),
                     Notes = item.Notes,
                     Department = !string.IsNullOrWhiteSpace(item.Department) ? item.Department : "KOT",
+                    PreparationMethod = prepMethod,
+                    Status = "RECEIVED",
                     DispatchedQuantity = sendToKitchen ? item.Quantity : 0,
                     KotNumber = sendToKitchen && item.Department != "BOT" ? kotNumber : null
                 });
@@ -3803,6 +4218,272 @@ public class RestaurantController : ControllerBase
                 }),
                 CreatedAt = o.CreatedAt
             })
+        }));
+    }
+
+    [HttpGet("api/restaurant/dashboard-summary")]
+    public async Task<IActionResult> GetDashboardSummary([FromQuery] string? date)
+    {
+        DateTime targetDate = DateTime.UtcNow.Date;
+        if (!string.IsNullOrWhiteSpace(date) && DateTime.TryParse(date, out var parsed))
+        {
+            targetDate = parsed.Date;
+        }
+
+        var todayStart = DateTime.SpecifyKind(targetDate, DateTimeKind.Utc);
+        var todayEnd = todayStart.AddDays(1);
+        var yesterdayStart = todayStart.AddDays(-1);
+        var yesterdayEnd = todayStart;
+        var sevenDaysStart = todayStart.AddDays(-6);
+
+        // Fetch orders in the 7-day range (including today)
+        var sevenDaysOrders = await _db.RestaurantOrders
+            .Where(o => o.CreatedAt >= sevenDaysStart && o.CreatedAt < todayEnd && o.Status != "CANCELLED")
+            .ToListAsync();
+
+        // Also fetch bills in the 7-day range (in case quick sales or direct bills exist)
+        var sevenDaysBills = await _db.Bills
+            .Where(b => b.CreatedAt >= sevenDaysStart && b.CreatedAt < todayEnd && (b.PaymentStatus == "PAID" || b.AmountPaid > 0) && b.PaymentStatus != "VOID" && b.TransactionStatus != "CANCELLED")
+            .ToListAsync();
+
+        // Total orders received today (all non-cancelled orders created today)
+        var todayOrdersCount = sevenDaysOrders.Count(o => o.CreatedAt >= todayStart && o.CreatedAt < todayEnd);
+
+        // Helper to calculate total revenue for a specific date window
+        double CalculateSales(DateTime start, DateTime end)
+        {
+            var orderSales = sevenDaysOrders
+                .Where(o => o.CreatedAt >= start && o.CreatedAt < end && (o.IsPaid || o.Status == "COMPLETED" || o.Status == "BILLED"))
+                .Sum(o => o.Total);
+
+            var linkedOrderIds = new HashSet<string>(sevenDaysOrders.Select(o => o.Id));
+            var unlinkedBillSales = sevenDaysBills
+                .Where(b => b.CreatedAt >= start && b.CreatedAt < end && (string.IsNullOrEmpty(b.OrderId) || !linkedOrderIds.Contains(b.OrderId)))
+                .Sum(b => b.GrandTotal > 0 ? b.GrandTotal : b.AmountPaid);
+
+            return Math.Round(orderSales + unlinkedBillSales, 2);
+        }
+
+        var todaySales = CalculateSales(todayStart, todayEnd);
+        var yesterdaySales = CalculateSales(yesterdayStart, yesterdayEnd);
+
+        double percentageChange = 0;
+        if (yesterdaySales > 0)
+        {
+            percentageChange = Math.Round(((todaySales - yesterdaySales) / yesterdaySales) * 100.0, 1);
+        }
+        else if (todaySales > 0)
+        {
+            percentageChange = 100.0;
+        }
+
+        var last7DaysSales = CalculateSales(sevenDaysStart, todayEnd);
+
+        // Generate 7-day breakdown (day -6 to day 0)
+        var dailyBreakdowns = new List<(DateTime Date, double Sales, int Orders)>();
+        double maxDaySales = 0;
+        double minDaySales = double.MaxValue;
+
+        for (int i = 0; i < 7; i++)
+        {
+            var dayStart = sevenDaysStart.AddDays(i);
+            var dayEnd = dayStart.AddDays(1);
+            var daySales = CalculateSales(dayStart, dayEnd);
+            var dayOrderCount = sevenDaysOrders.Count(o => o.CreatedAt >= dayStart && o.CreatedAt < dayEnd);
+
+            dailyBreakdowns.Add((dayStart, daySales, dayOrderCount));
+            if (daySales > maxDaySales) maxDaySales = daySales;
+            if (daySales < minDaySales) minDaySales = daySales;
+        }
+
+        var weeklySalesList = dailyBreakdowns.Select(day => new
+        {
+            date = day.Date.ToString("yyyy-MM-dd"),
+            dayName = day.Date.ToString("ddd"),
+            dayFullName = day.Date.ToString("dddd"),
+            formattedDate = day.Date.ToString("MMM dd"),
+            sales = day.Sales,
+            orderCount = day.Orders,
+            isToday = day.Date.Date == targetDate.Date,
+            isHighest = maxDaySales > 0 && day.Sales == maxDaySales,
+            isLowest = day.Sales == minDaySales
+        }).ToList();
+
+        return Ok(ApiResponse.Ok(new
+        {
+            todaySales,
+            yesterdaySales,
+            percentageChange,
+            isIncrease = percentageChange >= 0,
+            last7DaysSales,
+            todayOrders = todayOrdersCount,
+            currency = "NPR",
+            currencySymbol = "रु",
+            weeklySales = weeklySalesList
+        }));
+    }
+
+    [HttpGet("api/restaurant/menu-item-sales")]
+    public async Task<IActionResult> GetMenuItemSales(
+        [FromQuery] string? preset,
+        [FromQuery] string? startDate,
+        [FromQuery] string? endDate,
+        [FromQuery] string? category,
+        [FromQuery] string? search)
+    {
+        DateTime now = DateTime.UtcNow;
+        DateTime startUtc;
+        DateTime endUtc;
+
+        var cleanPreset = (preset ?? "").Trim().ToLower();
+
+        if (cleanPreset == "yesterday")
+        {
+            startUtc = DateTime.SpecifyKind(now.Date.AddDays(-1), DateTimeKind.Utc);
+            endUtc = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
+        }
+        else if (cleanPreset == "last7days")
+        {
+            startUtc = DateTime.SpecifyKind(now.Date.AddDays(-6), DateTimeKind.Utc);
+            endUtc = DateTime.SpecifyKind(now.Date.AddDays(1), DateTimeKind.Utc);
+        }
+        else if (cleanPreset == "thismonth")
+        {
+            startUtc = DateTime.SpecifyKind(new DateTime(now.Year, now.Month, 1), DateTimeKind.Utc);
+            endUtc = DateTime.SpecifyKind(now.Date.AddDays(1), DateTimeKind.Utc);
+        }
+        else if (!string.IsNullOrWhiteSpace(startDate) && DateTime.TryParse(startDate, out var pStart))
+        {
+            startUtc = DateTime.SpecifyKind(pStart.Date, DateTimeKind.Utc);
+            if (!string.IsNullOrWhiteSpace(endDate) && DateTime.TryParse(endDate, out var pEnd))
+            {
+                endUtc = DateTime.SpecifyKind(pEnd.Date.AddDays(1), DateTimeKind.Utc);
+            }
+            else
+            {
+                endUtc = startUtc.AddDays(1);
+            }
+        }
+        else // default to "today"
+        {
+            startUtc = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
+            endUtc = DateTime.SpecifyKind(now.Date.AddDays(1), DateTimeKind.Utc);
+        }
+
+        // Fetch order items within the date range from valid, non-cancelled orders
+        var orderItems = await _db.RestaurantOrderItems
+            .Include(i => i.Order)
+            .Where(i => i.Order != null &&
+                        i.Order.CreatedAt >= startUtc &&
+                        i.Order.CreatedAt < endUtc &&
+                        i.Order.Status != "CANCELLED" &&
+                        (i.Order.IsPaid || i.Order.Status == "COMPLETED" || i.Order.Status == "BILLED"))
+            .ToListAsync();
+
+        // Also fetch product catalog for accurate category mapping
+        var products = await _db.POSProducts
+            .Select(p => new { p.Id, p.Name, p.Category, p.Price })
+            .ToListAsync();
+
+        var productMap = products.GroupBy(p => p.Name.Trim().ToLower())
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var productIdMap = products.ToDictionary(p => p.Id);
+
+        // Group order items by item name (case-insensitive)
+        var groupedItems = orderItems
+            .GroupBy(i => (i.ProductName ?? "Unnamed Item").Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var itemName = g.Key;
+                var firstItem = g.First();
+                string resolvedCategory = "General";
+                bool isVeg = itemName.ToLower().Contains("veg") && !itemName.ToLower().Contains("non-veg");
+
+                if (!string.IsNullOrEmpty(firstItem.ProductId) && productIdMap.TryGetValue(firstItem.ProductId, out var prodById))
+                {
+                    resolvedCategory = string.IsNullOrWhiteSpace(prodById.Category) ? "General" : prodById.Category.Trim();
+                    isVeg = resolvedCategory.ToLower().Contains("veg") && !resolvedCategory.ToLower().Contains("non-veg");
+                }
+                else if (productMap.TryGetValue(itemName.ToLower(), out var prodByName))
+                {
+                    resolvedCategory = string.IsNullOrWhiteSpace(prodByName.Category) ? "General" : prodByName.Category.Trim();
+                    isVeg = resolvedCategory.ToLower().Contains("veg") && !resolvedCategory.ToLower().Contains("non-veg");
+                }
+
+                int totalQty = g.Sum(x => x.Quantity);
+                double totalSales = Math.Round(g.Sum(x => x.Total > 0 ? x.Total : (x.UnitPrice * x.Quantity)), 2);
+                double avgPrice = totalQty > 0 ? Math.Round(totalSales / totalQty, 2) : 0;
+
+                return new
+                {
+                    menuItem = itemName,
+                    productId = firstItem.ProductId,
+                    category = resolvedCategory,
+                    isVeg = isVeg,
+                    quantitySold = totalQty,
+                    totalSales = totalSales,
+                    averagePrice = avgPrice
+                };
+            })
+            .ToList();
+
+        // Calculate distinct categories
+        var allCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "All" };
+        foreach (var p in products)
+        {
+            if (!string.IsNullOrWhiteSpace(p.Category)) allCategories.Add(p.Category.Trim());
+        }
+        foreach (var item in groupedItems)
+        {
+            if (!string.IsNullOrWhiteSpace(item.category)) allCategories.Add(item.category.Trim());
+        }
+
+        // Summary Calculations (covering whole selected period)
+        int totalItemsSold = groupedItems.Sum(x => x.quantitySold);
+        double overallSales = Math.Round(groupedItems.Sum(x => x.totalSales), 2);
+
+        var bestSelling = groupedItems
+            .OrderByDescending(x => x.quantitySold)
+            .ThenByDescending(x => x.totalSales)
+            .FirstOrDefault();
+
+        // Apply search & category filters if passed
+        var filtered = groupedItems.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(category) && !category.Equals("All", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(x => x.category.Equals(category.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var cleanSearch = search.Trim().ToLower();
+            filtered = filtered.Where(x => x.menuItem.ToLower().Contains(cleanSearch) || x.category.ToLower().Contains(cleanSearch));
+        }
+
+        var finalItems = filtered
+            .OrderByDescending(x => x.quantitySold)
+            .ThenByDescending(x => x.totalSales)
+            .ToList();
+
+        return Ok(ApiResponse.Ok(new
+        {
+            startDate = startUtc.ToString("yyyy-MM-dd"),
+            endDate = endUtc.AddDays(-1).ToString("yyyy-MM-dd"),
+            currency = "NPR",
+            currencySymbol = "रु",
+            totalItemsSold,
+            totalSales = overallSales,
+            bestSellingItem = bestSelling != null ? new
+            {
+                name = bestSelling.menuItem,
+                quantitySold = bestSelling.quantitySold,
+                totalSales = bestSelling.totalSales,
+                category = bestSelling.category
+            } : null,
+            categories = allCategories.OrderBy(c => c == "All" ? "" : c).ToList(),
+            items = finalItems
         }));
     }
 

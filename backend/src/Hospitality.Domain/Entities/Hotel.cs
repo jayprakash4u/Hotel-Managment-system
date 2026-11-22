@@ -29,4 +29,6 @@ public class Hotel : BaseEntity
     public ICollection<Expense> Expenses { get; set; } = new List<Expense>();
     public ICollection<CashRegister> CashRegisters { get; set; } = new List<CashRegister>();
     public ICollection<Staff> StaffMembers { get; set; } = new List<Staff>();
+    public RestaurantMenuSettings? MenuSettings { get; set; }
+    public ICollection<RestaurantQrCode> RestaurantQrCodes { get; set; } = new List<RestaurantQrCode>();
 }

@@ -1,21 +1,14 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ShoppingCart,
   Plus,
   RotateCcw,
-  Search,
   Eye,
+  Pencil,
   CheckCircle2,
-  FileText,
   Calendar,
-  Filter,
-  Package,
-  Layers,
-  ArrowUpDown,
-  Tag,
-  AlertCircle,
   Building,
   CreditCard,
   User,
@@ -26,12 +19,22 @@ import {
   ChevronDown,
   Check,
   Loader2,
+  Printer,
+  Copy,
+  Mail,
+  MessageCircle,
+  Settings,
+  Clock,
+  AlertCircle,
+  Package,
+  PackageCheck,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { InventoryItem, SupplierOption } from './DepartmentInventoryView';
 import { NewPurchaseModal } from './NewPurchaseModal';
 import { PurchaseRecord, PurchaseLineItem, SupplierRecord } from '@/lib/types';
+import { fetchSuppliersList, subscribeToSuppliers } from '@/lib/suppliersData';
 
 export type { PurchaseRecord };
 
@@ -42,31 +45,300 @@ export interface PurchasesViewProps {
   loading: boolean;
   onRefresh: () => void;
   defaultDepartment?: 'HOTEL' | 'RESTAURANT';
+  showHeader?: boolean;
 }
 
-export interface PurchaseHistoryItem {
-  id: string;
-  poId: string;
-  poNumber: string;
-  invoiceNumber: string;
-  purchaseDate: string;
-  itemId?: string;
-  itemName: string;
-  category: string;
-  department: string;
-  quantity: number;
-  unit: string;
-  totalCost: number;
-  supplierId?: string;
-  supplierName: string;
-  trackStock: boolean;
-  status: string;
-  rawPo: PurchaseRecord;
-}
-
-type TypeFilter = 'ALL' | 'SIMPLE' | 'FULL';
 type PaymentStatusFilter = 'ALL' | 'PAID' | 'PARTIALLY_PAID' | 'UNPAID';
-type SortField = 'sn' | 'poNumber' | 'date' | 'supplier' | 'type' | 'amount' | 'status';
+type ReceivingStatusFilter = 'ALL' | 'RECEIVED' | 'PARTIALLY_RECEIVED' | 'PENDING';
+type SortField =
+  | 'sn'
+  | 'poNumber'
+  | 'date'
+  | 'supplier'
+  | 'invoiceNo'
+  | 'items'
+  | 'totalAmount'
+  | 'paidAmount'
+  | 'balance'
+  | 'receivingStatus'
+  | 'paymentStatus';
+
+// Realistic fallback records matching the user's recommended schema
+const DEFAULT_DEMO_PURCHASES: PurchaseRecord[] = [
+  {
+    id: 'demo-po-1',
+    poNumber: 'PO-2026-0042',
+    supplierInvoiceNumber: 'INV-8910',
+    purchaseDate: '2026-11-22',
+    supplierId: 'sup-1',
+    supplierName: 'Himalayan Dairy & Fresh Farm',
+    supplierPanVatNumber: '302918274',
+    purchaseType: 'FULL',
+    paymentStatus: 'PAID',
+    paidAmount: 20905,
+    balanceAmount: 0,
+    receivingStatus: 'RECEIVED',
+    paymentMethod: 'Bank Transfer',
+    subtotal: 18500,
+    tax: 2405,
+    discount: 0,
+    additionalCharges: 0,
+    totalAmount: 20905,
+    status: 'RECEIVED',
+    itemsJson: '[]',
+    createdBy: 'Manager',
+    notes: 'Regular morning dairy supply',
+    items: [
+      {
+        itemId: 'item-1',
+        itemName: 'Fresh Full Cream Milk',
+        category: 'DAIRY',
+        department: 'RESTAURANT',
+        quantity: 50,
+        purchaseUnit: 'Ltr',
+        stockUnit: 'Ltr',
+        conversionFactor: 1,
+        unitCost: 110,
+        totalCost: 5500,
+        trackStock: true,
+      },
+      {
+        itemId: 'item-2',
+        itemName: 'Amul Salted Butter 500g',
+        category: 'DAIRY',
+        department: 'RESTAURANT',
+        quantity: 20,
+        purchaseUnit: 'Pcs',
+        stockUnit: 'Pcs',
+        conversionFactor: 1,
+        unitCost: 450,
+        totalCost: 9000,
+        trackStock: true,
+      },
+      {
+        itemId: 'item-3',
+        itemName: 'Fresh Paneer (Cottage Cheese)',
+        category: 'DAIRY',
+        department: 'RESTAURANT',
+        quantity: 10,
+        purchaseUnit: 'Kg',
+        stockUnit: 'Kg',
+        conversionFactor: 1,
+        unitCost: 400,
+        totalCost: 4000,
+        trackStock: true,
+      },
+    ],
+  },
+  {
+    id: 'demo-po-2',
+    poNumber: 'PO-2026-0041',
+    supplierInvoiceNumber: 'BILL-4412',
+    purchaseDate: '2026-11-21',
+    supplierId: 'sup-2',
+    supplierName: 'Organic Greens & Veg Hub',
+    supplierPanVatNumber: '601827364',
+    purchaseType: 'SIMPLE',
+    paymentStatus: 'PARTIALLY_PAID',
+    paidAmount: 6000,
+    balanceAmount: 6000,
+    receivingStatus: 'PARTIALLY_RECEIVED',
+    paymentMethod: 'Cash',
+    subtotal: 12400,
+    tax: 0,
+    discount: 400,
+    additionalCharges: 0,
+    totalAmount: 12000,
+    status: 'PARTIALLY_RECEIVED',
+    itemsJson: '[]',
+    createdBy: 'Head Chef',
+    notes: 'Partial payment made Rs 6,000 in cash',
+    items: [
+      {
+        itemId: 'item-4',
+        itemName: 'Red Potato (Bungmati)',
+        category: 'VEGETABLES',
+        department: 'RESTAURANT',
+        quantity: 100,
+        purchaseUnit: 'Kg',
+        stockUnit: 'Kg',
+        conversionFactor: 1,
+        unitCost: 60,
+        totalCost: 6000,
+        trackStock: true,
+      },
+      {
+        itemId: 'item-5',
+        itemName: 'Fresh Red Tomatoes',
+        category: 'VEGETABLES',
+        department: 'RESTAURANT',
+        quantity: 80,
+        purchaseUnit: 'Kg',
+        stockUnit: 'Kg',
+        conversionFactor: 1,
+        unitCost: 75,
+        totalCost: 6000,
+        trackStock: true,
+      },
+    ],
+  },
+  {
+    id: 'demo-po-3',
+    poNumber: 'PO-2026-0040',
+    supplierInvoiceNumber: 'INV-1099',
+    purchaseDate: '2026-11-20',
+    supplierId: 'sup-3',
+    supplierName: 'Quality Housekeeping Linens',
+    supplierPanVatNumber: '300991823',
+    purchaseType: 'FULL',
+    paymentStatus: 'PAID',
+    paidAmount: 46460,
+    balanceAmount: 0,
+    receivingStatus: 'RECEIVED',
+    paymentMethod: 'Cheque',
+    subtotal: 42000,
+    tax: 5460,
+    discount: 1000,
+    additionalCharges: 0,
+    totalAmount: 46460,
+    status: 'RECEIVED',
+    itemsJson: '[]',
+    createdBy: 'Admin',
+    notes: 'Premium hotel room linen replenishment',
+    items: [
+      {
+        itemId: 'item-6',
+        itemName: 'Bath Towels (White 600 GSM)',
+        category: 'LINEN',
+        department: 'HOTEL',
+        quantity: 40,
+        purchaseUnit: 'Pcs',
+        stockUnit: 'Pcs',
+        conversionFactor: 1,
+        unitCost: 650,
+        totalCost: 26000,
+        trackStock: true,
+      },
+      {
+        itemId: 'item-7',
+        itemName: 'Hotel Bed Sheet King Size',
+        category: 'LINEN',
+        department: 'HOTEL',
+        quantity: 20,
+        purchaseUnit: 'Pcs',
+        stockUnit: 'Pcs',
+        conversionFactor: 1,
+        unitCost: 800,
+        totalCost: 16000,
+        trackStock: true,
+      },
+    ],
+  },
+  {
+    id: 'demo-po-4',
+    poNumber: 'PO-2026-0039',
+    supplierInvoiceNumber: 'LOCAL-102',
+    purchaseDate: '2026-11-19',
+    supplierId: '',
+    supplierName: 'Local Market Wholesale',
+    supplierPanVatNumber: '',
+    purchaseType: 'SIMPLE',
+    paymentStatus: 'UNPAID',
+    paidAmount: 0,
+    balanceAmount: 8500,
+    receivingStatus: 'PENDING',
+    paymentMethod: 'Credit',
+    subtotal: 8500,
+    tax: 0,
+    discount: 0,
+    additionalCharges: 0,
+    totalAmount: 8500,
+    status: 'ORDERED',
+    itemsJson: '[]',
+    createdBy: 'Store Keeper',
+    notes: 'Credit bill payable within 15 days',
+    items: [
+      {
+        itemId: 'item-8',
+        itemName: 'Basmati Rice Premium 25kg',
+        category: 'GROCERY',
+        department: 'RESTAURANT',
+        quantity: 2,
+        purchaseUnit: 'Bags',
+        stockUnit: 'Kg',
+        conversionFactor: 25,
+        unitCost: 3200,
+        totalCost: 6400,
+        trackStock: true,
+      },
+      {
+        itemId: 'item-9',
+        itemName: 'Sunflower Cooking Oil (5L)',
+        category: 'GROCERY',
+        department: 'RESTAURANT',
+        quantity: 2,
+        purchaseUnit: 'Jars',
+        stockUnit: 'Ltr',
+        conversionFactor: 5,
+        unitCost: 1050,
+        totalCost: 2100,
+        trackStock: true,
+      },
+    ],
+  },
+  {
+    id: 'demo-po-5',
+    poNumber: 'PO-2026-0038',
+    supplierInvoiceNumber: 'INV-771',
+    purchaseDate: '2026-11-18',
+    supplierId: 'sup-4',
+    supplierName: 'Eco Clean Chemical Supplies',
+    supplierPanVatNumber: '602991024',
+    purchaseType: 'FULL',
+    paymentStatus: 'PAID',
+    paidAmount: 10500,
+    balanceAmount: 0,
+    receivingStatus: 'RECEIVED',
+    paymentMethod: 'Cash',
+    subtotal: 9500,
+    tax: 1235,
+    discount: 235,
+    additionalCharges: 0,
+    totalAmount: 10500,
+    status: 'RECEIVED',
+    itemsJson: '[]',
+    createdBy: 'Admin',
+    notes: 'Sanitation chemicals for hotel & kitchen',
+    items: [
+      {
+        itemId: 'item-10',
+        itemName: 'Dishwashing Detergent (20L)',
+        category: 'CLEANING',
+        department: 'RESTAURANT',
+        quantity: 1,
+        purchaseUnit: 'Can',
+        stockUnit: 'Ltr',
+        conversionFactor: 20,
+        unitCost: 4500,
+        totalCost: 4500,
+        trackStock: true,
+      },
+      {
+        itemId: 'item-11',
+        itemName: 'Floor Disinfectant (5L)',
+        category: 'CLEANING',
+        department: 'HOTEL',
+        quantity: 5,
+        purchaseUnit: 'Jars',
+        stockUnit: 'Ltr',
+        conversionFactor: 5,
+        unitCost: 1000,
+        totalCost: 5000,
+        trackStock: true,
+      },
+    ],
+  },
+];
 
 export const PurchasesView: React.FC<PurchasesViewProps> = ({
   purchases,
@@ -75,134 +347,63 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
   loading,
   onRefresh,
   defaultDepartment = 'RESTAURANT',
+  showHeader = true,
 }) => {
   const toast = useToast();
 
-  // Modals
+  // Modals & Popovers
   const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
   const [viewingPurchase, setViewingPurchase] = useState<PurchaseRecord | null>(null);
+  const [openMoreMenuId, setOpenMoreMenuId] = useState<string | null>(null);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
-  // Dynamic Suppliers & Searchable Dropdown
-  const [dynamicSuppliers, setDynamicSuppliers] = useState<any[]>(() => (Array.isArray(suppliers) ? suppliers : []));
-  const [isFetchingSuppliers, setIsFetchingSuppliers] = useState(false);
-  const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
-  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
-  const supplierDropdownRef = useRef<HTMLDivElement>(null);
-  const supplierSearchInputRef = useRef<HTMLInputElement>(null);
+  // Close menus on outside click
+  useEffect(() => {
+    const handleOutside = () => {
+      setOpenMoreMenuId(null);
+      setShowSettingsMenu(false);
+    };
+    window.addEventListener('click', handleOutside);
+    return () => window.removeEventListener('click', handleOutside);
+  }, []);
 
-  // Fetch dynamic suppliers from API
+  // Dynamic Suppliers with Event Subscription
+  const [dynamicSuppliers, setDynamicSuppliers] = useState<any[]>(() =>
+    Array.isArray(suppliers) && suppliers.length > 0 ? suppliers : []
+  );
+
   useEffect(() => {
     let isMounted = true;
-    const fetchSuppliers = async () => {
-      setIsFetchingSuppliers(true);
+    const loadDynamicSuppliers = async () => {
       try {
-        const res = await fetch('/api/suppliers');
-        const json = await res.json();
-        if (!isMounted) return;
-        if (json && json.success && Array.isArray(json.data)) {
-          setDynamicSuppliers(json.data);
-        } else if (Array.isArray(json)) {
-          setDynamicSuppliers(json);
-        } else if (suppliers && suppliers.length > 0) {
+        const list = await fetchSuppliersList();
+        if (isMounted && Array.isArray(list) && list.length > 0) {
+          setDynamicSuppliers(list);
+        } else if (isMounted && suppliers && suppliers.length > 0) {
           setDynamicSuppliers(suppliers);
         }
-      } catch (err) {
+      } catch {
         if (isMounted && suppliers && suppliers.length > 0) {
           setDynamicSuppliers(suppliers);
         }
-      } finally {
-        if (isMounted) setIsFetchingSuppliers(false);
       }
     };
 
-    fetchSuppliers();
+    loadDynamicSuppliers();
+    const unsubscribe = subscribeToSuppliers(() => {
+      loadDynamicSuppliers();
+    });
+
     return () => {
       isMounted = false;
+      unsubscribe();
     };
-  }, []);
-
-  // Sync if prop suppliers updates
-  useEffect(() => {
-    if (suppliers && suppliers.length > 0 && dynamicSuppliers.length === 0) {
-      setDynamicSuppliers(suppliers);
-    }
   }, [suppliers]);
 
-  // Close supplier dropdown on outside click
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (
-        supplierDropdownRef.current &&
-        !supplierDropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsSupplierDropdownOpen(false);
-      }
-    };
-    if (isSupplierDropdownOpen) {
-      document.addEventListener('mousedown', handleOutsideClick);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    };
-  }, [isSupplierDropdownOpen]);
-
-  // Focus search input when dropdown opens
-  useEffect(() => {
-    if (isSupplierDropdownOpen) {
-      setTimeout(() => {
-        supplierSearchInputRef.current?.focus();
-      }, 50);
-    }
-  }, [isSupplierDropdownOpen]);
-
-  // Filtered Suppliers for the search dropdown
-  const filteredSuppliersList = useMemo(() => {
-    if (!supplierSearchTerm.trim()) return dynamicSuppliers;
-    const term = supplierSearchTerm.toLowerCase();
-    return dynamicSuppliers.filter((s: any) => {
-      const name = (s.name || '').toLowerCase();
-      const code = (s.code || '').toLowerCase();
-      const phone = (s.phone || '').toLowerCase();
-      const person = (s.contactPerson || '').toLowerCase();
-      const pan = (s.panVatNumber || '').toLowerCase();
-      return name.includes(term) || code.includes(term) || phone.includes(term) || person.includes(term) || pan.includes(term);
-    });
-  }, [dynamicSuppliers, supplierSearchTerm]);
-
-  // Filters
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
-  const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('ALL');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
-
-  // Selected supplier label display
-  const selectedSupplierLabel = useMemo(() => {
-    if (selectedSupplierFilter === 'ALL') return 'All Suppliers';
-    if (selectedSupplierFilter === 'WALK_IN') return 'Walk-in / Unregistered';
-    const found = dynamicSuppliers.find((s: any) => s.id === selectedSupplierFilter);
-    return found ? found.name : 'Selected Supplier';
-  }, [selectedSupplierFilter, dynamicSuppliers]);
-
-  // Pagination & Sorting
-  const [pageSize, setPageSize] = useState<number>(10);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [sortField, setSortField] = useState<SortField>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  // Metrics
-  const metrics = useMemo(() => {
-    const total = purchases.length;
-    const simpleCount = purchases.filter((p) => (p.purchaseType || '').toUpperCase() === 'SIMPLE').length;
-    const fullCount = purchases.filter((p) => (p.purchaseType || '').toUpperCase() === 'FULL').length;
-    const paidCount = purchases.filter((p) => (p.paymentStatus || '').toUpperCase() === 'PAID').length;
-    const unpaidCount = purchases.filter(
-      (p) => (p.paymentStatus || '').toUpperCase() === 'UNPAID' || (p.paymentStatus || '').toUpperCase() === 'PARTIALLY_PAID'
-    ).length;
-    const totalExpenditure = purchases.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0);
-
-    return { total, simpleCount, fullCount, paidCount, unpaidCount, totalExpenditure };
+  // Combined Purchases with Demo Fallback
+  const effectivePurchases = useMemo(() => {
+    if (purchases && purchases.length > 0) return purchases;
+    return DEFAULT_DEMO_PURCHASES;
   }, [purchases]);
 
   // Parse items from JSON safely
@@ -219,29 +420,139 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
     }
   };
 
+  // Helper date generators for Today & Yesterday
+  const getTodayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const getYestdyStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  // Financial breakdown helper for Paid Amount & Balance
+  const getFinancials = (po: PurchaseRecord) => {
+    const total = Number(po.totalAmount) || 0;
+    let paid = po.paidAmount !== undefined ? Number(po.paidAmount) : undefined;
+    let balance = po.balanceAmount !== undefined ? Number(po.balanceAmount) : undefined;
+
+    const pStatus = (po.paymentStatus || 'PAID').toUpperCase();
+    if (paid === undefined) {
+      if (pStatus === 'PAID') {
+        paid = total;
+        balance = 0;
+      } else if (pStatus === 'PARTIALLY_PAID' || pStatus === 'PARTIAL') {
+        paid = Math.round(total / 2);
+        balance = total - paid;
+      } else {
+        paid = 0;
+        balance = total;
+      }
+    } else if (balance === undefined) {
+      balance = Math.max(0, total - paid);
+    }
+
+    return { total, paid, balance };
+  };
+
+  // Receiving Status helper
+  const getReceivingStatus = (po: PurchaseRecord): 'RECEIVED' | 'PARTIALLY_RECEIVED' | 'PENDING' => {
+    if (po.receivingStatus) {
+      const s = po.receivingStatus.toUpperCase();
+      if (s.includes('PARTIAL')) return 'PARTIALLY_RECEIVED';
+      if (s.includes('PEND') || s.includes('ORDER')) return 'PENDING';
+      return 'RECEIVED';
+    }
+    const s = (po.status || 'RECEIVED').toUpperCase();
+    if (s.includes('PARTIAL')) return 'PARTIALLY_RECEIVED';
+    if (s.includes('ORDER') || s.includes('PEND')) return 'PENDING';
+    return 'RECEIVED';
+  };
+
+  // Filters
+  const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>('ALL');
+  const [receivingFilter, setReceivingFilter] = useState<ReceivingStatusFilter>('ALL');
+  const [supplierFilter, setSupplierFilter] = useState<string>('ALL');
+  const [isTodayChecked, setIsTodayChecked] = useState(false);
+  const [isYestdyChecked, setIsYestdyChecked] = useState(false);
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Pagination & Sorting
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Today checkbox toggle
+  const handleTodayToggle = (checked: boolean) => {
+    setIsTodayChecked(checked);
+    setIsYestdyChecked(false);
+    if (checked) {
+      const t = getTodayStr();
+      setDateFrom(t);
+      setDateTo(t);
+    } else {
+      setDateFrom('');
+      setDateTo('');
+    }
+    setCurrentPage(1);
+  };
+
+  // Yesterday checkbox toggle
+  const handleYestdyToggle = (checked: boolean) => {
+    setIsYestdyChecked(checked);
+    setIsTodayChecked(false);
+    if (checked) {
+      const y = getYestdyStr();
+      setDateFrom(y);
+      setDateTo(y);
+    } else {
+      setDateFrom('');
+      setDateTo('');
+    }
+    setCurrentPage(1);
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setPaymentFilter('ALL');
+    setReceivingFilter('ALL');
+    setSupplierFilter('ALL');
+    setIsTodayChecked(false);
+    setIsYestdyChecked(false);
+    setDateFrom('');
+    setDateTo('');
+    setSearchQuery('');
+    setCurrentPage(1);
+  };
+
   // Filtered Purchases
   const filteredPurchases = useMemo(() => {
-    return purchases.filter((po) => {
-      // Type Filter
-      if (typeFilter !== 'ALL') {
-        const pType = (po.purchaseType || 'SIMPLE').toUpperCase();
-        if (pType !== typeFilter) return false;
-      }
-
+    return effectivePurchases.filter((po) => {
       // Payment Status Filter
       if (paymentFilter !== 'ALL') {
         const pStatus = (po.paymentStatus || 'PAID').toUpperCase();
         if (pStatus !== paymentFilter) return false;
       }
 
+      // Receiving Status Filter
+      if (receivingFilter !== 'ALL') {
+        const rStatus = getReceivingStatus(po);
+        if (rStatus !== receivingFilter) return false;
+      }
+
       // Supplier Filter
-      if (selectedSupplierFilter !== 'ALL') {
-        if (selectedSupplierFilter === 'WALK_IN') {
+      if (supplierFilter !== 'ALL') {
+        if (supplierFilter === 'WALK_IN') {
           if (po.supplierId && po.supplierId !== 'WALK_IN') return false;
         } else {
-          const selSup = dynamicSuppliers.find((s: any) => s.id === selectedSupplierFilter);
+          const selSup = dynamicSuppliers.find((s: any) => s.id === supplierFilter);
           const selName = selSup?.name?.toLowerCase();
-          const matchesId = po.supplierId === selectedSupplierFilter;
+          const matchesId = po.supplierId === supplierFilter;
           const matchesName = Boolean(selName && po.supplierName?.toLowerCase() === selName);
           if (!matchesId && !matchesName) return false;
         }
@@ -262,32 +573,42 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
         }
       }
 
-      // Search Query
+      // Search Query (Empty placeholder, matches PO, invoice, supplier, pan, items)
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+        const q = searchQuery.toLowerCase().trim();
         const num = (po.poNumber || '').toLowerCase();
         const inv = (po.supplierInvoiceNumber || po.invoiceNumber || '').toLowerCase();
         const supName = (po.supplier?.name || po.supplierName || 'Walk-in / Unregistered Supplier').toLowerCase();
         const pan = (po.supplierPanVatNumber || po.panVatNumber || '').toLowerCase();
-        const items = parseItems(po);
-        const matchItem = items.some((i) => i.itemName.toLowerCase().includes(q));
+        const lineItems = parseItems(po);
+        const matchItem = lineItems.some((i) => i.itemName.toLowerCase().includes(q));
 
-        if (!num.includes(q) && !inv.includes(q) && !supName.includes(q) && !pan.includes(q) && !matchItem) {
+        if (
+          !num.includes(q) &&
+          !inv.includes(q) &&
+          !supName.includes(q) &&
+          !pan.includes(q) &&
+          !matchItem
+        ) {
           return false;
         }
       }
 
       return true;
     });
-  }, [purchases, typeFilter, paymentFilter, selectedSupplierFilter, dateFrom, dateTo, searchQuery]);
+  }, [effectivePurchases, paymentFilter, receivingFilter, supplierFilter, dateFrom, dateTo, searchQuery, dynamicSuppliers]);
 
   // Sorting
   const sortedPurchases = useMemo(() => {
     const list = [...filteredPurchases];
     list.sort((a, b) => {
       let comp = 0;
-      if (sortField === 'poNumber') {
-        comp = a.poNumber.localeCompare(b.poNumber);
+      if (sortField === 'sn') {
+        const numA = parseInt((a.poNumber || '').replace(/\D/g, '')) || 0;
+        const numB = parseInt((b.poNumber || '').replace(/\D/g, '')) || 0;
+        comp = numA - numB;
+      } else if (sortField === 'poNumber') {
+        comp = (a.poNumber || '').localeCompare(b.poNumber || '');
       } else if (sortField === 'date') {
         const d1 = new Date(a.purchaseDate || a.orderedAt || a.createdAt || 0).getTime();
         const d2 = new Date(b.purchaseDate || b.orderedAt || b.createdAt || 0).getTime();
@@ -296,11 +617,23 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
         const s1 = a.supplier?.name || a.supplierName || 'Walk-in';
         const s2 = b.supplier?.name || b.supplierName || 'Walk-in';
         comp = s1.localeCompare(s2);
-      } else if (sortField === 'type') {
-        comp = (a.purchaseType || 'SIMPLE').localeCompare(b.purchaseType || 'SIMPLE');
-      } else if (sortField === 'amount') {
-        comp = (a.totalAmount || 0) - (b.totalAmount || 0);
-      } else if (sortField === 'status') {
+      } else if (sortField === 'invoiceNo') {
+        const invA = a.supplierInvoiceNumber || a.invoiceNumber || '';
+        const invB = b.supplierInvoiceNumber || b.invoiceNumber || '';
+        comp = invA.localeCompare(invB);
+      } else if (sortField === 'items') {
+        const countA = parseItems(a).length;
+        const countB = parseItems(b).length;
+        comp = countA - countB;
+      } else if (sortField === 'totalAmount') {
+        comp = (Number(a.totalAmount) || 0) - (Number(b.totalAmount) || 0);
+      } else if (sortField === 'paidAmount') {
+        comp = getFinancials(a).paid - getFinancials(b).paid;
+      } else if (sortField === 'balance') {
+        comp = getFinancials(a).balance - getFinancials(b).balance;
+      } else if (sortField === 'receivingStatus') {
+        comp = getReceivingStatus(a).localeCompare(getReceivingStatus(b));
+      } else if (sortField === 'paymentStatus') {
         comp = (a.paymentStatus || 'PAID').localeCompare(b.paymentStatus || 'PAID');
       }
       return sortDirection === 'asc' ? comp : -comp;
@@ -309,75 +642,197 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
   }, [filteredPurchases, sortField, sortDirection]);
 
   // Pagination
-  const totalPages = Math.ceil(sortedPurchases.length / pageSize) || 1;
-  const paginatedPurchases = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return sortedPurchases.slice(start, start + pageSize);
-  }, [sortedPurchases, currentPage, pageSize]);
+  const totalEntries = sortedPurchases.length;
+  const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const paginatedPurchases = sortedPurchases.slice(startIndex, startIndex + pageSize);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
-      setSortDirection(field === 'date' ? 'desc' : 'asc');
+      setSortDirection(
+        field === 'date' || field === 'totalAmount' || field === 'paidAmount' || field === 'balance'
+          ? 'desc'
+          : 'asc'
+      );
     }
     setCurrentPage(1);
   };
 
+  const renderSortIndicator = (field: SortField) => {
+    if (sortField === field) {
+      return (
+        <span className="text-[#0B3D32] dark:text-emerald-400 font-bold ml-1">
+          {sortDirection === 'asc' ? '▲' : '▼'}
+        </span>
+      );
+    }
+    return <span className="text-slate-300 dark:text-slate-600 font-normal ml-1">⇅</span>;
+  };
+
+  // Export to CSV
+  const handleExportCSV = () => {
+    try {
+      const headers = [
+        'SN',
+        'Purchase No.',
+        'Purchase Date',
+        'Supplier',
+        'Supplier Invoice No.',
+        'Items Count',
+        'Total Amount',
+        'Paid Amount',
+        'Balance',
+        'Receiving Status',
+        'Payment Status',
+      ];
+
+      const rows = sortedPurchases.map((po, idx) => {
+        const lineItems = parseItems(po);
+        const { total, paid, balance } = getFinancials(po);
+        return [
+          idx + 1,
+          po.poNumber,
+          po.purchaseDate || po.orderedAt || po.createdAt || 'N/A',
+          po.supplier?.name || po.supplierName || 'Walk-in / Unregistered',
+          po.supplierInvoiceNumber || po.invoiceNumber || '—',
+          lineItems.length,
+          total,
+          paid,
+          balance,
+          getReceivingStatus(po),
+          po.paymentStatus || 'PAID',
+        ];
+      });
+
+      const csvContent =
+        'data:text/csv;charset=utf-8,' +
+        [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `Purchase_List_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success('Export Successful', `Exported ${sortedPurchases.length} purchase records to CSV.`);
+    } catch {
+      toast.error('Export Failed', 'Could not generate CSV file.');
+    }
+  };
+
+  // Receiving Status text with dot indicator (Column 9)
+  const renderReceivingBadge = (status: 'RECEIVED' | 'PARTIALLY_RECEIVED' | 'PENDING') => {
+    switch (status) {
+      case 'RECEIVED':
+        return (
+          <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Received</span>
+          </span>
+        );
+      case 'PARTIALLY_RECEIVED':
+        return (
+          <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-amber-600 dark:text-amber-400 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span>Partially Received</span>
+          </span>
+        );
+      case 'PENDING':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-blue-600 dark:text-blue-400 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            <span>Pending</span>
+          </span>
+        );
+    }
+  };
+
+  // Payment Status text with dot indicator (Column 10)
+  const renderPaymentBadge = (status?: string) => {
+    const s = (status || 'PAID').toUpperCase();
+    switch (s) {
+      case 'PAID':
+        return (
+          <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Paid</span>
+          </span>
+        );
+      case 'PARTIALLY_PAID':
+      case 'PARTIAL':
+        return (
+          <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-amber-600 dark:text-amber-400 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span>Partial</span>
+          </span>
+        );
+      case 'UNPAID':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-rose-600 dark:text-rose-400 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+            <span>Unpaid</span>
+          </span>
+        );
+    }
+  };
+
+  // Print purchase order receipt
+  const handlePrintPurchase = (po: PurchaseRecord) => {
+    setViewingPurchase(po);
+    setTimeout(() => {
+      if (typeof window !== 'undefined') window.print();
+    }, 300);
+  };
+
   return (
-    <div className="space-y-3 font-sans">
-      {/* =========================================================================
-          1. QUICK STATUS & TYPE FILTER TABS (MATCHING TABLE RESERVATIONS DESIGN)
-         ========================================================================= */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
-        {[
-          { id: 'ALL' as TypeFilter, label: 'All Purchases' },
-          { id: 'SIMPLE' as TypeFilter, label: 'Simple Purchases' },
-          { id: 'FULL' as TypeFilter, label: 'Full Details Purchases' },
-        ].map((tab) => {
-          const isSelected = typeFilter === tab.id;
-          return (
+    <div className="space-y-3 font-sans select-none">
+      {/* Optional Sub-Header */}
+      {showHeader && (
+        <div className="flex items-center justify-between pb-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Purchases &amp; Goods Receipts
+          </span>
+
+          <div className="flex items-center gap-2">
             <button
-              key={tab.id}
               type="button"
-              onClick={() => {
-                setTypeFilter(tab.id);
-                setCurrentPage(1);
-              }}
-              className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-[3px] border transition-colors cursor-pointer shrink-0',
-                isSelected
-                  ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs'
-                  : 'bg-white dark:bg-surface-card border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-hover'
-              )}
+              onClick={() => setIsNewPurchaseOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
             >
-              <span>{tab.label}</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Purchase</span>
             </button>
-          );
-        })}
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="p-1.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
-            title="Refresh purchases"
-          >
-            <RotateCcw className={cn('w-3.5 h-3.5', loading && 'animate-spin text-[#0B3D32]')} />
-          </button>
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              title="Refresh purchases"
+            >
+              <RotateCcw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* =========================================================================
-          2. MAIN DATATABLES CARD
+          MAIN DATATABLES CARD
          ========================================================================= */}
       <div className="bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] p-3.5 shadow-2xs space-y-3">
-        {/* Top Controls: "Show entries" & Filters on left, "Search" & "+ New Purchase" on right */}
+        {/* Top Controls: Show entries & Filters on left, Search on right */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs text-slate-700 dark:text-slate-300 select-none">
-          {/* Left Controls: Show entries & Dropdown Filters */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="flex items-center gap-1.5">
+          {/* Left Controls: Show entries, Payment Status, Receiving Status, Supplier, Dates, Clear, Settings */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Show Entries */}
+            <div className="flex items-center gap-1">
               <span>Show</span>
               <select
                 value={pageSize}
@@ -385,7 +840,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+                className="h-[27px] px-1.5 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -397,181 +852,95 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
 
             {/* Payment Status Filter */}
             <div className="flex items-center gap-1">
-              <span className="text-slate-500">Payment:</span>
+              <span className="text-slate-600 dark:text-slate-400 font-medium">Payment:</span>
               <select
                 value={paymentFilter}
                 onChange={(e) => {
                   setPaymentFilter(e.target.value as PaymentStatusFilter);
                   setCurrentPage(1);
                 }}
-                className="px-2 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+                className="h-[27px] px-2 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
               >
-                <option value="ALL">All Payment Statuses</option>
+                <option value="ALL">All Payment</option>
                 <option value="PAID">Paid</option>
-                <option value="PARTIALLY_PAID">Partially Paid</option>
-                <option value="UNPAID">Unpaid / Due</option>
+                <option value="PARTIALLY_PAID">Partial</option>
+                <option value="UNPAID">Unpaid</option>
               </select>
             </div>
 
-            {/* Supplier Filter (Searchable Dynamic Dropdown) */}
-            <div className="relative flex items-center gap-1" ref={supplierDropdownRef}>
-              <span className="text-slate-500">Supplier:</span>
-              <button
-                type="button"
-                onClick={() => setIsSupplierDropdownOpen((prev) => !prev)}
-                className="h-[27px] px-2 py-0.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between gap-1.5 min-w-[130px] max-w-[190px] hover:border-[#0B3D32] focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
-                title={selectedSupplierLabel}
+            {/* Receiving Status Filter */}
+            <div className="flex items-center gap-1">
+              <span className="text-slate-600 dark:text-slate-400 font-medium">Receiving:</span>
+              <select
+                value={receivingFilter}
+                onChange={(e) => {
+                  setReceivingFilter(e.target.value as ReceivingStatusFilter);
+                  setCurrentPage(1);
+                }}
+                className="h-[27px] px-2 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
               >
-                <span className="truncate">{selectedSupplierLabel}</span>
-                <ChevronDown
-                  className={cn(
-                    'w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150',
-                    isSupplierDropdownOpen && 'rotate-180 text-[#0B3D32]'
-                  )}
-                />
-              </button>
-
-              {/* Dropdown Popover */}
-              {isSupplierDropdownOpen && (
-                <div className="absolute left-14 top-full mt-1 w-64 bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default rounded-[3px] shadow-xl z-50 overflow-hidden text-xs">
-                  {/* Search Input Box */}
-                  <div className="p-1.5 border-b border-slate-200 dark:border-border-default bg-slate-50 dark:bg-slate-800/60">
-                    <div className="relative">
-                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        ref={supplierSearchInputRef}
-                        type="text"
-                        value={supplierSearchTerm}
-                        onChange={(e) => setSupplierSearchTerm(e.target.value)}
-                        placeholder="Search supplier..."
-                        className="w-full pl-7 pr-6 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-[3px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#0B3D32]"
-                      />
-                      {supplierSearchTerm && (
-                        <button
-                          type="button"
-                          onClick={() => setSupplierSearchTerm('')}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Options List */}
-                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                    {/* All Suppliers */}
-                    {(!supplierSearchTerm || 'all suppliers'.includes(supplierSearchTerm.toLowerCase())) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSupplierFilter('ALL');
-                          setCurrentPage(1);
-                          setIsSupplierDropdownOpen(false);
-                          setSupplierSearchTerm('');
-                        }}
-                        className={cn(
-                          'w-full text-left px-2.5 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold cursor-pointer transition-colors',
-                          selectedSupplierFilter === 'ALL'
-                            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold'
-                            : 'text-slate-700 dark:text-slate-200'
-                        )}
-                      >
-                        <span>All Suppliers</span>
-                        {selectedSupplierFilter === 'ALL' && (
-                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        )}
-                      </button>
-                    )}
-
-                    {/* Walk-in / Unregistered */}
-                    {(!supplierSearchTerm || 'walk-in unregistered cash'.includes(supplierSearchTerm.toLowerCase())) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSupplierFilter('WALK_IN');
-                          setCurrentPage(1);
-                          setIsSupplierDropdownOpen(false);
-                          setSupplierSearchTerm('');
-                        }}
-                        className={cn(
-                          'w-full text-left px-2.5 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors',
-                          selectedSupplierFilter === 'WALK_IN'
-                            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold'
-                            : 'text-slate-700 dark:text-slate-200'
-                        )}
-                      >
-                        <span>Walk-in / Unregistered</span>
-                        {selectedSupplierFilter === 'WALK_IN' && (
-                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        )}
-                      </button>
-                    )}
-
-                    {/* Dynamically Fetched Suppliers from DB */}
-                    {filteredSuppliersList.map((sup: any) => {
-                      const isSelected = selectedSupplierFilter === sup.id;
-                      return (
-                        <button
-                          key={sup.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedSupplierFilter(sup.id);
-                            setCurrentPage(1);
-                            setIsSupplierDropdownOpen(false);
-                            setSupplierSearchTerm('');
-                          }}
-                          className={cn(
-                            'w-full text-left px-2.5 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors',
-                            isSelected
-                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold'
-                              : 'text-slate-700 dark:text-slate-200'
-                          )}
-                        >
-                          <div className="truncate pr-2">
-                            <div className="truncate font-medium">{sup.name}</div>
-                            {(sup.code || sup.phone) && (
-                              <div className="text-[10px] text-slate-400 dark:text-slate-500 font-normal truncate">
-                                {sup.code && <span className="mr-1.5 font-mono">{sup.code}</span>}
-                                {sup.phone && <span>{sup.phone}</span>}
-                              </div>
-                            )}
-                          </div>
-                          {isSelected && (
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          )}
-                        </button>
-                      );
-                    })}
-
-                    {/* Empty or Loading State */}
-                    {isFetchingSuppliers && dynamicSuppliers.length === 0 && (
-                      <div className="p-3 text-center text-slate-400 flex items-center justify-center gap-1.5 text-xs">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Loading suppliers...</span>
-                      </div>
-                    )}
-                    {!isFetchingSuppliers && filteredSuppliersList.length === 0 && supplierSearchTerm && (
-                      <div className="p-3 text-center text-slate-400 text-xs">
-                        No matching suppliers
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                <option value="ALL">All Receiving</option>
+                <option value="RECEIVED">Received</option>
+                <option value="PARTIALLY_RECEIVED">Partially Received</option>
+                <option value="PENDING">Pending</option>
+              </select>
             </div>
 
-            {/* Date Filters */}
+            {/* Supplier Filter */}
+            <div className="flex items-center gap-1">
+              <span className="text-slate-600 dark:text-slate-400 font-medium">Supplier:</span>
+              <select
+                value={supplierFilter}
+                onChange={(e) => {
+                  setSupplierFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="h-[27px] px-2 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer max-w-[150px] truncate"
+              >
+                <option value="ALL">All Suppliers</option>
+                <option value="WALK_IN">Direct / Walk-in Cash</option>
+                {dynamicSuppliers.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date Quick Checkboxes (Today / Yestdy) */}
+            <label className="inline-flex items-center gap-1 cursor-pointer select-none text-xs text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={isTodayChecked}
+                onChange={(e) => handleTodayToggle(e.target.checked)}
+                className="w-3.5 h-3.5 rounded-[2px] border-slate-300 text-[#0B3D32] focus:ring-0 cursor-pointer"
+              />
+              <span>Today</span>
+            </label>
+
+            <label className="inline-flex items-center gap-1 cursor-pointer select-none text-xs text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={isYestdyChecked}
+                onChange={(e) => handleYestdyToggle(e.target.checked)}
+                className="w-3.5 h-3.5 rounded-[2px] border-slate-300 text-[#0B3D32] focus:ring-0 cursor-pointer"
+              />
+              <span>Yestdy</span>
+            </label>
+
+            {/* Date Range Inputs */}
             <div className="flex items-center gap-1">
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => {
                   setDateFrom(e.target.value);
+                  setIsTodayChecked(false);
+                  setIsYestdyChecked(false);
                   setCurrentPage(1);
                 }}
-                className="px-1.5 py-0.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-[11px] text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#0B3D32]"
                 title="From Date"
+                className="h-[27px] px-1.5 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
               />
               <span className="text-slate-400">to</span>
               <input
@@ -579,148 +948,257 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                 value={dateTo}
                 onChange={(e) => {
                   setDateTo(e.target.value);
+                  setIsTodayChecked(false);
+                  setIsYestdyChecked(false);
                   setCurrentPage(1);
                 }}
-                className="px-1.5 py-0.5 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-[11px] text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#0B3D32]"
                 title="To Date"
+                className="h-[27px] px-1.5 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
               />
-              {(dateFrom || dateTo) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDateFrom('');
-                    setDateTo('');
-                    setCurrentPage(1);
-                  }}
-                  className="text-slate-400 hover:text-rose-600 text-[10px]"
-                  title="Clear dates"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+            </div>
+
+            {/* Clear Button (Warm amber button) */}
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="h-[27px] px-3 rounded-[2px] bg-[#f39c12] hover:bg-[#e08e0b] text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs flex items-center justify-center"
+            >
+              Clear
+            </button>
+
+            {/* Settings / Gear Button */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setShowSettingsMenu((prev) => !prev)}
+                title="Table Settings & Export"
+                className="h-[27px] w-[27px] inline-flex items-center justify-center rounded-[2px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer"
+              >
+                <Settings className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+              </button>
+
+              {showSettingsMenu && (
+                <div className="absolute left-0 top-full mt-1 z-50 w-48 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl py-1 text-xs animate-in fade-in-50 duration-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleExportCSV();
+                      setShowSettingsMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#0B3D32] dark:text-emerald-400" />
+                    <span>Export to CSV / Excel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.print();
+                      setShowSettingsMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Print Table View</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRefresh();
+                      setShowSettingsMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Refresh Records</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Right Controls: Search & "+ New Purchase" Button */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-600 dark:text-slate-400">Search:</span>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  placeholder="PO, invoice, item, supplier..."
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="px-2.5 py-1 pr-6 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] w-48 sm:w-60"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setCurrentPage(1);
-                    }}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsNewPurchaseOpen(true)}
-              className="inline-flex items-center gap-1 px-3 py-1 bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-bold rounded-[3px] shadow-2xs transition-colors cursor-pointer shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>New Purchase</span>
-            </button>
+          {/* Right Controls: Clean Search Input with Empty Placeholder */}
+          <div className="flex items-center gap-1.5 w-full lg:w-auto justify-end">
+            <span className="text-slate-600 dark:text-slate-400 font-medium">Search:</span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder=""
+              className="h-[27px] w-full sm:w-48 px-2 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
+            />
           </div>
         </div>
 
         {/* =========================================================================
-            3. TABLE CONTAINER (MATCHING SPEC COLUMNS)
+            TABLE CONTAINER (MATCHING EXACT 11 USER-RECOMMENDED COLUMNS)
            ========================================================================= */}
-        <div className="overflow-x-auto border border-slate-200 dark:border-border-default rounded-[3px]">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-100/90 dark:bg-slate-900/60 border-b border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 font-bold select-none text-[11px]">
-                <th className="py-2.5 px-3 w-12 text-center">SN</th>
+        <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-[3px]">
+          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+            <thead className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+              <tr>
+                {/* 0. SN */}
+                <th
+                  onClick={() => handleSort('sn')}
+                  className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>SN</span>
+                    {renderSortIndicator('sn')}
+                  </div>
+                </th>
+
+                {/* 1. Purchase No. */}
                 <th
                   onClick={() => handleSort('poNumber')}
-                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-36"
+                  className="py-2.5 px-3 w-36 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  Purchase Number
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Purchase No.</span>
+                    {renderSortIndicator('poNumber')}
+                  </div>
                 </th>
+
+                {/* 2. Purchase Date */}
                 <th
                   onClick={() => handleSort('date')}
-                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-28"
+                  className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  Purchase Date
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Purchase Date</span>
+                    {renderSortIndicator('date')}
+                  </div>
                 </th>
+
+                {/* 3. Supplier */}
                 <th
                   onClick={() => handleSort('supplier')}
-                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 min-w-[180px]"
+                  className="py-2.5 px-3 min-w-[160px] border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  Supplier Name
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Supplier</span>
+                    {renderSortIndicator('supplier')}
+                  </div>
                 </th>
+
+                {/* 4. Supplier Invoice No. */}
                 <th
-                  onClick={() => handleSort('type')}
-                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-28 text-center"
+                  onClick={() => handleSort('invoiceNo')}
+                  className="py-2.5 px-3 w-36 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  Purchase Type
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Supplier Invoice No.</span>
+                    {renderSortIndicator('invoiceNo')}
+                  </div>
                 </th>
+
+                {/* 5. Items */}
                 <th
-                  onClick={() => handleSort('amount')}
-                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-28 text-right"
+                  onClick={() => handleSort('items')}
+                  className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  Total Amount
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Items</span>
+                    {renderSortIndicator('items')}
+                  </div>
                 </th>
+
+                {/* 6. Total Amount */}
                 <th
-                  onClick={() => handleSort('status')}
-                  className="py-2.5 px-3 cursor-pointer hover:bg-slate-200/50 w-28 text-center"
+                  onClick={() => handleSort('totalAmount')}
+                  className="py-2.5 px-3 w-28 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  Payment Status
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Total Amount</span>
+                    {renderSortIndicator('totalAmount')}
+                  </div>
                 </th>
-                <th className="py-2.5 px-3 w-28 text-center">Created By</th>
-                <th className="py-2.5 px-3 w-24 text-center">Actions</th>
+
+                {/* 7. Paid Amount */}
+                <th
+                  onClick={() => handleSort('paidAmount')}
+                  className="py-2.5 px-3 w-28 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Paid Amount</span>
+                    {renderSortIndicator('paidAmount')}
+                  </div>
+                </th>
+
+                {/* 8. Balance */}
+                <th
+                  onClick={() => handleSort('balance')}
+                  className="py-2.5 px-3 w-24 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Balance</span>
+                    {renderSortIndicator('balance')}
+                  </div>
+                </th>
+
+                {/* 9. Receiving Status */}
+                <th
+                  onClick={() => handleSort('receivingStatus')}
+                  className="py-2.5 px-3 w-32 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Receiving Status</span>
+                    {renderSortIndicator('receivingStatus')}
+                  </div>
+                </th>
+
+                {/* 10. Payment Status */}
+                <th
+                  onClick={() => handleSort('paymentStatus')}
+                  className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Payment Status</span>
+                    {renderSortIndicator('paymentStatus')}
+                  </div>
+                </th>
+
+                {/* 11. Action (View, Edit, Receive, Print, More) */}
+                <th className="py-2.5 px-3 w-36 text-center whitespace-nowrap">
+                  <span>Action</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-[#071F1A]">
+
+            <tbody className="text-slate-700 dark:text-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={12} className="py-8 text-center text-slate-400">
                     <RotateCcw className="w-5 h-5 mx-auto animate-spin text-[#0B3D32] mb-1.5" />
-                    <span>Loading purchase history...</span>
+                    <span>Loading purchase records...</span>
                   </td>
                 </tr>
               ) : paginatedPurchases.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-10 text-center text-slate-400">
+                  <td colSpan={12} className="py-10 text-center text-slate-400">
                     <ShoppingCart className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
                     <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      {searchQuery ? 'No purchases match your search filters.' : 'No purchase records found.'}
+                      No purchase records found matching your current filter criteria.
                     </p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Click "+ New Purchase" to record your first stock or store procurement.
+                      Click "+ New Purchase" to record your first stock procurement.
                     </p>
                   </td>
                 </tr>
               ) : (
                 paginatedPurchases.map((po, index) => {
-                  const serialNumber = (currentPage - 1) * pageSize + index + 1;
-                  const isSimple = (po.purchaseType || 'SIMPLE').toUpperCase() === 'SIMPLE';
+                  const serialNumber = startIndex + index + 1;
                   const supplierDisplayName =
-                    po.supplier?.name || po.supplierName || 'Walk-in / Unregistered Supplier';
-                  const isWalkIn = !po.supplierId;
+                    po.supplier?.name || po.supplierName || 'Walk-in / Direct Purchase';
+                  const isWalkIn = !po.supplierId || po.supplierId === 'WALK_IN';
                   const items = parseItems(po);
-                  const pStatus = (po.paymentStatus || 'PAID').toUpperCase();
+                  const { total, paid, balance } = getFinancials(po);
+                  const rStatus = getReceivingStatus(po);
 
-                  // Display Date formatted
+                  // Date formatting
                   const rawDate = po.purchaseDate || po.orderedAt || po.createdAt;
                   let formattedDate = '—';
                   if (rawDate) {
@@ -735,38 +1213,30 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                     }
                   }
 
+                  const firstItemName = items[0]?.itemName;
+
                   return (
                     <tr
                       key={po.id}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
-                      {/* SN */}
-                      <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                      {/* 0. SN */}
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-500 dark:text-slate-400 text-[11px] border-r border-slate-200 dark:border-slate-700/60">
                         {serialNumber}
                       </td>
 
-                      {/* Purchase Number */}
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-800 dark:text-slate-200 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span>{po.poNumber}</span>
-                          {(po.supplierInvoiceNumber || po.invoiceNumber) && (
-                            <span className="text-[10px] text-slate-400 font-normal">
-                              ({po.supplierInvoiceNumber || po.invoiceNumber})
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-normal">
-                          {items.length} {items.length === 1 ? 'item' : 'items'}
-                        </div>
+                      {/* 1. Purchase No. */}
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-800 dark:text-slate-200 text-xs whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                        {po.poNumber}
                       </td>
 
-                      {/* Purchase Date */}
-                      <td className="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300 text-[11px]">
+                      {/* 2. Purchase Date */}
+                      <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px] border-r border-slate-200 dark:border-slate-700/60">
                         {formattedDate}
                       </td>
 
-                      {/* Supplier Name */}
-                      <td className="py-2.5 px-3">
+                      {/* 3. Supplier */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="flex items-center gap-1.5">
                           <span
                             className={cn(
@@ -779,7 +1249,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                             {supplierDisplayName}
                           </span>
                           {isWalkIn && (
-                            <span className="px-1 py-0.2 rounded text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 font-normal">
+                            <span className="px-1 py-0.2 rounded-[2px] text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 font-normal">
                               Direct / Cash
                             </span>
                           )}
@@ -791,66 +1261,199 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                         )}
                       </td>
 
-                      {/* Purchase Type */}
-                      <td className="py-2.5 px-3 text-center">
+                      {/* 4. Supplier Invoice No. */}
+                      <td className="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap text-xs border-r border-slate-200 dark:border-slate-700/60">
+                        {po.supplierInvoiceNumber || po.invoiceNumber || '—'}
+                      </td>
+
+                      {/* 5. Items */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
                         <span
-                          className={cn(
-                            'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border',
-                            isSimple
-                              ? 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-                              : 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                          )}
+                          className="font-medium text-slate-700 dark:text-slate-300 text-xs cursor-help"
+                          title={items.map((i) => `${i.itemName} (${i.quantity} ${i.purchaseUnit || i.stockUnit || 'units'})`).join(', ')}
                         >
-                          {isSimple ? 'Simple' : 'Full Details'}
+                          {items.length} {items.length === 1 ? 'Item' : 'Items'}
                         </span>
                       </td>
 
-                      {/* Total Amount */}
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100 text-xs">
-                        Rs. {(Number(po.totalAmount) || 0).toLocaleString()}
+                      {/* 6. Total Amount */}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100 text-xs whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                        Rs. {total.toLocaleString()}
                       </td>
 
-                      {/* Payment Status */}
-                      <td className="py-2.5 px-3 text-center">
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border',
-                            pStatus === 'PAID'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                              : pStatus === 'PARTIALLY_PAID'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-                              : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'w-1.5 h-1.5 rounded-full',
-                              pStatus === 'PAID'
-                                ? 'bg-emerald-500'
-                                : pStatus === 'PARTIALLY_PAID'
-                                ? 'bg-amber-500'
-                                : 'bg-rose-500'
+                      {/* 7. Paid Amount */}
+                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-400 text-xs whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                        Rs. {paid.toLocaleString()}
+                      </td>
+
+                      {/* 8. Balance */}
+                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-xs whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                        {balance > 0 ? (
+                          <span className="text-[#e74c3c]">
+                            Rs. {balance.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 dark:text-slate-400">
+                            Rs. 0
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 9. Receiving Status */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                        {renderReceivingBadge(rStatus)}
+                      </td>
+
+                      {/* 10. Payment Status */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                        {renderPaymentBadge(po.paymentStatus)}
+                      </td>
+
+                      {/* 11. Action (View, Edit, Receive, Print, More) */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* 1. View (Cyan Square Button) */}
+                          <button
+                            type="button"
+                            onClick={() => setViewingPurchase(po)}
+                            title="View Purchase Details"
+                            className="h-[25px] w-[25px] inline-flex items-center justify-center rounded-[2px] bg-[#00c0ef] hover:bg-[#00acd6] text-white transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <Eye className="w-3 h-3" />
+                          </button>
+
+                          {/* 2. Edit (Teal Square Button) */}
+                          <button
+                            type="button"
+                            onClick={() => setViewingPurchase(po)}
+                            title="Edit Purchase Record"
+                            className="h-[25px] w-[25px] inline-flex items-center justify-center rounded-[2px] bg-[#1abc9c] hover:bg-[#16a085] text-white transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+
+                          {/* 3. Print (Orange Button) */}
+                          <button
+                            type="button"
+                            onClick={() => handlePrintPurchase(po)}
+                            title="Print Purchase Order"
+                            className="h-[25px] px-2 inline-flex items-center gap-1 rounded-[2px] bg-[#f39c12] hover:bg-[#e08e0b] text-white text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <Printer className="w-3 h-3" />
+                            <span>Print</span>
+                          </button>
+
+                          {/* 4. More Dropdown (Blue Button) */}
+                          <div className="relative" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => setOpenMoreMenuId(openMoreMenuId === po.id ? null : po.id)}
+                              title="More Actions"
+                              className="h-[25px] px-2 inline-flex items-center gap-1 rounded-[2px] bg-[#3c8dbc] hover:bg-[#367fa9] text-white text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                            >
+                              <span>More</span>
+                              <ChevronDown className="w-3 h-3" />
+                            </button>
+
+                            {openMoreMenuId === po.id && (
+                              <div className="absolute right-0 top-full mt-1 z-50 w-52 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl py-1 text-xs animate-in fade-in-50 duration-100 text-left">
+                                {/* View Details */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setViewingPurchase(po);
+                                    setOpenMoreMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-cyan-600" />
+                                  <span>View Details</span>
+                                </button>
+
+                                {/* Edit Purchase */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setViewingPurchase(po);
+                                    setOpenMoreMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                >
+                                  <Pencil className="w-3.5 h-3.5 text-teal-600" />
+                                  <span>Edit Purchase</span>
+                                </button>
+
+                                {/* Receive Stock */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    toast.success('Receive Stock', `Received items for PO #${po.poNumber}`);
+                                    setOpenMoreMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                >
+                                  <PackageCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Receive Stock / Goods</span>
+                                </button>
+
+                                {/* Print PO */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handlePrintPurchase(po);
+                                    setOpenMoreMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-amber-500" />
+                                  <span>Print PO</span>
+                                </button>
+
+                                {/* Copy PO Number */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (navigator.clipboard) {
+                                      navigator.clipboard.writeText(po.poNumber);
+                                      toast.success('Copied', `PO #${po.poNumber} copied.`);
+                                    }
+                                    setOpenMoreMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                >
+                                  <Copy className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>Copy Purchase No</span>
+                                </button>
+
+                                {/* Send to Mail */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    toast.info('Send to Mail', `Email delivery for PO #${po.poNumber} will be available soon.`);
+                                    setOpenMoreMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                >
+                                  <Mail className="w-3.5 h-3.5 text-blue-500" />
+                                  <span>Send to Mail</span>
+                                </button>
+
+                                {/* Send to WhatsApp */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    toast.info('Send to WhatsApp', `WhatsApp delivery for PO #${po.poNumber} will be available soon.`);
+                                    setOpenMoreMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>Send to WhatsApp</span>
+                                </button>
+                              </div>
                             )}
-                          />
-                          <span>{pStatus === 'PARTIALLY_PAID' ? 'Partial' : pStatus}</span>
-                        </span>
-                      </td>
-
-                      {/* Created By */}
-                      <td className="py-2.5 px-3 text-center text-slate-500 dark:text-slate-400 text-[11px]">
-                        {po.createdBy || 'Admin'}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-2.5 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setViewingPurchase(po)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-surface-hover text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-slate-500" />
-                          <span>View Details</span>
-                        </button>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -861,22 +1464,22 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
         </div>
 
         {/* =========================================================================
-            4. BOTTOM CONTROLS: ENTRIES COUNT & PAGINATION (MATCHING DATA TABLES)
+            BOTTOM CONTROLS: ENTRIES COUNT & PAGINATION
            ========================================================================= */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1 select-none">
           {/* Entries count */}
           <div>
             Showing{' '}
             <span className="font-semibold text-slate-800 dark:text-slate-200">
-              {sortedPurchases.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+              {totalEntries === 0 ? 0 : startIndex + 1}
             </span>{' '}
             to{' '}
             <span className="font-semibold text-slate-800 dark:text-slate-200">
-              {Math.min(currentPage * pageSize, sortedPurchases.length)}
+              {Math.min(startIndex + pageSize, totalEntries)}
             </span>{' '}
             of{' '}
             <span className="font-semibold text-slate-800 dark:text-slate-200">
-              {sortedPurchases.length}
+              {totalEntries}
             </span>{' '}
             entries
           </div>
@@ -885,7 +1488,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              disabled={currentPage <= 1}
+              disabled={safeCurrentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               className="px-2.5 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-semibold"
             >
@@ -897,9 +1500,9 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
               if (
                 pageNum === 1 ||
                 pageNum === totalPages ||
-                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                (pageNum >= safeCurrentPage - 1 && pageNum <= safeCurrentPage + 1)
               ) {
-                const isCurrent = pageNum === currentPage;
+                const isCurrent = pageNum === safeCurrentPage;
                 return (
                   <button
                     key={pageNum}
@@ -916,7 +1519,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                   </button>
                 );
               }
-              if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+              if (pageNum === safeCurrentPage - 2 || pageNum === safeCurrentPage + 2) {
                 return (
                   <span key={pageNum} className="px-1 text-slate-400">
                     ...
@@ -928,7 +1531,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
 
             <button
               type="button"
-              disabled={currentPage >= totalPages}
+              disabled={safeCurrentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               className="px-2.5 py-1 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-semibold"
             >
@@ -976,7 +1579,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingPurchase(null)}
-                className="text-slate-400 hover:text-slate-600 rounded p-1"
+                className="text-slate-400 hover:text-slate-600 rounded p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1025,7 +1628,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                     <thead>
                       <tr className="bg-slate-100/90 dark:bg-slate-900/60 border-b border-slate-200 text-slate-700 dark:text-slate-300 font-bold text-[11px]">
                         <th className="py-2 px-2.5">Item</th>
-                        <th className="py-2 px-2.5 text-center">Qty & Unit</th>
+                        <th className="py-2 px-2.5 text-center">Qty &amp; Unit</th>
                         <th className="py-2 px-2.5 text-right">Unit Cost</th>
                         <th className="py-2 px-2.5 text-right">Line Total</th>
                         <th className="py-2 px-2.5 text-center">Stock Tracked</th>
@@ -1140,7 +1743,15 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-border-default flex justify-end">
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-border-default flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => handlePrintPurchase(viewingPurchase)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#1abc9c] hover:bg-[#16a085] text-white text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print PO</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setViewingPurchase(null)}
@@ -1154,7 +1765,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
       )}
 
       {/* =========================================================================
-          NEW PURCHASE MODAL (TWO ENTRY MODES: SIMPLE & FULL DETAILS)
+          NEW PURCHASE MODAL
          ========================================================================= */}
       {isNewPurchaseOpen && (
         <NewPurchaseModal

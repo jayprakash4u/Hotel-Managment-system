@@ -248,6 +248,7 @@ export interface POSProductData {
   variants?: ProductVariant[];
   variantsJson?: string | null;
   department?: 'KOT' | 'BOT';
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
 }
 
 export interface InventoryItemData {
@@ -342,6 +343,7 @@ export interface StockMovementLedgerRecord {
   department: string;
   movementType: string;
   referenceNumber: string;
+  referenceType?: string;
   quantityIn: number;
   quantityOut: number;
   quantity: number;
@@ -349,7 +351,15 @@ export interface StockMovementLedgerRecord {
   newBalance?: number | null;
   stockUnit: string;
   reason: string;
+  notes?: string | null;
   performedBy: string;
+}
+
+export interface StockMovementSummary {
+  totalMovements: number;
+  stockIn: number;
+  stockOut: number;
+  itemsWithChanges: number;
 }
 
 export interface StaffData {
@@ -461,6 +471,8 @@ export interface QuickSaleItem {
   unitPrice: number;
   quantity: number;
   notes?: string;
+  preparationMethod?: string;
+  status?: string;
 }
 
 export interface QuickSalePayload {
@@ -518,6 +530,57 @@ export interface QuickSaleReceipt {
   timestamp: string;
 }
 
+export interface WeeklySalesDayItem {
+  date: string;
+  dayName: string;
+  dayFullName: string;
+  formattedDate: string;
+  sales: number;
+  orderCount: number;
+  isToday: boolean;
+  isHighest: boolean;
+  isLowest: boolean;
+}
+
+export interface RestaurantDashboardSummaryData {
+  todaySales: number;
+  yesterdaySales: number;
+  percentageChange: number;
+  isIncrease: boolean;
+  last7DaysSales: number;
+  todayOrders: number;
+  currency: string;
+  currencySymbol: string;
+  weeklySales: WeeklySalesDayItem[];
+}
+
+export interface MenuItemSalesRecord {
+  menuItem: string;
+  productId?: string;
+  category: string;
+  isVeg?: boolean;
+  quantitySold: number;
+  totalSales: number;
+  averagePrice: number;
+}
+
+export interface MenuItemSalesSummaryResponse {
+  startDate: string;
+  endDate: string;
+  currency: string;
+  currencySymbol: string;
+  totalItemsSold: number;
+  totalSales: number;
+  bestSellingItem: {
+    name: string;
+    quantitySold: number;
+    totalSales: number;
+    category?: string;
+  } | null;
+  categories: string[];
+  items: MenuItemSalesRecord[];
+}
+
 export interface DailySalesSummaryData {
   date: string;
   totalOrders: number;
@@ -561,6 +624,12 @@ export interface RestaurantOrderItemData {
   total: number;
   notes?: string;
   department?: 'KOT' | 'BOT';
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
+  status?: 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
+  preparationStartedAt?: string;
+  preparationCompletedAt?: string;
+  preparedBy?: string;
+  preparationDurationMinutes?: number;
   dispatchedQuantity?: number;
   kotNumber?: string;
   botNumber?: string;
@@ -599,6 +668,8 @@ export interface ActiveRestaurantOrderData {
   createdAt: string;
   updatedAt: string;
   items: RestaurantOrderItemData[];
+  bill?: BillData | null;
+  billPaymentStatus?: string | null;
 }
 
 export type BillingType = 'QUICK_BILL' | 'WALK_IN' | 'TABLE_ORDER' | 'ROOM_SERVICE' | 'HOTEL_CHECKOUT';
@@ -653,6 +724,7 @@ export interface BillData {
   balanceDue: number;
   paymentStatus: BillPaymentStatus;
   paymentMethod: string;
+  paidAt?: string;
   itemsJson: string;
   paymentsJson: string;
   notes?: string | null;
@@ -786,6 +858,9 @@ export interface PurchaseRecord {
   totalAmount: number;
   paymentMethod?: PurchasePaymentMethod | string;
   paymentStatus: PurchasePaymentStatus | string;
+  paidAmount?: number;
+  balanceAmount?: number;
+  receivingStatus?: 'RECEIVED' | 'PARTIALLY_RECEIVED' | 'PENDING' | string;
   notes?: string | null;
   attachmentUrl?: string | null;
   createdBy?: string | null;
@@ -1873,129 +1948,1878 @@ export interface SupplierStatementReport {
   }[];
 }
 
-
-// ============================================================================
-// SUPPLIER LEDGER TYPES
-// ============================================================================
-
-export interface SupplierLedgerEntryData {
+export interface CashAccountRecord {
   id: string;
-  entryDate: string;
-  transactionNumber?: string;
-  purchaseOrderId?: string;
-  purchaseOrderNumber?: string;
-  purchaseInvoiceNumber?: string;
+  accountName: string;
+  accountCode: string;
+  branchOrOutlet: string;
+  accountType: string;
+  openingBalance: number;
+  openingBalanceDate?: string;
+  currentBalance: number;
+  totalCashIn: number;
+  totalCashOut: number;
+  todayCashIn: number;
+  todayCashOut: number;
+  responsibleEmployee?: string;
+  isActive: boolean;
+  description?: string;
+}
+
+export interface CashAccountsSummary {
+  totalCashBalance: number;
+  cashReceived: number;
+  cashPaid: number;
+  todayCashBalance: number;
+}
+
+export interface CashTransactionItem {
+  id: string;
+  date: string;
+  referenceNumber: string;
+  entryNumber: string;
+  transactionType: string;
   description: string;
-  creditAmount: number;
-  debitAmount: number;
-  balance: number;
-  dueDate?: string;
-  referenceType: string;
-  referenceId?: string;
-  paymentMode?: string;
-  branchOrOutlet?: string;
-  journalEntryId?: string;
-  notes?: string;
-  createdBy?: string;
-  status: string;
+  cashIn: number;
+  cashOut: number;
+  runningBalance: number;
+  sourceModule: string;
+  createdBy: string;
+  journalEntryId: string;
+  accountId: string;
+  accountName: string;
+  accountCode: string;
 }
 
-export interface SupplierLedgerSummary {
-  openingPayableBalance: number;
-  totalPurchases: number;
-  totalPayments: number;
-  purchaseReturns: number;
-  debitNotes: number;
-  creditNotes: number;
-  outstandingPayable: number;
-  supplierAdvanceBalance: number;
-  overdueAmount: number;
-  creditLimit?: number;
-  paymentTermsDays?: number;
-}
-
-export interface SupplierUnpaidPurchaseData {
+export interface CashReconciliationRecord {
   id: string;
-  purchaseNumber: string;
-  supplierInvoiceNumber?: string;
+  reconciliationNumber: string;
+  reconciliationDate: string;
+  accountId: string;
+  systemBalance: number;
+  physicalCount: number;
+  difference: number;
+  status: 'MATCHED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  explanation?: string;
+  denominationsJson?: string;
+  reconciledBy: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  journalEntryId?: string;
+  account?: {
+    accountName: string;
+    accountCode: string;
+  };
+}
+
+export interface BankWalletAccountRecord {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'BANK' | 'WALLET';
+  subCategory: string;
+  bankName?: string;
+  accountNumber?: string;
+  rawAccountNumber?: string;
+  accountHolderName?: string;
+  branch: string;
+  walletProvider?: string;
+  merchantId?: string;
+  rawMerchantId?: string;
+  registeredMobileNumber?: string;
+  directBankSettlement?: boolean;
+  openingBalance: number;
+  openingBalanceDate: string;
+  currentBalance: number;
+  totalIn: number;
+  totalOut: number;
+  isActive: boolean;
+  description?: string;
+}
+
+export interface BankWalletSummary {
+  totalAccountBalance: number;
+  totalBankBalance: number;
+  totalWalletBalance: number;
+}
+
+export interface BankWalletTransactionItem {
+  id: string;
+  date: string;
+  referenceNumber: string;
+  entryNumber: string;
+  description: string;
+  transactionType: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  sourceModule: string;
+  status: string;
+  createdBy: string;
+  journalEntryId: string;
+}
+
+// ----------------------------------------------------
+// Unified Bank & Digital Wallet Reconciliation Types
+// ----------------------------------------------------
+
+export interface BankReconciliationAccount {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'BANK' | 'DIGITAL_WALLET';
+  branchOrOutlet?: string;
+  bankName?: string;
+  accountNumber?: string;
+  maskedAccountNumber?: string;
+  accountHolderName?: string;
+  walletProvider?: string;
+  merchantId?: string;
+  maskedMerchantId?: string;
+  registeredMobileNumber?: string;
+  currentBalance: number;
+  lastReconciledDate?: string;
+  lastReconciledBalance?: number;
+  activeSessionId?: string;
+  unreconciledLinesCount: number;
+  isActive: boolean;
+}
+
+export interface BankReconciliationSummary {
+  totalBankAccounts: number;
+  totalWalletAccounts: number;
+  activeReconciliations: number;
+  finalizedThisMonth: number;
+  discrepanciesCount: number;
+  lastReconciledDate?: string;
+  lastReconciliationNumber?: string;
+}
+
+export interface BankReconciliationLineItem {
+  id: string;
+  lineSource: 'SYSTEM' | 'STATEMENT';
+  journalEntryLineId?: string;
+  journalEntryNumber?: string;
+  transactionDate: string;
+  referenceNumber?: string;
+  description: string;
+  payeeOrPayer?: string;
+  debit: number;
+  credit: number;
+  amount: number;
+  transactionType: string;
+  isMatched: boolean;
+  matchedLineId?: string;
+  matchedAt?: string;
+  matchRule?: string;
+  status: 'UNMATCHED' | 'MATCHED' | 'EXCLUDED' | 'ADJUSTED';
+}
+
+export interface BankReconciliationSessionItem {
+  id: string;
+  reconciliationNumber: string;
+  accountId: string;
+  accountName: string;
+  accountCode: string;
+  accountType: 'BANK' | 'DIGITAL_WALLET';
+  bankOrWalletName: string;
+  statementDate: string;
+  periodStartDate: string;
+  periodEndDate: string;
+  statementOpeningBalance: number;
+  statementEndingBalance: number;
+  bookOpeningBalance: number;
+  bookEndingBalance: number;
+  totalDepositsCleared: number;
+  totalPaymentsCleared: number;
+  totalDepositsInTransit: number;
+  totalOutstandingChecks: number;
+  reconciledBalance: number;
+  difference: number;
+  status: 'DRAFT' | 'IN_PROGRESS' | 'RECONCILED' | 'FINALIZED';
+  reconciledBy: string;
+  approvedBy?: string;
+  completedAt?: string;
+  notes?: string;
+  statementFileName?: string;
+  createdAt: string;
+}
+
+export interface BankReconciliationSessionDetail {
+  id: string;
+  reconciliationNumber: string;
+  accountId: string;
+  accountName: string;
+  accountCode: string;
+  accountType: 'BANK' | 'DIGITAL_WALLET';
+  bankOrProvider: string;
+  accountNumber?: string;
+  merchantId?: string;
+  statementDate: string;
+  periodStartDate: string;
+  periodEndDate: string;
+  statementOpeningBalance: number;
+  statementEndingBalance: number;
+  bookOpeningBalance: number;
+  bookEndingBalance: number;
+  totalDepositsCleared: number;
+  totalPaymentsCleared: number;
+  totalDepositsInTransit: number;
+  totalOutstandingChecks: number;
+  bankCharges: number;
+  interestEarned: number;
+  reconciledBalance: number;
+  adjustedBookBalance: number;
+  difference: number;
+  status: 'DRAFT' | 'IN_PROGRESS' | 'RECONCILED' | 'FINALIZED';
+  reconciledBy: string;
+  approvedBy?: string;
+  completedAt?: string;
+  notes?: string;
+  statementFileName?: string;
+  statementFormat?: string;
+  systemLines: BankReconciliationLineItem[];
+  statementLines: BankReconciliationLineItem[];
+  matchedCount: number;
+  unmatchedSystemCount: number;
+  unmatchedStatementCount: number;
+}
+
+// ==========================================
+// 15. INCOME MANAGEMENT TYPES
+// ==========================================
+
+export type IncomeCategoryType = 'OPERATING' | 'NON_OPERATING';
+export type IncomeTransactionStatus = 'DRAFT' | 'POSTED' | 'REVERSED';
+
+export interface IncomeCategoryItem {
+  id: string;
+  hotelId?: string;
+  categoryName: string;
+  categoryType: IncomeCategoryType;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  description?: string;
+  isSystem: boolean;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface IncomeTransactionItem {
+  id: string;
+  voucherNumber: string;
+  incomeDate: string;
+  categoryId: string;
+  categoryName: string;
+  categoryType: IncomeCategoryType;
+  incomeAccountId: string;
+  incomeAccountCode: string;
+  incomeAccountName: string;
+  description: string;
+  amount: number;
+  receivedThrough: 'CASH' | 'BANK' | 'WALLET' | 'CHEQUE' | 'OTHER' | string;
+  receivingAccountId: string;
+  receivingAccountCode: string;
+  receivingAccountName: string;
+  referenceNumber?: string;
+  payerName?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  branchOrOutlet?: string;
+  status: IncomeTransactionStatus;
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  reversalJournalEntryId?: string;
+  reversalJournalEntryNumber?: string;
+  reversalReason?: string;
+  reversedBy?: string;
+  reversedAt?: string;
+  createdBy?: string;
+  postedBy?: string;
+  postedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface IncomeSummary {
+  totalIncome: number;
+  thisMonthIncome: number;
+  todayIncome: number;
+  totalDraftIncome: number;
+  draftCount: number;
+  totalPostedCount: number;
+  operatingIncome: number;
+  nonOperatingIncome: number;
+}
+
+export interface IncomeReceivingAccount {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'CASH' | 'BANK' | 'WALLET';
+  subCategory: string;
+  branchOrOutlet?: string;
+  bankName?: string;
+  accountNumber?: string;
+  walletProvider?: string;
+  merchantId?: string;
+  currentBalance: number;
+}
+
+export interface IncomeReportCategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  categoryType: IncomeCategoryType;
+  count: number;
+  totalAmount: number;
+  percentage: number;
+}
+
+export interface IncomeReportAccountBreakdown {
+  receivingAccountId: string;
+  receivingAccountName: string;
+  receivingAccountCode: string;
+  count: number;
+  totalAmount: number;
+  percentage: number;
+}
+
+export interface IncomeReportsData {
+  totalIncome: number;
+  operatingTotal: number;
+  nonOperatingTotal: number;
+  operatingPercentage: number;
+  nonOperatingPercentage: number;
+  byCategory: IncomeReportCategoryBreakdown[];
+  byAccount: IncomeReportAccountBreakdown[];
+}
+
+export interface CreateIncomeDto {
+  incomeDate: string;
+  categoryId: string;
+  description: string;
+  amount: number;
+  receivedThrough: string;
+  receivingAccountId: string;
+  referenceNumber?: string;
+  payerName?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  branchOrOutlet?: string;
+  autoPost?: boolean;
+  createdBy?: string;
+}
+
+export interface CreateIncomeCategoryDto {
+  categoryName: string;
+  categoryType: IncomeCategoryType;
+  accountId: string;
+  description?: string;
+  displayOrder?: number;
+}
+
+// ==========================================
+// 16. EXPENSE MANAGEMENT TYPES
+// ==========================================
+
+export type ExpenseCategoryType = 'OPERATING' | 'NON_OPERATING';
+export type ExpensePaymentStatus = 'PAID' | 'PARTIALLY_PAID' | 'UNPAID';
+export type ExpenseTransactionStatus = 'DRAFT' | 'POSTED' | 'REVERSED';
+
+export interface ExpenseCategoryItem {
+  id: string;
+  hotelId?: string;
+  categoryName: string;
+  categoryType: ExpenseCategoryType;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  description?: string;
+  isSystem: boolean;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExpensePaymentItem {
+  id: string;
+  expenseTransactionId: string;
+  paymentReceiptNumber: string;
+  paymentDate: string;
+  amount: number;
+  paymentMode: 'CASH' | 'BANK' | 'WALLET' | 'CHEQUE' | string;
+  paymentAccountId: string;
+  paymentAccountCode: string;
+  paymentAccountName: string;
+  referenceNumber?: string;
+  paidBy?: string;
+  notes?: string;
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExpenseTransactionItem {
+  id: string;
+  voucherNumber: string;
+  expenseDate: string;
+  categoryId: string;
+  categoryName: string;
+  categoryType: ExpenseCategoryType;
+  expenseAccountId: string;
+  expenseAccountCode: string;
+  expenseAccountName: string;
+  description: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingPayable: number;
+  paymentStatus: ExpensePaymentStatus;
+  paymentMode: 'CASH' | 'BANK' | 'WALLET' | 'CHEQUE' | 'CREDIT' | string;
+  paymentAccountId: string;
+  paymentAccountCode: string;
+  paymentAccountName: string;
+  paidTo?: string;
+  referenceNumber?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  dueDate?: string;
+  branchOrOutlet?: string;
+  status: ExpenseTransactionStatus;
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  reversalJournalEntryId?: string;
+  reversalJournalEntryNumber?: string;
+  reversalReason?: string;
+  reversedBy?: string;
+  reversedAt?: string;
+  createdBy?: string;
+  postedBy?: string;
+  postedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  paymentCount?: number;
+  payments?: ExpensePaymentItem[];
+}
+
+export interface ExpenseSummary {
+  totalExpenses: number;
+  thisMonthExpenses: number;
+  todayExpenses: number;
+  totalDraftExpenses: number;
+  draftCount: number;
+  totalPostedCount: number;
+  operatingExpenses: number;
+  nonOperatingExpenses: number;
+  totalPaid: number;
+  totalUnpaidPayable: number;
+  unpaidCount: number;
+}
+
+export interface ExpensePaymentAccount {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'CASH' | 'BANK' | 'WALLET' | 'PAYABLE';
+  classification: 'ASSET' | 'LIABILITY' | string;
+  subCategory: string;
+  branchOrOutlet?: string;
+  bankName?: string;
+  accountNumber?: string;
+  walletProvider?: string;
+  merchantId?: string;
+  currentBalance: number;
+}
+
+export interface ExpenseReportCategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  categoryType: ExpenseCategoryType;
+  count: number;
+  totalAmount: number;
+  percentage: number;
+}
+
+export interface ExpenseReportAccountBreakdown {
+  paymentAccountId: string;
+  paymentAccountName: string;
+  paymentAccountCode: string;
+  count: number;
+  totalAmount: number;
+  paidAmount: number;
+  remainingPayable: number;
+  percentage: number;
+}
+
+export interface ExpenseOutstandingPayableItem {
+  id: string;
+  voucherNumber: string;
+  expenseDate: string;
+  dueDate?: string;
+  categoryName: string;
+  description: string;
+  paidTo?: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingPayable: number;
+  paymentStatus: ExpensePaymentStatus;
+}
+
+export interface ExpenseReportsData {
+  totalExpenses: number;
+  totalPaid: number;
+  totalUnpaidPayable: number;
+  operatingTotal: number;
+  nonOperatingTotal: number;
+  operatingPercentage: number;
+  nonOperatingPercentage: number;
+  byCategory: ExpenseReportCategoryBreakdown[];
+  byAccount: ExpenseReportAccountBreakdown[];
+  outstandingPayables: ExpenseOutstandingPayableItem[];
+}
+
+export interface CreateExpenseDto {
+  expenseDate: string;
+  categoryId: string;
+  description: string;
+  amount: number;
+  isPaid: boolean;
+  paymentMode: string;
+  paymentAccountId?: string;
+  paidTo?: string;
+  referenceNumber?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  dueDate?: string;
+  branchOrOutlet?: string;
+  autoPost?: boolean;
+  createdBy?: string;
+}
+
+export interface RecordExpensePaymentDto {
+  paymentDate: string;
+  amount: number;
+  paymentMode: string;
+  paymentAccountId: string;
+  referenceNumber?: string;
+  paidBy?: string;
+  notes?: string;
+}
+
+export interface CreateExpenseCategoryDto {
+  categoryName: string;
+  categoryType: ExpenseCategoryType;
+  accountId: string;
+  description?: string;
+  displayOrder?: number;
+}
+
+// ==========================================
+// 17. FIXED ASSETS MANAGEMENT TYPES
+// ==========================================
+
+export type FixedAssetStatus = 'ACTIVE' | 'FULLY_DEPRECIATED' | 'DISPOSED' | 'DRAFT';
+
+export interface AssetCategoryItem {
+  id: string;
+  hotelId?: string;
+  categoryName: string;
+  codePrefix: string;
+  assetAccountId: string;
+  assetAccountCode: string;
+  assetAccountName: string;
+  accumulatedDepreciationAccountId: string;
+  accumulatedDepreciationAccountCode: string;
+  accumulatedDepreciationAccountName: string;
+  depreciationExpenseAccountId: string;
+  depreciationExpenseAccountCode: string;
+  depreciationExpenseAccountName: string;
+  defaultUsefulLifeYears: number;
+  defaultDepreciationMethod: string;
+  defaultResidualValuePercentage: number;
+  description?: string;
+  isSystem: boolean;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssetDepreciationEntryItem {
+  id: string;
+  fixedAssetId: string;
+  periodKey: string;
+  periodNumber: number;
+  periodDate: string;
+  openingBookValue: number;
+  depreciationAmount: number;
+  accumulatedDepreciation: number;
+  closingBookValue: number;
+  status: 'PENDING' | 'POSTED';
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  postedAt?: string;
+  postedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssetMovementItem {
+  id: string;
+  fixedAssetId: string;
+  transferDate: string;
+  fromLocation?: string;
+  toLocation?: string;
+  fromDepartment?: string;
+  toDepartment?: string;
+  fromAssignedTo?: string;
+  toAssignedTo?: string;
+  reason?: string;
+  transferredBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FixedAssetItem {
+  id: string;
+  hotelId?: string;
+  assetCode: string;
+  assetName: string;
+  categoryId: string;
+  categoryName: string;
+  description?: string;
+  location: string;
+  department: string;
+  assignedTo?: string;
+  serialNumber?: string;
+  barcode?: string;
+  branchOrOutlet?: string;
   purchaseDate: string;
+  supplierName?: string;
+  supplierInvoiceNumber?: string;
+  purchaseCost: number;
+  additionalCapitalizedCosts: number;
+  totalCapitalizedCost: number;
+  acquisitionPaymentMode: 'BANK' | 'CASH' | 'CREDIT' | 'OPENING_BALANCE' | string;
+  paymentAccountId?: string;
+  paymentAccountCode?: string;
+  paymentAccountName?: string;
+  paymentReference?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  acquisitionJournalEntryId?: string;
+  acquisitionJournalEntryNumber?: string;
+  depreciationMethod: string;
+  usefulLifeYears: number;
+  usefulLifeMonths: number;
+  residualValue: number;
+  depreciableAmount: number;
+  annualDepreciation: number;
+  monthlyDepreciation: number;
+  depreciationStartDate: string;
+  depreciationFrequency: string;
+  accumulatedDepreciation: number;
+  currentBookValue: number;
+  lastDepreciationDate?: string;
+  depreciationPeriodsPostedCount: number;
+  assetAccountId: string;
+  assetAccountCode: string;
+  assetAccountName: string;
+  accumulatedDepreciationAccountId: string;
+  accumulatedDepreciationAccountCode: string;
+  accumulatedDepreciationAccountName: string;
+  depreciationExpenseAccountId: string;
+  depreciationExpenseAccountCode: string;
+  depreciationExpenseAccountName: string;
+  status: FixedAssetStatus;
+  disposalDate?: string;
+  disposalType?: string;
+  disposalAmount: number;
+  disposalReceivingAccountId?: string;
+  disposalReceivingAccountCode?: string;
+  disposalReceivingAccountName?: string;
+  netBookValueAtDisposal: number;
+  gainOrLossAmount: number;
+  isGain: boolean;
+  disposalReason?: string;
+  disposalReference?: string;
+  disposalJournalEntryId?: string;
+  disposalJournalEntryNumber?: string;
+  disposedBy?: string;
+  disposedAt?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  depreciationEntries?: AssetDepreciationEntryItem[];
+  movements?: AssetMovementItem[];
+}
+
+export interface FixedAssetsSummary {
+  totalAssetCost: number;
+  accumulatedDepreciation: number;
+  currentBookValue: number;
+  totalActiveAssets: number;
+  fullyDepreciatedCount: number;
+  disposedCount: number;
+  draftCount: number;
+  totalAssetsCount: number;
+}
+
+export interface FixedAssetsReportCategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  count: number;
+  totalCost: number;
+  accumulatedDepreciation: number;
+  currentBookValue: number;
+  costPercentage: number;
+}
+
+export interface FixedAssetsReportDisposedItem {
+  id: string;
+  assetCode: string;
+  assetName: string;
+  categoryName: string;
+  purchaseDate: string;
+  totalCapitalizedCost: number;
+  disposalDate: string;
+  disposalType: string;
+  disposalAmount: number;
+  netBookValueAtDisposal: number;
+  gainOrLossAmount: number;
+  isGain: boolean;
+  disposalReason?: string;
+}
+
+export interface FixedAssetsReportsData {
+  totalCost: number;
+  totalAccumulatedDepreciation: number;
+  totalBookValue: number;
+  byCategory: FixedAssetsReportCategoryBreakdown[];
+  disposedAssets: FixedAssetsReportDisposedItem[];
+}
+
+export interface CreateFixedAssetDto {
+  assetName: string;
+  categoryId: string;
+  description?: string;
+  location?: string;
+  department?: string;
+  assignedTo?: string;
+  serialNumber?: string;
+  barcode?: string;
+  branchOrOutlet?: string;
+  purchaseDate: string;
+  supplierName?: string;
+  supplierInvoiceNumber?: string;
+  purchaseCost: number;
+  additionalCapitalizedCosts?: number;
+  acquisitionPaymentMode: string;
+  paymentAccountId?: string;
+  paymentReference?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  depreciationMethod?: string;
+  usefulLifeYears: number;
+  residualValue?: number;
+  depreciationStartDate?: string;
+  depreciationFrequency?: string;
+  autoCapitalize?: boolean;
+  createdBy?: string;
+}
+
+export interface TransferAssetDto {
+  toLocation: string;
+  toDepartment?: string;
+  toAssignedTo?: string;
+  reason?: string;
+  transferredBy?: string;
+}
+
+export interface DisposeAssetDto {
+  disposalDate: string;
+  disposalType: string;
+  disposalAmount: number;
+  receivingAccountId?: string;
+  reason?: string;
+  reference?: string;
+  disposedBy?: string;
+}
+
+export interface BatchDepreciationDto {
+  year: number;
+  month: number;
+}
+
+export interface CreateAssetCategoryDto {
+  categoryName: string;
+  codePrefix: string;
+  assetAccountId: string;
+  accumulatedDepreciationAccountId: string;
+  depreciationExpenseAccountId: string;
+  defaultUsefulLifeYears: number;
+  defaultResidualValuePercentage?: number;
+  description?: string;
+  displayOrder?: number;
+}
+
+// ==========================================
+// 18. LIABILITIES MANAGEMENT TYPES
+// ==========================================
+
+export type LiabilityClassification = 'CURRENT' | 'NON_CURRENT';
+export type LiabilityStatus = 'OUTSTANDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE';
+export type LiabilitySourceModule = 'SUPPLIER_LEDGER' | 'EXPENSES' | 'PAYROLL' | 'TAX' | 'CUSTOMER_ADVANCE' | 'LOAN' | 'GENERAL_LEDGER';
+
+export interface LiabilityOverviewItem {
+  id: string;
+  liabilityName: string;
+  category: string;
+  classification: LiabilityClassification;
+  relatedParty: string;
+  originalAmount: number;
+  totalPaid: number;
+  outstandingBalance: number;
   dueDate?: string;
   isOverdue: boolean;
   daysOverdue: number;
-  grandTotal: number;
-  paidAmount: number;
-  dueAmount: number;
-  branchOrOutlet?: string;
-  status?: string;
-  paymentStatus?: string;
+  status: LiabilityStatus;
+  sourceModule: LiabilitySourceModule;
+  sourceTransactionId?: string;
+  sourceReferenceNumber?: string;
+  linkedAccountCode: string;
+  linkedAccountName: string;
+  createdAt: string;
 }
 
-export interface SupplierAgingReport {
-  supplierId: string;
-  supplierName: string;
-  supplierCode?: string;
-  currentNotDue: number;
-  overdue1to30: number;
-  overdue31to60: number;
-  overdue61to90: number;
-  overdueAbove90: number;
-  totalOutstanding: number;
+export interface LiabilityCategoryBreakdown {
+  category: string;
+  type: LiabilityClassification;
+  outstanding: number;
+  count: number;
+}
+
+export interface LiabilitiesSummary {
+  totalLiabilities: number;
+  currentLiabilities: number;
+  nonCurrentLiabilities: number;
+  overdueLiabilities: number;
+  totalObligationsCount: number;
+  overdueCount: number;
+  categoryBreakdown: LiabilityCategoryBreakdown[];
+}
+
+export interface LoanRepaymentScheduleItem {
+  id: string;
+  loanObligationId: string;
+  periodNumber: number;
+  dueDate: string;
+  principalDue: number;
+  interestDue: number;
+  totalDue: number;
+  principalPaid: number;
+  interestPaid: number;
+  totalPaid: number;
+  status: 'PENDING' | 'PAID' | 'PARTIAL' | 'OVERDUE';
+  paidDate?: string;
+  paymentMode?: string;
+  paymentAccountId?: string;
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LoanObligationItem {
+  id: string;
+  hotelId?: string;
+  loanName: string;
+  loanReferenceNumber: string;
+  lenderName: string;
+  category: string;
+  liabilityType: LiabilityClassification;
+  linkedAccountId: string;
+  linkedAccountCode: string;
+  linkedAccountName: string;
+  originalLoanAmount: number;
+  outstandingPrincipal: number;
+  interestRate: number;
+  loanStartDate: string;
+  maturityDate: string;
+  repaymentFrequency: string;
+  nextPaymentDueDate?: string;
+  monthlyInstallmentAmount: number;
+  totalPrincipalPaid: number;
+  totalInterestPaid: number;
+  status: 'ACTIVE' | 'PAID_OFF' | 'DEFAULTED' | 'DRAFT';
+  disbursementBankAccountId?: string;
+  disbursementBankAccountName?: string;
+  acquisitionJournalEntryId?: string;
+  acquisitionJournalEntryNumber?: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+  repaymentSchedule: LoanRepaymentScheduleItem[];
+}
+
+export interface CreateLoanDto {
+  loanName: string;
+  lenderName: string;
+  loanReferenceNumber?: string;
+  category?: string;
+  liabilityType?: LiabilityClassification;
+  linkedAccountId?: string;
+  originalLoanAmount: number;
+  interestRate: number;
+  loanStartDate: string;
+  maturityDate: string;
+  repaymentFrequency?: string;
+  monthlyInstallmentAmount?: number;
+  disbursementBankAccountId?: string;
+  autoCapitalize?: boolean;
+  notes?: string;
+}
+
+export interface RecordLoanRepaymentDto {
+  principalAmount: number;
+  interestAmount: number;
+  paymentDate: string;
+  paymentAccountId: string;
+  referenceNumber?: string;
+  notes?: string;
+}
+
+export interface LiabilityAgingData {
+  notDue: number;
+  days1To30: number;
+  days31To60: number;
+  days61To90: number;
+  days90Plus: number;
   totalOverdue: number;
-  invoices: {
-    id: string;
-    purchaseNumber: string;
-    supplierInvoiceNumber?: string;
-    purchaseDate: string;
-    dueDate: string;
-    grandTotal: number;
-    paidAmount: number;
-    dueAmount: number;
-    isOverdue: boolean;
-    daysOverdue: number;
-  }[];
 }
 
-export interface SupplierStatementReport {
-  restaurantName: string;
-  restaurantAddress: string;
-  restaurantPan: string;
-  restaurantPhone: string;
-  statementNumber: string;
-  statementDate: string;
+export interface LiabilitiesReportsData {
+  totalLiabilities: number;
+  currentTotal: number;
+  nonCurrentTotal: number;
+  aging: LiabilityAgingData;
+  categoryBreakdown: Array<{
+    category: string;
+    count: number;
+    totalOutstanding: number;
+    overdueAmount: number;
+  }>;
+}
+
+export interface LiabilityAccountConfigItem {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  category: string;
+  classification: LiabilityClassification;
+  currentBalance: number;
+  normalBalance: string;
+  description?: string;
+}
+
+// ==========================================
+// 19. PROFIT & LOSS (P&L) TYPES
+// ==========================================
+
+export type PnLComparisonMode = 'NONE' | 'PREVIOUS_PERIOD' | 'PREVIOUS_YEAR' | 'CUSTOM';
+
+export interface PnLLineItem {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  subCategory: string;
+  currentAmount: number;
+  compareAmount: number;
+  variance: number;
+  variancePercentage: number;
+  isContra: boolean;
+}
+
+export interface PnLSection {
+  sectionKey: string;
+  title: string;
+  items: PnLLineItem[];
+  currentTotal: number;
+  compareTotal: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface MonthlyTrendItem {
+  monthKey: string;
+  monthLabel: string;
+  revenue: number;
+  cogs: number;
+  operatingExpenses: number;
+  grossProfit: number;
+  netProfit: number;
+}
+
+export interface ExpenseCategoryBreakdownItem {
+  categoryName: string;
+  amount: number;
+  percentageOfExpenses: number;
+}
+
+export interface PnLStatementPeriod {
   startDate: string;
   endDate: string;
-  supplier: {
-    name: string;
-    code: string;
-    contactPerson?: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    panVatNumber?: string;
-    advanceBalance?: number;
+  formattedPeriod: string;
+  comparisonMode: PnLComparisonMode;
+  hasComparison: boolean;
+  compareStartDate?: string;
+  compareEndDate?: string;
+  formattedComparePeriod?: string;
+}
+
+export interface PnLSummaryCards {
+  totalNetRevenue: number;
+  compareNetRevenue: number;
+  revenueGrowthPercentage: number;
+
+  grossProfit: number;
+  compareGrossProfit: number;
+  grossProfitMargin: number;
+  compareGrossProfitMargin: number;
+  grossProfitGrowthPercentage: number;
+
+  operatingProfit: number;
+  compareOperatingProfit: number;
+  operatingProfitMargin: number;
+
+  netProfitAfterTax: number;
+  compareNetProfitAfterTax: number;
+  netProfitMargin: number;
+  compareNetProfitMargin: number;
+  netProfitGrowthPercentage: number;
+
+  totalOperatingExpenses: number;
+  totalCOGS: number;
+  totalOtherIncome: number;
+  totalOtherExpenses: number;
+  taxExpense: number;
+}
+
+export interface PnLStatementResponse {
+  period: PnLStatementPeriod;
+  summaryCards: PnLSummaryCards;
+  sections: PnLSection[];
+  monthlyTrends: MonthlyTrendItem[];
+  expenseCategoryBreakdown: ExpenseCategoryBreakdownItem[];
+}
+
+export interface PnLDrilldownTransaction {
+  id: string;
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string;
+  lineDescription?: string;
+  reference?: string;
+  sourceModule: string;
+  sourceTransactionId?: string;
+  debit: number;
+  credit: number;
+  status: string;
+}
+
+export interface PnLDrilldownResponse {
+  account: {
+    id: string;
+    accountCode: string;
+    accountName: string;
+    accountType: string;
+    subCategory?: string;
+    normalBalance: string;
   };
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  totals: {
+    totalDebit: number;
+    totalCredit: number;
+    netMovement: number;
+    transactionCount: number;
+  };
+  transactions: PnLDrilldownTransaction[];
+}
+
+
+
+
+
+
+// ==========================================
+// BALANCE SHEET REPORTING MODULE TYPES
+// ==========================================
+
+export type BalanceSheetComparisonMode = 'NONE' | 'PREVIOUS_MONTH_END' | 'PREVIOUS_YEAR_END' | 'CUSTOM';
+export type BalanceSheetViewMode = 'DETAILED' | 'CONDENSED';
+
+export interface BalanceSheetLineItem {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  subCategory: string;
+  currentBalance: number;
+  compareBalance: number;
+  variance: number;
+  variancePercentage: number;
+  isContra: boolean;
+}
+
+export interface BalanceSheetSubGroup {
+  groupKey: string;
+  title: string;
+  items: BalanceSheetLineItem[];
+  currentTotal: number;
+  compareTotal: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface BalanceSheetAssetsSection {
+  title: string;
+  currentAssetGroups: BalanceSheetSubGroup[];
+  totalCurrentAssets: number;
+  compareTotalCurrentAssets: number;
+  fixedAssetsCostItems: BalanceSheetLineItem[];
+  totalFixedAssetsCost: number;
+  compareTotalFixedAssetsCost: number;
+  accumulatedDepreciationItems: BalanceSheetLineItem[];
+  totalAccumulatedDepreciation: number;
+  compareTotalAccumulatedDepreciation: number;
+  netFixedAssets: number;
+  compareNetFixedAssets: number;
+  totalAssets: number;
+  compareTotalAssets: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface BalanceSheetLiabilitiesSection {
+  title: string;
+  currentLiabilityGroups: BalanceSheetSubGroup[];
+  totalCurrentLiabilities: number;
+  compareTotalCurrentLiabilities: number;
+  nonCurrentLiabilityGroups: BalanceSheetSubGroup[];
+  totalNonCurrentLiabilities: number;
+  compareTotalNonCurrentLiabilities: number;
+  totalLiabilities: number;
+  compareTotalLiabilities: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface BalanceSheetEquitySection {
+  title: string;
+  items: BalanceSheetLineItem[];
+  totalEquity: number;
+  compareTotalEquity: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface BalanceSheetSummaryCards {
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  totalLiabilitiesAndEquity: number;
+  balanceDifference: number;
+  isBalanced: boolean;
+  compareTotalAssets: number;
+  compareTotalLiabilities: number;
+  compareTotalEquity: number;
+  compareTotalLiabilitiesAndEquity: number;
+  compareBalanceDifference: number;
+  varianceAssets: number;
+  variancePercentageAssets: number;
+  varianceLiabilities: number;
+  variancePercentageLiabilities: number;
+  varianceEquity: number;
+  variancePercentageEquity: number;
+}
+
+export interface BalanceSheetStatementResponse {
+  asOfDate: string;
+  compareAsOfDate?: string | null;
+  formattedAsOfDate: string;
+  formattedCompareAsOfDate?: string | null;
+  comparisonMode: BalanceSheetComparisonMode;
+  viewMode: BalanceSheetViewMode;
+  summary: BalanceSheetSummaryCards;
+  assets: BalanceSheetAssetsSection;
+  liabilities: BalanceSheetLiabilitiesSection;
+  equity: BalanceSheetEquitySection;
+}
+
+export interface BalanceSheetDrilldownItem {
+  id: string;
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  entryType: string;
+  reference?: string | null;
+  narration: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  sourceModule: string;
+}
+
+export interface BalanceSheetDrilldownResponse {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  subCategory: string;
+  normalBalance: string;
+  openingBalance: number;
+  totalDebits: number;
+  totalCredits: number;
+  closingBalance: number;
+  asOfDate: string;
+  transactions: BalanceSheetDrilldownItem[];
+}
+
+export interface DiscrepancyDiagnosticResponse {
+  asOfDate: string;
+  balanceDifference: number;
+  isBalanced: boolean;
+  openingDebitsSum: number;
+  openingCreditsSum: number;
+  openingDiscrepancy: number;
+  imbalancedJournalEntriesCount: number;
+  imbalancedEntryNumbers: string[];
+  unpostedDraftsCount: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  cumulativeNetProfit: number;
+  auditFindings: string[];
+  recommendations: string[];
+}
+
+
+// ==========================================
+// CASH FLOW STATEMENT MODULE TYPES
+// ==========================================
+
+export type CashFlowComparisonMode = 'NONE' | 'PREVIOUS_PERIOD' | 'PREVIOUS_YEAR' | 'CUSTOM';
+export type CashFlowPresentationMethod = 'DIRECT' | 'INDIRECT';
+
+export interface CashFlowLineItem {
+  itemKey: string;
+  title: string;
+  category: string;
+  currentAmount: number;
+  compareAmount: number;
+  variance: number;
+  variancePercentage: number;
+  transactionCount: number;
+}
+
+export interface CashFlowActivitySection {
+  activityType: string;
+  title: string;
+  inflows: CashFlowLineItem[];
+  totalInflows: number;
+  compareTotalInflows: number;
+  outflows: CashFlowLineItem[];
+  totalOutflows: number;
+  compareTotalOutflows: number;
+  netCashFlow: number;
+  compareNetCashFlow: number;
+  variance: number;
+  variancePercentage: number;
+}
+
+export interface CashAccountBalanceSummary {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  subCategory: string;
+  openingBalance: number;
+  totalInflows: number;
+  totalOutflows: number;
+  netChange: number;
+  closingBalance: number;
+}
+
+export interface IndirectWorkingCapitalItem {
+  itemKey: string;
+  title: string;
   openingBalance: number;
   closingBalance: number;
-  totalPurchases: number;
-  totalPayments: number;
-  transactions: {
-    date: string;
-    referenceNumber: string;
-    referenceType: string;
-    description: string;
-    purchaseInvoiceNumber?: string;
-    debit: number;
-    credit: number;
-    runningBalance: number;
-  }[];
-  outstandingInvoices: {
-    id: string;
-    purchaseNumber: string;
-    invoiceNumber?: string;
-    purchaseDate: string;
-    dueDate: string;
-    grandTotal: number;
-    paidAmount: number;
-    dueAmount: number;
-  }[];
+  changeInBalance: number;
+  cashFlowImpact: number;
+  explanation: string;
 }
+
+export interface IndirectMethodSection {
+  netProfitOrLoss: number;
+  nonCashAdjustments: CashFlowLineItem[];
+  totalNonCashAdjustments: number;
+  workingCapitalAdjustments: IndirectWorkingCapitalItem[];
+  totalWorkingCapitalAdjustments: number;
+  netOperatingCashFlow: number;
+}
+
+export interface MonthlyCashFlowTrendItem {
+  monthKey: string;
+  monthLabel: string;
+  totalInflow: number;
+  totalOutflow: number;
+  netChange: number;
+  operatingCashFlow: number;
+  investingCashFlow: number;
+  financingCashFlow: number;
+}
+
+export interface CashFlowSummaryCards {
+  openingCashBalance: number;
+  totalCashInflow: number;
+  totalCashOutflow: number;
+  netChangeInCash: number;
+  closingCashBalance: number;
+  operatingCashFlow: number;
+  investingCashFlow: number;
+  financingCashFlow: number;
+  compareOpeningCashBalance: number;
+  compareTotalCashInflow: number;
+  compareTotalCashOutflow: number;
+  compareNetChangeInCash: number;
+  compareClosingCashBalance: number;
+  varianceNetChange: number;
+  variancePercentageNetChange: number;
+}
+
+export interface CashFlowStatementResponse {
+  startDate: string;
+  endDate: string;
+  formattedPeriod: string;
+  compareStartDate?: string | null;
+  compareEndDate?: string | null;
+  formattedComparePeriod?: string | null;
+  comparisonMode: CashFlowComparisonMode;
+  presentationMethod: CashFlowPresentationMethod;
+  summary: CashFlowSummaryCards;
+  cashAccounts: CashAccountBalanceSummary[];
+  operatingActivities: CashFlowActivitySection;
+  investingActivities: CashFlowActivitySection;
+  financingActivities: CashFlowActivitySection;
+  indirectMethod?: IndirectMethodSection | null;
+  monthlyTrends: MonthlyCashFlowTrendItem[];
+}
+
+export interface CashFlowDrilldownTransaction {
+  id: string;
+  journalEntryId: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string;
+  reference?: string | null;
+  sourceModule: string;
+  cashAccountCode: string;
+  cashAccountName: string;
+  contraAccountCode: string;
+  contraAccountName: string;
+  isInflow: boolean;
+  amount: number;
+}
+
+export interface CashFlowDrilldownResponse {
+  itemKey: string;
+  title: string;
+  activityType: string;
+  category: string;
+  totalAmount: number;
+  transactionCount: number;
+  formattedPeriod: string;
+  transactions: CashFlowDrilldownTransaction[];
+}
+
+
+// ==========================================
+// FINANCIAL SUMMARY DASHBOARD TYPES
+// ==========================================
+
+export interface OverviewCardMetric {
+  currentAmount: number;
+  compareAmount: number;
+  variance: number;
+  variancePercentage: number;
+  hasComparison: boolean;
+}
+
+export interface CashAndBankCardMetric {
+  totalCashAndBank: number;
+  cashInHand: number;
+  bankBalance: number;
+  walletBalance: number;
+}
+
+export interface OutstandingPayablesCardMetric {
+  totalOutstandingPayables: number;
+  overduePayables: number;
+  supplierCount: number;
+}
+
+export interface PrimaryOverviewCards {
+  netRevenue: OverviewCardMetric;
+  netProfit: OverviewCardMetric;
+  netMarginPercentage: number;
+  cashAndBank: CashAndBankCardMetric;
+  payables: OutstandingPayablesCardMetric;
+}
+
+export interface FinancialPerformanceSummary {
+  grossSales: number;
+  salesDiscounts: number;
+  salesReturns: number;
+  netRevenue: number;
+  costOfGoodsSold: number;
+  grossProfit: number;
+  grossMarginPercentage: number;
+  operatingExpenses: number;
+  depreciationExpense: number;
+  otherIncome: number;
+  otherExpenses: number;
+  incomeTaxExpense: number;
+  netProfit: number;
+  netMarginPercentage: number;
+
+  compareNetRevenue: number;
+  compareGrossProfit: number;
+  compareNetProfit: number;
+  varianceNetRevenue: number;
+  variancePercentageNetRevenue: number;
+  varianceNetProfit: number;
+  variancePercentageNetProfit: number;
+}
+
+export interface AssetsPositionSummary {
+  cashInHand: number;
+  bankBalances: number;
+  digitalWalletBalances: number;
+  accountsReceivable: number;
+  inventory: number;
+  fixedAssetsGross: number;
+  accumulatedDepreciation: number;
+  fixedAssetsNet: number;
+  otherAssets: number;
+  totalAssets: number;
+}
+
+export interface LiabilitiesPositionSummary {
+  supplierPayables: number;
+  accruedExpensePayables: number;
+  loanBalances: number;
+  taxLiabilities: number;
+  customerAdvances: number;
+  payrollAndTipsPayable: number;
+  otherLiabilities: number;
+  totalLiabilities: number;
+}
+
+export interface EquityPositionSummary {
+  ownersCapital: number;
+  retainedEarnings: number;
+  currentPeriodProfitOrLoss: number;
+  lessDrawings: number;
+  otherEquity: number;
+  totalEquity: number;
+}
+
+export interface FinancialPositionSummary {
+  asOfDate: string;
+  formattedAsOfDate: string;
+  assets: AssetsPositionSummary;
+  liabilities: LiabilitiesPositionSummary;
+  equity: EquityPositionSummary;
+  totalLiabilitiesAndEquity: number;
+  balanceDifference: number;
+  isBalanced: boolean;
+}
+
+export interface CashFlowSummarySection {
+  openingCashBalance: number;
+  operatingCashFlow: number;
+  investingCashFlow: number;
+  financingCashFlow: number;
+  netChangeInCash: number;
+  closingCashBalance: number;
+}
+
+export interface ReceivablesSummarySection {
+  totalCustomerReceivables: number;
+  overdueReceivables: number;
+  customerCount: number;
+}
+
+export interface PayablesSummarySection {
+  totalSupplierPayables: number;
+  overduePayables: number;
+  supplierCount: number;
+}
+
+export interface MonthlyPerformanceTrendItem {
+  monthKey: string;
+  monthLabel: string;
+  netRevenue: number;
+  costOfGoodsSold: number;
+  operatingExpenses: number;
+  netProfit: number;
+}
+
+export interface MonthlyCashFlowTrendSummaryItem {
+  monthKey: string;
+  monthLabel: string;
+  totalInflow: number;
+  totalOutflow: number;
+  netChange: number;
+}
+
+export interface FinancialSummaryDashboardResponse {
+  startDate: string;
+  endDate: string;
+  formattedPeriod: string;
+  asOfDate: string;
+  formattedAsOfDate: string;
+  comparisonMode: string;
+  hasComparison: boolean;
+  overviewCards: PrimaryOverviewCards;
+  performance: FinancialPerformanceSummary;
+  financialPosition: FinancialPositionSummary;
+  cashFlow: CashFlowSummarySection;
+  receivables: ReceivablesSummarySection;
+  payables: PayablesSummarySection;
+  performanceTrends: MonthlyPerformanceTrendItem[];
+  cashFlowTrends: MonthlyCashFlowTrendSummaryItem[];
+}
+
+
+// ==========================================
+// TAX MANAGEMENT TYPES
+// ==========================================
+
+export interface TaxSummaryResponse {
+  totalTaxLiability: number;
+  netVatPayable: number;
+  outputVatCollected: number;
+  inputVatPaid: number;
+  totalTdsPayable: number;
+  tdsOnRent: number;
+  tdsOnServices: number;
+  tdsOnPayroll: number;
+  estimatedCorporateTax: number;
+  totalTaxPaidPeriod: number;
+  taxPeriod: string;
+  status: 'UP_TO_DATE' | 'PAYMENT_DUE';
+}
+
+export interface TaxRecordItem {
+  id: string;
+  voucherNumber: string;
+  transactionDate: string;
+  taxType: 'VAT' | 'TDS' | 'CORPORATE_TAX' | string;
+  category: string;
+  referenceNumber: string;
+  partyName: string;
+  taxableAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  status: 'PENDING' | 'PAID' | 'FILED' | string;
+  paymentVoucherNumber?: string | null;
+  sourceModule: string;
+}
+
+export interface TaxRecordsListResponse {
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  records: TaxRecordItem[];
+}
+
+export interface RecordTaxPaymentDto {
+  taxType: string;
+  amount: number;
+  paymentDate: string;
+  paymentAccountId: string;
+  referenceNumber: string;
+  taxPeriod?: string;
+  notes?: string;
+}
+
+// ----------------------------------------------------
+// Restaurant Website Module Types
+// ----------------------------------------------------
+export interface SocialLinkItem {
+  id: string;
+  platform: 'facebook' | 'instagram' | 'tiktok' | 'youtube' | 'website' | string;
+  url: string;
+  label?: string;
+}
+
+export interface UsefulLinkItem {
+  id: string;
+  title: string;
+  url: string;
+}
+
+export interface GalleryImageItem {
+  id: string;
+  title: string;
+  category: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+export interface RestaurantWebsiteSettings {
+  id?: string;
+  hotelId?: string;
+  restaurantName: string;
+  restaurantSlug: string;
+  publicWebsiteUrl: string;
+  isDeliveryEnabled: boolean;
+  shareMyMenu: boolean;
+  deliveryFee?: number;
+  freeDeliveryAbove?: number;
+  minDeliveryOrder?: number;
+  requireOrderConfirmation?: boolean;
+  isEnabled: boolean;
+  phoneNumber?: string;
+  address?: string;
+  googleMapsUrl?: string;
+  openingHours?: string;
+  publicRestaurantName?: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  welcomeMessage?: string;
+  footerText?: string;
+  theme: 'emerald' | 'slate' | 'warm' | 'midnight' | string;
+  socialLinks: SocialLinkItem[];
+  usefulLinks: UsefulLinkItem[];
+  galleryImages: GalleryImageItem[];
+}
+
+// =========================================================================
+// STOCK ADJUSTMENTS MODULE
+// =========================================================================
+
+export interface StockAdjustmentItem {
+  itemId: string;
+  itemName: string;
+  itemCode?: string;
+  category?: string;
+  department?: string;
+  unit: string;
+  currentStock: number;
+  adjustmentType: 'INCREASE' | 'DECREASE';
+  quantity: number;
+  newStock: number;
+  reason: string;
+  notes?: string;
+  movementType?: string;
+}
+
+export interface StockAdjustmentRecord {
+  id: string;
+  hotelId?: string;
+  adjustmentNumber: string;
+  adjustmentDate: string;
+  department: 'HOTEL' | 'RESTAURANT' | 'SHARED' | string;
+  status: 'COMPLETED' | 'PENDING' | 'DRAFT' | string;
+  adjustmentType: 'INCREASE' | 'DECREASE' | 'MIXED';
+  itemCount: number;
+  totalQuantity: number;
+  primaryReason: string;
+  notes?: string | null;
+  adjustedBy: string;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  itemsJson: string;
+  items?: StockAdjustmentItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockAdjustmentSummary {
+  totalAdjustments: number;
+  stockIncreased: number;
+  stockDecreased: number;
+  todayAdjustments: number;
+}
+
+export interface CreateStockAdjustmentRequest {
+  adjustmentNumber?: string;
+  adjustmentDate?: string;
+  department?: string;
+  notes?: string;
+  adjustedBy?: string;
+  items: Array<{
+    itemId: string;
+    adjustmentType: 'INCREASE' | 'DECREASE';
+    quantity: number;
+    reason: string;
+    notes?: string;
+  }>;
+}
+
+// ==========================================
+// Product Ledger & Inventory Valuation Types
+// ==========================================
+
+export interface ProductLedgerEntry {
+  id: string;
+  date: string;
+  referenceNumber: string;
+  referenceType: string;
+  transactionType: string;
+  rawType: string;
+  description: string;
+  quantityIn: number;
+  quantityOut: number;
+  balanceQuantity: number;
+  unitCost: number;
+  stockInValue: number;
+  stockOutValue: number;
+  balanceValue: number;
+  department: string;
+  performedBy: string;
+}
+
+export interface ProductLedgerSummary {
+  totalInventoryItems: number;
+  totalInventoryValue: number;
+  openingStockQuantity: number;
+  openingStockValue: number;
+  openingUnitCost: number;
+  closingStockQuantity: number;
+  closingStockValue: number;
+  totalStockInQuantity: number;
+  totalStockOutQuantity: number;
+  netQuantityChange: number;
+  currentSystemStock: number;
+  isReconciledWithInventory: boolean;
+}
+
+export interface ProductLedgerSelectedItem {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  department: string;
+  unit: string;
+  purchaseUnit?: string;
+  conversionFactor?: number;
+  currentStock: number;
+  minThreshold: number;
+  costPerUnit: number;
+  totalValuation: number;
+  supplierName: string;
+  stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | string;
+}
+
+export interface ProductLedgerItemOption {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  department: string;
+  unit: string;
+  currentStock: number;
+  unitCost: number;
+  totalValue: number;
+}
+
+export interface ProductLedgerResponse {
+  costingMethod: string;
+  inventoryAssetAccount: string;
+  summary: ProductLedgerSummary;
+  selectedItem: ProductLedgerSelectedItem | null;
+  entries: ProductLedgerEntry[];
+  items: ProductLedgerItemOption[];
+}
+
+export interface ValuationItem {
+  sn: number;
+  id: string;
+  itemCode: string;
+  itemName: string;
+  category: string;
+  department: string;
+  currentQuantity: number;
+  unit: string;
+  valuationCost: number;
+  totalStockValue: number;
+  stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | string;
+  minThreshold: number;
+  supplierName: string;
+}
+
+export interface ValuationCategoryBreakdown {
+  category: string;
+  totalItems: number;
+  totalQuantity: number;
+  stockValue: number;
+  percentageOfTotal: number;
+}
+
+export interface ValuationDepartmentBreakdown {
+  department: string;
+  totalItems: number;
+  stockValue: number;
+  percentageOfTotal: number;
+}
+
+export interface ValuationUnitBreakdown {
+  unit: string;
+  totalQuantity: number;
+  itemCount: number;
+}
+
+export interface ValuationGlReconciliation {
+  account1200Code: string;
+  account1200Name: string;
+  account1200Balance: number;
+  account1210Code: string;
+  account1210Name: string;
+  account1210Balance: number;
+  totalGlBalance: number;
+  physicalValuationTotal: number;
+  variance: number;
+  isReconciled: boolean;
+  reconciliationStatus: 'RECONCILED' | 'VARIANCE_DETECTED' | string;
+  note: string;
+}
+
+export interface InventoryValuationResponse {
+  costingMethod: string;
+  asOfDate: string;
+  summary: {
+    totalInventoryValue: number;
+    totalInventoryItems: number;
+    inStockCount: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+    unitBreakdown: ValuationUnitBreakdown[];
+  };
+  glReconciliation: ValuationGlReconciliation;
+  categoryBreakdown: ValuationCategoryBreakdown[];
+  departmentBreakdown: ValuationDepartmentBreakdown[];
+  items: ValuationItem[];
+}
+
+

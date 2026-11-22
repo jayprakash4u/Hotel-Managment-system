@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   Search,
@@ -447,36 +448,13 @@ export default function SalesTransactionsTab() {
 
   return (
     <div className="space-y-4 pb-12 select-none">
-      {/* 1. Navigation Breadcrumb Bar */}
-      <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
-            href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Sales Transactions</span>
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          
-        </div>
-      </div>
-
-      {/* 2. Page Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Sales Transactions</h1>
-            
-          </div>
-          
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Sales Transactions
+          </h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -505,75 +483,6 @@ export default function SalesTransactionsTab() {
             <Plus className="w-3.5 h-3.5" />
             <span>New Sale</span>
           </button>
-        </div>
-      </div>
-
-      {/* 3. Sales Summary Cards (8 KPI metrics) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        {/* Total Sales */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Sales</div>
-          <div className="text-base font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {summary.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          
-        </div>
-
-        {/* Total Invoices */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Invoices</div>
-          <div className="text-base font-black text-slate-900 dark:text-white mt-1">{summary.totalInvoices}</div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Bills count</div>
-        </div>
-
-        {/* Paid Sales */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Paid Sales</div>
-          <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-            Rs. {summary.paidSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Cash &amp; bank</div>
-        </div>
-
-        {/* Unpaid / Credit */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Unpaid Due</div>
-          <div className="text-base font-black text-amber-600 dark:text-amber-400 mt-1 truncate">
-            Rs. {summary.unpaidSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Receivables balance</div>
-        </div>
-
-        {/* Partially Paid */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Partially Paid</div>
-          <div className="text-base font-black text-blue-600 dark:text-blue-400 mt-1">{summary.partiallyPaidCount}</div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Partial bills</div>
-        </div>
-
-        {/* Sales Returns */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Returns</div>
-          <div className="text-base font-black text-purple-600 dark:text-purple-400 mt-1">{summary.salesReturnsCount}</div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Return records</div>
-        </div>
-
-        {/* Refund Amount */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Refunds</div>
-          <div className="text-base font-black text-rose-600 dark:text-rose-400 mt-1 truncate">
-            Rs. {summary.refundAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Refunded money</div>
-        </div>
-
-        {/* Net Sales */}
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Net Sales</div>
-          <div className="text-base font-black text-[#0B3D32] dark:text-emerald-300 mt-1 truncate">
-            Rs. {summary.netSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5">Total &minus; Refunds</div>
         </div>
       </div>
 
@@ -750,39 +659,39 @@ export default function SalesTransactionsTab() {
       </div>
 
       {/* 5. Sales Transactions Enterprise Data Table */}
-      <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                <th className="py-2.5 px-3">#</th>
-                <th className="py-2.5 px-3 cursor-pointer" onClick={() => { setSortBy('billNumber'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">#</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 cursor-pointer" onClick={() => { setSortBy('billNumber'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
                   Invoice No.
                 </th>
-                <th className="py-2.5 px-3 cursor-pointer" onClick={() => { setSortBy('createdAt'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 cursor-pointer" onClick={() => { setSortBy('createdAt'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
                   Date &amp; Time
                 </th>
-                <th className="py-2.5 px-3">Customer</th>
-                <th className="py-2.5 px-3">Order #</th>
-                <th className="py-2.5 px-3">Channel</th>
-                <th className="py-2.5 px-3">Outlet</th>
-                <th className="py-2.5 px-3">Cashier</th>
-                <th className="py-2.5 px-3 text-right">Subtotal</th>
-                <th className="py-2.5 px-3 text-right">Tax</th>
-                <th className="py-2.5 px-3 text-right cursor-pointer" onClick={() => { setSortBy('grandTotal'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Customer</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Order #</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Channel</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Outlet</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Cashier</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Subtotal</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Tax</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer" onClick={() => { setSortBy('grandTotal'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
                   Grand Total
                 </th>
-                <th className="py-2.5 px-3 text-right">Paid</th>
-                <th className="py-2.5 px-3 text-right cursor-pointer" onClick={() => { setSortBy('balanceDue'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Paid</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer" onClick={() => { setSortBy('balanceDue'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
                   Due
                 </th>
-                <th className="py-2.5 px-3">Payment</th>
-                <th className="py-2.5 px-3 text-center">Status</th>
-                <th className="py-2.5 px-3 text-center">Trans. Status</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Payment</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Trans. Status</th>
                 <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60 font-medium">
               {loading ? (
                 <tr>
                   <td colSpan={17} className="py-12 text-center text-slate-500">
@@ -805,38 +714,15 @@ export default function SalesTransactionsTab() {
                   const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                   const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                  // Status badges
-                  const paymentBadgeColor =
-                    it.paymentStatus === 'PAID'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
-                      : it.paymentStatus === 'PARTIAL'
-                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300'
-                      : it.paymentStatus === 'CREDIT'
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
-                      : it.paymentStatus === 'VOID'
-                      ? 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 line-through'
-                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300';
-
-                  const transBadgeColor =
-                    it.transactionStatus === 'COMPLETED'
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                      : it.transactionStatus === 'CANCELLED'
-                      ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                      : it.transactionStatus === 'RETURNED'
-                      ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                      : it.transactionStatus === 'PARTIALLY_RETURNED'
-                      ? 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800'
-                      : 'bg-slate-50 text-slate-700 border border-slate-200';
-
                   return (
                     <tr
                       key={it.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
-                      <td className="py-2.5 px-3 text-slate-400 text-[11px]">{rowNum}</td>
+                      <td className="py-2.5 px-3 text-slate-400 text-[11px] border-r border-slate-200 dark:border-slate-700/60">{rowNum}</td>
 
                       {/* Invoice No */}
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                         <button
                           type="button"
                           onClick={() => handleViewDetail(it.id)}
@@ -847,13 +733,13 @@ export default function SalesTransactionsTab() {
                       </td>
 
                       {/* Date & Time */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
+                      <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-semibold text-slate-800 dark:text-slate-200">{formattedDate}</div>
                         <div className="text-[10px] text-slate-400">{formattedTime}</div>
                       </td>
 
                       {/* Customer */}
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[130px]">
                           {it.customerName}
                         </div>
@@ -863,53 +749,53 @@ export default function SalesTransactionsTab() {
                       </td>
 
                       {/* Order Number */}
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                         <span className="font-mono text-slate-600 dark:text-slate-400 text-[11px]">
-                          {it.orderNumber || '&minus;'}
+                          {it.orderNumber || '—'}
                         </span>
                       </td>
 
                       {/* Channel */}
-                      <td className="py-2.5 px-3">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
                           {it.salesChannel.replace('_', ' ')}
                         </span>
                       </td>
 
                       {/* Outlet */}
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                         <span className="text-[11px] text-slate-600 dark:text-slate-300">
                           {it.outlet === 'RESTAURANT' ? 'Restaurant' : it.outlet === 'ROOFTOP_BAR' ? 'Rooftop Bar' : it.outlet}
                         </span>
                       </td>
 
                       {/* Cashier */}
-                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 text-[11px] truncate max-w-[90px]">
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 text-[11px] truncate max-w-[90px] border-r border-slate-200 dark:border-slate-700/60">
                         {it.serverOrStaff}
                       </td>
 
                       {/* Subtotal */}
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                         {it.subtotal.toFixed(2)}
                       </td>
 
                       {/* Tax */}
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-400">
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                         {it.taxAmount.toFixed(2)}
                       </td>
 
                       {/* Grand Total */}
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                         {it.grandTotal.toFixed(2)}
                       </td>
 
                       {/* Paid */}
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
                         {it.amountPaid.toFixed(2)}
                       </td>
 
                       {/* Due */}
-                      <td className="py-2.5 px-3 text-right font-mono font-bold">
+                      <td className="py-2.5 px-3 text-right font-mono font-bold border-r border-slate-200 dark:border-slate-700/60">
                         {it.balanceDue > 0.01 ? (
                           <span className="text-amber-600 dark:text-amber-400">{it.balanceDue.toFixed(2)}</span>
                         ) : (
@@ -918,23 +804,73 @@ export default function SalesTransactionsTab() {
                       </td>
 
                       {/* Payment Method */}
-                      <td className="py-2.5 px-3">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
                           {it.paymentMethod}
                         </span>
                       </td>
 
                       {/* Payment Status */}
-                      <td className="py-2.5 px-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${paymentBadgeColor}`}>
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
+                            it.paymentStatus === 'PAID'
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : it.paymentStatus === 'PARTIAL'
+                              ? 'text-blue-700 dark:text-blue-400'
+                              : it.paymentStatus === 'CREDIT'
+                              ? 'text-amber-700 dark:text-amber-400'
+                              : it.paymentStatus === 'VOID'
+                              ? 'text-slate-500 dark:text-slate-400 line-through'
+                              : 'text-rose-700 dark:text-rose-400'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              it.paymentStatus === 'PAID'
+                                ? 'bg-emerald-500'
+                                : it.paymentStatus === 'PARTIAL'
+                                ? 'bg-blue-500'
+                                : it.paymentStatus === 'CREDIT'
+                                ? 'bg-amber-500'
+                                : it.paymentStatus === 'VOID'
+                                ? 'bg-slate-400'
+                                : 'bg-rose-500'
+                            }`}
+                          />
                           {it.paymentStatus}
                         </span>
                       </td>
 
                       {/* Transaction Status */}
-                      <td className="py-2.5 px-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${transBadgeColor}`}>
-                          {it.transactionStatus.replace('_', ' ')}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
+                            it.transactionStatus === 'COMPLETED'
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : it.transactionStatus === 'CANCELLED'
+                              ? 'text-rose-700 dark:text-rose-400'
+                              : it.transactionStatus === 'RETURNED'
+                              ? 'text-purple-700 dark:text-purple-400'
+                              : it.transactionStatus === 'PARTIALLY_RETURNED'
+                              ? 'text-violet-700 dark:text-violet-400'
+                              : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              it.transactionStatus === 'COMPLETED'
+                                ? 'bg-emerald-500'
+                                : it.transactionStatus === 'CANCELLED'
+                                ? 'bg-rose-500'
+                                : it.transactionStatus === 'RETURNED'
+                                ? 'bg-purple-500'
+                                : it.transactionStatus === 'PARTIALLY_RETURNED'
+                                ? 'bg-violet-500'
+                                : 'bg-slate-400'
+                            }`}
+                          />
+                          {it.transactionStatus.replace(/_/g, ' ')}
                         </span>
                       </td>
 

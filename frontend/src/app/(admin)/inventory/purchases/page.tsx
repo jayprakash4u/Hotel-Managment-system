@@ -1,8 +1,14 @@
 'use client';
 
-import React from 'react';
-import { InventoryView } from '@/components/inventory/InventoryView';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function PurchasesSubpage() {
-  return <InventoryView initialTab="PURCHASES" />;
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/purchases');
+  }, [router]);
+
+  return null;
 }

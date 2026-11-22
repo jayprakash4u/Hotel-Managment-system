@@ -32,23 +32,86 @@ export function getTabInfoForUrl(
   const fullPath = search ? `${pathname}?${search}` : pathname;
 
   // Specific query param routes
+  if (pathname === '/kitchen' || (pathname === '/restaurant-management' && search.includes('section=kitchen'))) {
+    return {
+      id: '/restaurant-management?section=kitchen',
+      path: fullPath,
+      title: 'Kitchen Display',
+      iconName: 'ChefHat',
+      closable: true,
+    };
+  }
+
+  if (pathname === '/bar' || (pathname === '/restaurant-management' && search.includes('section=bar'))) {
+    return {
+      id: '/restaurant-management?section=bar',
+      path: fullPath,
+      title: 'Bar Display',
+      iconName: 'Wine',
+      closable: true,
+    };
+  }
+
+  if (pathname === '/orders') {
+    return { id: '/orders', path: '/orders', title: 'Orders', iconName: 'Receipt', closable: true };
+  }
+
   if (pathname === '/tables') {
     if (search.includes('tab=RESERVATIONS')) {
-      return { id: '/tables?tab=RESERVATIONS', path: '/tables?tab=RESERVATIONS', title: 'Table Bookings', iconName: 'CalendarCheck', closable: true };
+      return { id: '/tables?tab=RESERVATIONS', path: '/tables?tab=RESERVATIONS', title: 'Table Reservations', iconName: 'CalendarCheck', closable: true };
     }
     if (search.includes('tab=ACTIVE_ORDERS')) {
-      return { id: '/tables?tab=ACTIVE_ORDERS', path: '/tables?tab=ACTIVE_ORDERS', title: 'Live Orders', iconName: 'Receipt', closable: true };
+      return { id: '/tables?tab=ACTIVE_ORDERS', path: '/tables?tab=ACTIVE_ORDERS', title: 'Orders', iconName: 'Receipt', closable: true };
     }
-    return { id: '/tables', path: '/tables', title: 'Floor & Tables', iconName: 'Table2', closable: true };
+    return { id: '/tables', path: '/tables', title: 'Table Board', iconName: 'Table2', closable: true };
+  }
+
+  if (pathname === '/purchases') {
+    return { id: '/purchases', path: '/purchases', title: 'Purchases', iconName: 'ShoppingCart', closable: true };
+  }
+
+  if (pathname === '/suppliers') {
+    return { id: '/suppliers', path: '/suppliers', title: 'Suppliers', iconName: 'Users', closable: true };
   }
 
   if (pathname === '/inventory') {
-    if (search.includes('dept=HOTEL')) {
-      return { id: '/inventory?dept=HOTEL', path: '/inventory?dept=HOTEL', title: 'Hotel Stock', iconName: 'Boxes', closable: true };
+    const params = new URLSearchParams(search);
+    const tab = params.get('tab');
+    const dept = params.get('dept');
+
+    if (dept === 'HOTEL') {
+      return { id: '/inventory?dept=HOTEL', path: fullPath, title: 'Hotel Stock', iconName: 'Hotel', closable: true };
     }
-    if (search.includes('dept=RESTAURANT')) {
-      return { id: '/inventory?dept=RESTAURANT', path: '/inventory?dept=RESTAURANT', title: 'Kitchen Stock', iconName: 'Boxes', closable: true };
+    if (dept === 'RESTAURANT') {
+      return { id: '/inventory?dept=RESTAURANT', path: fullPath, title: 'Kitchen Stock', iconName: 'UtensilsCrossed', closable: true };
     }
+
+    if (tab) {
+      const INVENTORY_CONFIG: Record<string, { title: string; iconName: string }> = {
+        'items': { title: 'Inventory Items', iconName: 'Package' },
+        'receive-stock': { title: 'Receive Stock', iconName: 'ShoppingBag' },
+        'purchases': { title: 'Purchases', iconName: 'ShoppingBag' },
+        'purchase-ledger': { title: 'Purchase Ledger', iconName: 'Receipt' },
+        'stock-movements': { title: 'Stock Movements', iconName: 'Activity' },
+        'suppliers': { title: 'Suppliers', iconName: 'Users' },
+        'stock-adjustments': { title: 'Stock Adjustments', iconName: 'SlidersHorizontal' },
+        'transfers': { title: 'Stock Transfers', iconName: 'ArrowLeftRight' },
+        'categories': { title: 'Categories', iconName: 'Tag' },
+        'units': { title: 'Units of Measure', iconName: 'Scale' },
+      };
+
+      const info = INVENTORY_CONFIG[tab];
+      if (info) {
+        return {
+          id: `/inventory?tab=${tab}`,
+          path: fullPath,
+          title: info.title,
+          iconName: info.iconName,
+          closable: true,
+        };
+      }
+    }
+
     return { id: '/inventory', path: '/inventory', title: 'Inventory', iconName: 'Boxes', closable: true };
   }
 
@@ -59,14 +122,91 @@ export function getTabInfoForUrl(
     return { id: '/reports', path: '/reports', title: 'Hotel Reports', iconName: 'BarChart3', closable: true };
   }
 
+  if (pathname === '/billing') {
+    const params = new URLSearchParams(search);
+    const status = params.get('status');
+    const type = params.get('type');
+    if (status === 'PAID') {
+      return { id: '/billing?status=PAID', path: fullPath, title: 'Payments & Refunds', iconName: 'CreditCard', closable: true };
+    }
+    if (status === 'UNPAID') {
+      return { id: '/billing?status=UNPAID', path: fullPath, title: 'Due Balances', iconName: 'AlertCircle', closable: true };
+    }
+    if (type === 'TABLE_ORDER') {
+      return { id: '/billing?type=TABLE_ORDER', path: fullPath, title: 'Restaurant Bills', iconName: 'UtensilsCrossed', closable: true };
+    }
+    if (type === 'HOTEL_CHECKOUT') {
+      return { id: '/billing?type=HOTEL_CHECKOUT', path: fullPath, title: 'Hotel Invoices', iconName: 'Hotel', closable: true };
+    }
+    return { id: '/billing', path: '/billing', title: 'Billing & Invoices', iconName: 'FileText', closable: true };
+  }
+
+  if (pathname === '/restaurant-setup') {
+    return { id: '/restaurant-setup', path: fullPath, title: 'Restaurant Setup', iconName: 'Building2', closable: true };
+  }
+
+  if (pathname === '/master-setup') {
+    return { id: '/master-setup', path: fullPath, title: 'Master Setup', iconName: 'Building2', closable: true };
+  }
+
   if (pathname === '/hotel') {
     if (search.includes('category=restaurant-setup')) {
-      return { id: '/hotel?category=restaurant-setup', path: fullPath, title: 'Restaurant Setup', iconName: 'Building2', closable: true };
+      return { id: '/restaurant-setup', path: '/restaurant-setup', title: 'Restaurant Setup', iconName: 'Building2', closable: true };
     }
     if (search.includes('category=room-setup')) {
       return { id: '/hotel?category=room-setup', path: fullPath, title: 'Hotel Setup', iconName: 'Building2', closable: true };
     }
     return { id: '/hotel', path: fullPath, title: 'Master Setup', iconName: 'Building2', closable: true };
+  }
+
+  if (pathname === '/accounts') {
+    const params = new URLSearchParams(search);
+    const tab = params.get('tab');
+
+    if (tab) {
+      const ACCOUNTS_CONFIG: Record<string, { title: string; iconName: string }> = {
+        'chart-of-accounts': { title: 'Chart of Accounts', iconName: 'BookOpen' },
+        'journal-entries': { title: 'Journal Entries', iconName: 'FileText' },
+        'general-ledger': { title: 'General Ledger', iconName: 'Book' },
+        'trial-balance': { title: 'Trial Balance', iconName: 'Calculator' },
+        'sales-transactions': { title: 'Sales Transactions', iconName: 'TrendingUp' },
+        'customer-ledger': { title: 'Customer Ledger', iconName: 'Users' },
+        'purchase-transactions': { title: 'Purchase Transactions', iconName: 'Truck' },
+        'supplier-ledger': { title: 'Supplier Ledger', iconName: 'Truck' },
+        'cash-accounts': { title: 'Cash Accounts', iconName: 'Wallet' },
+        'bank-accounts': { title: 'Bank & Wallet', iconName: 'Landmark' },
+        'bank-reconciliation': { title: 'Bank Reconciliation', iconName: 'Receipt' },
+        'income': { title: 'Income Management', iconName: 'TrendingUp' },
+        'expenses': { title: 'Expense Management', iconName: 'TrendingDown' },
+        'fixed-assets': { title: 'Fixed Assets', iconName: 'Building2' },
+        'liabilities': { title: 'Liabilities', iconName: 'Receipt' },
+        'tax-management': { title: 'Tax Management', iconName: 'ShieldCheck' },
+        'tax': { title: 'Tax Management', iconName: 'ShieldCheck' },
+        'profit-loss': { title: 'Profit & Loss', iconName: 'BarChart3' },
+        'balance-sheet': { title: 'Balance Sheet', iconName: 'Scale' },
+        'cash-flow': { title: 'Cash Flow', iconName: 'Landmark' },
+        'financial-summary': { title: 'Financial Summary', iconName: 'PieChart' },
+      };
+
+      const info = ACCOUNTS_CONFIG[tab];
+      if (info) {
+        return {
+          id: `/accounts?tab=${tab}`,
+          path: fullPath,
+          title: info.title,
+          iconName: info.iconName,
+          closable: true,
+        };
+      }
+    }
+
+    return {
+      id: '/accounts',
+      path: '/accounts',
+      title: 'Accounts',
+      iconName: 'BookOpen',
+      closable: true,
+    };
   }
 
   // Exact known routes
@@ -84,11 +224,18 @@ export function getTabInfoForUrl(
     '/housekeeping': { title: 'Housekeeping', iconName: 'Sparkles', closable: true },
     '/hotel': { title: 'Master Setup', iconName: 'Building2', closable: true },
     '/billing': { title: 'Billing & Folios', iconName: 'FileText', closable: true },
-    '/accounts': { title: 'Accounting', iconName: 'BookOpen', closable: true },
-
     '/restaurant-management': { title: 'Restaurant Overview', iconName: 'UtensilsCrossed', closable: true },
-    '/quick-sale': { title: 'Quick Sale POS', iconName: 'Zap', closable: true },
+    '/kitchen': { title: 'Kitchen Display', iconName: 'ChefHat', closable: true },
+    '/bar': { title: 'Bar Display', iconName: 'Wine', closable: true },
+    '/quick-sale': { title: 'Quick Bill', iconName: 'Zap', closable: true },
     '/menu': { title: 'Menu Management', iconName: 'UtensilsCrossed', closable: true },
+    '/qr-menu': { title: 'QR Menu', iconName: 'QrCode', closable: true },
+    '/menu-item-sales': { title: 'Menu Item Sales', iconName: 'BarChart3', closable: true },
+    '/purchases': { title: 'Purchases', iconName: 'ShoppingCart', closable: true },
+    '/suppliers': { title: 'Suppliers', iconName: 'Users', closable: true },
+    '/stock-movements': { title: 'Stock Movements', iconName: 'Activity', closable: true },
+    '/stock-adjustments': { title: 'Stock Adjustments', iconName: 'SlidersHorizontal', closable: true },
+    '/website': { title: 'Website', iconName: 'Globe', closable: true },
     '/staff': { title: 'Staff', iconName: 'Users', closable: true },
     '/profile': { title: 'User Profile', iconName: 'User', closable: true },
   };
@@ -127,7 +274,7 @@ const DEFAULT_HOME_TAB: WorkspaceTab = {
   closable: false,
 };
 
-const WorkspaceTabsContext = createContext<WorkspaceTabsContextType | undefined>(undefined);
+export const WorkspaceTabsContext = createContext<WorkspaceTabsContextType | undefined>(undefined);
 
 export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -150,9 +297,15 @@ export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const cleaned = parsed.map((t) => {
-            const info = getTabInfoForUrl(t.path?.split('?')[0] || t.id, t.path?.includes('?') ? t.path.split('?')[1] : '');
+            const parsedPath = t.path?.split('?')[0] || t.id;
+            const parsedSearch = t.path?.includes('?') ? t.path.split('?')[1] : '';
+            const info = getTabInfoForUrl(parsedPath, parsedSearch);
             return {
               ...t,
+              id: info.id,
+              path: t.path || info.path,
+              title: info.title,
+              iconName: info.iconName,
               closable: info.closable,
             };
           });
@@ -178,11 +331,39 @@ export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({
     const currentTabInfo = getTabInfoForUrl(pathname, searchStr);
 
     setTabs((prevTabs) => {
+      // 1. Direct match on tab id
       const exists = prevTabs.some((t) => t.id === currentTabInfo.id);
       if (exists) {
-        // Update path in case query params changed
-        return prevTabs.map((t) => (t.id === currentTabInfo.id ? { ...t, path: currentTabInfo.path } : t));
+        return prevTabs.map((t) =>
+          t.id === currentTabInfo.id
+            ? { ...t, path: currentTabInfo.path, title: currentTabInfo.title, iconName: currentTabInfo.iconName }
+            : t
+        );
       }
+
+      // 2. Legacy / mismatch match on tab path (e.g. tab id was /restaurant-management but path is /restaurant-management?section=kitchen)
+      const pathMatch = prevTabs.some((t) => t.path === currentTabInfo.path);
+      if (pathMatch) {
+        return prevTabs.map((t) =>
+          t.path === currentTabInfo.path
+            ? { ...t, id: currentTabInfo.id, path: currentTabInfo.path, title: currentTabInfo.title, iconName: currentTabInfo.iconName }
+            : t
+        );
+      }
+
+      // 3. If an existing tab with id '/restaurant-management' was open and user navigated to kitchen/bar from it
+      const isRestaurantSection = pathname === '/restaurant-management' && (searchStr.includes('section=kitchen') || searchStr.includes('section=bar'));
+      if (isRestaurantSection) {
+        const overviewIdx = prevTabs.findIndex((t) => t.id === '/restaurant-management');
+        if (overviewIdx !== -1 && prevTabs.length <= 2) {
+          return prevTabs.map((t) =>
+            t.id === '/restaurant-management'
+              ? { ...t, id: currentTabInfo.id, path: currentTabInfo.path, title: currentTabInfo.title, iconName: currentTabInfo.iconName }
+              : t
+          );
+        }
+      }
+
       return [...prevTabs, currentTabInfo];
     });
 

@@ -16,6 +16,7 @@ export interface OrderItem {
   department?: 'KOT' | 'BOT';
   dispatchedQuantity?: number;
   botNumber?: string;
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
 }
 
 export function calculateOrderItemTotal(item: OrderItem): {

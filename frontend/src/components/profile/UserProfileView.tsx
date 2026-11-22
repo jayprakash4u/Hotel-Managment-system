@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   User,
   Key,
@@ -305,13 +306,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
       {/* Optional Back Button */}
       {showBackButton && onBack && (
         <div className="mb-2">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
-          >
-            ← Back to System Cards
-          </button>
+          <BackButton onClick={onBack} label="Back" />
         </div>
       )}
 

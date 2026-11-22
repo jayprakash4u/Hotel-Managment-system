@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { BackButton } from '@/components/common/BackButton';
 import {
   Tag,
   Package,
@@ -55,30 +56,11 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
 
   return (
     <div className="space-y-4 font-sans select-none">
-      {/* Top Banner */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-lg border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-800">
-            <Tag className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 leading-tight">
-              Inventory Categories
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Category classifications, item distribution, stock tracking breakdown, and cumulative purchase expenditure.
-            </p>
-          </div>
-        </div>
-
-        <div className="text-right">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-            Active Categories
-          </span>
-          <span className="text-base font-bold text-slate-800 dark:text-slate-100 font-mono">
-            {categoryStats.length}
-          </span>
-        </div>
+      {/* 1. Sub-Header */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Inventory Categories
+        </span>
       </div>
 
       {/* Category Grid */}

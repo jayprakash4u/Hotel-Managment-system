@@ -14,6 +14,7 @@ import {
   Zap,
   FileText,
   Building2,
+  Wine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -88,6 +89,16 @@ export const RESTAURANT_MANAGEMENT_OPTIONS: RestaurantManagementSubOption[] = [
     description: 'Kitchen Display System (KDS) & chef prep queue',
   },
   {
+    id: 'bar',
+    name: 'Bar Display',
+    href: '/restaurant-management?section=bar',
+    icon: Wine,
+    iconColor: 'text-[#DC2626] dark:text-[#EF4444]',
+    tag: 'BDS',
+    badge: 'Drink Queue',
+    description: 'Bar Display System (BDS) & beverage order queue',
+  },
+  {
     id: 'menu',
     name: 'Menu',
     href: '/menu',
@@ -120,7 +131,7 @@ export const RESTAURANT_MANAGEMENT_OPTIONS: RestaurantManagementSubOption[] = [
   {
     id: 'restaurant-setup',
     name: 'Restaurant Setup',
-    href: '/hotel?category=restaurant-setup',
+    href: '/restaurant-setup',
     icon: Building2,
     iconColor: 'text-[#DC2626] dark:text-[#EF4444]',
     tag: 'SETUP',
@@ -148,10 +159,12 @@ export const RestaurantManagementNavBoxes: React.FC<{
               (item.id === 'quick-sale' && pathname.startsWith('/quick-sale')) ||
               (item.id === 'tables' && pathname === '/tables') ||
               (item.id === 'orders' && (pathname.startsWith('/cafe') || pathname.startsWith('/add-order'))) ||
-              (item.id === 'menu' && pathname.startsWith('/menu')) ||
+              (item.id === 'menu' && (pathname === '/menu' || pathname.startsWith('/menu/'))) ||
               (item.id === 'inventory' && pathname.startsWith('/inventory')) ||
               (item.id === 'billing' && pathname.startsWith('/billing')) ||
-              (item.id === 'restaurant-setup' && pathname === '/hotel') ||
+              (item.id === 'kitchen' && (pathname === '/kitchen' || pathname.includes('section=kitchen'))) ||
+              (item.id === 'bar' && (pathname === '/bar' || pathname.includes('section=bar'))) ||
+              (item.id === 'restaurant-setup' && (pathname === '/restaurant-setup' || pathname === '/hotel')) ||
               (item.id === 'dashboard' && pathname === '/'));
           const isActive = isExplicitActive || isRouteActive;
 

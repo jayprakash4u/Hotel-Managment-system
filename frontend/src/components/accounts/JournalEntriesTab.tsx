@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { BackButton } from '@/components/common/BackButton';
 import {
   ArrowLeft,
   FileText,
@@ -23,6 +24,7 @@ import {
   Edit2,
   RotateCcw,
   BookOpen,
+  Download,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { JournalEntryItem, AccountItem, JournalEntriesSummary } from '@/lib/types';
@@ -347,6 +349,33 @@ export default function JournalEntriesTab() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (entries.length === 0) {
+      error('No journal entries to export');
+      return;
+    }
+    const headers = ['Voucher No', 'Date', 'Type', 'Description', 'Reference', 'Debit', 'Credit', 'Status'];
+    const rows = entries.map((e) => [
+      `"${e.entryNumber}"`,
+      `"${new Date(e.entryDate).toISOString().split('T')[0]}"`,
+      `"${e.entryType}"`,
+      `"${(e.description || '').replace(/"/g, '""')}"`,
+      `"${e.reference || ''}"`,
+      e.totalDebit.toFixed(2),
+      e.totalCredit.toFixed(2),
+      `"${e.status}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Journal_Entries_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    success('Journal entries exported to CSV');
+  };
+
   const handlePrintVoucher = () => {
     if (typeof window !== 'undefined') {
       window.print();
@@ -355,26 +384,36 @@ export default function JournalEntriesTab() {
 
   return (
     <div className="space-y-4">
-      {/* 1. Header with Breadcrumb & Action Button */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/accounts"
-              className="p-1 rounded-[3px] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              title="Back to Accounts Hub"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Journal Entries
-            </h1>
-            
-          </div>
-          
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton href="/accounts" label="Back" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Journal Entries
+          </h1>
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={loadEntries}
+            disabled={loading}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded border border-slate-300 dark:border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Refresh entries"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded border border-slate-300 dark:border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+
           <button
             type="button"
             onClick={handleOpenNewEntry}
@@ -383,57 +422,6 @@ export default function JournalEntriesTab() {
             <Plus className="w-3.5 h-3.5" />
             <span>Create Journal Entry</span>
           </button>
-        </div>
-      </div>
-
-      {/* 2. Top Summary KPI Cards (Hotel & Restaurant Standard) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Card 1: Total Entries */}
-        <div className="rounded-[3px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Entries</span>
-            <FileText className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
-            {summary.totalEntries}
-          </div>
-          
-        </div>
-
-        {/* Card 2: Posted Entries */}
-        <div className="rounded-[3px] border border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Posted Entries</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div className="text-2xl font-black font-mono text-emerald-900 dark:text-emerald-300 mt-1">
-            {summary.postedEntries}
-          </div>
-          
-        </div>
-
-        {/* Card 3: Draft Entries */}
-        <div className="rounded-[3px] border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-amber-800 dark:text-amber-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Draft Entries</span>
-            <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div className="text-2xl font-black font-mono text-amber-900 dark:text-amber-300 mt-1">
-            {summary.draftEntries}
-          </div>
-          
-        </div>
-
-        {/* Card 4: Total Period Debit / Credit */}
-        <div className="rounded-[3px] border border-blue-200/80 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-blue-800 dark:text-blue-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Period Turnover</span>
-            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="text-xl font-black font-mono text-blue-950 dark:text-blue-300 mt-1 truncate">
-            Rs. {formatCurrency(summary.periodDebit)}
-          </div>
-          
         </div>
       </div>
 
@@ -559,23 +547,23 @@ export default function JournalEntriesTab() {
       {/* 4. Journal Entries Table */}
       <div className="rounded-[3px] border border-slate-200 bg-white overflow-hidden shadow-2xs dark:border-slate-800 dark:bg-slate-900/50">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                <th className="py-3 px-3 w-10 text-center border-r border-slate-200/70 dark:border-slate-800">#</th>
-                <th className="py-3 px-3 w-28 border-r border-slate-200/70 dark:border-slate-800">JOURNAL NO.</th>
-                <th className="py-3 px-3 w-24 border-r border-slate-200/70 dark:border-slate-800">DATE</th>
-                <th className="py-3 px-3 w-24 border-r border-slate-200/70 dark:border-slate-800">TYPE</th>
-                <th className="py-3 px-3 border-r border-slate-200/70 dark:border-slate-800">DESCRIPTION</th>
-                <th className="py-3 px-3 w-24 border-r border-slate-200/70 dark:border-slate-800">REFERENCE</th>
-                <th className="py-3 px-3 text-right w-28 border-r border-slate-200/70 dark:border-slate-800">TOTAL DEBIT</th>
-                <th className="py-3 px-3 text-right w-28 border-r border-slate-200/70 dark:border-slate-800">TOTAL CREDIT</th>
-                <th className="py-3 px-3 w-24 text-center border-r border-slate-200/70 dark:border-slate-800">STATUS</th>
-                <th className="py-3 px-3 w-24 border-r border-slate-200/70 dark:border-slate-800">CREATED BY</th>
-                <th className="py-3 px-3 w-28 text-center">ACTIONS</th>
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700">JOURNAL NO.</th>
+                <th className="py-2.5 px-3 w-24 border-r border-slate-200 dark:border-slate-700">DATE</th>
+                <th className="py-2.5 px-3 w-24 border-r border-slate-200 dark:border-slate-700">TYPE</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">DESCRIPTION</th>
+                <th className="py-2.5 px-3 w-24 border-r border-slate-200 dark:border-slate-700">REFERENCE</th>
+                <th className="py-2.5 px-3 text-right w-28 border-r border-slate-200 dark:border-slate-700">TOTAL DEBIT</th>
+                <th className="py-2.5 px-3 text-right w-28 border-r border-slate-200 dark:border-slate-700">TOTAL CREDIT</th>
+                <th className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-slate-700">STATUS</th>
+                <th className="py-2.5 px-3 w-24 border-r border-slate-200 dark:border-slate-700">CREATED BY</th>
+                <th className="py-2.5 px-3 w-28 text-center">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
               {loading && entries.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-slate-400">
@@ -595,58 +583,63 @@ export default function JournalEntriesTab() {
                 entries.map((je, idx) => (
                   <tr
                     key={je.id}
-                    className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+                    className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60 cursor-pointer"
                     onClick={() => {
                       setSelectedEntry(je);
                       setIsViewModalOpen(true);
                     }}
                   >
-                    <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                       {(page - 1) * pageSize + idx + 1}
                     </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline">
                         {je.entryNumber}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       {new Date(je.entryDate).toLocaleDateString()}
                     </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
-                      <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                      <span className="font-medium text-slate-700 dark:text-slate-300">
                         {je.entryType || 'GENERAL'}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700/60">
                       <div className="line-clamp-1">{je.description}</div>
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-mono text-[11px] border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-mono text-[11px] border-r border-slate-200 dark:border-slate-700/60">
                       {je.reference || '—'}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 dark:text-sky-300 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 dark:text-sky-300 border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {formatCurrency(je.totalDebit)}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 dark:text-amber-300 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 dark:text-amber-300 border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {formatCurrency(je.totalCredit)}
                     </td>
-                    <td className="py-2.5 px-3 text-center border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
                       <span
                         className={cn(
-                          'inline-block px-2 py-0.5 rounded-[3px] text-[10px] font-bold border uppercase tracking-wider',
-                          je.status === 'POSTED' &&
-                            'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
-                          je.status === 'DRAFT' &&
-                            'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
-                          je.status === 'REVERSED' &&
-                            'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
-                          je.status === 'VOID' &&
-                            'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                          'inline-flex items-center gap-1.5 text-[11px] font-medium',
+                          je.status === 'POSTED' && 'text-emerald-700 dark:text-emerald-400',
+                          je.status === 'DRAFT' && 'text-amber-700 dark:text-amber-400',
+                          je.status === 'REVERSED' && 'text-slate-600 dark:text-slate-400',
+                          je.status === 'VOID' && 'text-rose-700 dark:text-rose-400'
                         )}
                       >
+                        <span
+                          className={cn(
+                            'w-1.5 h-1.5 rounded-full',
+                            je.status === 'POSTED' && 'bg-emerald-500',
+                            je.status === 'DRAFT' && 'bg-amber-500',
+                            je.status === 'REVERSED' && 'bg-slate-400',
+                            je.status === 'VOID' && 'bg-rose-500'
+                          )}
+                        />
                         {je.status}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 text-[11px] truncate border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 text-[11px] truncate border-r border-slate-200 dark:border-slate-700/60">
                       {je.createdBy || 'Admin'}
                     </td>
                     <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>

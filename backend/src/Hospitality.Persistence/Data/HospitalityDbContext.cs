@@ -29,10 +29,12 @@ public class HospitalityDbContext : DbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     public DbSet<Expense> Expenses => Set<Expense>();
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<Bill> Bills => Set<Bill>();
+    public DbSet<BillDelivery> BillDeliveries => Set<BillDelivery>();
     public DbSet<ReservationAlert> ReservationAlerts => Set<ReservationAlert>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerLedgerEntry> CustomerLedgers => Set<CustomerLedgerEntry>();
@@ -44,6 +46,27 @@ public class HospitalityDbContext : DbContext
     public DbSet<AccountMapping> AccountMappings => Set<AccountMapping>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
+    public DbSet<CashReconciliation> CashReconciliations => Set<CashReconciliation>();
+    public DbSet<DigitalWalletAccount> DigitalWalletAccounts => Set<DigitalWalletAccount>();
+    public DbSet<WalletSettlement> WalletSettlements => Set<WalletSettlement>();
+    public DbSet<WalletRefund> WalletRefunds => Set<WalletRefund>();
+    public DbSet<WalletReconciliation> WalletReconciliations => Set<WalletReconciliation>();
+    public DbSet<BankReconciliation> BankReconciliations => Set<BankReconciliation>();
+    public DbSet<BankReconciliationLine> BankReconciliationLines => Set<BankReconciliationLine>();
+    public DbSet<IncomeCategory> IncomeCategories => Set<IncomeCategory>();
+    public DbSet<IncomeTransaction> IncomeTransactions => Set<IncomeTransaction>();
+    public DbSet<ExpenseCategory> ExpenseCategories => Set<ExpenseCategory>();
+    public DbSet<ExpenseTransaction> ExpenseTransactions => Set<ExpenseTransaction>();
+    public DbSet<ExpensePayment> ExpensePayments => Set<ExpensePayment>();
+    public DbSet<AssetCategory> AssetCategories => Set<AssetCategory>();
+    public DbSet<FixedAsset> FixedAssets => Set<FixedAsset>();
+    public DbSet<AssetDepreciationEntry> AssetDepreciationEntries => Set<AssetDepreciationEntry>();
+    public DbSet<AssetMovement> AssetMovements => Set<AssetMovement>();
+    public DbSet<LoanObligation> LoanObligations => Set<LoanObligation>();
+    public DbSet<LoanRepaymentScheduleItem> LoanRepaymentScheduleItems => Set<LoanRepaymentScheduleItem>();
+    public DbSet<LiabilityAccountConfig> LiabilityAccountConfigs => Set<LiabilityAccountConfig>();
+    public DbSet<RestaurantMenuSettings> RestaurantMenuSettings => Set<RestaurantMenuSettings>();
+    public DbSet<RestaurantQrCode> RestaurantQrCodes => Set<RestaurantQrCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -263,5 +286,39 @@ public class HospitalityDbContext : DbContext
 
         modelBuilder.Entity<JournalEntryLine>()
             .HasIndex(l => l.AccountId);
+
+        // QR Menu: Restaurant Menu Display Settings
+        modelBuilder.Entity<RestaurantMenuSettings>()
+            .HasOne(s => s.Hotel)
+            .WithOne(h => h.MenuSettings)
+            .HasForeignKey<RestaurantMenuSettings>(s => s.HotelId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RestaurantMenuSettings>()
+            .HasIndex(s => s.HotelId)
+            .IsUnique();
+
+        // QR Menu: Secure QR Code Tokens
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasOne(q => q.Hotel)
+            .WithMany(h => h.RestaurantQrCodes)
+            .HasForeignKey(q => q.HotelId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasOne(q => q.Table)
+            .WithMany(t => t.QrCodes)
+            .HasForeignKey(q => q.TableId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasIndex(q => q.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasIndex(q => new { q.HotelId, q.CodeType });
+
+        modelBuilder.Entity<RestaurantQrCode>()
+            .HasIndex(q => new { q.HotelId, q.TableId });
     }
 }

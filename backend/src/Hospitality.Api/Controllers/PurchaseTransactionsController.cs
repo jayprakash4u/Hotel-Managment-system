@@ -775,7 +775,7 @@ public class PurchaseTransactionsController : ControllerBase
             }
 
             // Supplier Ledger Updates
-            if (supplier != null && dueAmount > 0 && status != "DRAFT")
+            if (supplier != null && status != "DRAFT")
             {
                 var latestLedger = await _db.SupplierLedgers
                     .Where(l => l.SupplierId == supplier.Id)
@@ -785,24 +785,56 @@ public class PurchaseTransactionsController : ControllerBase
 
                 var currentBal = latestLedger?.Balance ?? supplier.OpeningBalance;
 
-                // Credit entry: increases liability to supplier
-                _db.SupplierLedgers.Add(new SupplierLedgerEntry
+                // 1. Purchase invoice credit entry (increases payable)
+                var runningBalAfterInvoice = currentBal + grandTotal;
+                var purchaseLedgerEntry = new SupplierLedgerEntry
                 {
                     HotelId = hotelId,
                     SupplierId = supplier.Id,
                     PurchaseOrderId = po.Id,
+                    TransactionNumber = po.PoNumber,
+                    PurchaseInvoiceNumber = po.InvoiceNumber,
+                    BranchOrOutlet = po.BranchOrOutlet,
                     EntryDate = purchaseDate,
                     Description = $"Purchase {po.PoNumber}" + (!string.IsNullOrWhiteSpace(po.InvoiceNumber) ? $" (Inv #{po.InvoiceNumber})" : ""),
-                    CreditAmount = dueAmount,
+                    CreditAmount = grandTotal,
                     DebitAmount = 0,
-                    Balance = currentBal + dueAmount,
+                    Balance = runningBalAfterInvoice,
                     DueDate = dueDate,
-                    ReferenceType = "PURCHASE_CREDIT",
+                    ReferenceType = (paidAmount >= grandTotal && grandTotal > 0) ? "CASH_PURCHASE" : "PURCHASE_CREDIT",
                     ReferenceId = po.Id,
                     PaymentMode = paymentMethod,
                     CreatedBy = po.CreatedBy,
                     CreatedAt = DateTime.UtcNow
-                });
+                };
+                _db.SupplierLedgers.Add(purchaseLedgerEntry);
+
+                // 2. Immediate payment debit entry (if paidAmount > 0)
+                if (paidAmount > 0)
+                {
+                    var finalBal = runningBalAfterInvoice - paidAmount;
+                    var paymentVoucherNo = $"PV-{DateTime.UtcNow.Year}-{Random.Shared.Next(1000, 9999)}";
+                    _db.SupplierLedgers.Add(new SupplierLedgerEntry
+                    {
+                        HotelId = hotelId,
+                        SupplierId = supplier.Id,
+                        PurchaseOrderId = po.Id,
+                        TransactionNumber = paymentVoucherNo,
+                        PurchaseInvoiceNumber = po.InvoiceNumber,
+                        BranchOrOutlet = po.BranchOrOutlet,
+                        EntryDate = purchaseDate.AddSeconds(1),
+                        Description = $"Immediate payment on {po.PoNumber} ({paymentMethod})",
+                        CreditAmount = 0,
+                        DebitAmount = paidAmount,
+                        Balance = finalBal,
+                        DueDate = null,
+                        ReferenceType = "PAYMENT",
+                        ReferenceId = paymentVoucherNo,
+                        PaymentMode = paymentMethod,
+                        CreatedBy = po.CreatedBy,
+                        CreatedAt = DateTime.UtcNow.AddSeconds(1)
+                    });
+                }
             }
 
             // Double-entry General Ledger Integration
@@ -991,18 +1023,22 @@ public class PurchaseTransactionsController : ControllerBase
                 var currentBal = latestLedger?.Balance ?? po.Supplier?.OpeningBalance ?? 0;
                 var newBal = Math.Max(0, currentBal - req.Amount);
 
+                var paymentVoucher = $"PV-{DateTime.UtcNow.Year}-{Random.Shared.Next(1000, 9999)}";
                 _db.SupplierLedgers.Add(new SupplierLedgerEntry
                 {
                     HotelId = po.HotelId,
                     SupplierId = po.SupplierId,
                     PurchaseOrderId = po.Id,
+                    TransactionNumber = paymentVoucher,
+                    PurchaseInvoiceNumber = po.InvoiceNumber,
+                    BranchOrOutlet = po.BranchOrOutlet,
                     EntryDate = paymentDate,
                     Description = $"Payment for {po.PoNumber}" + (!string.IsNullOrWhiteSpace(po.InvoiceNumber) ? $" (Inv #{po.InvoiceNumber})" : ""),
                     DebitAmount = req.Amount,
                     CreditAmount = 0,
                     Balance = newBal,
                     ReferenceType = "PAYMENT",
-                    ReferenceId = po.Id,
+                    ReferenceId = paymentVoucher,
                     PaymentMode = req.PaymentMethod,
                     CreatedBy = req.PaidBy ?? "Admin",
                     CreatedAt = DateTime.UtcNow
@@ -1208,12 +1244,15 @@ public class PurchaseTransactionsController : ControllerBase
                     HotelId = po.HotelId,
                     SupplierId = po.SupplierId,
                     PurchaseOrderId = po.Id,
+                    TransactionNumber = debitNoteNum,
+                    PurchaseInvoiceNumber = po.InvoiceNumber,
+                    BranchOrOutlet = po.BranchOrOutlet,
                     EntryDate = DateTime.UtcNow,
                     Description = $"Purchase Return {returnNum} / Debit Note {debitNoteNum} ({req.Reason})",
                     DebitAmount = totalRefund,
                     CreditAmount = 0,
                     Balance = newBal,
-                    ReferenceType = "PURCHASE_RETURN",
+                    ReferenceType = "DEBIT_NOTE",
                     ReferenceId = debitNoteNum,
                     CreatedBy = req.AuthorizedBy ?? "Admin",
                     CreatedAt = DateTime.UtcNow

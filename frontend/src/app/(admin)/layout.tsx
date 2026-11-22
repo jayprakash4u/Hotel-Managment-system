@@ -200,6 +200,12 @@ export default function AdminLayout({
         return;
       }
 
+      // If Super Admin accesses root '/', redirect directly to Super Admin dashboard
+      if (role === 'SUPER_ADMIN' && pathname === '/') {
+        router.replace('/super-admin');
+        return;
+      }
+
       // 3. User is authenticated for general admin
       setIsAuthVerified(true);
       setIsCheckingAuth(false);

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/components/common/BackButton';
+import { useDebounce } from '@/lib/useDebounce';
 import {
   ArrowLeft,
   Truck,
@@ -71,6 +73,7 @@ export default function SupplierLedgerAccountsTab() {
   const [outstandingOnly, setOutstandingOnly] = useState(false);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [invoiceNumberSearch, setInvoiceNumberSearch] = useState('');
+  const debouncedInvoiceNumberSearch = useDebounce(invoiceNumberSearch, 350);
 
   // Ledger Data State
   const [isLoadingLedger, setIsLoadingLedger] = useState(false);
@@ -213,7 +216,7 @@ export default function SupplierLedgerAccountsTab() {
         outlet: outletFilter !== 'ALL' ? outletFilter : undefined,
         outstandingOnly: outstandingOnly,
         overdueOnly: overdueOnly,
-        invoiceNumber: invoiceNumberSearch.trim() || undefined,
+        invoiceNumber: debouncedInvoiceNumberSearch.trim() || undefined,
       });
 
       setSelectedSupplier(res?.supplier || null);
@@ -240,7 +243,7 @@ export default function SupplierLedgerAccountsTab() {
     } finally {
       setIsLoadingLedger(false);
     }
-  }, [selectedSupplierId, dateFrom, dateTo, transactionTypeFilter, outletFilter, outstandingOnly, overdueOnly, invoiceNumberSearch]);
+  }, [selectedSupplierId, dateFrom, dateTo, transactionTypeFilter, outletFilter, outstandingOnly, overdueOnly, debouncedInvoiceNumberSearch]);
 
   useEffect(() => {
     if (selectedSupplierId) {
@@ -581,28 +584,22 @@ export default function SupplierLedgerAccountsTab() {
 
   return (
     <div className="space-y-4 pb-12 select-none">
-      {/* 1. Breadcrumb Bar */}
-      <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Link
+      {/* 1. Header Navigation & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <BackButton
             href="/accounts"
-            className="font-bold text-[#0B3D32] dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Accounts Hub</span>
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-            <Truck className="w-3.5 h-3.5 text-amber-600" />
+            label="Back"
+            onClick={selectedSupplier ? () => setSelectedSupplier(null) : undefined}
+          />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <span>Supplier Ledger</span>
-          </span>
-        </div>
-      </div>
-
-      {/* 2. Main Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Supplier Ledger</h1>
+            {selectedSupplier && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
+                {selectedSupplier.name}
+              </span>
+            )}
+          </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -870,7 +867,7 @@ export default function SupplierLedgerAccountsTab() {
                 <div className="text-[10px] uppercase font-bold text-slate-400">Credit Limit</div>
                 <div className="font-semibold text-slate-800 dark:text-slate-200">
                   {selectedSupplier.creditLimit && selectedSupplier.creditLimit > 0
-                    ? `Rs. ${selectedSupplier.creditLimit.toLocaleString()}`
+                    ? `Rs. ${(selectedSupplier.creditLimit || 0).toLocaleString()}`
                     : 'No Limit'}
                 </div>
               </div>
@@ -894,81 +891,6 @@ export default function SupplierLedgerAccountsTab() {
         </div>
       )}
 
-      {/* 5. 9 Financial KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2">
-        {/* 1. Opening Payable */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Opening Payable</div>
-          <div className="text-sm font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {(summary?.openingPayableBalance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 2. Total Purchases */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Purchases</div>
-          <div className="text-sm font-black text-slate-900 dark:text-white mt-1 truncate">
-            Rs. {(summary?.totalPurchases ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 3. Total Payments */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Payments</div>
-          <div className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-            Rs. {(summary?.totalPayments ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 4. Purchase Returns */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Returns</div>
-          <div className="text-sm font-black text-purple-600 dark:text-purple-400 mt-1 truncate">
-            Rs. {(summary?.purchaseReturns ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 5. Debit Notes */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Debit Notes</div>
-          <div className="text-sm font-black text-blue-600 dark:text-blue-400 mt-1 truncate">
-            Rs. {(summary?.debitNotes ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 6. Credit Notes */}
-        <div className="p-3 bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Credit Notes</div>
-          <div className="text-sm font-black text-slate-700 dark:text-slate-300 mt-1 truncate">
-            Rs. {(summary?.creditNotes ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 7. Outstanding Payable */}
-        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Outstanding Payable</div>
-          <div className="text-sm font-black text-amber-900 dark:text-amber-200 mt-1 truncate">
-            Rs. {(summary?.outstandingPayable ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 8. Advance Balance */}
-        <div className="p-3 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">Advance Balance</div>
-          <div className="text-sm font-black text-teal-900 dark:text-teal-200 mt-1 truncate">
-            Rs. {(summary?.supplierAdvanceBalance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* 9. Overdue Amount */}
-        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">Overdue Payables</div>
-          <div className="text-sm font-black text-rose-900 dark:text-rose-200 mt-1 truncate">
-            Rs. {(summary?.overdueAmount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-      </div>
-
       {/* 6. Chronological Supplier Ledger Transaction Table */}
       <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
         {isLoadingLedger ? (
@@ -983,42 +905,42 @@ export default function SupplierLedgerAccountsTab() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Txn No / Voucher</th>
-                  <th className="py-2.5 px-3">Type</th>
-                  <th className="py-2.5 px-3">Invoice No / Ref</th>
-                  <th className="py-2.5 px-3">Description</th>
-                  <th className="py-2.5 px-3">Due Date</th>
-                  <th className="py-2.5 px-3 text-right text-emerald-700 dark:text-emerald-400">Debit (Rs.)</th>
-                  <th className="py-2.5 px-3 text-right text-amber-700 dark:text-amber-400">Credit (Rs.)</th>
-                  <th className="py-2.5 px-3 text-right font-black">Running Balance</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
+                <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Date</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Txn No / Voucher</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Type</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Invoice No / Ref</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Description</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Due Date</th>
+                  <th className="py-2.5 px-3 text-right text-emerald-700 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700">Debit (Rs.)</th>
+                  <th className="py-2.5 px-3 text-right text-amber-700 dark:text-amber-400 border-r border-slate-200 dark:border-slate-700">Credit (Rs.)</th>
+                  <th className="py-2.5 px-3 text-right font-black border-r border-slate-200 dark:border-slate-700">Running Balance</th>
+                  <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                   <th className="py-2.5 px-3 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                 {/* Opening Balance Row */}
-                <tr className="bg-slate-50/70 dark:bg-slate-900/30 font-semibold italic text-slate-600 dark:text-slate-400">
-                  <td className="py-2 px-3">{dateFrom || 'Period Start'}</td>
-                  <td className="py-2 px-3 font-mono text-[10px]">OB</td>
-                  <td className="py-2 px-3">
-                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <tr className="bg-slate-50/70 dark:bg-slate-900/30 italic text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700/60">
+                  <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">{dateFrom || 'Period Start'}</td>
+                  <td className="py-2.5 px-3 font-mono text-[10px] border-r border-slate-200 dark:border-slate-700/60">OB</td>
+                  <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                    <span className="font-medium text-slate-600 dark:text-slate-400">
                       OPENING
                     </span>
                   </td>
-                  <td className="py-2 px-3">-</td>
-                  <td className="py-2 px-3">Opening Balance Carried Forward</td>
-                  <td className="py-2 px-3">-</td>
-                  <td className="py-2 px-3 text-right font-mono">-</td>
-                  <td className="py-2 px-3 text-right font-mono">-</td>
-                  <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                  <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">-</td>
+                  <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">Opening Balance Carried Forward</td>
+                  <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">-</td>
+                  <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200 dark:border-slate-700/60">-</td>
+                  <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200 dark:border-slate-700/60">-</td>
+                  <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                     Rs. {(periodOpeningBalance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
-                  <td className="py-2 px-3 text-center">-</td>
-                  <td className="py-2 px-3 text-center">-</td>
+                  <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">-</td>
+                  <td className="py-2.5 px-3 text-center">-</td>
                 </tr>
 
                 {paginatedEntries.length === 0 ? (
@@ -1032,57 +954,45 @@ export default function SupplierLedgerAccountsTab() {
                     const isCredit = e.creditAmount > 0;
                     const isDebit = e.debitAmount > 0;
                     return (
-                      <tr key={e.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
-                        <td className="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      <tr key={e.id} className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                           {e.entryDate ? e.entryDate.slice(0, 10) : '-'}
                         </td>
 
-                        <td className="py-2 px-3 font-mono font-semibold text-slate-800 dark:text-slate-200">
+                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700/60">
                           {e.transactionNumber || '-'}
                         </td>
 
-                        <td className="py-2 px-3">
-                          <span
-                            className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${
-                              e.referenceType === 'PAYMENT' || e.referenceType === 'BANK_PAYMENT' || e.referenceType === 'CASH_PAYMENT'
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : e.referenceType === 'SUPPLIER_ADVANCE'
-                                ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300'
-                                : e.referenceType === 'PURCHASE_RETURN' || e.referenceType === 'DEBIT_NOTE'
-                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
-                                : e.referenceType === 'ACCOUNT_ADJUSTMENT'
-                                ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                            }`}
-                          >
-                            {e.referenceType.replace('_', ' ')}
+                        <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                          <span className="font-medium text-slate-700 dark:text-slate-300">
+                            {e.referenceType.replace(/_/g, ' ')}
                           </span>
                         </td>
 
-                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-mono">
+                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-mono border-r border-slate-200 dark:border-slate-700/60">
                           {e.purchaseInvoiceNumber || e.purchaseOrderNumber || '-'}
                         </td>
 
-                        <td className="py-2 px-3 text-slate-700 dark:text-slate-300 max-w-[200px] truncate" title={e.description}>
+                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 max-w-[200px] truncate border-r border-slate-200 dark:border-slate-700/60" title={e.description}>
                           {e.description}
                         </td>
 
-                        <td className="py-2 px-3 text-slate-500 whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                           {e.dueDate ? e.dueDate.slice(0, 10) : '-'}
                         </td>
 
                         {/* Debit */}
-                        <td className="py-2 px-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                        <td className="py-2.5 px-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
                           {isDebit ? `Rs. ${e.debitAmount.toFixed(2)}` : '-'}
                         </td>
 
                         {/* Credit */}
-                        <td className="py-2 px-3 text-right font-mono font-semibold text-amber-600 dark:text-amber-400">
+                        <td className="py-2.5 px-3 text-right font-mono font-semibold text-amber-600 dark:text-amber-400 border-r border-slate-200 dark:border-slate-700/60">
                           {isCredit ? `Rs. ${e.creditAmount.toFixed(2)}` : '-'}
                         </td>
 
                         {/* Running Balance */}
-                        <td className="py-2 px-3 text-right font-mono font-black text-slate-900 dark:text-white">
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                           Rs. {(e.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           <span className="text-[9px] font-normal text-slate-400 ml-1">
                             {e.balance >= 0 ? 'Cr' : 'Dr (Adv)'}
@@ -1090,24 +1000,35 @@ export default function SupplierLedgerAccountsTab() {
                         </td>
 
                         {/* Status */}
-                        <td className="py-2 px-3 text-center">
+                        <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
                           <span
-                            className={`inline-block px-2 py-0.5 text-[9px] font-bold rounded-full ${
+                            className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
                               e.status === 'PAID'
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                ? 'text-emerald-700 dark:text-emerald-400'
                                 : e.status === 'OVERDUE'
-                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                                ? 'text-rose-700 dark:text-rose-400'
                                 : e.status === 'ADVANCE'
-                                ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                ? 'text-teal-700 dark:text-teal-400'
+                                : 'text-amber-700 dark:text-amber-400'
                             }`}
                           >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                e.status === 'PAID'
+                                  ? 'bg-emerald-500'
+                                  : e.status === 'OVERDUE'
+                                  ? 'bg-rose-500'
+                                  : e.status === 'ADVANCE'
+                                  ? 'bg-teal-500'
+                                  : 'bg-amber-500'
+                              }`}
+                            />
                             {e.status}
                           </span>
                         </td>
 
                         {/* Actions */}
-                        <td className="py-2 px-3 text-center">
+                        <td className="py-2.5 px-3 text-center">
                           <button
                             type="button"
                             onClick={() => {
@@ -1341,26 +1262,26 @@ export default function SupplierLedgerAccountsTab() {
                     No outstanding purchase invoices found. Entire payment amount will be recorded as a Supplier Advance.
                   </div>
                 ) : (
-                  <div className="border border-slate-200 dark:border-slate-800 rounded overflow-hidden max-h-56 overflow-y-auto">
-                    <table className="w-full text-left text-xs">
+                  <div className="border border-slate-200 dark:border-slate-700/80 rounded overflow-hidden max-h-56 overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
                       <thead>
-                        <tr className="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-500 uppercase">
-                          <th className="py-2 px-2.5">Purchase No</th>
-                          <th className="py-2 px-2">Inv No</th>
-                          <th className="py-2 px-2">Date</th>
-                          <th className="py-2 px-2 text-right">Total Bill</th>
-                          <th className="py-2 px-2 text-right text-rose-600">Due Amount</th>
+                        <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                          <th className="py-2 px-2.5 border-r border-slate-200 dark:border-slate-700">Purchase No</th>
+                          <th className="py-2 px-2 border-r border-slate-200 dark:border-slate-700">Inv No</th>
+                          <th className="py-2 px-2 border-r border-slate-200 dark:border-slate-700">Date</th>
+                          <th className="py-2 px-2 text-right border-r border-slate-200 dark:border-slate-700">Total Bill</th>
+                          <th className="py-2 px-2 text-right text-rose-600 border-r border-slate-200 dark:border-slate-700">Due Amount</th>
                           <th className="py-2 px-2 text-right">Allocate (Rs.)</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                         {unpaidPurchases.map((po) => (
-                          <tr key={po.id} className="hover:bg-slate-50/50">
-                            <td className="py-1.5 px-2.5 font-bold font-mono">{po.purchaseNumber}</td>
-                            <td className="py-1.5 px-2 font-mono text-slate-500">{po.supplierInvoiceNumber || '-'}</td>
-                            <td className="py-1.5 px-2 text-slate-500">{po.purchaseDate}</td>
-                            <td className="py-1.5 px-2 text-right font-mono">Rs. {po.grandTotal.toFixed(2)}</td>
-                            <td className="py-1.5 px-2 text-right font-mono font-bold text-rose-600">
+                          <tr key={po.id} className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                            <td className="py-1.5 px-2.5 font-bold font-mono border-r border-slate-200 dark:border-slate-700/60">{po.purchaseNumber}</td>
+                            <td className="py-1.5 px-2 font-mono text-slate-500 border-r border-slate-200 dark:border-slate-700/60">{po.supplierInvoiceNumber || '-'}</td>
+                            <td className="py-1.5 px-2 text-slate-500 border-r border-slate-200 dark:border-slate-700/60">{po.purchaseDate}</td>
+                            <td className="py-1.5 px-2 text-right font-mono border-r border-slate-200 dark:border-slate-700/60">Rs. {po.grandTotal.toFixed(2)}</td>
+                            <td className="py-1.5 px-2 text-right font-mono font-bold text-rose-600 border-r border-slate-200 dark:border-slate-700/60">
                               Rs. {po.dueAmount.toFixed(2)}
                             </td>
                             <td className="py-1.5 px-2 text-right">
@@ -1576,22 +1497,22 @@ export default function SupplierLedgerAccountsTab() {
                     No unpaid purchases found for this supplier.
                   </div>
                 ) : (
-                  <div className="border border-slate-200 dark:border-slate-800 rounded overflow-hidden max-h-56 overflow-y-auto">
-                    <table className="w-full text-left text-xs">
+                  <div className="border border-slate-200 dark:border-slate-700/80 rounded overflow-hidden max-h-56 overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
                       <thead>
-                        <tr className="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-500 uppercase">
-                          <th className="py-2 px-2.5">Purchase No</th>
-                          <th className="py-2 px-2">Inv No</th>
-                          <th className="py-2 px-2 text-right">Due Amount</th>
+                        <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                          <th className="py-2 px-2.5 border-r border-slate-200 dark:border-slate-700">Purchase No</th>
+                          <th className="py-2 px-2 border-r border-slate-200 dark:border-slate-700">Inv No</th>
+                          <th className="py-2 px-2 text-right border-r border-slate-200 dark:border-slate-700">Due Amount</th>
                           <th className="py-2 px-2 text-right">Allocate (Rs.)</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                         {unpaidPurchases.map((po) => (
-                          <tr key={po.id}>
-                            <td className="py-1.5 px-2.5 font-bold font-mono">{po.purchaseNumber}</td>
-                            <td className="py-1.5 px-2 font-mono text-slate-500">{po.supplierInvoiceNumber || '-'}</td>
-                            <td className="py-1.5 px-2 text-right font-mono font-bold text-rose-600">
+                          <tr key={po.id} className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                            <td className="py-1.5 px-2.5 font-bold font-mono border-r border-slate-200 dark:border-slate-700/60">{po.purchaseNumber}</td>
+                            <td className="py-1.5 px-2 font-mono text-slate-500 border-r border-slate-200 dark:border-slate-700/60">{po.supplierInvoiceNumber || '-'}</td>
+                            <td className="py-1.5 px-2 text-right font-mono font-bold text-rose-600 border-r border-slate-200 dark:border-slate-700/60">
                               Rs. {po.dueAmount.toFixed(2)}
                             </td>
                             <td className="py-1.5 px-2 text-right">
@@ -1838,26 +1759,26 @@ export default function SupplierLedgerAccountsTab() {
                   <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-1.5">
                     Outstanding Invoices Breakdown ({agingData.invoices.length} invoices)
                   </h3>
-                  <div className="border border-slate-200 dark:border-slate-800 rounded overflow-hidden">
-                    <table className="w-full text-left text-xs">
+                  <div className="border border-slate-200 dark:border-slate-700/80 rounded overflow-hidden">
+                    <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
                       <thead>
-                        <tr className="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-500 uppercase">
-                          <th className="py-2 px-2.5">Purchase No</th>
-                          <th className="py-2 px-2">Inv No</th>
-                          <th className="py-2 px-2">Date</th>
-                          <th className="py-2 px-2">Due Date</th>
-                          <th className="py-2 px-2 text-right">Days Overdue</th>
+                        <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                          <th className="py-2 px-2.5 border-r border-slate-200 dark:border-slate-700">Purchase No</th>
+                          <th className="py-2 px-2 border-r border-slate-200 dark:border-slate-700">Inv No</th>
+                          <th className="py-2 px-2 border-r border-slate-200 dark:border-slate-700">Date</th>
+                          <th className="py-2 px-2 border-r border-slate-200 dark:border-slate-700">Due Date</th>
+                          <th className="py-2 px-2 text-right border-r border-slate-200 dark:border-slate-700">Days Overdue</th>
                           <th className="py-2 px-2 text-right">Due Amount</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                         {agingData.invoices.map((inv) => (
-                          <tr key={inv.id}>
-                            <td className="py-1.5 px-2.5 font-bold font-mono">{inv.purchaseNumber}</td>
-                            <td className="py-1.5 px-2 font-mono text-slate-500">{inv.supplierInvoiceNumber || '-'}</td>
-                            <td className="py-1.5 px-2 text-slate-500">{inv.purchaseDate}</td>
-                            <td className="py-1.5 px-2 font-mono">{inv.dueDate}</td>
-                            <td className="py-1.5 px-2 text-right font-bold">
+                          <tr key={inv.id} className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                            <td className="py-1.5 px-2.5 font-bold font-mono border-r border-slate-200 dark:border-slate-700/60">{inv.purchaseNumber}</td>
+                            <td className="py-1.5 px-2 font-mono text-slate-500 border-r border-slate-200 dark:border-slate-700/60">{inv.supplierInvoiceNumber || '-'}</td>
+                            <td className="py-1.5 px-2 text-slate-500 border-r border-slate-200 dark:border-slate-700/60">{inv.purchaseDate}</td>
+                            <td className="py-1.5 px-2 font-mono border-r border-slate-200 dark:border-slate-700/60">{inv.dueDate}</td>
+                            <td className="py-1.5 px-2 text-right font-bold border-r border-slate-200 dark:border-slate-700/60">
                               {inv.isOverdue ? (
                                 <span className="text-rose-600">{inv.daysOverdue} days</span>
                               ) : (
@@ -1953,40 +1874,40 @@ export default function SupplierLedgerAccountsTab() {
 
               {/* Chronological Transactions Table */}
               <div className="border border-slate-300 rounded overflow-hidden mt-3">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
                   <thead>
                     <tr className="bg-slate-100 border-b border-slate-300 text-[10px] font-bold text-slate-700 uppercase">
-                      <th className="py-2 px-2.5">Date</th>
-                      <th className="py-2 px-2">Ref No</th>
-                      <th className="py-2 px-2">Type</th>
-                      <th className="py-2 px-2">Description</th>
-                      <th className="py-2 px-2 text-right">Debit (Rs.)</th>
-                      <th className="py-2 px-2 text-right">Credit (Rs.)</th>
+                      <th className="py-2 px-2.5 border-r border-slate-300">Date</th>
+                      <th className="py-2 px-2 border-r border-slate-300">Ref No</th>
+                      <th className="py-2 px-2 border-r border-slate-300">Type</th>
+                      <th className="py-2 px-2 border-r border-slate-300">Description</th>
+                      <th className="py-2 px-2 text-right border-r border-slate-300">Debit (Rs.)</th>
+                      <th className="py-2 px-2 text-right border-r border-slate-300">Credit (Rs.)</th>
                       <th className="py-2 px-2.5 text-right font-black">Balance (Rs.)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     <tr className="bg-slate-50 italic">
-                      <td className="py-1.5 px-2.5">{statementData.startDate}</td>
-                      <td className="py-1.5 px-2 font-mono">OB</td>
-                      <td className="py-1.5 px-2">OPENING</td>
-                      <td className="py-1.5 px-2">Opening Payable Balance</td>
-                      <td className="py-1.5 px-2 text-right font-mono">-</td>
-                      <td className="py-1.5 px-2 text-right font-mono">-</td>
+                      <td className="py-1.5 px-2.5 border-r border-slate-300">{statementData.startDate}</td>
+                      <td className="py-1.5 px-2 font-mono border-r border-slate-300">OB</td>
+                      <td className="py-1.5 px-2 border-r border-slate-300">OPENING</td>
+                      <td className="py-1.5 px-2 border-r border-slate-300">Opening Payable Balance</td>
+                      <td className="py-1.5 px-2 text-right font-mono border-r border-slate-300">-</td>
+                      <td className="py-1.5 px-2 text-right font-mono border-r border-slate-300">-</td>
                       <td className="py-1.5 px-2.5 text-right font-mono font-bold">
                         Rs. {statementData.openingBalance.toFixed(2)}
                       </td>
                     </tr>
                     {statementData.transactions.map((t, idx) => (
-                      <tr key={idx}>
-                        <td className="py-1.5 px-2.5">{t.date}</td>
-                        <td className="py-1.5 px-2 font-mono">{t.referenceNumber}</td>
-                        <td className="py-1.5 px-2 uppercase text-[10px]">{t.referenceType}</td>
-                        <td className="py-1.5 px-2">{t.description}</td>
-                        <td className="py-1.5 px-2 text-right font-mono text-emerald-700">
+                      <tr key={idx} className="even:bg-slate-50/50">
+                        <td className="py-1.5 px-2.5 border-r border-slate-300">{t.date}</td>
+                        <td className="py-1.5 px-2 font-mono border-r border-slate-300">{t.referenceNumber}</td>
+                        <td className="py-1.5 px-2 uppercase text-[10px] border-r border-slate-300">{t.referenceType}</td>
+                        <td className="py-1.5 px-2 border-r border-slate-300">{t.description}</td>
+                        <td className="py-1.5 px-2 text-right font-mono text-emerald-700 border-r border-slate-300">
                           {t.debit > 0 ? `Rs. ${t.debit.toFixed(2)}` : '-'}
                         </td>
-                        <td className="py-1.5 px-2 text-right font-mono text-amber-700">
+                        <td className="py-1.5 px-2 text-right font-mono text-amber-700 border-r border-slate-300">
                           {t.credit > 0 ? `Rs. ${t.credit.toFixed(2)}` : '-'}
                         </td>
                         <td className="py-1.5 px-2.5 text-right font-mono font-bold">

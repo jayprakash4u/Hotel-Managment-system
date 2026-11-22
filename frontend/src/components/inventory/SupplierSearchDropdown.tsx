@@ -1,9 +1,26 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, ChevronDown, Check, X, Building2, User, Phone, Tag } from 'lucide-react';
+import {
+  Search,
+  ChevronDown,
+  Check,
+  X,
+  Building2,
+  User,
+  Phone,
+  Tag,
+  Plus,
+  Loader2,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SupplierRecord } from '@/lib/types';
+import {
+  fetchSuppliersList,
+  subscribeToSuppliers,
+  persistSupplier,
+} from '@/lib/suppliersData';
+import { useToast } from '@/components/ui/Toast';
 
 interface SupplierSearchDropdownProps {
   value?: string | null;
@@ -18,26 +35,28 @@ interface SupplierSearchDropdownProps {
 export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
   value,
   onChange,
-  placeholder = 'Select supplier...',
+  placeholder = '',
   disabled = false,
   required = false,
   className,
   onSupplierSelected,
 }) => {
+  const toast = useToast();
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isQuickAdding, setIsQuickAdding] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch active suppliers dynamically from Supplier Management API
+  // Fetch active suppliers dynamically from Persistent Store & API
   const fetchActiveSuppliers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/suppliers?activeOnly=true');
-      const json = await res.json();
-      if (json && json.success && Array.isArray(json.data)) {
-        setSuppliers(json.data);
+      const list = await fetchSuppliersList(true);
+      if (Array.isArray(list)) {
+        setSuppliers(list);
       }
     } catch (err) {
       console.error('Failed to fetch suppliers:', err);
@@ -48,6 +67,13 @@ export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
 
   useEffect(() => {
     fetchActiveSuppliers();
+    // Dynamically react whenever suppliers are updated in the Supplier page
+    const unsubscribe = subscribeToSuppliers(() => {
+      fetchActiveSuppliers();
+    });
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Close when clicking outside
@@ -61,10 +87,19 @@ export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [isOpen]);
+
   // Filter suppliers based on search
   const filteredSuppliers = useMemo(() => {
     if (!searchTerm.trim()) return suppliers;
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
     return suppliers.filter(
       (s) =>
         s.name.toLowerCase().includes(term) ||
@@ -99,6 +134,32 @@ export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
     }
   };
 
+  // Quick add on-the-fly supplier if not found
+  const handleQuickAddSupplier = async () => {
+    if (!searchTerm.trim()) return;
+    setIsQuickAdding(true);
+    try {
+      const newSup = await persistSupplier({
+        name: searchTerm.trim(),
+        category: 'General',
+        isActive: true,
+      });
+      toast.success('Supplier Added', `Supplier "${newSup.name}" has been registered.`);
+      await fetchActiveSuppliers();
+      handleSelect(newSup);
+    } catch {
+      toast.error('Error', 'Could not add supplier.');
+    } finally {
+      setIsQuickAdding(false);
+    }
+  };
+
+  const exactMatchExists = useMemo(() => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase().trim();
+    return suppliers.some((s) => s.name.toLowerCase().trim() === term);
+  }, [suppliers, searchTerm]);
+
   return (
     <div className={cn('relative w-full text-xs font-sans', className)} ref={containerRef}>
       {/* Trigger Box */}
@@ -106,13 +167,13 @@ export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
         onClick={() => {
           if (!disabled) {
             if (!isOpen) {
-              fetchActiveSuppliers(); // Fresh fetch whenever opened
+              fetchActiveSuppliers();
             }
             setIsOpen(!isOpen);
           }
         }}
         className={cn(
-          'flex items-center justify-between min-h-[34px] px-2.5 py-1.5 border rounded-[3px] bg-white dark:bg-[#071F1A] cursor-pointer transition-colors select-none text-xs',
+          'flex items-center justify-between min-h-[30px] px-2.5 py-1 border rounded-[3px] bg-white dark:bg-[#071F1A] cursor-pointer transition-colors select-none text-xs',
           isOpen
             ? 'border-[#0B3D32] ring-1 ring-[#0B3D32]'
             : 'border-slate-300 dark:border-border-default hover:border-slate-400',
@@ -139,7 +200,7 @@ export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
           ) : value === 'WALK_IN' ? (
             <span className="font-medium text-slate-700 dark:text-slate-300">Walk-in Supplier</span>
           ) : (
-            <span className="text-slate-400 truncate">{placeholder || 'Select supplier...'}</span>
+            <span className="text-slate-400 truncate">{placeholder || ''}</span>
           )}
         </div>
 
@@ -161,54 +222,65 @@ export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
       {/* Dropdown Menu */}
       {isOpen && (
         <div className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-border-default rounded-[3px] shadow-lg max-h-72 flex flex-col overflow-hidden animate-in fade-in duration-100">
-          {/* Search Input */}
+          {/* Search Input Box */}
           <div className="p-2 border-b border-slate-200 dark:border-border-default bg-slate-50/70 dark:bg-slate-900/40">
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name, phone, PAN or code..."
-                autoFocus
-                className="w-full pl-7 pr-3 py-1 text-xs border border-slate-300 dark:border-slate-700 rounded-[3px] bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
+                placeholder=""
+                className="w-full pl-7 pr-7 py-1 text-xs border border-slate-300 dark:border-slate-700 rounded-[3px] bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Suppliers List */}
           <div className="overflow-y-auto flex-1 divide-y divide-slate-100 dark:divide-slate-800/60 max-h-56">
-            {/* Option: Walk-in / Unregistered Supplier */}
-            <button
-              type="button"
-              onClick={() => handleSelect(null)}
-              className={cn(
-                'w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors cursor-pointer',
-                !value && 'bg-emerald-50/70 dark:bg-emerald-950/30 font-semibold text-[#0B3D32] dark:text-emerald-400'
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold shrink-0 text-[10px]">
-                  WI
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <span>Walk-in / Unregistered Supplier</span>
-                    <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-normal">
-                      Local / Cash Shop
-                    </span>
+            {/* Walk-in / Unregistered Supplier */}
+            {(!searchTerm || 'walk-in unregistered direct cash'.includes(searchTerm.toLowerCase())) && (
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                className={cn(
+                  'w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors cursor-pointer',
+                  !value && 'bg-emerald-50/70 dark:bg-emerald-950/30 font-semibold text-[#0B3D32] dark:text-emerald-400'
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 shrink-0">
+                    <User className="w-3.5 h-3.5" />
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    No supplier profile or invoice number required
+                  <div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200">
+                      Walk-in / Direct Cash Supplier
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Direct cash purchases without a ledger account
+                    </div>
                   </div>
                 </div>
-              </div>
-              {!value && <Check className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400 shrink-0" />}
-            </button>
+                {!value && <Check className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400 shrink-0" />}
+              </button>
+            )}
 
-            {/* List of Registered Active Suppliers */}
+            {/* List of Registered Suppliers */}
             {isLoading ? (
-              <div className="py-4 text-center text-xs text-slate-400">Loading active suppliers...</div>
+              <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0B3D32]" />
+                <span>Loading suppliers...</span>
+              </div>
             ) : filteredSuppliers.length === 0 ? (
               <div className="py-4 text-center text-xs text-slate-400">
                 {searchTerm ? 'No matching suppliers found.' : 'No active suppliers registered.'}
@@ -274,10 +346,28 @@ export const SupplierSearchDropdown: React.FC<SupplierSearchDropdownProps> = ({
                 );
               })
             )}
+
+            {/* Quick Add Supplier Button when search term does not match */}
+            {searchTerm.trim() && !exactMatchExists && (
+              <div className="p-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleQuickAddSupplier}
+                  disabled={isQuickAdding}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#082d25] text-white text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+                >
+                  {isQuickAdding ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5" />
+                  )}
+                  <span>Register &quot;{searchTerm}&quot; as New Supplier</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
     </div>
   );
 };
-

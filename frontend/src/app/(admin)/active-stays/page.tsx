@@ -119,9 +119,8 @@ export default function InHouseGuestsPage() {
           ----------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-[#0B3D32] dark:text-emerald-400" />
-            <span>In-House Guests</span>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+            In-House Guests
           </h1>
         </div>
 
@@ -196,20 +195,20 @@ export default function InHouseGuestsPage() {
           MAIN IN-HOUSE GUESTS DATATABLE
           ----------------------------------------------------------------------- */}
       <div className="rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+        <div className="overflow-x-auto border-t border-slate-200 dark:border-slate-700">
+          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+            <thead className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-[11px] select-none">
               <tr>
                 <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
-                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">ROOM & SUITE</th>
-                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">GUEST & VIP</th>
+                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">ROOM &amp; SUITE</th>
+                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">GUEST &amp; VIP</th>
                 <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">CONTACT</th>
-                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">DATES & STAY</th>
+                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">DATES &amp; STAY</th>
                 <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">FOLIO CHARGES</th>
                 <th className="py-2.5 px-3 text-right w-44">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
+            <tbody className="text-slate-700 dark:text-slate-200">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
@@ -226,15 +225,15 @@ export default function InHouseGuestsPage() {
                   return (
                     <tr
                       key={b.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
                       {/* # Number */}
-                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                         {(safeCurrentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Room & Suite */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-[#0B3D32] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-[3px] border border-emerald-200 dark:border-emerald-800 text-xs inline-block">
                             Room {b.room.number}
@@ -247,7 +246,7 @@ export default function InHouseGuestsPage() {
                       </td>
 
                       {/* Guest & VIP */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                           <span>
                             {b.guest.firstName} {b.guest.lastName}
@@ -272,7 +271,7 @@ export default function InHouseGuestsPage() {
                       </td>
 
                       {/* Contact */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="flex items-center gap-1 text-[11px] text-slate-700 dark:text-slate-300">
                           <Phone className="w-3 h-3 text-slate-400 shrink-0" />
                           <span>{b.guest.phone || 'N/A'}</span>
@@ -286,7 +285,7 @@ export default function InHouseGuestsPage() {
                       </td>
 
                       {/* Dates & Stay */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-medium text-slate-900 dark:text-white text-xs">
                           <span>{b.checkIn}</span>
                           <span className="text-slate-400 mx-1">→</span>
@@ -310,7 +309,7 @@ export default function InHouseGuestsPage() {
                       </td>
 
                       {/* Folio Charges & Balance */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-bold text-slate-900 dark:text-white text-xs">
                           Rs. {fin.totalCharges.toLocaleString()}
                         </div>
