@@ -25,6 +25,7 @@ export const MASTERS_STORAGE_KEYS = {
   bookingAgents: 'hotel_booking_agents_master',
   units: 'hotel_units_master',
   items: 'hotel_master_item-setup',
+  productCategories: 'hotel_master_product-categories-setup',
 } as const;
 
 export type MasterType = keyof typeof MASTERS_STORAGE_KEYS;
@@ -146,6 +147,15 @@ export const DEFAULT_HOTEL_ITEMS: SimpleMasterItem[] = [
   { id: 'itm-8', code: 'HK-CLEAN', name: 'Multi-Surface Disinfectant Cleaner (5L)', category: 'Housekeeping & Supplies', unit: 'can', basePrice: 650, trackStock: true, stock: 15, order: 8, isActive: true },
 ];
 
+export const DEFAULT_PRODUCT_CATEGORIES: SimpleMasterItem[] = [
+  { id: 'pcat-1', code: 'CD', name: 'Cold Drinks', description: 'Bottled, canned, and ready cold beverages', order: 1, isDefault: true, isActive: true },
+  { id: 'pcat-2', code: 'RM', name: 'Raw Materials', description: 'Kitchen and bar raw ingredients and supplies', order: 2, isActive: true },
+  { id: 'pcat-3', code: 'BEV', name: 'Beverages', description: 'Hot and cold beverages, juices, and drinks', order: 3, isActive: true },
+  { id: 'pcat-4', code: 'SNK', name: 'Snacks & Food', description: 'Packaged snacks, confectionery, and edible goods', order: 4, isActive: true },
+  { id: 'pcat-5', code: 'AMN', name: 'Guest Amenities', description: 'In-room guest amenities, supplies, and kits', order: 5, isActive: true },
+  { id: 'pcat-6', code: 'HK', name: 'Housekeeping & Supplies', description: 'Cleaning, laundry, and hygiene supplies', order: 6, isActive: true },
+];
+
 const DEFAULT_MAP: Record<MasterType, SimpleMasterItem[]> = {
   relationships: DEFAULT_RELATIONSHIPS,
   idDocumentTypes: DEFAULT_ID_DOCUMENT_TYPES,
@@ -154,6 +164,7 @@ const DEFAULT_MAP: Record<MasterType, SimpleMasterItem[]> = {
   bookingAgents: DEFAULT_BOOKING_AGENTS,
   units: DEFAULT_UNITS,
   items: DEFAULT_HOTEL_ITEMS,
+  productCategories: DEFAULT_PRODUCT_CATEGORIES,
 };
 
 export function getMasterItems(type: MasterType): SimpleMasterItem[] {
@@ -163,6 +174,22 @@ export function getMasterItems(type: MasterType): SimpleMasterItem[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    if (type === 'productCategories') {
+      const catRaw =
+        localStorage.getItem('hotel_master_product-categories-setup') ||
+        localStorage.getItem('hotel_master_item-categories-setup');
+      if (catRaw) {
+        const parsedCat = JSON.parse(catRaw);
+        if (Array.isArray(parsedCat) && parsedCat.length > 0) return parsedCat;
+      }
+    }
+    if (type === 'items') {
+      const prodRaw = localStorage.getItem('hotel_master_product-setup');
+      if (prodRaw) {
+        const parsedProd = JSON.parse(prodRaw);
+        if (Array.isArray(parsedProd) && parsedProd.length > 0) return parsedProd;
+      }
     }
     if (type === 'units') {
       const restRaw = localStorage.getItem('restaurant_setup_units');
@@ -181,6 +208,13 @@ export function saveMasterItems(type: MasterType, items: SimpleMasterItem[]): vo
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(MASTERS_STORAGE_KEYS[type], JSON.stringify(items));
+    if (type === 'items') {
+      localStorage.setItem('hotel_master_product-setup', JSON.stringify(items));
+    }
+    if (type === 'productCategories') {
+      localStorage.setItem('hotel_master_product-categories-setup', JSON.stringify(items));
+      localStorage.setItem('hotel_master_item-categories-setup', JSON.stringify(items));
+    }
     window.dispatchEvent(new CustomEvent(MASTERS_UPDATED_EVENT, { detail: { type, items } }));
     window.dispatchEvent(new Event('hotel_relationships_master_updated'));
   } catch (err) {

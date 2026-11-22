@@ -313,9 +313,6 @@ export function KitchenKDSView() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
               Kitchen Display
             </h1>
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
-              {orders.length} Active
-            </span>
           </div>
         </div>
 
@@ -461,7 +458,7 @@ export function KitchenKDSView() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search ticket, table, waiter, dish..."
+              placeholder=""
               className="w-full h-[30px] pl-8 pr-7 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
             />
             {searchQuery && (
@@ -492,19 +489,19 @@ export function KitchenKDSView() {
         /* -----------------------------------------------------------------------
            TABLE FORM (With dedicated Note / Remarks Column & Zero Reservation Junk)
            ----------------------------------------------------------------------- */
-        <div className="border border-slate-200/80 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
+        <div className="border border-slate-200 dark:border-slate-700/60 rounded overflow-hidden bg-white dark:bg-slate-850 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
               <thead>
-                <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  <th className="py-3 px-3 w-12 text-center">#</th>
-                  <th className="py-3 px-3 w-32">KOT / Ticket</th>
-                  <th className="py-3 px-3 w-32">Destination</th>
-                  <th className="py-3 px-4 min-w-[200px]">Ordered Items</th>
-                  <th className="py-3 px-4 min-w-[220px]">Note / Remarks</th>
-                  <th className="py-3 px-3 w-28">Waiter / Server</th>
-                  <th className="py-3 px-3 w-24 text-center">Status</th>
-                  <th className="py-3 px-4 w-48 text-right">Actions</th>
+                <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-t border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 select-none">
+                  <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                  <th className="py-2.5 px-3 w-32 border-r border-slate-200 dark:border-slate-700">KOT / Ticket</th>
+                  <th className="py-2.5 px-3 w-32 border-r border-slate-200 dark:border-slate-700">Destination</th>
+                  <th className="py-2.5 px-4 min-w-[220px] border-r border-slate-200 dark:border-slate-700">Ordered Items</th>
+                  <th className="py-2.5 px-4 min-w-[220px] border-r border-slate-200 dark:border-slate-700">Note / Remarks</th>
+                  <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700">Waiter / Server</th>
+                  <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700 text-center">Status</th>
+                  <th className="py-2.5 px-4 w-48 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -538,54 +535,51 @@ export function KitchenKDSView() {
                   return (
                     <tr
                       key={ord.id}
-                      className={cn(
-                        'hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors',
-                        isReceived && 'bg-amber-50/20 dark:bg-amber-950/10'
-                      )}
+                      className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors even:bg-slate-50/30 dark:even:bg-slate-900/10"
                     >
                       {/* 1. Index */}
-                      <td className="py-3 px-3 text-center font-mono text-slate-400 dark:text-slate-500 text-[11px]">
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-400 dark:text-slate-500 text-[11px] border-r border-slate-200 dark:border-slate-700 align-middle">
                         {startIndex + idx + 1}
                       </td>
 
                       {/* 2. Ticket / KOT */}
-                      <td className="py-3 px-3">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         <div className="font-mono font-bold text-slate-900 dark:text-white text-xs">
                           {ord.kotNumber || ord.orderNumber}
                         </div>
-                        <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 font-mono">
                           <Clock className="w-3 h-3 text-slate-400" />
                           <span>{orderTime}</span>
                         </div>
                       </td>
 
-                      {/* 3. Destination */}
-                      <td className="py-3 px-3">
+                      {/* 3. Destination - Clean text, no rounded dark box */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         {tableNum ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#0B3D32] text-white font-mono font-bold text-[11px] shadow-2xs">
-                            <Table2 className="w-3.5 h-3.5" />
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Table2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <span>Table {tableNum}</span>
                           </span>
                         ) : roomNum ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-600 text-white font-mono font-bold text-[11px] shadow-2xs">
-                            <BedDouble className="w-3.5 h-3.5" />
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <BedDouble className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                             <span>Room {roomNum}</span>
                           </span>
                         ) : ord.orderType === 'TAKEAWAY' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-600 text-white font-mono font-bold text-[11px] shadow-2xs">
-                            <ShoppingBag className="w-3.5 h-3.5" />
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <ShoppingBag className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
                             <span>Takeaway</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-700 text-white font-mono font-bold text-[11px] shadow-2xs">
-                            <Armchair className="w-3.5 h-3.5" />
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Armchair className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
                             <span>Walk-In</span>
                           </span>
                         )}
                       </td>
 
                       {/* 4. Ordered Items Preview */}
-                      <td className="py-3 px-4">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         {(ord.items || []).length === 0 ? (
                           <span className="text-slate-400 italic text-[11px]">No items punched yet</span>
                         ) : (
@@ -596,18 +590,18 @@ export function KitchenKDSView() {
                                 <div key={item.id || itemIdx} className="flex items-center gap-1.5 text-xs">
                                   <span
                                     className={cn(
-                                      'font-bold font-mono text-[11px] px-1.5 py-0.2 rounded border',
+                                      'font-bold font-mono text-xs',
                                       isChecked
-                                        ? 'bg-slate-100 text-slate-400 border-slate-200'
-                                        : 'bg-emerald-50 text-emerald-800 border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                                        ? 'text-slate-400'
+                                        : 'text-emerald-700 dark:text-emerald-400'
                                     )}
                                   >
                                     {item.quantity}x
                                   </span>
                                   <span
                                     className={cn(
-                                      'font-medium text-slate-900 dark:text-slate-100',
-                                      isChecked && 'line-through text-slate-400'
+                                      'font-medium text-slate-800 dark:text-slate-200',
+                                      isChecked && 'line-through text-slate-400 dark:text-slate-500'
                                     )}
                                   >
                                     {item.productName}
@@ -624,30 +618,27 @@ export function KitchenKDSView() {
                         )}
                       </td>
 
-                      {/* 5. Note / Remarks Column (What was entered while taking order: "please make little bit spicy", "salt less") */}
-                      <td className="py-3 px-4">
+                      {/* 5. Note / Remarks Column */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         {hasRemarks ? (
-                          <div className="space-y-1.5 max-w-xs">
+                          <div className="space-y-1 max-w-xs">
                             {/* Item-level Remarks */}
                             {itemRemarks.map((ir, rIdx) => (
                               <div
                                 key={rIdx}
-                                className="text-[11px] font-medium text-amber-900 dark:text-amber-200 bg-amber-50/90 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200/80 dark:border-amber-900/60 leading-snug flex items-start gap-1"
+                                className="text-xs text-amber-700 dark:text-amber-300 leading-snug flex items-start gap-1"
                               >
-                                <MessageSquare className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                <div>
-                                  <strong className="text-amber-950 dark:text-amber-100 mr-1">
-                                    {ir.productName}:
-                                  </strong>
-                                  <span>{ir.remark}</span>
-                                </div>
+                                <span className="font-semibold text-amber-900 dark:text-amber-200">
+                                  {ir.productName}:
+                                </span>
+                                <span>{ir.remark}</span>
                               </div>
                             ))}
 
                             {/* Overall Culinary Order Note */}
                             {cleanOrderNote && (
-                              <div className="text-[11px] font-medium text-amber-900 dark:text-amber-200 bg-amber-50/90 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200/80 dark:border-amber-900/60 leading-snug flex items-start gap-1">
-                                <span className="font-bold text-amber-950 dark:text-amber-100 mr-1">
+                              <div className="text-xs text-amber-700 dark:text-amber-300 leading-snug flex items-start gap-1">
+                                <span className="font-semibold text-amber-900 dark:text-amber-200">
                                   Order Note:
                                 </span>
                                 <span>{cleanOrderNote}</span>
@@ -662,43 +653,48 @@ export function KitchenKDSView() {
                       </td>
 
                       {/* 6. Waiter / Server */}
-                      <td className="py-3 px-3">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                           {ord.serverName || 'Staff'}
                         </span>
                       </td>
 
-                      {/* 7. Status Badge */}
-                      <td className="py-3 px-3 text-center">
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider',
-                            isReceived
-                              ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-200 dark:border-amber-900/60'
-                              : isPreparing
-                              ? 'bg-sky-100 text-sky-900 dark:bg-sky-950/60 dark:text-sky-200 border border-sky-200 dark:border-sky-900/60'
-                              : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-900/60'
+                      {/* 7. Status */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <div className="inline-flex items-center gap-1.5 text-xs font-medium">
+                          {isReceived && (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span className="text-amber-700 dark:text-amber-400">Received</span>
+                            </>
                           )}
-                        >
-                          {isReceived && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />}
-                          {isPreparing && <Flame className="w-3 h-3 text-sky-600 dark:text-sky-400" />}
-                          {isReady && <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
-                          <span>{isReceived ? 'Received' : isPreparing ? 'Cooking' : 'Ready'}</span>
-                        </span>
+                          {isPreparing && (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                              <span className="text-sky-700 dark:text-sky-400">Cooking</span>
+                            </>
+                          )}
+                          {isReady && (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span className="text-emerald-700 dark:text-emerald-400">Ready</span>
+                            </>
+                          )}
+                        </div>
                       </td>
 
-                      {/* 9. Action Buttons */}
-                      <td className="py-3 px-4 text-right">
+                      {/* 8. Action Buttons */}
+                      <td className="py-2.5 px-3 text-right align-middle">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* View Items Button */}
                           <button
                             type="button"
                             onClick={() => setActiveModalOrder(ord)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium shadow-2xs transition-colors cursor-pointer"
                             title="View all items and notes"
                           >
                             <Eye className="w-3.5 h-3.5 text-slate-500" />
-                            <span>View Items</span>
+                            <span>View</span>
                           </button>
 
                           {/* Progression Action */}
@@ -707,10 +703,10 @@ export function KitchenKDSView() {
                               type="button"
                               disabled={isBusy}
                               onClick={() => handleUpdateStatus(ord.id, 'PREPARING')}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-medium shadow-2xs transition-colors cursor-pointer"
                             >
                               <Flame className="w-3.5 h-3.5" />
-                              <span>{isBusy ? 'Updating...' : 'Start Cooking'}</span>
+                              <span>{isBusy ? 'Updating...' : 'Start'}</span>
                             </button>
                           )}
 
@@ -719,10 +715,10 @@ export function KitchenKDSView() {
                               type="button"
                               disabled={isBusy}
                               onClick={() => handleUpdateStatus(ord.id, 'READY')}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-medium shadow-2xs transition-colors cursor-pointer"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>{isBusy ? 'Updating...' : 'Mark Ready'}</span>
+                              <span>{isBusy ? 'Updating...' : 'Ready'}</span>
                             </button>
                           )}
 
@@ -731,10 +727,10 @@ export function KitchenKDSView() {
                               type="button"
                               disabled={isBusy}
                               onClick={() => handleUpdateStatus(ord.id, 'SERVED')}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B3D32] hover:bg-[#093027] disabled:opacity-50 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0B3D32] hover:bg-[#093027] disabled:opacity-50 text-white text-xs font-medium shadow-2xs transition-colors cursor-pointer"
                             >
                               <UtensilsCrossed className="w-3.5 h-3.5" />
-                              <span>{isBusy ? 'Updating...' : 'Mark Served'}</span>
+                              <span>{isBusy ? 'Updating...' : 'Served'}</span>
                             </button>
                           )}
                         </div>

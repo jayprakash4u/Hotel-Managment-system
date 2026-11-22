@@ -21,6 +21,8 @@ import {
   Scale,
   ShieldCheck,
   PieChart,
+  Boxes,
+  BadgeDollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -35,22 +37,37 @@ export interface AccountSubOption {
 }
 
 export const ACCOUNTS_SUB_OPTIONS: AccountSubOption[] = [
+  // 1. Core General Ledger & Books of Account
   { id: 'chart-of-accounts', name: 'Chart of Accounts', href: '/accounts?tab=chart-of-accounts', icon: BookOpen, iconColor: 'text-emerald-600 dark:text-emerald-400', tag: 'GL' },
   { id: 'journal-entries', name: 'Journal Entries', href: '/accounts?tab=journal-entries', icon: FileText, iconColor: 'text-blue-600 dark:text-blue-400', tag: 'JOURNAL' },
   { id: 'general-ledger', name: 'General Ledger', href: '/accounts?tab=general-ledger', icon: Book, iconColor: 'text-indigo-600 dark:text-indigo-400', tag: 'LEDGER' },
   { id: 'trial-balance', name: 'Trial Balance', href: '/accounts?tab=trial-balance', icon: Calculator, iconColor: 'text-violet-600 dark:text-violet-400', tag: 'BALANCE' },
+
+  // 2. Sales & Receivables (AR)
   { id: 'sales-transactions', name: 'Sales Transactions', href: '/accounts?tab=sales-transactions', icon: TrendingUp, iconColor: 'text-green-600 dark:text-green-400', tag: 'SALES' },
   { id: 'customer-ledger', name: 'Customer Ledger', href: '/accounts?tab=customer-ledger', icon: Users, iconColor: 'text-teal-600 dark:text-teal-400', tag: 'AR' },
+
+  // 3. Purchases, Payables & Inventory
   { id: 'purchase-transactions', name: 'Purchase Transactions', href: '/accounts?tab=purchase-transactions', icon: Truck, iconColor: 'text-orange-600 dark:text-orange-400', tag: 'PURCHASES' },
   { id: 'supplier-ledger', name: 'Supplier Ledger', href: '/accounts?tab=supplier-ledger', icon: Truck, iconColor: 'text-amber-600 dark:text-amber-400', tag: 'AP' },
+  { id: 'product-ledger', name: 'Product Ledger', href: '/accounts?tab=product-ledger', icon: Boxes, iconColor: 'text-sky-600 dark:text-sky-400', tag: 'STOCK LEDGER' },
+  { id: 'inventory-valuation', name: 'Inventory Valuation', href: '/accounts?tab=inventory-valuation', icon: BadgeDollarSign, iconColor: 'text-amber-600 dark:text-amber-400', tag: 'VALUATION' },
+
+  // 4. Cash, Banking & Treasury
   { id: 'cash-accounts', name: 'Cash Accounts', href: '/accounts?tab=cash-accounts', icon: Wallet, iconColor: 'text-emerald-600 dark:text-emerald-400', tag: 'CASH' },
   { id: 'bank-accounts', name: 'Bank & Wallet Accounts', href: '/accounts?tab=bank-accounts', icon: Landmark, iconColor: 'text-blue-600 dark:text-blue-400', tag: 'BANK & WALLET' },
   { id: 'bank-reconciliation', name: 'Bank Reconciliation', href: '/accounts?tab=bank-reconciliation', icon: Receipt, iconColor: 'text-cyan-600 dark:text-cyan-400', tag: 'RECON' },
+
+  // 5. Operating Income & Expenses
   { id: 'income', name: 'Income', href: '/accounts?tab=income', icon: TrendingUp, iconColor: 'text-green-600 dark:text-green-400', tag: 'INCOME' },
   { id: 'expenses', name: 'Expenses', href: '/accounts?tab=expenses', icon: TrendingDown, iconColor: 'text-rose-600 dark:text-rose-400', tag: 'EXPENSES' },
+
+  // 6. Fixed Assets, Liabilities & Taxes
   { id: 'fixed-assets', name: 'Fixed Assets', href: '/accounts?tab=fixed-assets', icon: Building2, iconColor: 'text-slate-600 dark:text-slate-400', tag: 'ASSETS' },
   { id: 'liabilities', name: 'Liabilities', href: '/accounts?tab=liabilities', icon: Receipt, iconColor: 'text-red-600 dark:text-red-400', tag: 'LIAB' },
   { id: 'tax-management', name: 'Tax Management', href: '/accounts?tab=tax-management', icon: ShieldCheck, iconColor: 'text-purple-600 dark:text-purple-400', tag: 'TAX' },
+
+  // 7. Financial Statements & Final Reports
   { id: 'profit-loss', name: 'Profit & Loss', href: '/accounts?tab=profit-loss', icon: BarChart3, iconColor: 'text-indigo-600 dark:text-indigo-400', tag: 'P&L' },
   { id: 'balance-sheet', name: 'Balance Sheet', href: '/accounts?tab=balance-sheet', icon: Scale, iconColor: 'text-blue-600 dark:text-blue-400', tag: 'BS' },
   { id: 'cash-flow', name: 'Cash Flow', href: '/accounts?tab=cash-flow', icon: Landmark, iconColor: 'text-cyan-600 dark:text-cyan-400', tag: 'CF' },

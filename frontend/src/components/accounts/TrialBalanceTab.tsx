@@ -364,23 +364,23 @@ export default function TrialBalanceTab() {
       {/* 4. Trial Balance Table */}
       <div className="rounded-[3px] border border-slate-200 bg-white overflow-hidden shadow-2xs dark:border-slate-800 dark:bg-slate-900/50">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                <th className="py-3 px-3 w-10 text-center border-r border-slate-200/70 dark:border-slate-800">#</th>
-                <th className="py-3 px-3 w-28 border-r border-slate-200/70 dark:border-slate-800">ACCOUNT CODE</th>
-                <th className="py-3 px-3 min-w-[220px] border-r border-slate-200/70 dark:border-slate-800">ACCOUNT NAME</th>
-                <th className="py-3 px-3 w-24 border-r border-slate-200/70 dark:border-slate-800">CATEGORY</th>
-                <th className="py-3 px-3 text-right w-24 border-r border-slate-200/70 dark:border-slate-800">OPEN DR</th>
-                <th className="py-3 px-3 text-right w-24 border-r border-slate-200/70 dark:border-slate-800">OPEN CR</th>
-                <th className="py-3 px-3 text-right w-28 border-r border-slate-200/70 dark:border-slate-800">PERIOD DR</th>
-                <th className="py-3 px-3 text-right w-28 border-r border-slate-200/70 dark:border-slate-800">PERIOD CR</th>
-                <th className="py-3 px-3 text-right w-28 border-r border-slate-200/70 dark:border-slate-800">CLOSING DR</th>
-                <th className="py-3 px-3 text-right w-28 border-r border-slate-200/70 dark:border-slate-800">CLOSING CR</th>
-                <th className="py-3 px-3 text-center w-20">ACTION</th>
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700">ACCOUNT CODE</th>
+                <th className="py-2.5 px-3 min-w-[220px] border-r border-slate-200 dark:border-slate-700">ACCOUNT NAME</th>
+                <th className="py-2.5 px-3 w-24 border-r border-slate-200 dark:border-slate-700">CATEGORY</th>
+                <th className="py-2.5 px-3 text-right w-24 border-r border-slate-200 dark:border-slate-700">OPEN DR</th>
+                <th className="py-2.5 px-3 text-right w-24 border-r border-slate-200 dark:border-slate-700">OPEN CR</th>
+                <th className="py-2.5 px-3 text-right w-28 border-r border-slate-200 dark:border-slate-700">PERIOD DR</th>
+                <th className="py-2.5 px-3 text-right w-28 border-r border-slate-200 dark:border-slate-700">PERIOD CR</th>
+                <th className="py-2.5 px-3 text-right w-28 border-r border-slate-200 dark:border-slate-700">CLOSING DR</th>
+                <th className="py-2.5 px-3 text-right w-28 border-r border-slate-200 dark:border-slate-700">CLOSING CR</th>
+                <th className="py-2.5 px-3 text-center w-20">ACTION</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
               {loading ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-slate-400">
@@ -400,12 +400,12 @@ export default function TrialBalanceTab() {
                 paginatedAccounts.map((acc, idx) => (
                   <tr
                     key={acc.accountId}
-                    className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                    className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                   >
-                    <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                       {(safeCurrentPage - 1) * pageSize + idx + 1}
                     </td>
-                    <td className="py-2.5 px-3 font-mono font-bold whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 font-mono font-bold whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       <button
                         type="button"
                         onClick={() => navigateToAccountLedger(acc.accountId)}
@@ -415,30 +415,30 @@ export default function TrialBalanceTab() {
                         {acc.accountCode}
                       </button>
                     </td>
-                    <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                       {acc.accountName}
                     </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
-                      <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                      <span className="font-medium text-slate-700 dark:text-slate-300">
                         {acc.accountType}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                       {acc.openingDebit > 0 ? formatCurrency(acc.openingDebit) : '—'}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                       {acc.openingCredit > 0 ? formatCurrency(acc.openingCredit) : '—'}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 dark:text-sky-300 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 dark:text-sky-300 border-r border-slate-200 dark:border-slate-700/60">
                       {acc.periodDebit > 0 ? formatCurrency(acc.periodDebit) : '—'}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 dark:text-amber-300 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 dark:text-amber-300 border-r border-slate-200 dark:border-slate-700/60">
                       {acc.periodCredit > 0 ? formatCurrency(acc.periodCredit) : '—'}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-950 dark:text-sky-200 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-950 dark:text-sky-200 border-r border-slate-200 dark:border-slate-700/60">
                       {acc.closingDebit > 0 ? formatCurrency(acc.closingDebit) : '—'}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-950 dark:text-amber-200 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-950 dark:text-amber-200 border-r border-slate-200 dark:border-slate-700/60">
                       {acc.closingCredit > 0 ? formatCurrency(acc.closingCredit) : '—'}
                     </td>
                     <td className="py-2.5 px-3 text-center">

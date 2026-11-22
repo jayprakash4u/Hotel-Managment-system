@@ -27,6 +27,8 @@ import BalanceSheetTab from '@/components/accounts/BalanceSheetTab';
 import CashFlowStatementTab from '@/components/accounts/CashFlowStatementTab';
 import FinancialSummaryTab from '@/components/accounts/FinancialSummaryTab';
 import TaxManagementTab from '@/components/accounts/TaxManagementTab';
+import ProductLedgerTab from '@/components/accounts/ProductLedgerTab';
+import InventoryValuationTab from '@/components/accounts/InventoryValuationTab';
 
 function AccountsContent() {
   const searchParams = useSearchParams();
@@ -52,12 +54,24 @@ function AccountsContent() {
     return <SalesTransactionsTab />;
   }
 
+  if (currentTab === 'customer-ledger') {
+    return <CustomerLedgerAccountsTab />;
+  }
+
   if (currentTab === 'purchase-transactions') {
     return <PurchaseTransactionsTab />;
   }
 
   if (currentTab === 'supplier-ledger') {
     return <SupplierLedgerAccountsTab />;
+  }
+
+  if (currentTab === 'product-ledger') {
+    return <ProductLedgerTab />;
+  }
+
+  if (currentTab === 'inventory-valuation') {
+    return <InventoryValuationTab />;
   }
 
   if (currentTab === 'cash-accounts') {
@@ -88,6 +102,10 @@ function AccountsContent() {
     return <LiabilitiesTab />;
   }
 
+  if (currentTab === 'tax-management' || currentTab === 'tax') {
+    return <TaxManagementTab />;
+  }
+
   if (currentTab === 'profit-loss') {
     return <ProfitAndLossTab />;
   }
@@ -102,14 +120,6 @@ function AccountsContent() {
 
   if (currentTab === 'financial-summary') {
     return <FinancialSummaryTab />;
-  }
-
-  if (currentTab === 'tax-management' || currentTab === 'tax') {
-    return <TaxManagementTab />;
-  }
-
-  if (currentTab === 'customer-ledger') {
-    return <CustomerLedgerAccountsTab />;
   }
 
   return (

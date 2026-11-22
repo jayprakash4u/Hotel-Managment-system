@@ -496,14 +496,53 @@ export const api = {
     return fetcher<any[]>(`/api/restaurant/tables/${id}/history`);
   },
 
-  getRestaurantOrders: (params?: { outlet?: string; status?: string; tableId?: string; orderType?: string; activeOnly?: boolean; search?: string }) => {
+  getRestaurantOrders: (params?: {
+    outlet?: string;
+    status?: string;
+    tableId?: string;
+    tableNumber?: string;
+    roomId?: string;
+    orderType?: string;
+    activeOnly?: boolean;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    isPaid?: boolean;
+    paymentStatus?: string;
+    serverName?: string;
+    customerPhone?: string;
+  }) => {
     const query = new URLSearchParams(
       Object.entries(params || {}).reduce((acc, [k, v]) => {
         if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
         return acc;
       }, {} as Record<string, string>)
     ).toString();
-    return fetcher<any[]>(`/api/restaurant/orders?${query}`);
+    return fetcher<import('./types').ActiveRestaurantOrderData[]>(`/api/restaurant/orders?${query}`);
+  },
+
+  getRestaurantOrderMetrics: (params?: {
+    startDate?: string;
+    endDate?: string;
+    outlet?: string;
+  }) => {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    return fetcher<{
+      totalOrders: number;
+      pendingOrders: number;
+      preparingOrders: number;
+      readyOrders: number;
+      servedOrders: number;
+      completedOrders: number;
+      cancelledOrders: number;
+      salesTotal: number;
+      unpaidValue: number;
+    }>(`/api/restaurant/orders/metrics?${query}`);
   },
 
   getRestaurantOrderById: (id: string) => {
@@ -1122,6 +1161,7 @@ export const api = {
     department?: string;
     itemId?: string;
     movementType?: string;
+    category?: string;
     fromDate?: string;
     toDate?: string;
     search?: string;
@@ -1130,10 +1170,31 @@ export const api = {
     if (params?.department) query.append('department', params.department);
     if (params?.itemId) query.append('itemId', params.itemId);
     if (params?.movementType) query.append('movementType', params.movementType);
+    if (params?.category) query.append('category', params.category);
     if (params?.fromDate) query.append('fromDate', params.fromDate);
     if (params?.toDate) query.append('toDate', params.toDate);
     if (params?.search) query.append('search', params.search);
     return fetcher<import('./types').StockMovementLedgerRecord[]>(`/api/inventory/movements?${query.toString()}`);
+  },
+
+  getStockMovementsSummary: (params?: {
+    department?: string;
+    itemId?: string;
+    movementType?: string;
+    category?: string;
+    fromDate?: string;
+    toDate?: string;
+    search?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.department) query.append('department', params.department);
+    if (params?.itemId) query.append('itemId', params.itemId);
+    if (params?.movementType) query.append('movementType', params.movementType);
+    if (params?.category) query.append('category', params.category);
+    if (params?.fromDate) query.append('fromDate', params.fromDate);
+    if (params?.toDate) query.append('toDate', params.toDate);
+    if (params?.search) query.append('search', params.search);
+    return fetcher<import('./types').StockMovementSummary>(`/api/inventory/movements/summary?${query.toString()}`);
   },
 
   // Stock Adjustment
@@ -1142,6 +1203,7 @@ export const api = {
     adjustmentType: string;
     quantity: number;
     reason?: string;
+    notes?: string;
     performedBy?: string;
   }) => {
     return fetcher<{
@@ -1149,6 +1211,69 @@ export const api = {
       movement: any;
       referenceNumber: string;
     }>('/api/inventory/adjustments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getStockAdjustments: (params?: {
+    department?: string;
+    adjustmentType?: string;
+    reason?: string;
+    search?: string;
+    fromDate?: string;
+    toDate?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.department) query.append('department', params.department);
+    if (params?.adjustmentType) query.append('adjustmentType', params.adjustmentType);
+    if (params?.reason) query.append('reason', params.reason);
+    if (params?.search) query.append('search', params.search);
+    if (params?.fromDate) query.append('fromDate', params.fromDate);
+    if (params?.toDate) query.append('toDate', params.toDate);
+    if (params?.page) query.append('page', String(params.page));
+    if (params?.pageSize) query.append('pageSize', String(params.pageSize));
+
+    const qs = query.toString();
+    return fetcher<{
+      data: import('./types').StockAdjustmentRecord[];
+      totalEntries: number;
+      page: number;
+      pageSize: number;
+      summary: import('./types').StockAdjustmentSummary;
+    }>(`/api/inventory/stock-adjustments${qs ? `?${qs}` : ''}`);
+  },
+
+  getStockAdjustmentSummary: (params?: {
+    department?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.department) query.append('department', params.department);
+    if (params?.fromDate) query.append('fromDate', params.fromDate);
+    if (params?.toDate) query.append('toDate', params.toDate);
+
+    const qs = query.toString();
+    return fetcher<import('./types').StockAdjustmentSummary>(
+      `/api/inventory/stock-adjustments/summary${qs ? `?${qs}` : ''}`
+    );
+  },
+
+  getStockAdjustmentById: (id: string) => {
+    return fetcher<{
+      adjustment: import('./types').StockAdjustmentRecord;
+      movements: any[];
+    }>(`/api/inventory/stock-adjustments/${id}`);
+  },
+
+  createStockAdjustment: (data: import('./types').CreateStockAdjustmentRequest) => {
+    return fetcher<{
+      adjustment: import('./types').StockAdjustmentRecord;
+      items: any[];
+    }>('/api/inventory/stock-adjustments', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1526,6 +1651,49 @@ export const api = {
     if (params?.search) q.append('search', params.search);
     const qs = q.toString() ? `?${q.toString()}` : '';
     return fetcher<import('./types').TrialBalanceReport>(`/api/accounts/trial-balance${qs}`);
+  },
+
+  // Product Ledger & Inventory Valuation (Accounts & Inventory Integration)
+  getProductLedger: (params?: {
+    itemId?: string;
+    category?: string;
+    department?: string;
+    transactionType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    costingMethod?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.itemId) q.append('itemId', params.itemId);
+    if (params?.category) q.append('category', params.category);
+    if (params?.department) q.append('department', params.department);
+    if (params?.transactionType) q.append('transactionType', params.transactionType);
+    if (params?.dateFrom) q.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.append('dateTo', params.dateTo);
+    if (params?.search) q.append('search', params.search);
+    if (params?.costingMethod) q.append('costingMethod', params.costingMethod);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').ProductLedgerResponse>(`/api/accounts/product-ledger${qs}`);
+  },
+
+  getInventoryValuation: (params?: {
+    asOfDate?: string;
+    category?: string;
+    department?: string;
+    stockStatus?: string;
+    search?: string;
+    costingMethod?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.asOfDate) q.append('asOfDate', params.asOfDate);
+    if (params?.category) q.append('category', params.category);
+    if (params?.department) q.append('department', params.department);
+    if (params?.stockStatus) q.append('stockStatus', params.stockStatus);
+    if (params?.search) q.append('search', params.search);
+    if (params?.costingMethod) q.append('costingMethod', params.costingMethod);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetcher<import('./types').InventoryValuationResponse>(`/api/accounts/inventory-valuation${qs}`);
   },
 
   // Sales Transactions Management Module (Shared / Accounts)

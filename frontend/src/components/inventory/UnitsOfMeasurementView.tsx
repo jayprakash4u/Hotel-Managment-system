@@ -73,40 +73,40 @@ export const UnitsOfMeasurementView: React.FC<UnitsOfMeasurementViewProps> = ({ 
       </div>
 
       {/* Conversion Matrix Table */}
-      <div className="bg-white dark:bg-[#071F1A] rounded-lg border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-[3px] border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
+        <div className="overflow-x-auto border-t border-slate-200 dark:border-slate-700">
           <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="bg-slate-100/90 dark:bg-slate-900/60 border-b border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px]">
-                <th className="py-2.5 px-3">Stock Unit</th>
-                <th className="py-2.5 px-3">Standard Purchase Package</th>
-                <th className="py-2.5 px-3">Conversion Factor</th>
-                <th className="py-2.5 px-3">Items Configured</th>
-                <th className="py-2.5 px-3">Sample Products</th>
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-[11px] select-none">
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Stock Unit</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Standard Purchase Package</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Conversion Factor</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 text-center">Items Configured</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Sample Products</th>
                 <th className="py-2.5 px-3">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+            <tbody className="text-slate-700 dark:text-slate-300">
               {unitStats.map((u) => (
-                <tr key={u.unit} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                  <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white capitalize">
+                <tr key={u.unit} className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                  <td className="py-2 px-3 font-bold text-slate-900 dark:text-white capitalize border-r border-slate-200 dark:border-slate-700/60">
                     {u.unit}
                   </td>
-                  <td className="py-2.5 px-3 capitalize font-semibold text-indigo-700 dark:text-indigo-400">
+                  <td className="py-2 px-3 capitalize font-semibold text-indigo-700 dark:text-indigo-400 border-r border-slate-200 dark:border-slate-700/60">
                     1 {u.defaultPurchaseUnit}
                   </td>
-                  <td className="py-2.5 px-3 font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                  <td className="py-2 px-3 font-mono font-bold text-emerald-700 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
                     1 {u.defaultPurchaseUnit} = {u.defaultFactor} {u.unit}
                   </td>
-                  <td className="py-2.5 px-3 font-mono">
+                  <td className="py-2 px-3 font-mono text-center border-r border-slate-200 dark:border-slate-700/60">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                       {u.itemsCount} items
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400 text-[11px] max-w-[200px] truncate" title={u.sampleItems}>
+                  <td className="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] max-w-[200px] truncate border-r border-slate-200 dark:border-slate-700/60" title={u.sampleItems}>
                     {u.sampleItems || '—'}
                   </td>
-                  <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
+                  <td className="py-2 px-3 text-slate-500 dark:text-slate-400">
                     {u.description}
                   </td>
                 </tr>

@@ -902,21 +902,21 @@ export default function BankAndWalletAccountsTab() {
       {viewMode === 'LIST' ? (
         activeTab === 'BANK' ? (
           /* ======================== BANK ACCOUNTS TAB TABLE ======================== */
-          <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-[#071F1A] border border-slate-300 dark:border-slate-700 rounded-[3px] shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
+              <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+                <thead className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
                   <tr>
-                    <th className="px-3 py-2.5">Account Name</th>
-                    <th className="px-3 py-2.5">Bank Name</th>
-                    <th className="px-3 py-2.5">Account Number</th>
-                    <th className="px-3 py-2.5">Branch</th>
-                    <th className="px-3 py-2.5 text-right">Current Balance</th>
-                    <th className="px-3 py-2.5 text-center">Status</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Account Name</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Bank Name</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Account Number</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Branch</th>
+                    <th className="px-3 py-2.5 text-right border-r border-slate-200 dark:border-slate-700">Current Balance</th>
+                    <th className="px-3 py-2.5 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                     <th className="px-3 py-2.5 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                <tbody className="divide-y-0">
                   {loading ? (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-slate-400">
@@ -933,76 +933,75 @@ export default function BankAndWalletAccountsTab() {
                     paginatedBankAccounts.map((acc) => (
                       <tr
                         key={acc.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
+                        className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                       >
-                        <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-white flex items-center gap-2 border-r border-slate-200 dark:border-slate-700/60">
                           <Landmark className="w-3.5 h-3.5 text-blue-600 shrink-0 stroke-[1.25]" />
                           <button
                             type="button"
                             onClick={() => handleOpenAccountDetails(acc)}
-                            className="hover:text-blue-600 hover:underline text-left"
+                            className="hover:text-blue-600 hover:underline text-left cursor-pointer"
                           >
                             {acc.accountName}
                           </button>
                         </td>
-                        <td className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
+                        <td className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                           {acc.bankName || 'Commercial Bank'}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-slate-600 dark:text-slate-300">
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold">
-                            {acc.accountNumber}
-                          </span>
+                        <td className="px-3 py-2.5 font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
+                          {acc.accountNumber}
                         </td>
-                        <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                        <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60 font-medium">
                           {acc.branch || 'Kathmandu Main'}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-mono font-black text-slate-900 dark:text-white">
+                        <td className="px-3 py-2.5 text-right font-mono font-black text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                           Rs. {formatCur(acc.currentBalance)}
                         </td>
-                        <td className="px-3 py-2.5 text-center">
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              acc.isActive
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                            }`}
-                          >
-                            {acc.isActive ? 'Active' : 'Inactive'}
+                        <td className="px-3 py-2.5 text-center border-r border-slate-200 dark:border-slate-700/60">
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-600 dark:text-emerald-400">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                acc.isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                              }`}
+                            />
+                            <span className={acc.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
+                              {acc.isActive ? 'Active' : 'Inactive'}
+                            </span>
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-center">
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleOpenAccountDetails(acc)}
-                              className="p-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
+                              className="h-[25px] w-[25px] inline-flex items-center justify-center rounded-[2px] bg-[#00c0ef] hover:bg-[#00acd6] text-white transition-colors cursor-pointer shadow-2xs"
                               title="View Details & Ledger"
                             >
-                              <Eye className="w-3.5 h-3.5 stroke-[1.25]" />
+                              <Eye className="w-3 h-3" />
                             </button>
                             <button
                               type="button"
                               onClick={() => openTransfer(acc.id)}
-                              className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded"
+                              className="h-[25px] w-[25px] inline-flex items-center justify-center rounded-[2px] bg-[#1abc9c] hover:bg-[#16a085] text-white transition-colors cursor-pointer shadow-2xs"
                               title="Transfer Funds"
                             >
-                              <ArrowRightLeft className="w-3.5 h-3.5 stroke-[1.25]" />
+                              <ArrowRightLeft className="w-3 h-3" />
                             </button>
                             <button
                               type="button"
                               onClick={() => openCharge(acc.id)}
-                              className="p-1 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded"
+                              className="h-[25px] w-[25px] inline-flex items-center justify-center rounded-[2px] bg-[#e74c3c] hover:bg-[#c0392b] text-white transition-colors cursor-pointer shadow-2xs"
                               title="Record Bank Charge"
                             >
-                              <Receipt className="w-3.5 h-3.5 stroke-[1.25]" />
+                              <Receipt className="w-3 h-3" />
                             </button>
                             <button
                               type="button"
                               onClick={() => openEditModal(acc)}
-                              className="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
+                              className="h-[25px] w-[25px] inline-flex items-center justify-center rounded-[2px] bg-slate-600 hover:bg-slate-700 text-white transition-colors cursor-pointer shadow-2xs"
                               title="Edit Account"
                             >
-                              <Edit2 className="w-3.5 h-3.5 stroke-[1.25]" />
+                              <Edit2 className="w-3 h-3" />
                             </button>
                           </div>
                         </td>
@@ -1071,21 +1070,21 @@ export default function BankAndWalletAccountsTab() {
           </div>
         ) : (
           /* ======================== DIGITAL WALLETS TAB TABLE ======================== */
-          <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
+              <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+                <thead className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
                   <tr>
-                    <th className="px-3 py-2.5">Wallet Name</th>
-                    <th className="px-3 py-2.5">Provider</th>
-                    <th className="px-3 py-2.5">Merchant ID</th>
-                    <th className="px-3 py-2.5">Branch / Outlet</th>
-                    <th className="px-3 py-2.5 text-right">Current Balance</th>
-                    <th className="px-3 py-2.5 text-center">Status</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Wallet Name</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Provider</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Merchant ID</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Branch / Outlet</th>
+                    <th className="px-3 py-2.5 text-right border-r border-slate-200 dark:border-slate-700">Current Balance</th>
+                    <th className="px-3 py-2.5 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                     <th className="px-3 py-2.5 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                   {loading ? (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-slate-400">
@@ -1102,52 +1101,47 @@ export default function BankAndWalletAccountsTab() {
                     paginatedWallets.map((acc) => (
                       <tr
                         key={acc.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
+                        className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                       >
-                        <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <Smartphone className="w-3.5 h-3.5 text-teal-600 shrink-0 stroke-[1.25]" />
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAccountDetails(acc)}
-                            className="hover:text-teal-600 hover:underline text-left"
-                          >
-                            {acc.accountName}
-                          </button>
+                        <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="w-3.5 h-3.5 text-teal-600 shrink-0 stroke-[1.25]" />
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAccountDetails(acc)}
+                              className="hover:text-teal-600 hover:underline text-left"
+                            >
+                              {acc.accountName}
+                            </button>
+                          </div>
                         </td>
-                        <td className="px-3 py-2.5">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              acc.walletProvider === 'eSewa'
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : acc.walletProvider === 'Khalti'
-                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
-                                : acc.walletProvider === 'IME Pay'
-                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                                : 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                            }`}
-                          >
+                        <td className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700/60">
+                          <span className="font-medium text-slate-700 dark:text-slate-300">
                             {acc.walletProvider || 'eSewa'}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-slate-600 dark:text-slate-300">
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold">
-                            {acc.merchantId}
-                          </span>
+                        <td className="px-3 py-2.5 font-mono text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
+                          {acc.merchantId}
                         </td>
-                        <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                        <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                           {acc.branch || 'Main Restaurant'}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-mono font-black text-slate-900 dark:text-white">
+                        <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                           Rs. {formatCur(acc.currentBalance)}
                         </td>
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-3 py-2.5 text-center border-r border-slate-200 dark:border-slate-700/60">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
                               acc.isActive
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                ? 'text-emerald-700 dark:text-emerald-400'
+                                : 'text-slate-500 dark:text-slate-400'
                             }`}
                           >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                acc.isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                              }`}
+                            />
                             {acc.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
@@ -1311,24 +1305,24 @@ export default function BankAndWalletAccountsTab() {
           </div>
 
           {/* Transactions Table */}
-          <div className="bg-white dark:bg-[#071F1A] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
+              <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+                <thead className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
                   <tr>
-                    <th className="px-3 py-2.5">Date &amp; Time</th>
-                    <th className="px-3 py-2.5">Reference #</th>
-                    <th className="px-3 py-2.5">Type</th>
-                    <th className="px-3 py-2.5">Description</th>
-                    <th className="px-3 py-2.5 text-right">Debit (In)</th>
-                    <th className="px-3 py-2.5 text-right">Credit (Out)</th>
-                    <th className="px-3 py-2.5 text-right">Running Balance</th>
-                    <th className="px-3 py-2.5">Source</th>
-                    <th className="px-3 py-2.5 text-center">Status</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Date &amp; Time</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Reference #</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Type</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Description</th>
+                    <th className="px-3 py-2.5 text-right border-r border-slate-200 dark:border-slate-700">Debit (In)</th>
+                    <th className="px-3 py-2.5 text-right border-r border-slate-200 dark:border-slate-700">Credit (Out)</th>
+                    <th className="px-3 py-2.5 text-right border-r border-slate-200 dark:border-slate-700">Running Balance</th>
+                    <th className="px-3 py-2.5 border-r border-slate-200 dark:border-slate-700">Source</th>
+                    <th className="px-3 py-2.5 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                     <th className="px-3 py-2.5 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                   {ledgerLoading ? (
                     <tr>
                       <td colSpan={10} className="py-8 text-center text-slate-400">
@@ -1345,49 +1339,40 @@ export default function BankAndWalletAccountsTab() {
                     transactions.map((t) => (
                       <tr
                         key={t.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
+                        className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                       >
-                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300 font-mono text-[11px] whitespace-nowrap">
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300 font-mono text-[11px] whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                           {new Date(t.date).toLocaleDateString()}{' '}
                           <span className="text-slate-400 text-[10px]">
                             {new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </td>
-                        <td className="px-3 py-2 font-mono font-bold text-slate-800 dark:text-slate-200">
+                        <td className="px-3 py-2 font-mono font-bold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700/60">
                           {t.referenceNumber}
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              t.transactionType.includes('RECEIPT') || t.transactionType.includes('INCOME')
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : t.transactionType.includes('PAYMENT') || t.transactionType.includes('CHARGE')
-                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                                : t.transactionType.includes('SETTLEMENT') || t.transactionType.includes('TRANSFER')
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                                : 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
-                            }`}
-                          >
+                        <td className="px-3 py-2 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                          <span className="font-medium text-slate-700 dark:text-slate-300">
                             {t.transactionType.replace(/_/g, ' ')}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300 max-w-xs truncate" title={t.description}>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300 max-w-xs truncate border-r border-slate-200 dark:border-slate-700/60" title={t.description}>
                           {t.description}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        <td className="px-3 py-2 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
                           {t.debit > 0 ? `+ Rs. ${formatCur(t.debit)}` : '—'}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                        <td className="px-3 py-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400 border-r border-slate-200 dark:border-slate-700/60">
                           {t.credit > 0 ? `- Rs. ${formatCur(t.credit)}` : '—'}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-black text-slate-900 dark:text-white">
+                        <td className="px-3 py-2 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                           Rs. {formatCur(t.runningBalance)}
                         </td>
-                        <td className="px-3 py-2 text-slate-500 font-mono text-[10px]">
+                        <td className="px-3 py-2 text-slate-500 font-mono text-[11px] border-r border-slate-200 dark:border-slate-700/60">
                           {t.sourceModule}
                         </td>
-                        <td className="px-3 py-2 text-center">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
+                        <td className="px-3 py-2 text-center border-r border-slate-200 dark:border-slate-700/60">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             {t.status}
                           </span>
                         </td>

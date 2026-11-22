@@ -162,8 +162,30 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""destinationDepartment"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""transferNumber"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""referenceNumber"" text;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""referenceType"" text;
+            ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""notes"" text;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""previousBalance"" integer;
             ALTER TABLE IF EXISTS ""StockMovement"" ADD COLUMN IF NOT EXISTS ""resultingBalance"" integer;
+
+            CREATE TABLE IF NOT EXISTS ""StockAdjustment"" (
+                ""id"" text PRIMARY KEY,
+                ""hotelId"" text NOT NULL,
+                ""adjustmentNumber"" text NOT NULL,
+                ""adjustmentDate"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""department"" text NOT NULL DEFAULT 'SHARED',
+                ""status"" text NOT NULL DEFAULT 'COMPLETED',
+                ""adjustmentType"" text NOT NULL DEFAULT 'INCREASE',
+                ""itemCount"" integer NOT NULL DEFAULT 1,
+                ""totalQuantity"" integer NOT NULL DEFAULT 0,
+                ""primaryReason"" text NOT NULL DEFAULT 'Stock Correction',
+                ""notes"" text,
+                ""adjustedBy"" text NOT NULL DEFAULT 'Inventory Manager',
+                ""approvedBy"" text,
+                ""approvedAt"" timestamp with time zone,
+                ""itemsJson"" text NOT NULL DEFAULT '[]',
+                ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""code"" text DEFAULT '';
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""panVatNumber"" text;
             ALTER TABLE IF EXISTS ""Supplier"" ADD COLUMN IF NOT EXISTS ""notes"" text;

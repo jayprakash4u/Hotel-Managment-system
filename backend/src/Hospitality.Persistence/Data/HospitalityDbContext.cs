@@ -29,6 +29,7 @@ public class HospitalityDbContext : DbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     public DbSet<Expense> Expenses => Set<Expense>();
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
     public DbSet<Staff> Staff => Set<Staff>();

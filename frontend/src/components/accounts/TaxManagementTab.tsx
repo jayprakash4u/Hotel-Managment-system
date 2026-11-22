@@ -515,22 +515,22 @@ export default function TaxManagementTab() {
 
         {/* Table Content */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 font-semibold text-slate-600 dark:text-slate-300">
+          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+            <thead className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
               <tr>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Voucher #</th>
-                <th className="py-3 px-4">Tax Type</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Reference</th>
-                <th className="py-3 px-4 text-right">Taxable Base (Rs.)</th>
-                <th className="py-3 px-4 text-right">Rate</th>
-                <th className="py-3 px-4 text-right">Tax Amount (Rs.)</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Action</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Date</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Voucher #</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Tax Type</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Category</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Reference</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Taxable Base (Rs.)</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Rate</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Tax Amount (Rs.)</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
+                <th className="py-2.5 px-3 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
               {recordsLoading ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-slate-400">
@@ -547,62 +547,59 @@ export default function TaxManagementTab() {
                 </tr>
               ) : (
                 records.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">
+                  <tr key={r.id} className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                    <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                       {new Date(r.transactionDate).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
                       })}
                     </td>
-                    <td className="py-3 px-4 font-mono font-medium text-slate-900 dark:text-slate-100">
+                    <td className="py-2.5 px-3 font-mono font-medium text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700/60">
                       {r.voucherNumber}
                     </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={cn(
-                          'px-2 py-0.5 rounded text-[10px] font-bold uppercase',
-                          r.taxType === 'VAT'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : r.taxType === 'TDS'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                              : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                        )}
-                      >
+                    <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                      <span className="font-medium text-slate-700 dark:text-slate-300">
                         {r.taxType}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-medium">
+                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-medium border-r border-slate-200 dark:border-slate-700/60">
                       {r.category}
                     </td>
-                    <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">
+                    <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                       {r.referenceNumber || '—'}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono text-slate-600 dark:text-slate-400">
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                       {r.taxableAmount > 0 ? r.taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono text-slate-600 dark:text-slate-400">
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                       {r.taxRate}%
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {r.taxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
                       <span
                         className={cn(
-                          'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
+                          'inline-flex items-center gap-1.5 text-[11px] font-medium',
                           r.status === 'PAID'
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-amber-700 dark:text-amber-400'
                         )}
                       >
+                        <span
+                          className={cn(
+                            'w-1.5 h-1.5 rounded-full',
+                            r.status === 'PAID' ? 'bg-emerald-500' : 'bg-amber-500'
+                          )}
+                        />
                         {r.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-2.5 px-3 text-right">
                       <button
                         onClick={() => setSelectedRecord(r)}
-                        className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
+                        className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
                         title="View Tax Detail"
                       >
                         <Eye className="w-3.5 h-3.5" />

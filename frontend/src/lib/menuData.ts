@@ -1107,7 +1107,7 @@ export function getSettedMenuItems(): MenuItemCatalogEntry[] {
           });
         }
       }
-    } catch {}
+    } catch { }
 
     if (customEntries.length === 0) {
       return consolidateMenuCatalog(DEFAULT_MENU_CATALOG);
@@ -1137,6 +1137,7 @@ export function resolveItemUnitInfo(
     availableUnits?: { unit: string; price: number }[];
     department?: 'KOT' | 'BOT';
     category?: string;
+    preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
   },
   catalog?: MenuItemCatalogEntry[]
 ): {
@@ -1144,6 +1145,7 @@ export function resolveItemUnitInfo(
   unit: string;
   availableUnits: { unit: string; price: number }[];
   department?: 'KOT' | 'BOT';
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
 } {
   const menuList = catalog || getSettedMenuItems();
   const rawName = item.name.trim();

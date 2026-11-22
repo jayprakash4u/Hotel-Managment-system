@@ -37,7 +37,6 @@ import {
   Send,
 } from 'lucide-react';
 import { RestaurantReceiptModal, ReceiptModalProps, ReceiptItem } from '@/components/common/RestaurantReceiptModal';
-import { BillDeliveryModal, BillDeliveryData } from '@/components/common/BillDeliveryModal';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -89,6 +88,7 @@ export interface QuickCartItem {
   dispatchedQuantity?: number;
   kotNumber?: string;
   botNumber?: string;
+  preparationMethod?: 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
 }
 
 export default function QuickSalePage() {
@@ -180,10 +180,6 @@ export default function QuickSalePage() {
   // Receipt Modal State
   const [receiptData, setReceiptData] = useState<ReceiptModalProps | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
-
-  // Bill Delivery Dialog State
-  const [isDeliveryDialogOpen, setIsDeliveryDialogOpen] = useState<boolean>(false);
-  const [deliveryData, setDeliveryData] = useState<BillDeliveryData | null>(null);
 
   // Daily Sales Summary Modal State
   const [dailySales, setDailySales] = useState<DailySalesSummaryData | null>(null);
@@ -1442,27 +1438,7 @@ export default function QuickSalePage() {
           }
         }, 300);
       } else {
-        // Show bill delivery dialog instead of just receipt modal
-        setDeliveryData({
-          orderNumber: savedOrderNumber,
-          receiptNumber: isVatBill && vatInvoiceNum ? vatInvoiceNum : `REC-${savedOrderNumber.replace('QS-', '').replace('ORD-', '')}`,
-          invoiceDate: new Date().toLocaleString(),
-          customerName: isCreditSale && selectedCreditCustomer ? selectedCreditCustomer.name : (customerName.trim() || 'Walk-in Customer'),
-          customerPhone: isCreditSale && selectedCreditCustomer ? selectedCreditCustomer.phone : (customerPhone.trim() || undefined),
-          total: netAmount,
-          paymentMethod: isCreditSale ? 'CREDIT' : billMode,
-          paymentStatus: isCreditSale ? 'CREDIT' : 'PAID',
-          items: receiptProps.items.map((i) => ({
-            productName: i.productName,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            total: i.total,
-          })),
-          subtotal: basicTotal,
-          discountAmount: effectiveDisAmt,
-          tax: isVatBill ? vatAmount : 0,
-        });
-        setIsDeliveryDialogOpen(true);
+        setIsReceiptModalOpen(true);
       }
 
       // Reset cart, tender and credit customer for next customer
@@ -3539,28 +3515,6 @@ export default function QuickSalePage() {
         />
       )}
 
-      {/* =========================================================================
-          BILL DELIVERY DIALOG (after Settle Payment)
-          ========================================================================= */}
-      <BillDeliveryModal
-        isOpen={isDeliveryDialogOpen}
-        onClose={() => setIsDeliveryDialogOpen(false)}
-        data={deliveryData}
-        onPrint={() => {
-          setIsDeliveryDialogOpen(false);
-          setIsReceiptModalOpen(true);
-          setTimeout(() => {
-            if (typeof window !== 'undefined') window.print();
-          }, 300);
-        }}
-        onDownloadPdf={() => {
-          setIsDeliveryDialogOpen(false);
-          setIsReceiptModalOpen(true);
-          setTimeout(() => {
-            if (typeof window !== 'undefined') window.print();
-          }, 300);
-        }}
-      />
     </div>
   );
 }

@@ -503,24 +503,24 @@ export default function ChartOfAccountsTab() {
         </div>
       </div>
 
-      {/* 4. Accounts Table (Clean, Professional & Styled like Restaurant/Hotel Pages) */}
-      <div className="rounded-[3px] border border-slate-200 bg-white overflow-hidden shadow-2xs dark:border-slate-800 dark:bg-slate-900/50">
+      {/* 4. Accounts Table (DataTables Boxed Grid Format) */}
+      <div className="rounded-[3px] border border-slate-300 bg-white overflow-hidden shadow-2xs dark:border-slate-700 dark:bg-slate-900/50">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                <th className="py-3 px-4 w-12 text-center border-r border-slate-200/70 dark:border-slate-800">#</th>
-                <th className="py-3 px-4 w-28 border-r border-slate-200/70 dark:border-slate-800">CODE</th>
-                <th className="py-3 px-4 border-r border-slate-200/70 dark:border-slate-800">ACCOUNT NAME</th>
-                <th className="py-3 px-4 w-28 border-r border-slate-200/70 dark:border-slate-800">CATEGORY</th>
-                <th className="py-3 px-4 w-36 border-r border-slate-200/70 dark:border-slate-800">SUB-CATEGORY</th>
-                <th className="py-3 px-4 w-24 text-center border-r border-slate-200/70 dark:border-slate-800">NATURE</th>
-                <th className="py-3 px-4 text-right min-w-[130px] border-r border-slate-200/70 dark:border-slate-800">BALANCE (RS.)</th>
-                <th className="py-3 px-4 w-24 text-center border-r border-slate-200/70 dark:border-slate-800">STATUS</th>
-                <th className="py-3 px-4 w-28 text-center">ACTION</th>
+              <tr className="border-b border-t border-slate-200 bg-[#F8F9FA] dark:border-slate-700 dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-200 select-none">
+                <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700">CODE</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">ACCOUNT NAME</th>
+                <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700">CATEGORY</th>
+                <th className="py-2.5 px-3 w-36 border-r border-slate-200 dark:border-slate-700">SUB-CATEGORY</th>
+                <th className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-slate-700">NATURE</th>
+                <th className="py-2.5 px-3 text-right min-w-[130px] border-r border-slate-200 dark:border-slate-700">BALANCE (RS.)</th>
+                <th className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-slate-700">STATUS</th>
+                <th className="py-2.5 px-3 w-28 text-center">ACTION</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <tbody className="divide-y-0">
               {loading && accounts.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
@@ -541,77 +541,65 @@ export default function ChartOfAccountsTab() {
                   <tr
                     key={acc.id}
                     onClick={() => handleOpenDetails(acc)}
-                    className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+                    className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60 cursor-pointer"
                   >
-                    <td className="py-3 px-4 text-center font-mono text-[11px] text-slate-400 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                       {(safeCurrentPage - 1) * pageSize + idx + 1}
                     </td>
-                    <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       {acc.accountCode}
                     </td>
-                    <td className="py-3 px-4 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={cn('font-medium text-slate-900 dark:text-white', acc.isGroup && 'font-bold')}>
                           {acc.accountName}
                         </span>
                         {acc.isGroup && (
-                          <span className="px-1.5 py-0.2 rounded-[2px] text-[8.5px] font-bold uppercase bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300">
-                            Group
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                            (Group)
                           </span>
                         )}
-                        
                       </div>
-                      
                     </td>
-                    <td className="py-3 px-4 border-r border-slate-100 dark:border-slate-800/60">
-                      <span className={cn('px-2 py-0.5 rounded-[3px] text-[9.5px] font-bold uppercase tracking-wider border', getTypeBadgeStyle(acc.accountType))}>
-                        {acc.accountType}
-                      </span>
+                    <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60 font-semibold text-xs text-slate-800 dark:text-slate-200">
+                      {acc.accountType}
                     </td>
-                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                       {acc.subCategory}
                     </td>
-                    <td className="py-3 px-4 text-center border-r border-slate-100 dark:border-slate-800/60">
-                      <span className={cn(
-                        'px-1.5 py-0.5 rounded-[2px] text-[9.5px] font-mono font-bold',
-                        acc.normalBalance === 'DEBIT' ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
-                      )}>
-                        {acc.normalBalance}
-                      </span>
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60 font-mono font-bold text-xs text-slate-700 dark:text-slate-300">
+                      {acc.normalBalance}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {formatCurrency(acc.currentBalance)}
                     </td>
-                    <td className="py-3 px-4 text-center border-r border-slate-100 dark:border-slate-800/60">
-                      <span className={cn(
-                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-medium border',
-                        acc.isActive
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                          : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                      )}>
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-600 dark:text-emerald-400">
                         <span className={cn('w-1.5 h-1.5 rounded-full', acc.isActive ? 'bg-emerald-500' : 'bg-slate-400')} />
-                        <span>{acc.isActive ? 'Active' : 'Inactive'}</span>
+                        <span className={acc.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
+                          {acc.isActive ? 'Active' : 'Inactive'}
+                        </span>
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1.5">
                         {!acc.isGroup && (
                           <button
                             type="button"
                             onClick={() => router.push(`/accounts?tab=general-ledger&accountId=${acc.id}`)}
-                            className="p-1.5 rounded-[3px] text-slate-500 hover:text-[#0B3D32] dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700 shadow-2xs"
+                            className="h-[25px] w-[25px] inline-flex items-center justify-center rounded-[2px] bg-[#00c0ef] hover:bg-[#00acd6] text-white transition-colors cursor-pointer shadow-2xs"
                             title="View General Ledger"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Eye className="w-3 h-3" />
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(acc)}
-                          className="p-1.5 rounded-[3px] text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700 shadow-2xs"
+                          className="h-[25px] w-[25px] inline-flex items-center justify-center rounded-[2px] bg-[#1abc9c] hover:bg-[#16a085] text-white transition-colors cursor-pointer shadow-2xs"
                           title="Edit Account"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3 h-3" />
                         </button>
                       </div>
                     </td>

@@ -2,7 +2,7 @@
 
 import React, { useContext } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, usePathname } from 'next/navigation';
 import { WorkspaceTabsContext } from '@/context/WorkspaceTabsContext';
 import {
   Package,
@@ -37,35 +37,28 @@ export const INVENTORY_SUB_OPTIONS: InventorySubOption[] = [
   {
     id: 'receive-stock',
     name: 'Receive Stock & Purchases',
-    href: '/inventory?tab=receive-stock',
+    href: '/purchases',
     icon: ShoppingBag,
     iconColor: 'text-blue-600 dark:text-blue-400',
   },
   {
-    id: 'purchase-ledger',
-    name: 'Item Purchase Ledger',
-    href: '/inventory?tab=purchase-ledger',
-    icon: Receipt,
-    iconColor: 'text-indigo-600 dark:text-indigo-400',
-  },
-  {
     id: 'stock-movements',
     name: 'Stock Movement Ledger',
-    href: '/inventory?tab=stock-movements',
+    href: '/stock-movements',
     icon: Activity,
     iconColor: 'text-violet-600 dark:text-violet-400',
   },
   {
     id: 'suppliers',
     name: 'Suppliers Directory',
-    href: '/inventory?tab=suppliers',
+    href: '/suppliers',
     icon: Users,
     iconColor: 'text-teal-600 dark:text-teal-400',
   },
   {
     id: 'stock-adjustments',
     name: 'Stock Adjustments',
-    href: '/inventory?tab=stock-adjustments',
+    href: '/stock-adjustments',
     icon: SlidersHorizontal,
     iconColor: 'text-amber-600 dark:text-amber-400',
   },
@@ -98,6 +91,7 @@ export const InventoryNavBoxes: React.FC<{
   onSelectOption?: (id: string) => void;
 }> = ({ className, activeId, onSelectOption }) => {
   const searchParams = useSearchParams();
+  const pathname = usePathname() || '';
   const tabsContext = useContext(WorkspaceTabsContext);
   const { isTransfersEnabled } = useBusinessModules();
 
@@ -130,8 +124,6 @@ export const InventoryNavBoxes: React.FC<{
           isSelected = activeId === item.id;
         } else if (item.id === 'items') {
           isSelected = urlTab === 'items' || urlDept === 'RESTAURANT' || urlDept === 'HOTEL';
-        } else if (item.id === 'purchase-ledger') {
-          isSelected = urlTab === 'purchase-ledger';
         } else if (item.id === 'stock-movements') {
           isSelected = urlTab === 'stock-movements';
         } else if (item.id === 'suppliers') {
@@ -139,7 +131,7 @@ export const InventoryNavBoxes: React.FC<{
         } else if (item.id === 'receive-stock') {
           isSelected = urlTab === 'receive-stock' || urlTab === 'purchases';
         } else if (item.id === 'stock-adjustments') {
-          isSelected = urlTab === 'stock-adjustments';
+          isSelected = urlTab === 'stock-adjustments' || pathname.startsWith('/stock-adjustments');
         } else if (item.id === 'stock-transfers') {
           isSelected = urlTab === 'transfers';
         } else if (item.id === 'categories') {

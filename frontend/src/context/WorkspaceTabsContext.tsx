@@ -52,6 +52,10 @@ export function getTabInfoForUrl(
     };
   }
 
+  if (pathname === '/orders') {
+    return { id: '/orders', path: '/orders', title: 'Orders', iconName: 'Receipt', closable: true };
+  }
+
   if (pathname === '/tables') {
     if (search.includes('tab=RESERVATIONS')) {
       return { id: '/tables?tab=RESERVATIONS', path: '/tables?tab=RESERVATIONS', title: 'Table Reservations', iconName: 'CalendarCheck', closable: true };
@@ -60,6 +64,14 @@ export function getTabInfoForUrl(
       return { id: '/tables?tab=ACTIVE_ORDERS', path: '/tables?tab=ACTIVE_ORDERS', title: 'Orders', iconName: 'Receipt', closable: true };
     }
     return { id: '/tables', path: '/tables', title: 'Table Board', iconName: 'Table2', closable: true };
+  }
+
+  if (pathname === '/purchases') {
+    return { id: '/purchases', path: '/purchases', title: 'Purchases', iconName: 'ShoppingCart', closable: true };
+  }
+
+  if (pathname === '/suppliers') {
+    return { id: '/suppliers', path: '/suppliers', title: 'Suppliers', iconName: 'Users', closable: true };
   }
 
   if (pathname === '/inventory') {
@@ -131,6 +143,10 @@ export function getTabInfoForUrl(
 
   if (pathname === '/restaurant-setup') {
     return { id: '/restaurant-setup', path: fullPath, title: 'Restaurant Setup', iconName: 'Building2', closable: true };
+  }
+
+  if (pathname === '/master-setup') {
+    return { id: '/master-setup', path: fullPath, title: 'Master Setup', iconName: 'Building2', closable: true };
   }
 
   if (pathname === '/hotel') {
@@ -215,6 +231,10 @@ export function getTabInfoForUrl(
     '/menu': { title: 'Menu Management', iconName: 'UtensilsCrossed', closable: true },
     '/qr-menu': { title: 'QR Menu', iconName: 'QrCode', closable: true },
     '/menu-item-sales': { title: 'Menu Item Sales', iconName: 'BarChart3', closable: true },
+    '/purchases': { title: 'Purchases', iconName: 'ShoppingCart', closable: true },
+    '/suppliers': { title: 'Suppliers', iconName: 'Users', closable: true },
+    '/stock-movements': { title: 'Stock Movements', iconName: 'Activity', closable: true },
+    '/stock-adjustments': { title: 'Stock Adjustments', iconName: 'SlidersHorizontal', closable: true },
     '/website': { title: 'Website', iconName: 'Globe', closable: true },
     '/staff': { title: 'Staff', iconName: 'Users', closable: true },
     '/profile': { title: 'User Profile', iconName: 'User', closable: true },

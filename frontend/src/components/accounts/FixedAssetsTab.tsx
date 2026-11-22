@@ -863,23 +863,23 @@ export default function FixedAssetsTab() {
       </div>
 
       {/* 4. Asset Register Table */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs overflow-hidden">
+      <div className="rounded border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                <th className="py-2.5 px-3">Asset Code</th>
-                <th className="py-2.5 px-3">Asset Name &amp; Category</th>
-                <th className="py-2.5 px-3">Location &amp; Dept</th>
-                <th className="py-2.5 px-3">Purchase Date</th>
-                <th className="py-2.5 px-3 text-right">Capitalized Cost</th>
-                <th className="py-2.5 px-3 text-right">Accum. Depr.</th>
-                <th className="py-2.5 px-3 text-right">Current Book Value</th>
-                <th className="py-2.5 px-3 text-center">Status</th>
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Asset Code</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Asset Name &amp; Category</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Location &amp; Dept</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Purchase Date</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Capitalized Cost</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Accum. Depr.</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Current Book Value</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                 <th className="py-2.5 px-3 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
               {loading ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
@@ -905,10 +905,10 @@ export default function FixedAssetsTab() {
                 assets.map((asset) => (
                   <tr
                     key={asset.id}
-                    className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
+                    className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                   >
                     {/* Code */}
-                    <td className="py-2.5 px-3 whitespace-nowrap">
+                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       <span className="font-mono font-bold text-[#0B3D32] dark:text-emerald-400">
                         {asset.assetCode}
                       </span>
@@ -920,24 +920,24 @@ export default function FixedAssetsTab() {
                     </td>
 
                     {/* Name & Category */}
-                    <td className="py-2.5 px-3">
+                    <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                       <div className="font-semibold text-slate-800 dark:text-slate-100">
                         {asset.assetName}
                       </div>
                       <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
-                        <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-medium">
+                        <span className="text-[10px] text-slate-400 font-normal">
                           {asset.categoryName}
                         </span>
                         {asset.assignedTo && (
                           <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
-                            <User className="w-3 h-3" /> {asset.assignedTo}
+                            • <User className="w-3 h-3" /> {asset.assignedTo}
                           </span>
                         )}
                       </div>
                     </td>
 
                     {/* Location & Dept */}
-                    <td className="py-2.5 px-3 whitespace-nowrap">
+                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       <div className="text-slate-700 dark:text-slate-300 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-slate-400" />
                         {asset.location}
@@ -949,47 +949,51 @@ export default function FixedAssetsTab() {
                     </td>
 
                     {/* Purchase Date */}
-                    <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 dark:text-slate-400">
+                    <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                       {new Date(asset.purchaseDate).toLocaleDateString()}
                     </td>
 
                     {/* Capitalized Cost */}
-                    <td className="py-2.5 px-3 text-right font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-right font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {asset.totalCapitalizedCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
                     {/* Accumulated Depreciation */}
-                    <td className="py-2.5 px-3 text-right font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-right font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {asset.accumulatedDepreciation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
                     {/* Current Book Value */}
-                    <td className="py-2.5 px-3 text-right font-bold text-[#0B3D32] dark:text-emerald-400 whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-right font-bold text-[#0B3D32] dark:text-emerald-400 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {asset.currentBookValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
-                    {/* Status Badge */}
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                      {asset.status === 'ACTIVE' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                          ACTIVE
-                        </span>
-                      )}
-                      {asset.status === 'FULLY_DEPRECIATED' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                          FULLY DEPR.
-                        </span>
-                      )}
-                      {asset.status === 'DISPOSED' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                          DISPOSED
-                        </span>
-                      )}
-                      {asset.status === 'DRAFT' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
-                          DRAFT
-                        </span>
-                      )}
+                    {/* Status */}
+                    <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
+                          asset.status === 'ACTIVE'
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : asset.status === 'FULLY_DEPRECIATED'
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : asset.status === 'DISPOSED'
+                            ? 'text-rose-700 dark:text-rose-400'
+                            : 'text-blue-700 dark:text-blue-400'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            asset.status === 'ACTIVE'
+                              ? 'bg-emerald-500'
+                              : asset.status === 'FULLY_DEPRECIATED'
+                              ? 'bg-amber-500'
+                              : asset.status === 'DISPOSED'
+                              ? 'bg-rose-500'
+                              : 'bg-blue-500'
+                          }`}
+                        />
+                        {asset.status === 'FULLY_DEPRECIATED' ? 'FULLY DEPR.' : asset.status}
+                      </span>
                     </td>
 
                     {/* Actions */}

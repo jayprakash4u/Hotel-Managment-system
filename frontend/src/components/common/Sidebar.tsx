@@ -212,10 +212,10 @@ export const RESTAURANT_SIDEBAR_OPTIONS: NavBoxItem[] = [
   {
     id: 'orders',
     name: 'Orders',
-    href: '/tables?tab=ACTIVE_ORDERS',
+    href: '/orders',
     icon: RestaurantOrderTicketIcon,
     tag: 'ORDERS',
-    description: 'Live table, walk-in & takeaway active orders',
+    description: 'Centralized order tracking, status & fulfillment',
   },
   {
     id: 'restaurant-setup',
@@ -270,7 +270,7 @@ export const SHARED_QUICK_MODULES = [
   {
     id: 'master-setup',
     name: 'Master Setup',
-    href: '/hotel?category=general',
+    href: '/master-setup',
     icon: Building2,
   },
   {
@@ -282,7 +282,7 @@ export const SHARED_QUICK_MODULES = [
   {
     id: 'purchases',
     name: 'Purchase',
-    href: '/inventory?tab=receive-stock',
+    href: '/purchases',
     icon: ShoppingCart,
   },
   {
@@ -661,8 +661,21 @@ export const Sidebar: React.FC<{
     if (item.id === 'restaurant-inventory') {
       return pathname.startsWith('/inventory') && (currentSearch.includes('dept=RESTAURANT') || currentSearch.includes('filter=restaurant'));
     }
+    if (item.id === 'inventory') {
+      return (
+        pathname.startsWith('/inventory') ||
+        pathname.startsWith('/stock-movements') ||
+        pathname.startsWith('/stock-adjustments') ||
+        pathname.startsWith('/suppliers')
+      );
+    }
     if (item.id === 'purchases') {
-      return pathname.startsWith('/inventory') && currentSearch.includes('tab=purchases');
+      return (
+        pathname === '/purchases' ||
+        pathname.startsWith('/purchases/') ||
+        (pathname.startsWith('/inventory') &&
+          (currentSearch.includes('tab=purchases') || currentSearch.includes('tab=receive-stock')))
+      );
     }
     if (item.id === 'bills-invoices') {
       return pathname.startsWith('/billing') && (!currentSearch || !currentSearch.includes('status=PAID'));

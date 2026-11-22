@@ -6,8 +6,6 @@ import {
   Clock,
   CheckCircle2,
   RefreshCw,
-  GlassWater,
-  Sparkles,
   Table2,
   BedDouble,
   ShoppingBag,
@@ -25,23 +23,14 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
-  AlertTriangle,
-  Play,
-  CheckCheck,
-  Timer,
-  UserCheck,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { isBeverageCategory } from '@/lib/menuData';
 
-export type PreparationMethodType = 'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED';
-export type ItemPreparationStatus = 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
-
 export interface BarItem {
   id: string;
-  productId?: string;
   productName: string;
   quantity: number;
   unitPrice?: number;
@@ -49,14 +38,8 @@ export interface BarItem {
   notes?: string;
   remarks?: string;
   unit?: string;
-  department?: string;
   category?: string;
-  preparationMethod?: PreparationMethodType;
-  status?: ItemPreparationStatus;
-  preparationStartedAt?: string;
-  preparationCompletedAt?: string;
-  preparedBy?: string;
-  preparationDurationMinutes?: number;
+  department?: string;
 }
 
 export interface BarOrder {
@@ -117,20 +100,6 @@ function playBarChime() {
   } catch {}
 }
 
-function getElapsedMinutes(createdAt: string): number {
-  const created = new Date(createdAt).getTime();
-  if (isNaN(created)) return 0;
-  return Math.max(0, Math.floor((Date.now() - created) / 60000));
-}
-
-function formatElapsed(minutes: number): string {
-  if (minutes < 1) return '< 1m';
-  if (minutes < 60) return `${minutes}m`;
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hrs}h ${mins}m`;
-}
-
 export function BarBDSView() {
   const toast = useToast();
   const [orders, setOrders] = useState<BarOrder[]>([]);
@@ -138,12 +107,11 @@ export function BarBDSView() {
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
-  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [activeModalOrder, setActiveModalOrder] = useState<BarOrder | null>(null);
-  const [, setLastRefreshed] = useState<Date>(new Date());
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const prevOrderCountRef = useRef(0);
 
   // Pagination states
@@ -201,44 +169,21 @@ export function BarBDSView() {
               if (isBeverageCategory(it.category, it.productName)) return true;
               return false;
             })
-            .map((it: any) => {
-              // Ensure default values for preparation method and status if missing from DB
-              const prepMethod: PreparationMethodType =
-                it.preparationMethod === 'READY_TO_SERVE' ||
-                it.preparationMethod === 'REQUIRES_PREPARATION' ||
-                it.preparationMethod === 'NOT_CONFIGURED'
-                  ? it.preparationMethod
-                  : 'NOT_CONFIGURED';
+            .map((it: any) => ({
+              id: it.id,
+              productName: it.productName,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice,
+              totalPrice: it.totalPrice,
+              notes: it.notes,
+              remarks: it.remarks,
+              unit: it.unit,
+              category: it.category,
+              department: it.department,
+            }));
 
-              const itemStatus: ItemPreparationStatus =
-                it.status === 'PREPARING' ||
-                it.status === 'READY' ||
-                it.status === 'SERVED' ||
-                it.status === 'CANCELLED'
-                  ? it.status
-                  : 'RECEIVED';
-
-              return {
-                ...it,
-                preparationMethod: prepMethod,
-                status: itemStatus,
-              };
-            });
-
-          // Calculate effective ticket status based on active items
-          const active = barItems.filter((i) => i.status !== 'CANCELLED');
-          let effectiveStatus: BarOrder['status'] = o.status === 'IN_KITCHEN' ? 'PREPARING' : o.status;
-          if (active.length > 0) {
-            if (active.every((i) => i.status === 'SERVED')) {
-              effectiveStatus = 'SERVED';
-            } else if (active.every((i) => i.status === 'READY' || i.status === 'SERVED')) {
-              effectiveStatus = 'READY';
-            } else if (active.some((i) => i.status === 'PREPARING' || i.status === 'READY' || i.status === 'SERVED')) {
-              effectiveStatus = 'PREPARING';
-            } else {
-              effectiveStatus = 'RECEIVED';
-            }
-          }
+          const effectiveStatus: BarOrder['status'] =
+            o.status === 'IN_KITCHEN' ? 'PREPARING' : o.status || 'RECEIVED';
 
           return {
             ...o,
@@ -255,7 +200,6 @@ export function BarBDSView() {
       prevOrderCountRef.current = normalized.length;
 
       setOrders(normalized);
-      setLastRefreshed(new Date());
 
       // If modal is open, keep its order data updated
       if (activeModalOrder) {
@@ -280,85 +224,16 @@ export function BarBDSView() {
     setCurrentPage(1);
   }, [selectedFilter, searchQuery, pageSize]);
 
-  // Update status for an INDIVIDUAL drink item
-  const handleUpdateItemStatus = async (
-    orderId: string,
-    itemId: string,
-    nextStatus: ItemPreparationStatus
-  ) => {
-    setUpdatingItemId(itemId);
-    try {
-      await api.updateRestaurantOrderItemStatus(orderId, itemId, {
-        status: nextStatus,
-        staffName: 'Bar Staff',
-      });
-
-      // Optimistic update of local state
-      setOrders((prev) =>
-        prev.map((ord) => {
-          if (ord.id !== orderId) return ord;
-          const nowIso = new Date().toISOString();
-          const updatedItems = ord.items.map((it) => {
-            if (it.id !== itemId) return it;
-            const startedAt =
-              nextStatus === 'PREPARING' && !it.preparationStartedAt ? nowIso : it.preparationStartedAt;
-            const completedAt = nextStatus === 'READY' ? nowIso : it.preparationCompletedAt;
-            let durationMins = it.preparationDurationMinutes;
-            if (nextStatus === 'READY' && startedAt) {
-              const diffMs = Date.now() - new Date(startedAt).getTime();
-              durationMins = Math.max(0.5, Math.round((diffMs / 60000) * 10) / 10);
-            }
-
-            return {
-              ...it,
-              status: nextStatus,
-              preparationStartedAt: startedAt,
-              preparationCompletedAt: completedAt,
-              preparedBy: 'Bar Staff',
-              preparationDurationMinutes: durationMins,
-            };
-          });
-
-          // Recalculate ticket-level status from active items
-          const active = updatedItems.filter((i) => i.status !== 'CANCELLED');
-          let computedStatus: BarOrder['status'] = ord.status;
-          if (active.length > 0) {
-            if (active.every((i) => i.status === 'SERVED')) {
-              computedStatus = 'SERVED';
-            } else if (active.every((i) => i.status === 'READY' || i.status === 'SERVED')) {
-              computedStatus = 'READY';
-            } else if (active.some((i) => i.status === 'PREPARING' || i.status === 'READY' || i.status === 'SERVED')) {
-              computedStatus = 'PREPARING';
-            } else {
-              computedStatus = 'RECEIVED';
-            }
-          }
-
-          const updatedOrder = { ...ord, items: updatedItems, status: computedStatus };
-          if (activeModalOrder && activeModalOrder.id === orderId) {
-            setActiveModalOrder(updatedOrder);
-          }
-          return updatedOrder;
-        })
-      );
-
-      toast.success(
-        'Drink Status Updated',
-        nextStatus === 'PREPARING'
-          ? 'Preparation started.'
-          : nextStatus === 'READY'
-          ? 'Drink marked as Ready to Serve.'
-          : 'Drink marked as Served.'
-      );
-    } catch (err: any) {
-      toast.error('Update Failed', err.message || 'Could not update drink status.');
-    } finally {
-      setUpdatingItemId(null);
-    }
+  const toggleItemChecked = (orderId: string, itemIdx: number) => {
+    const key = `${orderId}-${itemIdx}`;
+    setCheckedItems((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Update status for the ENTIRE ticket (e.g. Mark Served when all ready, or Mark All Ready)
-  const handleUpdateTicketStatus = async (orderId: string, nextStatus: 'READY' | 'SERVED') => {
+  // Update status for the entire bar ticket: RECEIVED -> PREPARING -> READY -> SERVED
+  const handleUpdateTicketStatus = async (
+    orderId: string,
+    nextStatus: 'PREPARING' | 'READY' | 'SERVED'
+  ) => {
     setUpdatingTicketId(orderId);
     try {
       await api.updateRestaurantOrderStatus(orderId, { status: nextStatus });
@@ -366,15 +241,7 @@ export function BarBDSView() {
         prev
           .map((ord) => {
             if (ord.id !== orderId) return ord;
-            const updatedItems = ord.items.map((it) => {
-              if (it.status === 'CANCELLED') return it;
-              return {
-                ...it,
-                status: nextStatus as ItemPreparationStatus,
-                preparationCompletedAt: nextStatus === 'READY' ? new Date().toISOString() : it.preparationCompletedAt,
-              };
-            });
-            const updated = { ...ord, status: nextStatus, items: updatedItems };
+            const updated = { ...ord, status: nextStatus };
             if (activeModalOrder && activeModalOrder.id === orderId) {
               if (nextStatus === 'SERVED' && selectedFilter !== 'SERVED' && selectedFilter !== 'ALL') {
                 setActiveModalOrder(null);
@@ -394,7 +261,11 @@ export function BarBDSView() {
 
       toast.success(
         'Bar Ticket Updated',
-        nextStatus === 'READY' ? 'All drinks marked as Ready.' : 'All drinks marked as Served.'
+        nextStatus === 'PREPARING'
+          ? 'Ticket marked as Preparing.'
+          : nextStatus === 'READY'
+          ? 'Ticket marked as Ready to Serve.'
+          : 'Ticket marked as Served.'
       );
     } catch (err: any) {
       toast.error('Update Failed', err.message || 'Could not update ticket status.');
@@ -408,33 +279,9 @@ export function BarBDSView() {
   // ---------------------------------------------------------------------------
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
-      const active = o.items.filter((i) => i.status !== 'CANCELLED');
-      if (active.length === 0) return false;
+      if (selectedFilter !== 'ALL' && o.status !== selectedFilter) return false;
 
-      // Status Filter
-      if (selectedFilter === 'RECEIVED') {
-        // Tickets with active items that have not started prep and are not yet ready
-        const isAllReceived = active.every((i) => (i.status || 'RECEIVED') === 'RECEIVED');
-        if (!isAllReceived) return false;
-      } else if (selectedFilter === 'PREPARING') {
-        // Tickets with at least one item currently being prepared, or in-progress
-        const hasPreparing = active.some((i) => i.status === 'PREPARING');
-        const hasMixed = active.some((i) => i.status === 'READY') && active.some((i) => (i.status || 'RECEIVED') === 'RECEIVED');
-        if (!hasPreparing && !hasMixed) return false;
-      } else if (selectedFilter === 'READY') {
-        // Tickets where ALL active items are ready
-        const isAllReady = active.every((i) => i.status === 'READY');
-        if (!isAllReady) return false;
-      } else if (selectedFilter === 'SERVED') {
-        // Tickets where all active items are served
-        const isAllServed = active.every((i) => i.status === 'SERVED');
-        if (!isAllServed) return false;
-      } else if (selectedFilter === 'ALL') {
-        // Show active tickets (omit fully served unless explicitly requested)
-        if (active.every((i) => i.status === 'SERVED')) return false;
-      }
-
-      // Quick Search
+      // Text search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const ticketNum = (o.botNumber || o.kotNumber || o.orderNumber || '').toLowerCase();
@@ -454,48 +301,25 @@ export function BarBDSView() {
           return false;
         }
       }
+
       return true;
     });
   }, [orders, selectedFilter, searchQuery]);
 
-  // Tab counters based on item-level status rules
-  const receivedCount = useMemo(() => {
-    return orders.filter((o) => {
-      const active = o.items.filter((i) => i.status !== 'CANCELLED');
-      return active.length > 0 && active.every((i) => (i.status || 'RECEIVED') === 'RECEIVED');
-    }).length;
-  }, [orders]);
+  // Tab counts
+  const allActiveCount = orders.filter((o) => o.status !== 'CANCELLED' && o.status !== 'COMPLETED').length;
+  const receivedCount = orders.filter((o) => o.status === 'RECEIVED').length;
+  const preparingCount = orders.filter((o) => o.status === 'PREPARING').length;
+  const readyCount = orders.filter((o) => o.status === 'READY').length;
+  const servedCount = orders.filter((o) => o.status === 'SERVED').length;
 
-  const preparingCount = useMemo(() => {
-    return orders.filter((o) => {
-      const active = o.items.filter((i) => i.status !== 'CANCELLED');
-      if (active.length === 0) return false;
-      const hasPreparing = active.some((i) => i.status === 'PREPARING');
-      const hasMixed = active.some((i) => i.status === 'READY') && active.some((i) => (i.status || 'RECEIVED') === 'RECEIVED');
-      return hasPreparing || hasMixed;
-    }).length;
-  }, [orders]);
-
-  const readyCount = useMemo(() => {
-    return orders.filter((o) => {
-      const active = o.items.filter((i) => i.status !== 'CANCELLED');
-      return active.length > 0 && active.every((i) => i.status === 'READY');
-    }).length;
-  }, [orders]);
-
-  const servedCount = useMemo(() => {
-    return orders.filter((o) => {
-      const active = o.items.filter((i) => i.status !== 'CANCELLED');
-      return active.length > 0 && active.every((i) => i.status === 'SERVED');
-    }).length;
-  }, [orders]);
-
-  const allActiveCount = useMemo(() => {
-    return orders.filter((o) => {
-      const active = o.items.filter((i) => i.status !== 'CANCELLED');
-      return active.length > 0 && !active.every((i) => i.status === 'SERVED');
-    }).length;
-  }, [orders]);
+  const tabs: { key: typeof selectedFilter; label: string; count: number }[] = [
+    { key: 'ALL', label: 'All Orders', count: allActiveCount },
+    { key: 'RECEIVED', label: 'Received', count: receivedCount },
+    { key: 'PREPARING', label: 'Preparing', count: preparingCount },
+    { key: 'READY', label: 'Ready', count: readyCount },
+    { key: 'SERVED', label: 'Served', count: servedCount },
+  ];
 
   // Pagination calculation
   const totalEntries = filteredOrders.length;
@@ -520,9 +344,6 @@ export function BarBDSView() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
               Bar Display
             </h1>
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-violet-100 text-violet-800 dark:bg-violet-950/70 dark:text-violet-300 border border-violet-200/60 dark:border-violet-800/60">
-              {allActiveCount} Active BOT
-            </span>
           </div>
         </div>
 
@@ -590,34 +411,28 @@ export function BarBDSView() {
             type="button"
             onClick={fetchBarOrders}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-60"
-            title="Refresh bar orders"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-medium shadow-2xs transition cursor-pointer"
+            title="Refresh order queue"
           >
             <RefreshCw className={cn('w-3.5 h-3.5 text-slate-500', loading && 'animate-spin')} />
-            <span>{loading ? 'Updating...' : 'Refresh'}</span>
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
       {/* =========================================================================
-          2. TOOLBAR: Status Tabs, Entries Per Page & Quick Search
+          2. TOOLBAR: Status Tabs + Page Size + Search Box
          ========================================================================= */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
-        {/* Status Filter Tabs (Replacing "Mixing" with "Preparing" as requested) */}
-        <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 p-0.5 bg-slate-50 dark:bg-slate-800/60 overflow-x-auto">
-          {[
-            { id: 'ALL', label: 'All Orders', count: allActiveCount },
-            { id: 'RECEIVED', label: 'Received', count: receivedCount },
-            { id: 'PREPARING', label: 'Preparing', count: preparingCount },
-            { id: 'READY', label: 'Ready', count: readyCount },
-            { id: 'SERVED', label: 'Served', count: servedCount },
-          ].map((tab) => {
-            const isSelected = selectedFilter === tab.id;
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Stage Filter Tabs */}
+        <div className="inline-flex p-1 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto">
+          {tabs.map((tab) => {
+            const isSelected = selectedFilter === tab.key;
             return (
               <button
-                key={tab.id}
+                key={tab.key}
                 type="button"
-                onClick={() => setSelectedFilter(tab.id as any)}
+                onClick={() => setSelectedFilter(tab.key)}
                 className={cn(
                   'inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer shrink-0',
                   isSelected
@@ -669,7 +484,7 @@ export function BarBDSView() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search BOT, table, drink..."
+              placeholder=""
               className="w-full h-[30px] pl-8 pr-7 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-500 shadow-2xs"
             />
             {searchQuery && (
@@ -698,26 +513,30 @@ export function BarBDSView() {
         </div>
       ) : viewMode === 'table' ? (
         /* -----------------------------------------------------------------------
-           TABLE FORM (With Item-Level Preparation Method & Status)
+           TABLE VIEW (Simple, Clean, Professional)
            ----------------------------------------------------------------------- */
-        <div className="border border-slate-200/80 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
+        <div className="border border-slate-200 dark:border-slate-700/60 rounded overflow-hidden bg-white dark:bg-slate-850 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
               <thead>
-                <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  <th className="py-3 px-3 w-12 text-center">#</th>
-                  <th className="py-3 px-3 w-32">BOT / Ticket</th>
-                  <th className="py-3 px-3 w-28">Destination</th>
-                  <th className="py-3 px-4 min-w-[340px]">Ordered Drinks (Method & Status)</th>
-                  <th className="py-3 px-4 min-w-[200px]">Note / Remarks</th>
-                  <th className="py-3 px-3 w-28">Waiter / Server</th>
-                  <th className="py-3 px-3 w-28 text-center">Ticket Status</th>
-                  <th className="py-3 px-4 w-44 text-right">Actions</th>
+                <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-t border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 select-none">
+                  <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                  <th className="py-2.5 px-3 w-32 border-r border-slate-200 dark:border-slate-700">BOT / Ticket</th>
+                  <th className="py-2.5 px-3 w-32 border-r border-slate-200 dark:border-slate-700">Destination</th>
+                  <th className="py-2.5 px-4 min-w-[220px] border-r border-slate-200 dark:border-slate-700">Ordered Drinks</th>
+                  <th className="py-2.5 px-4 min-w-[220px] border-r border-slate-200 dark:border-slate-700">Note / Remarks</th>
+                  <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700">Waiter / Server</th>
+                  <th className="py-2.5 px-3 w-28 border-r border-slate-200 dark:border-slate-700 text-center">Status</th>
+                  <th className="py-2.5 px-4 w-48 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {paginatedOrders.map((ord, idx) => {
                   const isBusy = updatingTicketId === ord.id;
+                  const isReceived = ord.status === 'RECEIVED';
+                  const isPreparing = ord.status === 'PREPARING';
+                  const isReady = ord.status === 'READY';
+                  const isServed = ord.status === 'SERVED';
                   const tableNum = ord.table?.tableNumber;
                   const roomNum = ord.room?.number;
                   const orderTime = new Date(ord.createdAt).toLocaleTimeString([], {
@@ -735,328 +554,227 @@ export function BarBDSView() {
                   const cleanOrderNote = getCleanBarNote(ord.notes);
                   const hasRemarks = itemRemarks.length > 0 || !!cleanOrderNote;
 
-                  const activeItems = ord.items.filter((i) => i.status !== 'CANCELLED');
-                  const readyItems = activeItems.filter((i) => i.status === 'READY' || i.status === 'SERVED');
-                  const isAllReady = activeItems.length > 0 && activeItems.every((i) => i.status === 'READY');
-                  const isAllServed = activeItems.length > 0 && activeItems.every((i) => i.status === 'SERVED');
-                  const isAnyPreparing = activeItems.some((i) => i.status === 'PREPARING');
-
                   return (
                     <tr
                       key={ord.id}
-                      className={cn(
-                        'hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors',
-                        ord.status === 'RECEIVED' && 'bg-amber-50/15 dark:bg-amber-950/10',
-                        isAllReady && 'bg-emerald-50/15 dark:bg-emerald-950/10'
-                      )}
+                      className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors even:bg-slate-50/30 dark:even:bg-slate-900/10"
                     >
                       {/* 1. Index */}
-                      <td className="py-3 px-3 text-center font-mono text-slate-400 dark:text-slate-500 text-[11px]">
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-400 dark:text-slate-500 text-[11px] border-r border-slate-200 dark:border-slate-700 align-middle">
                         {startIndex + idx + 1}
                       </td>
 
                       {/* 2. BOT / Ticket */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-xs tracking-tight">
-                            {ord.botNumber || (ord.kotNumber ? ord.kotNumber.replace(/^KOT/i, 'BOT') : `BOT-${ord.orderNumber.replace(/^[A-Za-z]+-/, '')}`)}
-                          </span>
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <div className="font-mono font-bold text-slate-900 dark:text-white text-xs">
+                          {ord.botNumber || (ord.kotNumber ? ord.kotNumber.replace(/^KOT/i, 'BOT') : `BOT-${ord.orderNumber.replace(/^[A-Za-z]+-/, '')}`)}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{orderTime}</div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 font-mono">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{orderTime}</span>
+                        </div>
                       </td>
 
-                      {/* 3. Destination (Table / Room / Takeaway) */}
-                      <td className="py-3 px-3">
+                      {/* 3. Destination - Clean text, no rounded dark box */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         {tableNum ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-semibold text-xs bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-                            <Table2 className="w-3 h-3 text-emerald-400 dark:text-emerald-700" />
-                            <span>T-{tableNum}</span>
-                          </div>
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Table2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>Table {tableNum}</span>
+                          </span>
                         ) : roomNum ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-semibold text-xs bg-purple-900 text-purple-100 dark:bg-purple-100 dark:text-purple-900">
-                            <BedDouble className="w-3 h-3 text-purple-300 dark:text-purple-700" />
-                            <span>R-{roomNum}</span>
-                          </div>
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <BedDouble className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span>Room {roomNum}</span>
+                          </span>
                         ) : ord.orderType?.toUpperCase() === 'TAKEAWAY' ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-semibold text-xs bg-amber-900 text-amber-100 dark:bg-amber-100 dark:text-amber-900">
-                            <ShoppingBag className="w-3 h-3 text-amber-300 dark:text-amber-700" />
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <ShoppingBag className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
                             <span>Takeaway</span>
-                          </div>
+                          </span>
                         ) : (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-semibold text-xs bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            <Armchair className="w-3 h-3 text-slate-500" />
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Armchair className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
                             <span>Walk-In</span>
-                          </div>
+                          </span>
                         )}
                         {ord.customerName && (
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[110px] mt-0.5">
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[120px] mt-0.5">
                             {ord.customerName}
                           </div>
                         )}
                       </td>
 
-                      {/* 4. Ordered Drinks Column: Dynamic Item Status & Action Buttons */}
-                      <td className="py-3 px-4">
-                        <div className="space-y-2">
-                          {ord.items.map((it, itemIdx) => {
-                            const isItemBusy = updatingItemId === it.id;
-                            const isReadyToServe = it.preparationMethod === 'READY_TO_SERVE';
-                            const isPrepRequired = it.preparationMethod === 'REQUIRES_PREPARATION';
-                            const isNotConfigured = !isReadyToServe && !isPrepRequired;
-
-                            const itemStatus = it.status || 'RECEIVED';
-                            const isItemReceived = itemStatus === 'RECEIVED';
-                            const isItemPreparing = itemStatus === 'PREPARING';
-                            const isItemReady = itemStatus === 'READY';
-                            const isItemServed = itemStatus === 'SERVED';
-
-                            return (
-                              <div
-                                key={it.id || itemIdx}
-                                className={cn(
-                                  'p-1.5 rounded-lg border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2',
-                                  isItemReady
-                                    ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-900/40'
-                                    : isItemPreparing
-                                    ? 'bg-blue-50/40 dark:bg-blue-950/20 border-blue-200/70 dark:border-blue-900/40'
-                                    : isNotConfigured
-                                    ? 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-900/40'
-                                    : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800'
-                                )}
-                              >
-                                {/* Left: Item Details & Method Badge */}
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold font-mono text-[11px]">
-                                    {it.quantity}×
+                      {/* 4. Ordered Drinks Column: Clean simple list with click-to-strike */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        {(ord.items || []).length === 0 ? (
+                          <span className="text-slate-400 italic text-[11px]">No drinks punched yet</span>
+                        ) : (
+                          <div className="space-y-1">
+                            {ord.items.map((it, itemIdx) => {
+                              const isChecked = !!checkedItems[`${ord.id}-${itemIdx}`];
+                              return (
+                                <div
+                                  key={it.id || itemIdx}
+                                  onClick={() => toggleItemChecked(ord.id, itemIdx)}
+                                  className={cn(
+                                    'flex items-center gap-1.5 text-xs cursor-pointer select-none group transition-opacity',
+                                    isChecked && 'opacity-50'
+                                  )}
+                                  title="Click to check off drink"
+                                >
+                                  <span
+                                    className={cn(
+                                      'font-bold font-mono text-xs',
+                                      isChecked
+                                        ? 'text-slate-400'
+                                        : 'text-emerald-700 dark:text-emerald-400'
+                                    )}
+                                  >
+                                    {it.quantity}x
                                   </span>
-                                  <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs">
+                                  <span
+                                    className={cn(
+                                      'font-medium text-slate-800 dark:text-slate-200 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors',
+                                      isChecked && 'line-through text-slate-400 dark:text-slate-500'
+                                    )}
+                                  >
                                     {it.productName}
-                                    {it.unit ? ` (${it.unit})` : ''}
                                   </span>
-
-                                  {/* Preparation Method Badge */}
-                                  {isReadyToServe ? (
-                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                      Ready to Serve
-                                    </span>
-                                  ) : isPrepRequired ? (
-                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-violet-100 text-violet-800 dark:bg-violet-950/70 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
-                                      Requires Prep
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-300 dark:border-amber-800 animate-pulse"
-                                      title="This drink has no preparation method configured in Menu Setup."
-                                    >
-                                      <AlertTriangle className="w-2.5 h-2.5" />
-                                      Not Configured
+                                  {it.unit && (
+                                    <span className="text-[11px] text-slate-400 font-normal shrink-0">
+                                      ({it.unit})
                                     </span>
                                   )}
                                 </div>
-
-                                {/* Right: Dynamic Item-Level Action Button */}
-                                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                                  {/* If Ready to Serve and Received: Immediately show 'Mark Ready' */}
-                                  {isReadyToServe && isItemReceived && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateItemStatus(ord.id, it.id, 'READY')}
-                                      disabled={isItemBusy}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition cursor-pointer disabled:opacity-50"
-                                    >
-                                      <Check className="w-3 h-3 stroke-[2.5]" />
-                                      <span>Mark Ready</span>
-                                    </button>
-                                  )}
-
-                                  {/* If Requires Prep and Received: Show 'Start Preparing' */}
-                                  {isPrepRequired && isItemReceived && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateItemStatus(ord.id, it.id, 'PREPARING')}
-                                      disabled={isItemBusy}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-violet-600 hover:bg-violet-700 text-white shadow-2xs transition cursor-pointer disabled:opacity-50"
-                                    >
-                                      <Play className="w-2.5 h-2.5 fill-current" />
-                                      <span>Start Preparing</span>
-                                    </button>
-                                  )}
-
-                                  {/* If Requires Prep and Preparing: Show 'Mark Ready' with elapsed timer */}
-                                  {isPrepRequired && isItemPreparing && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateItemStatus(ord.id, it.id, 'READY')}
-                                      disabled={isItemBusy}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition cursor-pointer disabled:opacity-50 animate-pulse"
-                                    >
-                                      <Check className="w-3 h-3 stroke-[2.5]" />
-                                      <span>Mark Ready</span>
-                                      {it.preparationStartedAt && (
-                                        <span className="text-[10px] opacity-90 font-mono">
-                                          ({formatElapsed(getElapsedMinutes(it.preparationStartedAt))})
-                                        </span>
-                                      )}
-                                    </button>
-                                  )}
-
-                                  {/* If Unconfigured item: Allow staff to mark ready directly or start prep */}
-                                  {isNotConfigured && isItemReceived && (
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleUpdateItemStatus(ord.id, it.id, 'READY')}
-                                        disabled={isItemBusy}
-                                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
-                                        title="Quick-serve as ready"
-                                      >
-                                        Mark Ready
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleUpdateItemStatus(ord.id, it.id, 'PREPARING')}
-                                        disabled={isItemBusy}
-                                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-600 hover:bg-violet-700 text-white shadow-2xs cursor-pointer"
-                                        title="Start drink preparation"
-                                      >
-                                        Prep
-                                      </button>
-                                    </div>
-                                  )}
-
-                                  {isNotConfigured && isItemPreparing && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateItemStatus(ord.id, it.id, 'READY')}
-                                      disabled={isItemBusy}
-                                      className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
-                                    >
-                                      Mark Ready
-                                    </button>
-                                  )}
-
-                                  {/* If Item is already Ready */}
-                                  {isItemReady && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800">
-                                      <Check className="w-3 h-3 stroke-[3]" />
-                                      <span>Ready</span>
-                                      {it.preparationDurationMinutes && (
-                                        <span className="font-mono text-[10px] text-emerald-800 dark:text-emerald-200">
-                                          ({it.preparationDurationMinutes}m)
-                                        </span>
-                                      )}
-                                    </span>
-                                  )}
-
-                                  {/* If Item is Served */}
-                                  {isItemServed && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800">
-                                      Served
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
 
                       {/* 5. Note / Remarks Column */}
-                      <td className="py-3 px-4">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
                         {hasRemarks ? (
-                          <div className="space-y-1 max-w-[280px]">
+                          <div className="space-y-1 max-w-xs">
                             {itemRemarks.map((ir, rIdx) => (
                               <div
                                 key={rIdx}
-                                className="inline-flex items-start gap-1.5 px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-200/60 dark:border-amber-800/50"
+                                className="text-xs text-amber-700 dark:text-amber-300 leading-snug flex items-start gap-1"
                               >
-                                <span className="font-semibold text-amber-800 dark:text-amber-300">
+                                <span className="font-semibold text-amber-900 dark:text-amber-200">
                                   {ir.productName}:
                                 </span>
-                                <span className="italic">{ir.remark}</span>
+                                <span>{ir.remark}</span>
                               </div>
                             ))}
                             {cleanOrderNote && (
-                              <div className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 px-2 py-0.5 rounded border border-slate-200/60 dark:border-slate-700">
-                                <MessageSquare className="w-3 h-3 text-slate-400 shrink-0" />
-                                <span className="italic truncate">{cleanOrderNote}</span>
+                              <div className="text-xs text-amber-700 dark:text-amber-300 leading-snug flex items-start gap-1">
+                                <span className="font-semibold text-amber-900 dark:text-amber-200">
+                                  Order Note:
+                                </span>
+                                <span>{cleanOrderNote}</span>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                          <span className="text-slate-300 dark:text-slate-600 font-mono text-xs select-none">—</span>
                         )}
                       </td>
 
                       {/* 6. Waiter / Server */}
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-300 text-xs">
-                        <span className="truncate max-w-[100px] block font-medium">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                           {ord.serverName || 'Staff'}
                         </span>
                       </td>
 
-                      {/* 7. Overall Ticket Status */}
-                      <td className="py-3 px-3 text-center">
-                        <span
-                          className={cn(
-                            'inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider',
-                            isAllServed
-                              ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
-                              : isAllReady
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                              : isAnyPreparing || readyItems.length > 0
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-900'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
+                      {/* 7. Status Column */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <div className="inline-flex items-center gap-1.5 text-xs font-medium">
+                          {isReceived && (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span className="text-amber-700 dark:text-amber-400">Received</span>
+                            </>
                           )}
-                        >
-                          {isAllServed
-                            ? 'Served'
-                            : isAllReady
-                            ? 'Ready'
-                            : isAnyPreparing || readyItems.length > 0
-                            ? `Preparing (${readyItems.length}/${activeItems.length})`
-                            : 'Received'}
-                        </span>
+                          {isPreparing && (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                              <span className="text-sky-700 dark:text-sky-400">Preparing</span>
+                            </>
+                          )}
+                          {isReady && (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span className="text-emerald-700 dark:text-emerald-400">Ready</span>
+                            </>
+                          )}
+                          {isServed && (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              <span className="text-slate-500 dark:text-slate-400">Served</span>
+                            </>
+                          )}
+                        </div>
                       </td>
 
                       {/* 8. Action Area */}
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-2.5 px-3 text-right align-middle">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* View Items Modal Button */}
+                          {/* View Drinks Detail Modal Button */}
                           <button
                             type="button"
                             onClick={() => setActiveModalOrder(ord)}
-                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium shadow-2xs transition-colors cursor-pointer"
                             title="View drinks detail & checklist"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5 text-slate-500" />
+                            <span>View</span>
                           </button>
 
-                          {/* When ALL drinks are ready: Allow Marking Ticket Served */}
-                          {isAllReady && !isAllServed && (
+                          {/* Primary Stage Action Button */}
+                          {isReceived && (
                             <button
                               type="button"
-                              onClick={() => handleUpdateTicketStatus(ord.id, 'SERVED')}
+                              onClick={() => handleUpdateTicketStatus(ord.id, 'PREPARING')}
                               disabled={isBusy}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-black text-white dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 shadow-2xs transition cursor-pointer disabled:opacity-50"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-medium shadow-2xs transition-colors cursor-pointer"
                             >
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
-                              <span>Mark Served</span>
+                              <Wine className="w-3.5 h-3.5" />
+                              <span>Start</span>
                             </button>
                           )}
 
-                          {/* Shortcut: Mark All Drinks on ticket Ready at once if not all ready */}
-                          {!isAllReady && !isAllServed && (
+                          {isPreparing && (
                             <button
                               type="button"
                               onClick={() => handleUpdateTicketStatus(ord.id, 'READY')}
                               disabled={isBusy}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 shadow-2xs transition cursor-pointer disabled:opacity-50"
-                              title="Mark all remaining active drinks ready on this ticket"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-medium shadow-2xs transition-colors cursor-pointer"
                             >
-                              <CheckCheck className="w-3.5 h-3.5" />
-                              <span>All Ready</span>
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>Ready</span>
                             </button>
+                          )}
+
+                          {isReady && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTicketStatus(ord.id, 'SERVED')}
+                              disabled={isBusy}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0B3D32] hover:bg-[#093027] disabled:opacity-50 text-white text-xs font-medium shadow-2xs transition-colors cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Served</span>
+                            </button>
+                          )}
+
+                          {isServed && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-400">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Served</span>
+                            </span>
                           )}
                         </div>
                       </td>
@@ -1102,10 +820,10 @@ export function BarBDSView() {
                         type="button"
                         onClick={() => setCurrentPage(p)}
                         className={cn(
-                          'w-8 h-8 rounded-md text-xs font-semibold flex items-center justify-center transition shadow-2xs cursor-pointer',
+                          'w-7 h-7 rounded-md text-xs font-semibold transition cursor-pointer',
                           safeCurrentPage === p
-                            ? 'bg-[#0B3D32] text-white border border-[#0B3D32]'
-                            : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                            ? 'bg-[#0B3D32] text-white shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
                         )}
                       >
                         {p}
@@ -1133,10 +851,10 @@ export function BarBDSView() {
         <div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginatedOrders.map((ord) => {
-              const activeItems = ord.items.filter((i) => i.status !== 'CANCELLED');
-              const isAllReady = activeItems.length > 0 && activeItems.every((i) => i.status === 'READY');
-              const isAllServed = activeItems.length > 0 && activeItems.every((i) => i.status === 'SERVED');
-              const isAnyPreparing = activeItems.some((i) => i.status === 'PREPARING');
+              const isReceived = ord.status === 'RECEIVED';
+              const isPreparing = ord.status === 'PREPARING';
+              const isReady = ord.status === 'READY';
+              const isServed = ord.status === 'SERVED';
               const isBusy = updatingTicketId === ord.id;
               const tableNum = ord.table?.tableNumber;
               const roomNum = ord.room?.number;
@@ -1146,11 +864,11 @@ export function BarBDSView() {
                   key={ord.id}
                   className={cn(
                     'rounded-xl border bg-white dark:bg-slate-900 shadow-2xs flex flex-col justify-between overflow-hidden transition',
-                    isAllServed
+                    isServed
                       ? 'border-slate-200 dark:border-slate-800 opacity-80'
-                      : isAllReady
+                      : isReady
                       ? 'border-emerald-300 dark:border-emerald-900/60'
-                      : isAnyPreparing
+                      : isPreparing
                       ? 'border-blue-300 dark:border-blue-900/60'
                       : 'border-amber-200 dark:border-amber-900/60'
                   )}
@@ -1159,9 +877,9 @@ export function BarBDSView() {
                   <div
                     className={cn(
                       'p-3 border-b flex items-center justify-between',
-                      isAllReady
+                      isReady
                         ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/70'
-                        : isAnyPreparing
+                        : isPreparing
                         ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200/70'
                         : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200/70'
                     )}
@@ -1192,89 +910,42 @@ export function BarBDSView() {
                     </div>
                   </div>
 
-                  {/* Card Items with Individual Actions */}
-                  <div className="p-3 space-y-2 flex-1">
-                    {ord.items.map((it, itemIdx) => {
-                      const isItemBusy = updatingItemId === it.id;
-                      const isReadyToServe = it.preparationMethod === 'READY_TO_SERVE';
-                      const isPrepRequired = it.preparationMethod === 'REQUIRES_PREPARATION';
-                      const isNotConfigured = !isReadyToServe && !isPrepRequired;
-
-                      const itemStatus = it.status || 'RECEIVED';
-                      const isItemReceived = itemStatus === 'RECEIVED';
-                      const isItemPreparing = itemStatus === 'PREPARING';
-                      const isItemReady = itemStatus === 'READY';
-                      const isItemServed = itemStatus === 'SERVED';
-
+                  {/* Card Items with click-to-strike checkmarks */}
+                  <div className="p-3 space-y-1.5 flex-1">
+                    {(ord.items || []).map((it, itemIdx) => {
+                      const isChecked = !!checkedItems[`${ord.id}-${itemIdx}`];
                       return (
                         <div
                           key={it.id || itemIdx}
-                          className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs"
+                          onClick={() => toggleItemChecked(ord.id, itemIdx)}
+                          className={cn(
+                            'flex items-center gap-2 text-xs cursor-pointer select-none group transition-opacity',
+                            isChecked && 'opacity-50'
+                          )}
                         >
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
-                                {it.quantity}×
-                              </span>
-                              <span className="font-medium text-slate-800 dark:text-slate-200">
-                                {it.productName}
-                              </span>
-                            </div>
-                            <div className="mt-0.5">
-                              {isReadyToServe ? (
-                                <span className="text-[9px] text-emerald-700 font-semibold">Ready to Serve</span>
-                              ) : isPrepRequired ? (
-                                <span className="text-[9px] text-violet-700 font-semibold">Requires Prep</span>
-                              ) : (
-                                <span className="text-[9px] text-amber-600 font-semibold">⚠️ Unconfigured</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Quick Action */}
-                          <div>
-                            {isItemReady ? (
-                              <span className="text-[10px] font-bold text-emerald-600">✓ Ready</span>
-                            ) : isItemServed ? (
-                              <span className="text-[10px] text-slate-400">Served</span>
-                            ) : isReadyToServe && isItemReceived ? (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateItemStatus(ord.id, it.id, 'READY')}
-                                disabled={isItemBusy}
-                                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-600 text-white cursor-pointer"
-                              >
-                                Ready
-                              </button>
-                            ) : isPrepRequired && isItemReceived ? (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateItemStatus(ord.id, it.id, 'PREPARING')}
-                                disabled={isItemBusy}
-                                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-600 text-white cursor-pointer"
-                              >
-                                Prep
-                              </button>
-                            ) : isPrepRequired && isItemPreparing ? (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateItemStatus(ord.id, it.id, 'READY')}
-                                disabled={isItemBusy}
-                                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-600 text-white cursor-pointer animate-pulse"
-                              >
-                                Ready
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateItemStatus(ord.id, it.id, 'READY')}
-                                disabled={isItemBusy}
-                                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-600 text-white cursor-pointer"
-                              >
-                                Ready
-                              </button>
+                          <span
+                            className={cn(
+                              'font-mono font-bold text-[11px] px-1.5 py-0.2 rounded border transition-colors shrink-0',
+                              isChecked
+                                ? 'bg-slate-100 text-slate-400 border-slate-200'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
                             )}
-                          </div>
+                          >
+                            {it.quantity}x
+                          </span>
+                          <span
+                            className={cn(
+                              'font-medium text-slate-800 dark:text-slate-200 group-hover:text-emerald-700 transition-colors',
+                              isChecked && 'line-through text-slate-400'
+                            )}
+                          >
+                            {it.productName}
+                          </span>
+                          {it.unit && (
+                            <span className="text-[11px] text-slate-400 font-normal shrink-0">
+                              ({it.unit})
+                            </span>
+                          )}
                         </div>
                       );
                     })}
@@ -1291,7 +962,31 @@ export function BarBDSView() {
                       <Eye className="w-3.5 h-3.5" />
                     </button>
 
-                    {isAllReady && !isAllServed && (
+                    {isReceived && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateTicketStatus(ord.id, 'PREPARING')}
+                        disabled={isBusy}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition disabled:opacity-50 cursor-pointer"
+                      >
+                        <Wine className="w-3.5 h-3.5" />
+                        <span>Start Preparing</span>
+                      </button>
+                    )}
+
+                    {isPreparing && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateTicketStatus(ord.id, 'READY')}
+                        disabled={isBusy}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition disabled:opacity-50 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Mark Ready</span>
+                      </button>
+                    )}
+
+                    {isReady && (
                       <button
                         type="button"
                         onClick={() => handleUpdateTicketStatus(ord.id, 'SERVED')}
@@ -1303,16 +998,10 @@ export function BarBDSView() {
                       </button>
                     )}
 
-                    {!isAllReady && !isAllServed && (
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTicketStatus(ord.id, 'READY')}
-                        disabled={isBusy}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 shadow-2xs transition disabled:opacity-50 cursor-pointer"
-                      >
-                        <CheckCheck className="w-3.5 h-3.5" />
-                        <span>All Ready</span>
-                      </button>
+                    {isServed && (
+                      <span className="flex-1 text-center py-1 text-xs font-medium text-slate-400">
+                        Served
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1329,25 +1018,25 @@ export function BarBDSView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             {/* Modal Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-violet-50/50 dark:bg-violet-950/20">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 flex items-center justify-center">
+                <div className="p-2 rounded-xl bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-400">
                   <Wine className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                    {activeModalOrder.botNumber ||
-                      (activeModalOrder.kotNumber
-                        ? activeModalOrder.kotNumber.replace(/^KOT/i, 'BOT')
-                        : `BOT-${activeModalOrder.orderNumber.replace(/^[A-Za-z]+-/, '')}`)}
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {activeModalOrder.botNumber || activeModalOrder.kotNumber || activeModalOrder.orderNumber}
                   </h3>
-                  <div className="text-[11px] text-slate-500">
-                    {activeModalOrder.table?.tableNumber
-                      ? `Table ${activeModalOrder.table.tableNumber}`
-                      : activeModalOrder.room?.number
-                      ? `Room ${activeModalOrder.room.number}`
-                      : 'Takeaway'}{' '}
-                    • {new Date(activeModalOrder.createdAt).toLocaleTimeString()}
+                  <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                    <span>
+                      {activeModalOrder.table?.tableNumber
+                        ? `Table ${activeModalOrder.table.tableNumber}`
+                        : activeModalOrder.room?.number
+                        ? `Room ${activeModalOrder.room.number}`
+                        : activeModalOrder.orderType || 'Walk-In'}
+                    </span>
+                    <span>•</span>
+                    <span>{activeModalOrder.serverName || 'Staff'}</span>
                   </div>
                 </div>
               </div>
@@ -1361,118 +1050,70 @@ export function BarBDSView() {
               </button>
             </div>
 
-            {/* Modal Items List with Dynamic Item Status Workflow */}
-            <div className="p-4 max-h-[60vh] overflow-y-auto space-y-3">
-              <div className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">
-                Ordered Drinks Workflow
+            {/* Modal Items List with Checklist */}
+            <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
+              <div className="text-[11px] text-slate-400 uppercase font-bold tracking-wider mb-2">
+                Ordered Drinks ({activeModalOrder.items.length})
               </div>
-              {activeModalOrder.items.map((it, itemIdx) => {
-                const isReadyToServe = it.preparationMethod === 'READY_TO_SERVE';
-                const isPrepRequired = it.preparationMethod === 'REQUIRES_PREPARATION';
-                const isItemReady = it.status === 'READY';
-                const isItemPreparing = it.status === 'PREPARING';
-                const isItemServed = it.status === 'SERVED';
-                const isItemReceived = !it.status || it.status === 'RECEIVED';
-
-                return (
-                  <div
-                    key={it.id || itemIdx}
-                    className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between gap-3"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-xs bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-1.5 py-0.5 rounded">
-                          {it.quantity}×
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                {activeModalOrder.items.map((it, itemIdx) => {
+                  const isChecked = !!checkedItems[`${activeModalOrder.id}-${itemIdx}`];
+                  return (
+                    <div
+                      key={it.id || itemIdx}
+                      onClick={() => toggleItemChecked(activeModalOrder.id, itemIdx)}
+                      className={cn(
+                        'p-3 flex items-start justify-between cursor-pointer transition-colors',
+                        isChecked
+                          ? 'bg-slate-50/70 dark:bg-slate-800/30 opacity-50'
+                          : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40 bg-white dark:bg-slate-900'
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={cn(
+                            'w-7 h-7 rounded-lg font-mono font-bold flex items-center justify-center shrink-0 text-xs border',
+                            isChecked
+                              ? 'bg-slate-100 border-slate-200 text-slate-400'
+                              : 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300'
+                          )}
+                        >
+                          {it.quantity}x
                         </span>
-                        <span className="font-semibold text-xs text-slate-900 dark:text-slate-100">
-                          {it.productName}
-                          {it.unit ? ` (${it.unit})` : ''}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 mt-1">
-                        {isReadyToServe ? (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                            Ready to Serve
-                          </span>
-                        ) : isPrepRequired ? (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
-                            Requires Prep
-                          </span>
-                        ) : (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-amber-100 text-amber-800">
-                            ⚠️ Not Configured
-                          </span>
-                        )}
-
-                        {it.preparationStartedAt && isItemPreparing && (
-                          <span className="text-[10px] text-blue-600 font-mono inline-flex items-center gap-0.5">
-                            <Timer className="w-3 h-3" />
-                            Prep: {formatElapsed(getElapsedMinutes(it.preparationStartedAt))}
-                          </span>
-                        )}
-
-                        {it.preparationDurationMinutes && (
-                          <span className="text-[10px] text-emerald-600 font-mono">
-                            Took {it.preparationDurationMinutes}m
-                          </span>
-                        )}
-                      </div>
-
-                      {(it.notes || it.remarks) && (
-                        <div className="text-[11px] text-amber-700 dark:text-amber-300 mt-1 italic">
-                          Remark: {it.notes || it.remarks}
+                        <div>
+                          <p
+                            className={cn(
+                              'font-semibold text-xs text-slate-900 dark:text-slate-100',
+                              isChecked && 'line-through text-slate-400'
+                            )}
+                          >
+                            {it.productName}
+                          </p>
+                          {it.unit && (
+                            <span className="text-[11px] text-slate-400 font-normal">
+                              ({it.unit})
+                            </span>
+                          )}
+                          {(it.notes || it.remarks) && (
+                            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium italic mt-0.5">
+                              Note: {it.notes || it.remarks}
+                            </p>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Action Button */}
-                    <div>
-                      {isItemReady ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">
-                          <Check className="w-3.5 h-3.5" /> Ready
-                        </span>
-                      ) : isItemServed ? (
-                        <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md font-semibold">
-                          Served
-                        </span>
-                      ) : isReadyToServe && isItemReceived ? (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateItemStatus(activeModalOrder.id, it.id, 'READY')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
-                        >
-                          Mark Ready
-                        </button>
-                      ) : isPrepRequired && isItemReceived ? (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateItemStatus(activeModalOrder.id, it.id, 'PREPARING')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white shadow-2xs cursor-pointer"
-                        >
-                          Start Preparing
-                        </button>
-                      ) : isPrepRequired && isItemPreparing ? (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateItemStatus(activeModalOrder.id, it.id, 'READY')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
-                        >
-                          Mark Ready
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateItemStatus(activeModalOrder.id, it.id, 'READY')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white cursor-pointer"
-                        >
-                          Mark Ready
-                        </button>
-                      )}
+                      <div className="mt-1">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer pointer-events-none"
+                        />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
 
               {getCleanBarNote(activeModalOrder.notes) && (
                 <div className="pt-2 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700">
@@ -1495,28 +1136,47 @@ export function BarBDSView() {
               </button>
 
               <div className="flex items-center gap-2">
-                {activeModalOrder.items.some((i) => i.status !== 'READY' && i.status !== 'SERVED' && i.status !== 'CANCELLED') && (
+                {activeModalOrder.status === 'RECEIVED' && (
                   <button
                     type="button"
-                    onClick={() => handleUpdateTicketStatus(activeModalOrder.id, 'READY')}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold border border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 cursor-pointer"
+                    onClick={() => {
+                      handleUpdateTicketStatus(activeModalOrder.id, 'PREPARING');
+                      setActiveModalOrder(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs cursor-pointer"
                   >
-                    <CheckCheck className="w-3.5 h-3.5" />
-                    <span>Mark All Ready</span>
+                    <Wine className="w-3.5 h-3.5" />
+                    <span>Start Preparing</span>
                   </button>
                 )}
 
-                {activeModalOrder.items.every((i) => i.status === 'READY' || i.status === 'SERVED' || i.status === 'CANCELLED') &&
-                  activeModalOrder.items.some((i) => i.status === 'READY') && (
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateTicketStatus(activeModalOrder.id, 'SERVED')}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-black text-white dark:bg-slate-100 dark:text-slate-900 shadow-2xs cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Mark Ticket Served</span>
-                    </button>
-                  )}
+                {activeModalOrder.status === 'PREPARING' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUpdateTicketStatus(activeModalOrder.id, 'READY');
+                      setActiveModalOrder(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Mark Ready</span>
+                  </button>
+                )}
+
+                {activeModalOrder.status === 'READY' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUpdateTicketStatus(activeModalOrder.id, 'SERVED');
+                      setActiveModalOrder(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-black text-white dark:bg-slate-100 dark:text-slate-900 shadow-2xs cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mark Served</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

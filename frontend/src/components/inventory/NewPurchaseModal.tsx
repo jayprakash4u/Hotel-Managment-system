@@ -482,7 +482,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
               <SupplierSearchDropdown
                 value={selectedSupplier ? selectedSupplier.id : null}
                 onChange={handleSupplierSelect}
-                placeholder="Select supplier..."
+                placeholder=""
                 className="text-xs"
               />
             </div>
@@ -496,7 +496,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                 type="text"
                 value={supplierInvoiceNumber}
                 onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
-                placeholder="Invoice #"
+                placeholder=""
                 className="w-full px-2 py-1 text-xs border border-slate-300 dark:border-slate-700 rounded-[3px] bg-white dark:bg-[#071F1A] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
               />
             </div>
@@ -525,7 +525,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                 type="text"
                 value={supplierPanVatNumber}
                 onChange={(e) => setSupplierPanVatNumber(e.target.value)}
-                placeholder="PAN / VAT"
+                placeholder=""
                 className="w-full px-2 py-1 text-xs border border-slate-300 dark:border-slate-700 rounded-[3px] bg-white dark:bg-[#071F1A] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
               />
             </div>
@@ -596,7 +596,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                             <input
                               type="text"
                               value={row.itemName}
-                              placeholder="search item & Add"
+                              placeholder=""
                               onFocus={() => handleRowChange(index, { isDropdownOpen: true })}
                               onChange={(e) => {
                                 handleRowChange(index, {
@@ -727,7 +727,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                             type="number"
                             min="0"
                             step="any"
-                            placeholder="0.00"
+                            placeholder=""
                             value={row.unitCost}
                             onChange={(e) => {
                               const val = e.target.value === '' ? '' : parseFloat(e.target.value);
@@ -743,7 +743,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                             type="number"
                             min="0.01"
                             step="any"
-                            placeholder="1"
+                            placeholder=""
                             value={row.quantity}
                             onChange={(e) => {
                               const val = e.target.value === '' ? '' : parseFloat(e.target.value);
@@ -812,7 +812,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                   min={0}
                   max={100}
                   step="0.1"
-                  placeholder="0"
+                  placeholder=""
                   value={disPercent}
                   onChange={(e) => handleDisPercentChange(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
@@ -828,7 +828,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                   min={0}
                   max={basicTotal}
                   step="any"
-                  placeholder="0"
+                  placeholder=""
                   value={disAmt}
                   onChange={(e) => handleDisAmtChange(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
@@ -843,7 +843,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                   type="number"
                   min={0}
                   step="any"
-                  placeholder="0"
+                  placeholder=""
                   value={taxAmt}
                   onChange={(e) => setTaxAmt(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs font-mono bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"
@@ -870,7 +870,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                   type="number"
                   min={0}
                   step="any"
-                  placeholder={grandTotal.toFixed(0)}
+                  placeholder=""
                   value={paidAmt}
                   onChange={(e) => {
                     setPaidAmt(e.target.value);
@@ -933,7 +933,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="Optional note..."
+                  placeholder=""
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#061D18] border border-slate-300 dark:border-slate-700 rounded-[3px] text-slate-900 dark:text-white focus:outline-none focus:border-[#0B3D32]"

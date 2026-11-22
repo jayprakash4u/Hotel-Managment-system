@@ -334,7 +334,7 @@ export const MASTER_CATEGORIES: MasterCategory[] = [
         id: 'product-setup',
         name: 'Products',
         icon: UtensilsCrossed,
-        description: 'Manage general products, SKUs, pricing, and stock details',
+        description: 'Manage master products and items list, codes, and order',
       },
       {
         id: 'product-units-setup',
@@ -849,13 +849,20 @@ export const INITIAL_MASTER_ITEMS: Record<string, MasterItemEntry[]> = {
   ],
   'item-setup': [],
   'product-setup': [],
+  'product-categories-setup': [
+    { id: 'pcat-1', code: 'CD', name: 'Cold Drinks', description: 'Bottled, canned, and ready cold beverages', order: 1, isDefault: true, isActive: true },
+    { id: 'pcat-2', code: 'RM', name: 'Raw Materials', description: 'Kitchen and bar raw ingredients and supplies', order: 2, isActive: true },
+    { id: 'pcat-3', code: 'BEV', name: 'Beverages', description: 'Hot and cold beverages, juices, and drinks', order: 3, isActive: true },
+    { id: 'pcat-4', code: 'SNK', name: 'Snacks & Food', description: 'Packaged snacks, confectionery, and edible goods', order: 4, isActive: true },
+    { id: 'pcat-5', code: 'AMN', name: 'Guest Amenities', description: 'In-room guest amenities, supplies, and kits', order: 5, isActive: true },
+    { id: 'pcat-6', code: 'HK', name: 'Housekeeping & Supplies', description: 'Cleaning, laundry, and hygiene supplies', order: 6, isActive: true },
+  ],
 };
 
 export function getFallbackItemsForSubBox(subId: string, subName: string): MasterItemEntry[] {
   if (
     subId === 'item-setup' ||
     subId === 'product-setup' ||
-    subId === 'product-categories-setup' ||
     subId === 'suppliers-setup' ||
     subId === 'table-setup' ||
     subId === 'table-categories-setup' ||
@@ -863,6 +870,9 @@ export function getFallbackItemsForSubBox(subId: string, subName: string): Maste
     subId === 'categories-setup'
   ) {
     return [];
+  }
+  if (subId === 'product-categories-setup') {
+    return INITIAL_MASTER_ITEMS['product-categories-setup'] || [];
   }
   return [
     { id: `${subId}-1`, code: '01', name: `Standard ${subName.replace(/s$/, '')}`, description: 'Default standard property tier', isDefault: true, isActive: true },
@@ -877,7 +887,7 @@ export function getFallbackItemsForSubBox(subId: string, subName: string): Maste
 }
 
 export function getSubBoxEntityName(box: { id: string; name: string }): string {
-  if (box.id === 'item-setup' || box.id === 'product-setup') return 'Item / Product';
+  if (box.id === 'item-setup' || box.id === 'product-setup') return 'Product';
   if (box.id === 'product-categories-setup') return 'Product Category';
   if (box.id === 'suppliers-setup') return 'Supplier';
   if (box.id === 'add-room-setup' || box.id === 'room-list-setup') return 'Room';

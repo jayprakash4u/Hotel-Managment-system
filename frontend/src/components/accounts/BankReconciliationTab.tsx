@@ -930,21 +930,21 @@ export default function BankReconciliationTab() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+              <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+                <thead className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
                   <tr>
-                    <th className="py-2.5 px-3">Type</th>
-                    <th className="py-2.5 px-3">Account Code &amp; Name</th>
-                    <th className="py-2.5 px-3">Provider / Bank</th>
-                    <th className="py-2.5 px-3">Account # / Merchant ID</th>
-                    <th className="py-2.5 px-3 text-right">GL Book Balance</th>
-                    <th className="py-2.5 px-3 text-right">Unreconciled Items</th>
-                    <th className="py-2.5 px-3">Last Reconciled</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Type</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Account Code &amp; Name</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Provider / Bank</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Account # / Merchant ID</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">GL Book Balance</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Unreconciled Items</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Last Reconciled</th>
+                    <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                     <th className="py-2.5 px-3 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                   {accounts.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-8 text-center text-slate-400 text-xs">
@@ -959,27 +959,15 @@ export default function BankReconciliationTab() {
                       return (
                         <tr
                           key={acc.id}
-                          className="hover:bg-slate-50/80 dark:hover:bg-slate-900/30 transition-colors"
+                          className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                         >
-                          <td className="py-2.5 px-3">
-                            <span
-                              className={cn(
-                                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase',
-                                isWallet
-                                  ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                                  : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                              )}
-                            >
-                              {isWallet ? (
-                                <Wallet className="w-3 h-3 stroke-[1.25]" />
-                              ) : (
-                                <Landmark className="w-3 h-3 stroke-[1.25]" />
-                              )}
-                              <span>{isWallet ? 'Wallet' : 'Bank'}</span>
+                          <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">
+                              {isWallet ? 'Wallet' : 'Bank'}
                             </span>
                           </td>
 
-                          <td className="py-2.5 px-3">
+                          <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                             <div className="font-bold text-slate-900 dark:text-white">
                               {acc.accountName}
                             </div>
@@ -988,8 +976,8 @@ export default function BankReconciliationTab() {
                             </div>
                           </td>
 
-                          <td className="py-2.5 px-3">
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">
                               {acc.bankName || acc.walletProvider || '—'}
                             </span>
                             {acc.branchOrOutlet && (
@@ -999,34 +987,27 @@ export default function BankReconciliationTab() {
                             )}
                           </td>
 
-                          <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300">
+                          <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                             {acc.maskedAccountNumber || acc.maskedMerchantId || '—'}
                           </td>
 
-                          <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
+                          <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                             Rs. {(acc.currentBalance ?? 0).toLocaleString('en-US', {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </td>
 
-                          <td className="py-2.5 px-3 text-right">
-                            <span
-                              className={cn(
-                                'inline-block px-2 py-0.5 rounded-full text-[10px] font-bold',
-                                acc.unreconciledLinesCount > 0
-                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                              )}
-                            >
+                          <td className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700/60">
+                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
                               {acc.unreconciledLinesCount} entries
                             </span>
                           </td>
 
-                          <td className="py-2.5 px-3">
+                          <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                             {acc.lastReconciledDate ? (
                               <div>
-                                <div className="font-semibold text-slate-700 dark:text-slate-300">
+                                <div className="font-medium text-slate-700 dark:text-slate-300">
                                   {new Date(acc.lastReconciledDate).toLocaleDateString()}
                                 </div>
                                 <div className="text-[10px] text-slate-400 font-mono">
@@ -1040,16 +1021,21 @@ export default function BankReconciliationTab() {
                             )}
                           </td>
 
-                          <td className="py-2.5 px-3 text-center">
-                            {hasActiveSession ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 animate-pulse">
-                                IN PROGRESS
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400">
-                                READY
-                              </span>
-                            )}
+                          <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
+                            <span
+                              className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
+                                hasActiveSession
+                                  ? 'text-blue-700 dark:text-blue-400'
+                                  : 'text-slate-600 dark:text-slate-400'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  hasActiveSession ? 'bg-blue-500 animate-pulse' : 'bg-slate-400'
+                                }`}
+                              />
+                              {hasActiveSession ? 'IN PROGRESS' : 'READY'}
+                            </span>
                           </td>
 
                           <td className="py-2.5 px-3 text-right">

@@ -1851,6 +1851,7 @@ public class InventoryController : ControllerBase
         [FromQuery] string? department,
         [FromQuery] string? itemId,
         [FromQuery] string? movementType,
+        [FromQuery] string? category,
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
         [FromQuery] string? search)
@@ -1868,10 +1869,31 @@ public class InventoryController : ControllerBase
             query = query.Where(m => m.ItemId == itemId || (m.Item != null && m.Item.Sku == itemId));
         }
 
+        if (!string.IsNullOrWhiteSpace(category) && !category.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            var cat = category.Trim().ToUpper();
+            query = query.Where(m => m.Item != null && m.Item.Category.ToUpper() == cat);
+        }
+
         if (!string.IsNullOrWhiteSpace(movementType) && !movementType.Equals("ALL", StringComparison.OrdinalIgnoreCase))
         {
             var mType = movementType.Trim().ToUpper();
-            query = query.Where(m => m.Type.ToUpper() == mType);
+            if (mType == "PURCHASE")
+                query = query.Where(m => m.Type.ToUpper().Contains("PURCHASE"));
+            else if (mType == "SALE" || mType == "POS_CONSUMPTION")
+                query = query.Where(m => m.Type.ToUpper().Contains("SALE") || m.Type.ToUpper().Contains("POS"));
+            else if (mType == "OPENING" || mType == "OPENING_STOCK")
+                query = query.Where(m => m.Type.ToUpper().Contains("OPENING") || m.Type.ToUpper().Contains("INITIAL"));
+            else if (mType == "ADJUSTMENT")
+                query = query.Where(m => m.Type.ToUpper().Contains("ADJUST"));
+            else if (mType == "TRANSFER")
+                query = query.Where(m => m.Type.ToUpper().Contains("TRANSFER"));
+            else if (mType == "WASTAGE")
+                query = query.Where(m => m.Type.ToUpper().Contains("WASTAGE"));
+            else if (mType == "DAMAGED")
+                query = query.Where(m => m.Type.ToUpper().Contains("DAMAGED"));
+            else
+                query = query.Where(m => m.Type.ToUpper() == mType);
         }
 
         if (fromDate.HasValue)
@@ -1898,7 +1920,7 @@ public class InventoryController : ControllerBase
 
         var movements = await query
             .OrderByDescending(m => m.CreatedAt)
-            .Take(500)
+            .Take(1000)
             .ToListAsync();
 
         var result = movements.Select(m => new
@@ -1912,6 +1934,7 @@ public class InventoryController : ControllerBase
             department = m.Department,
             movementType = m.Type,
             referenceNumber = !string.IsNullOrWhiteSpace(m.ReferenceNumber) ? m.ReferenceNumber : (!string.IsNullOrWhiteSpace(m.TransferNumber) ? m.TransferNumber : m.Id),
+            referenceType = m.ReferenceType ?? (m.Type.Contains("PURCHASE") ? "PURCHASE" : m.Type.Contains("SALE") || m.Type.Contains("POS") ? "SALE" : m.Type.Contains("ADJUST") ? "ADJUSTMENT" : m.Type.Contains("TRANSFER") ? "TRANSFER" : m.Type.Contains("OPENING") ? "OPENING" : "GENERAL"),
             quantityIn = m.Quantity > 0 ? m.Quantity : 0,
             quantityOut = m.Quantity < 0 ? Math.Abs(m.Quantity) : 0,
             quantity = m.Quantity,
@@ -1919,10 +1942,99 @@ public class InventoryController : ControllerBase
             newBalance = m.ResultingBalance,
             stockUnit = m.Item?.Unit ?? "pieces",
             reason = m.Reason ?? "—",
+            notes = m.Notes ?? m.Reason ?? "—",
             performedBy = m.PerformedBy
         });
 
         return Ok(ApiResponse.Ok(result));
+    }
+
+    [HttpGet("movements/summary")]
+    public async Task<IActionResult> GetMovementsSummary(
+        [FromQuery] string? department,
+        [FromQuery] string? itemId,
+        [FromQuery] string? movementType,
+        [FromQuery] string? category,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] string? search)
+    {
+        var query = _db.StockMovements.Include(m => m.Item).AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(department) && !department.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            var dept = department.Trim().ToUpper();
+            query = query.Where(m => m.Department.ToUpper() == dept);
+        }
+
+        if (!string.IsNullOrWhiteSpace(itemId) && !itemId.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(m => m.ItemId == itemId || (m.Item != null && m.Item.Sku == itemId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(category) && !category.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            var cat = category.Trim().ToUpper();
+            query = query.Where(m => m.Item != null && m.Item.Category.ToUpper() == cat);
+        }
+
+        if (!string.IsNullOrWhiteSpace(movementType) && !movementType.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            var mType = movementType.Trim().ToUpper();
+            if (mType == "PURCHASE")
+                query = query.Where(m => m.Type.ToUpper().Contains("PURCHASE"));
+            else if (mType == "SALE" || mType == "POS_CONSUMPTION")
+                query = query.Where(m => m.Type.ToUpper().Contains("SALE") || m.Type.ToUpper().Contains("POS"));
+            else if (mType == "OPENING" || mType == "OPENING_STOCK")
+                query = query.Where(m => m.Type.ToUpper().Contains("OPENING") || m.Type.ToUpper().Contains("INITIAL"));
+            else if (mType == "ADJUSTMENT")
+                query = query.Where(m => m.Type.ToUpper().Contains("ADJUST"));
+            else if (mType == "TRANSFER")
+                query = query.Where(m => m.Type.ToUpper().Contains("TRANSFER"));
+            else if (mType == "WASTAGE")
+                query = query.Where(m => m.Type.ToUpper().Contains("WASTAGE"));
+            else if (mType == "DAMAGED")
+                query = query.Where(m => m.Type.ToUpper().Contains("DAMAGED"));
+            else
+                query = query.Where(m => m.Type.ToUpper() == mType);
+        }
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(m => m.CreatedAt >= fromDate.Value.ToUniversalTime());
+        }
+
+        if (toDate.HasValue)
+        {
+            query = query.Where(m => m.CreatedAt <= toDate.Value.ToUniversalTime());
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(m =>
+                (m.Item != null && (m.Item.Name.ToLower().Contains(s) || m.Item.Sku.ToLower().Contains(s))) ||
+                (m.ReferenceNumber != null && m.ReferenceNumber.ToLower().Contains(s)) ||
+                (m.TransferNumber != null && m.TransferNumber.ToLower().Contains(s)) ||
+                (m.Reason != null && m.Reason.ToLower().Contains(s)) ||
+                (m.PerformedBy != null && m.PerformedBy.ToLower().Contains(s))
+            );
+        }
+
+        var movements = await query.ToListAsync();
+
+        var totalMovements = movements.Count;
+        var stockIn = movements.Where(m => m.Quantity > 0).Sum(m => m.Quantity);
+        var stockOut = movements.Where(m => m.Quantity < 0).Sum(m => Math.Abs(m.Quantity));
+        var itemsWithChanges = movements.Select(m => m.ItemId).Distinct().Count();
+
+        return Ok(ApiResponse.Ok(new
+        {
+            totalMovements,
+            stockIn,
+            stockOut,
+            itemsWithChanges
+        }));
     }
 
     public record StockAdjustmentRecordRequest(
@@ -1930,6 +2042,7 @@ public class InventoryController : ControllerBase
         string AdjustmentType,
         int Quantity,
         string? Reason,
+        string? Notes,
         string? PerformedBy
     );
 
@@ -1947,42 +2060,463 @@ public class InventoryController : ControllerBase
             return NotFound(ApiResponse.Fail($"Item '{req.ItemId}' not found."));
         }
 
-        int prevBalance = item.CurrentStock;
-        var adjType = req.AdjustmentType?.Trim().ToUpper() ?? "ADJUSTMENT_INCREASE";
-        bool isIncrease = adjType == "ADJUSTMENT_INCREASE";
-
-        int qtyChange = isIncrease ? req.Quantity : -req.Quantity;
-        int newBalance = item.TrackStock ? Math.Max(0, prevBalance + qtyChange) : 0;
-
-        if (item.TrackStock)
+        using var tx = await _db.Database.BeginTransactionAsync();
+        try
         {
-            item.CurrentStock = newBalance;
+            int prevBalance = item.CurrentStock;
+            var adjType = req.AdjustmentType?.Trim().ToUpper() ?? "ADJUSTMENT_INCREASE";
+
+            // Determine whether this adjustment adds or deducts stock
+            bool isIncrease = adjType == "ADJUSTMENT_INCREASE" || adjType == "INCREASE_STOCK" || adjType == "INCREASE";
+            int qtyChange = isIncrease ? req.Quantity : -req.Quantity;
+
+            // If decreasing, ensure sufficient stock
+            if (!isIncrease && item.TrackStock && item.CurrentStock < req.Quantity)
+            {
+                return BadRequest(ApiResponse.Fail($"Insufficient stock for '{item.Name}'. Available: {item.CurrentStock}, Requested: {req.Quantity}."));
+            }
+
+            int newBalance = item.TrackStock ? Math.Max(0, prevBalance + qtyChange) : 0;
+
+            if (item.TrackStock)
+            {
+                item.CurrentStock = newBalance;
+                item.LastRestocked = DateTime.UtcNow;
+            }
+
+            var refNumber = $"ADJ-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
+            var movement = new StockMovement
+            {
+                ItemId = item.Id,
+                Department = item.Department,
+                Quantity = qtyChange,
+                PreviousBalance = prevBalance,
+                ResultingBalance = newBalance,
+                Type = adjType,
+                ReferenceNumber = refNumber,
+                ReferenceType = "ADJUSTMENT",
+                Reason = !string.IsNullOrWhiteSpace(req.Reason) ? req.Reason : $"Manual stock adjustment ({adjType})",
+                Notes = req.Notes,
+                PerformedBy = req.PerformedBy ?? "Inventory Manager",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.StockMovements.Add(movement);
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return Ok(ApiResponse.Ok(new
+            {
+                item,
+                movement,
+                referenceNumber = refNumber
+            }, $"Stock adjustment ({adjType}) recorded successfully. Reference: {refNumber}"));
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to record stock adjustment: {ex.Message}"));
+        }
+    }
+
+    // =========================================================================
+    // 6. MULTI-ITEM STOCK ADJUSTMENT MODULE (ERP STANDARD)
+    // =========================================================================
+
+    public record StockAdjustmentItemRequest(
+        string ItemId,
+        string AdjustmentType, // INCREASE or DECREASE
+        int Quantity,
+        string Reason,
+        string? Notes
+    );
+
+    public record CreateStockAdjustmentRequest(
+        string? AdjustmentNumber,
+        DateTime? AdjustmentDate,
+        string? Department,
+        string? Notes,
+        string? AdjustedBy,
+        List<StockAdjustmentItemRequest> Items
+    );
+
+    [HttpGet("stock-adjustments")]
+    public async Task<IActionResult> GetStockAdjustments(
+        [FromQuery] string? department,
+        [FromQuery] string? adjustmentType,
+        [FromQuery] string? reason,
+        [FromQuery] string? search,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 15)
+    {
+        var query = _db.StockAdjustments.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(department) && !department.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            var dept = department.Trim().ToUpper();
+            query = query.Where(a => a.Department.ToUpper() == dept);
         }
 
-        var refNumber = $"ADJ-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
-        var movement = new StockMovement
+        if (!string.IsNullOrWhiteSpace(adjustmentType) && !adjustmentType.Equals("ALL", StringComparison.OrdinalIgnoreCase))
         {
-            ItemId = item.Id,
-            Department = item.Department,
-            Quantity = qtyChange,
-            PreviousBalance = prevBalance,
-            ResultingBalance = newBalance,
-            Type = adjType,
-            ReferenceNumber = refNumber,
-            Reason = req.Reason ?? $"Manual stock adjustment ({adjType})",
-            PerformedBy = req.PerformedBy ?? "Inventory Manager",
-            CreatedAt = DateTime.UtcNow
-        };
+            var aType = adjustmentType.Trim().ToUpper();
+            query = query.Where(a => a.AdjustmentType.ToUpper() == aType);
+        }
 
-        _db.StockMovements.Add(movement);
-        await _db.SaveChangesAsync();
+        if (!string.IsNullOrWhiteSpace(reason) && !reason.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            var r = reason.Trim().ToLower();
+            query = query.Where(a => a.PrimaryReason.ToLower().Contains(r));
+        }
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(a => a.AdjustmentDate >= fromDate.Value);
+        }
+
+        if (toDate.HasValue)
+        {
+            var endOfDay = toDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(a => a.AdjustmentDate <= endOfDay);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(a =>
+                a.AdjustmentNumber.ToLower().Contains(s) ||
+                a.AdjustedBy.ToLower().Contains(s) ||
+                (a.Notes != null && a.Notes.ToLower().Contains(s)) ||
+                a.ItemsJson.ToLower().Contains(s)
+            );
+        }
+
+        var totalEntries = await query.CountAsync();
+
+        // Calculate summary metrics responding to filters
+        var filteredList = await query.ToListAsync();
+        int totalAdjustments = filteredList.Count;
+        int stockIncreased = 0;
+        int stockDecreased = 0;
+        var today = DateTime.UtcNow.Date;
+        int todayAdjustments = filteredList.Count(a => a.AdjustmentDate.Date == today);
+
+        foreach (var adj in filteredList)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(adj.ItemsJson))
+                {
+                    var items = JsonSerializer.Deserialize<List<JsonElement>>(adj.ItemsJson);
+                    if (items != null)
+                    {
+                        foreach (var itm in items)
+                        {
+                            var type = itm.TryGetProperty("adjustmentType", out var pType) ? pType.GetString()?.ToUpper() : "";
+                            var qty = itm.TryGetProperty("quantity", out var pQty) ? pQty.GetInt32() : 0;
+                            if (type == "INCREASE" || type == "INCREASE_STOCK")
+                            {
+                                stockIncreased += qty;
+                            }
+                            else if (type == "DECREASE" || type == "DECREASE_STOCK")
+                            {
+                                stockDecreased += qty;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback using totalQuantity and adjustmentType
+                if (adj.AdjustmentType == "INCREASE") stockIncreased += adj.TotalQuantity;
+                else if (adj.AdjustmentType == "DECREASE") stockDecreased += adj.TotalQuantity;
+            }
+        }
+
+        var adjustments = filteredList
+            .OrderByDescending(a => a.AdjustmentDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
 
         return Ok(ApiResponse.Ok(new
         {
-            item,
-            movement,
-            referenceNumber = refNumber
-        }, $"Stock adjustment ({adjType}) recorded successfully. Reference: {refNumber}"));
+            data = adjustments,
+            totalEntries,
+            page,
+            pageSize,
+            summary = new
+            {
+                totalAdjustments,
+                stockIncreased,
+                stockDecreased,
+                todayAdjustments
+            }
+        }));
+    }
+
+    [HttpGet("stock-adjustments/summary")]
+    public async Task<IActionResult> GetStockAdjustmentsSummary(
+        [FromQuery] string? department,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate)
+    {
+        var query = _db.StockAdjustments.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(department) && !department.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            var dept = department.Trim().ToUpper();
+            query = query.Where(a => a.Department.ToUpper() == dept);
+        }
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(a => a.AdjustmentDate >= fromDate.Value);
+        }
+
+        if (toDate.HasValue)
+        {
+            var endOfDay = toDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(a => a.AdjustmentDate <= endOfDay);
+        }
+
+        var list = await query.ToListAsync();
+        int totalAdjustments = list.Count;
+        int stockIncreased = 0;
+        int stockDecreased = 0;
+        var today = DateTime.UtcNow.Date;
+        int todayAdjustments = list.Count(a => a.AdjustmentDate.Date == today);
+
+        foreach (var adj in list)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(adj.ItemsJson))
+                {
+                    var items = JsonSerializer.Deserialize<List<JsonElement>>(adj.ItemsJson);
+                    if (items != null)
+                    {
+                        foreach (var itm in items)
+                        {
+                            var type = itm.TryGetProperty("adjustmentType", out var pType) ? pType.GetString()?.ToUpper() : "";
+                            var qty = itm.TryGetProperty("quantity", out var pQty) ? pQty.GetInt32() : 0;
+                            if (type == "INCREASE" || type == "INCREASE_STOCK")
+                            {
+                                stockIncreased += qty;
+                            }
+                            else if (type == "DECREASE" || type == "DECREASE_STOCK")
+                            {
+                                stockDecreased += qty;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                if (adj.AdjustmentType == "INCREASE") stockIncreased += adj.TotalQuantity;
+                else if (adj.AdjustmentType == "DECREASE") stockDecreased += adj.TotalQuantity;
+            }
+        }
+
+        return Ok(ApiResponse.Ok(new
+        {
+            totalAdjustments,
+            stockIncreased,
+            stockDecreased,
+            todayAdjustments
+        }));
+    }
+
+    [HttpGet("stock-adjustments/{id}")]
+    public async Task<IActionResult> GetStockAdjustmentById(string id)
+    {
+        var adjustment = await _db.StockAdjustments.FirstOrDefaultAsync(a => a.Id == id || a.AdjustmentNumber == id);
+        if (adjustment == null)
+        {
+            return NotFound(ApiResponse.Fail($"Stock adjustment '{id}' not found."));
+        }
+
+        var movements = await _db.StockMovements
+            .Where(m => m.ReferenceNumber == adjustment.AdjustmentNumber && m.ReferenceType == "ADJUSTMENT")
+            .ToListAsync();
+
+        return Ok(ApiResponse.Ok(new
+        {
+            adjustment,
+            movements
+        }));
+    }
+
+    [HttpPost("stock-adjustments")]
+    public async Task<IActionResult> CreateStockAdjustment([FromBody] CreateStockAdjustmentRequest req)
+    {
+        if (req.Items == null || req.Items.Count == 0)
+        {
+            return BadRequest(ApiResponse.Fail("At least one inventory item is required in the adjustment document."));
+        }
+
+        // Validate duplicate items in same document
+        var duplicateIds = req.Items.GroupBy(i => i.ItemId).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        if (duplicateIds.Count > 0)
+        {
+            return BadRequest(ApiResponse.Fail("Duplicate items detected in adjustment document. Please adjust each item on a single line."));
+        }
+
+        var itemIds = req.Items.Select(i => i.ItemId).ToList();
+        var inventoryItems = await _db.InventoryItems.Where(i => itemIds.Contains(i.Id)).ToListAsync();
+
+        if (inventoryItems.Count != itemIds.Count)
+        {
+            return BadRequest(ApiResponse.Fail("One or more selected inventory items could not be found."));
+        }
+
+        // Pre-validate quantities & stock constraints
+        foreach (var itmReq in req.Items)
+        {
+            if (itmReq.Quantity <= 0)
+            {
+                return BadRequest(ApiResponse.Fail($"Quantity must be greater than zero."));
+            }
+
+            var item = inventoryItems.First(i => i.Id == itmReq.ItemId);
+            bool isDecrease = itmReq.AdjustmentType.Trim().ToUpper().Contains("DECREASE");
+
+            if (isDecrease && item.TrackStock && item.CurrentStock < itmReq.Quantity)
+            {
+                return BadRequest(ApiResponse.Fail($"Insufficient stock for '{item.Name}'. Available: {item.CurrentStock}, Requested decrease: {itmReq.Quantity}. Negative stock is not permitted."));
+            }
+
+            if (string.IsNullOrWhiteSpace(itmReq.Reason))
+            {
+                return BadRequest(ApiResponse.Fail($"Reason is required for item '{item.Name}'."));
+            }
+        }
+
+        using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var adjDate = req.AdjustmentDate ?? DateTime.UtcNow;
+            var adjNumber = !string.IsNullOrWhiteSpace(req.AdjustmentNumber)
+                ? req.AdjustmentNumber.Trim()
+                : $"ADJ-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
+
+            // Prevent duplicate adjustment submission
+            var existing = await _db.StockAdjustments.AnyAsync(a => a.AdjustmentNumber == adjNumber);
+            if (existing)
+            {
+                adjNumber = $"ADJ-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(1000, 9999)}";
+            }
+
+            bool hasIncrease = req.Items.Any(i => i.AdjustmentType.Trim().ToUpper().Contains("INCREASE"));
+            bool hasDecrease = req.Items.Any(i => i.AdjustmentType.Trim().ToUpper().Contains("DECREASE"));
+
+            string overallType = hasIncrease && hasDecrease ? "MIXED" : (hasIncrease ? "INCREASE" : "DECREASE");
+            int totalQty = req.Items.Sum(i => i.Quantity);
+
+            var reasons = req.Items.Select(i => i.Reason.Trim()).Distinct().ToList();
+            string primaryReason = reasons.Count == 1 ? reasons[0] : "Mixed";
+
+            var defaultHotel = await _db.Hotels.FirstOrDefaultAsync();
+            var hotelId = defaultHotel?.Id ?? "default-hotel";
+
+            var adjustmentRecord = new StockAdjustment
+            {
+                HotelId = hotelId,
+                AdjustmentNumber = adjNumber,
+                AdjustmentDate = adjDate,
+                Department = !string.IsNullOrWhiteSpace(req.Department) ? req.Department.ToUpper() : "SHARED",
+                Status = "COMPLETED",
+                AdjustmentType = overallType,
+                ItemCount = req.Items.Count,
+                TotalQuantity = totalQty,
+                PrimaryReason = primaryReason,
+                Notes = req.Notes,
+                AdjustedBy = !string.IsNullOrWhiteSpace(req.AdjustedBy) ? req.AdjustedBy.Trim() : "Inventory Manager",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var itemsSnapshot = new List<object>();
+
+            foreach (var itmReq in req.Items)
+            {
+                var item = inventoryItems.First(i => i.Id == itmReq.ItemId);
+                int prevStock = item.CurrentStock;
+                bool isIncrease = itmReq.AdjustmentType.Trim().ToUpper().Contains("INCREASE");
+                int qtyChange = isIncrease ? itmReq.Quantity : -itmReq.Quantity;
+                int newStock = item.TrackStock ? Math.Max(0, prevStock + qtyChange) : 0;
+
+                if (item.TrackStock)
+                {
+                    item.CurrentStock = newStock;
+                    item.LastRestocked = DateTime.UtcNow;
+                }
+
+                // Determine specific movement type badge label
+                string movementType = isIncrease ? "ADJUSTMENT_INCREASE" : "ADJUSTMENT_DECREASE";
+                var rUpper = itmReq.Reason.ToUpper();
+                if (rUpper.Contains("DAMAGED")) movementType = "DAMAGED_STOCK";
+                else if (rUpper.Contains("SPOILED")) movementType = "SPOILED_STOCK";
+                else if (rUpper.Contains("LOST") || rUpper.Contains("MISSING")) movementType = "LOST_STOCK";
+                else if (rUpper.Contains("EXPIRED")) movementType = "SPOILED_STOCK";
+
+                var movement = new StockMovement
+                {
+                    ItemId = item.Id,
+                    Department = !string.IsNullOrWhiteSpace(req.Department) && req.Department != "SHARED" ? req.Department : item.Department,
+                    Quantity = qtyChange,
+                    PreviousBalance = prevStock,
+                    ResultingBalance = newStock,
+                    Type = movementType,
+                    ReferenceNumber = adjNumber,
+                    ReferenceType = "ADJUSTMENT",
+                    Reason = itmReq.Reason,
+                    Notes = itmReq.Notes,
+                    PerformedBy = adjustmentRecord.AdjustedBy,
+                    CreatedAt = adjDate
+                };
+
+                _db.StockMovements.Add(movement);
+
+                itemsSnapshot.Add(new
+                {
+                    itemId = item.Id,
+                    itemName = item.Name,
+                    itemCode = item.Sku,
+                    category = item.Category,
+                    department = item.Department,
+                    unit = item.Unit,
+                    currentStock = prevStock,
+                    adjustmentType = isIncrease ? "INCREASE" : "DECREASE",
+                    quantity = itmReq.Quantity,
+                    newStock = newStock,
+                    reason = itmReq.Reason,
+                    notes = itmReq.Notes,
+                    movementType = movementType
+                });
+            }
+
+            adjustmentRecord.ItemsJson = JsonSerializer.Serialize(itemsSnapshot);
+            _db.StockAdjustments.Add(adjustmentRecord);
+
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return Ok(ApiResponse.Ok(new
+            {
+                adjustment = adjustmentRecord,
+                items = itemsSnapshot
+            }, $"Stock adjustment document '{adjNumber}' finalized successfully with {req.Items.Count} item(s)."));
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync();
+            return StatusCode(500, ApiResponse.Fail($"Failed to create stock adjustment: {ex.Message}"));
+        }
     }
 
     [HttpGet("purchases/ledger")]

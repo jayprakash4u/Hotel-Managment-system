@@ -583,23 +583,23 @@ export default function LiabilitiesTab() {
       </div>
 
       {/* 4. Liabilities Overview Table */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs overflow-hidden">
+      <div className="rounded border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                <th className="py-2.5 px-3">Liability Name &amp; Ref</th>
-                <th className="py-2.5 px-3">Category &amp; Class</th>
-                <th className="py-2.5 px-3">Related Party</th>
-                <th className="py-2.5 px-3 text-right">Original Obligation</th>
-                <th className="py-2.5 px-3 text-right">Outstanding Balance</th>
-                <th className="py-2.5 px-3">Due Date</th>
-                <th className="py-2.5 px-3 text-center">Status</th>
-                <th className="py-2.5 px-3 text-center">Source</th>
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Liability Name &amp; Ref</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Category &amp; Class</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Related Party</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Original Obligation</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Outstanding Balance</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Due Date</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Source</th>
                 <th className="py-2.5 px-3 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
               {loading ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
@@ -625,10 +625,10 @@ export default function LiabilitiesTab() {
                 liabilities.map((item) => (
                   <tr
                     key={item.id}
-                    className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
+                    className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                   >
                     {/* Name & Reference */}
-                    <td className="py-2.5 px-3">
+                    <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                       <div className="font-semibold text-slate-800 dark:text-slate-100">
                         {item.liabilityName}
                       </div>
@@ -641,37 +641,32 @@ export default function LiabilitiesTab() {
                     </td>
 
                     {/* Category & Classification */}
-                    <td className="py-2.5 px-3 whitespace-nowrap">
+                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       <div className="text-slate-700 dark:text-slate-300 font-medium">
                         {item.category}
                       </div>
-                      <div className="mt-0.5">
-                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${item.classification === 'CURRENT'
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
-                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                          }`}>
-                          {item.classification === 'CURRENT' ? 'CURRENT (≤1Y)' : 'LONG-TERM (>1Y)'}
-                        </span>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {item.classification === 'CURRENT' ? 'CURRENT (≤1Y)' : 'LONG-TERM (>1Y)'}
                       </div>
                     </td>
 
                     {/* Related Party */}
-                    <td className="py-2.5 px-3 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                    <td className="py-2.5 px-3 whitespace-nowrap text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                       <div className="font-medium">{item.relatedParty}</div>
                     </td>
 
                     {/* Original Amount */}
-                    <td className="py-2.5 px-3 text-right text-slate-500 whitespace-nowrap font-medium">
+                    <td className="py-2.5 px-3 text-right text-slate-500 whitespace-nowrap font-medium border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {item.originalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
                     {/* Outstanding Balance */}
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       Rs. {item.outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
                     {/* Due Date & Overdue Indicator */}
-                    <td className="py-2.5 px-3 whitespace-nowrap">
+                    <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       {item.dueDate ? (
                         <div>
                           <div className={`font-medium ${item.isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'}`}>
@@ -689,39 +684,43 @@ export default function LiabilitiesTab() {
                       )}
                     </td>
 
-                    {/* Status Badge */}
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                      {item.status === 'OVERDUE' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                          OVERDUE
-                        </span>
-                      )}
-                      {item.status === 'OUTSTANDING' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                          OUTSTANDING
-                        </span>
-                      )}
-                      {item.status === 'PARTIALLY_PAID' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
-                          PARTIAL
-                        </span>
-                      )}
-                      {item.status === 'PAID' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                          PAID
-                        </span>
-                      )}
+                    {/* Status */}
+                    <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
+                          item.status === 'OVERDUE'
+                            ? 'text-rose-700 dark:text-rose-400'
+                            : item.status === 'OUTSTANDING'
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : item.status === 'PARTIALLY_PAID'
+                            ? 'text-blue-700 dark:text-blue-400'
+                            : 'text-emerald-700 dark:text-emerald-400'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            item.status === 'OVERDUE'
+                              ? 'bg-rose-500'
+                              : item.status === 'OUTSTANDING'
+                              ? 'bg-amber-500'
+                              : item.status === 'PARTIALLY_PAID'
+                              ? 'bg-blue-500'
+                              : 'bg-emerald-500'
+                          }`}
+                        />
+                        {item.status === 'PARTIALLY_PAID' ? 'PARTIAL' : item.status}
+                      </span>
                     </td>
 
                     {/* Source Module */}
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                       <button
                         onClick={() => handleJumpToSource(item)}
-                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1"
-                        title="Click to view in source module"
+                        className="text-[11px] font-mono text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:underline inline-flex items-center gap-1"
+                        title="Jump to Source Document"
                       >
-                        <span>{item.sourceModule.replace('_', ' ')}</span>
-                        <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                        <span>{item.sourceModule}</span>
+                        <ArrowRight className="w-2.5 h-2.5" />
                       </button>
                     </td>
 

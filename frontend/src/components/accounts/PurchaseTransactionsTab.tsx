@@ -1026,39 +1026,39 @@ export default function PurchaseTransactionsTab() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  <th className="py-2.5 px-3">Purchase No</th>
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Supplier</th>
-                  <th className="py-2.5 px-3">Inv No / Ref</th>
-                  <th className="py-2.5 px-3">Type / Branch</th>
-                  <th className="py-2.5 px-3 text-right">Grand Total</th>
-                  <th className="py-2.5 px-3 text-right">Paid</th>
-                  <th className="py-2.5 px-3 text-right">Due</th>
-                  <th className="py-2.5 px-3 text-center">Payment</th>
-                  <th className="py-2.5 px-3 text-center">Goods</th>
+                <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Purchase No</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Date</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Supplier</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Inv No / Ref</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Type / Branch</th>
+                  <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Grand Total</th>
+                  <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Paid</th>
+                  <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Due</th>
+                  <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Payment</th>
+                  <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Goods</th>
                   <th className="py-2.5 px-3 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
                 {items.map((tx) => {
                   const isCancelled = tx.transactionStatus === 'CANCELLED';
                   return (
                     <tr
                       key={tx.id}
-                      className={`hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors ${
+                      className={`group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60 ${
                         isCancelled ? 'opacity-60 bg-rose-50/20' : ''
                       }`}
                     >
                       {/* Purchase No */}
-                      <td className="py-2 px-3 font-bold text-slate-900 dark:text-slate-100">
+                      <td className="py-2 px-3 font-bold text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="flex items-center gap-1.5">
                           <span>{tx.purchaseNumber}</span>
                           {isCancelled && (
-                            <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-                              CANCELLED
+                            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                              (CANCELLED)
                             </span>
                           )}
                         </div>
@@ -1070,12 +1070,12 @@ export default function PurchaseTransactionsTab() {
                       </td>
 
                       {/* Date */}
-                      <td className="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      <td className="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         {tx.purchaseDate ? tx.purchaseDate.slice(0, 10) : '-'}
                       </td>
 
                       {/* Supplier */}
-                      <td className="py-2 px-3">
+                      <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[160px]">
                           {tx.supplierName}
                         </div>
@@ -1085,7 +1085,7 @@ export default function PurchaseTransactionsTab() {
                       </td>
 
                       {/* Supplier Invoice / PO Ref */}
-                      <td className="py-2 px-3 text-slate-600 dark:text-slate-400">
+                      <td className="py-2 px-3 text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-mono text-slate-800 dark:text-slate-200">
                           {tx.supplierInvoiceNumber || '-'}
                         </div>
@@ -1095,8 +1095,8 @@ export default function PurchaseTransactionsTab() {
                       </td>
 
                       {/* Type & Branch */}
-                      <td className="py-2 px-3">
-                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-700/60">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
                           {tx.purchaseType}
                         </span>
                         <div className="text-[10px] text-slate-400 truncate max-w-[120px] mt-0.5">
@@ -1105,46 +1105,64 @@ export default function PurchaseTransactionsTab() {
                       </td>
 
                       {/* Grand Total */}
-                      <td className="py-2 px-3 text-right font-black text-slate-900 dark:text-white">
+                      <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {tx.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
                       {/* Paid */}
-                      <td className="py-2 px-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                      <td className="py-2 px-3 text-right font-semibold text-emerald-600 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {tx.paidAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
                       {/* Due */}
-                      <td className="py-2 px-3 text-right font-bold text-rose-600 dark:text-rose-400">
+                      <td className="py-2 px-3 text-right font-bold text-rose-600 dark:text-rose-400 border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {tx.dueAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
-                      {/* Payment Status Badge */}
-                      <td className="py-2 px-3 text-center">
+                      {/* Payment Status */}
+                      <td className="py-2 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
                         <span
-                          className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
                             tx.paymentStatus === 'PAID'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              ? 'text-emerald-700 dark:text-emerald-400'
                               : tx.paymentStatus === 'PARTIAL'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                              ? 'text-blue-700 dark:text-blue-400'
+                              : 'text-amber-700 dark:text-amber-400'
                           }`}
                         >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              tx.paymentStatus === 'PAID'
+                                ? 'bg-emerald-500'
+                                : tx.paymentStatus === 'PARTIAL'
+                                ? 'bg-blue-500'
+                                : 'bg-amber-500'
+                            }`}
+                          />
                           {tx.paymentStatus}
                         </span>
                       </td>
 
-                      {/* Goods Receiving Badge */}
-                      <td className="py-2 px-3 text-center">
+                      {/* Goods Receiving */}
+                      <td className="py-2 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
                         <span
-                          className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
                             tx.receivingStatus === 'RECEIVED'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              ? 'text-emerald-700 dark:text-emerald-400'
                               : tx.receivingStatus === 'PARTIAL'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                              ? 'text-blue-700 dark:text-blue-400'
+                              : 'text-amber-700 dark:text-amber-400'
                           }`}
                         >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              tx.receivingStatus === 'RECEIVED'
+                                ? 'bg-emerald-500'
+                                : tx.receivingStatus === 'PARTIAL'
+                                ? 'bg-blue-500'
+                                : 'bg-amber-500'
+                            }`}
+                          />
                           {tx.receivingStatus}
                         </span>
                       </td>

@@ -1880,6 +1880,18 @@ function TablesContent() {
       }
     }
 
+    if (mode === 'BOT' || mode === 'ALL') {
+      const hasUnconfiguredBot = targetItems.some(
+        (i) => i.department === 'BOT' && (!i.preparationMethod || i.preparationMethod === 'NOT_CONFIGURED')
+      );
+      if (hasUnconfiguredBot) {
+        toast.warning(
+          'Unconfigured Bar Drinks',
+          'Some drinks do not have a preparation method configured in Menu. They will appear with a warning on the Bar Display.'
+        );
+      }
+    }
+
     setIsSendingOrder(true);
     try {
       let resOrder: any = null;
@@ -1920,6 +1932,7 @@ function TablesContent() {
             notes: item.remarks,
             department: item.department || (isBeverageCategory(item.category, item.name) ? 'BOT' : 'KOT'),
             dispatchedQuantity: 0,
+            preparationMethod: item.preparationMethod,
           })),
         });
         orderId = resOrder?.id || `ORD-${Date.now()}`;
@@ -2700,6 +2713,7 @@ function TablesContent() {
             dispatchedQuantity: dispatchedQty,
             kotNumber: item.kotNumber,
             botNumber: (item as any).botNumber,
+            preparationMethod: item.preparationMethod,
           };
         });
 
@@ -2819,6 +2833,7 @@ function TablesContent() {
     let updatedOrders: OrderItem[];
 
     const dept: 'KOT' | 'BOT' = menuItem.department || (isBeverageCategory(menuItem.category, name) ? 'BOT' : 'KOT');
+    const prepMethod = menuItem.preparationMethod || (dept === 'BOT' ? 'NOT_CONFIGURED' : undefined);
 
     if (existing) {
       updatedOrders = currentOrders.map((i) =>
@@ -2840,8 +2855,13 @@ function TablesContent() {
           department: dept,
           dispatchedQuantity: 0,
           status: 'DRAFT',
+          preparationMethod: prepMethod,
         },
       ];
+    }
+
+    if (dept === 'BOT' && (!menuItem.preparationMethod || menuItem.preparationMethod === 'NOT_CONFIGURED')) {
+      toast.warning('Unconfigured Drink', `"${name}" does not have a preparation method set in Menu.`);
     }
 
     if (activeCustomOrder && activeTable.id === activeCustomOrder.id) {
@@ -3795,6 +3815,24 @@ function TablesContent() {
                                   <Clock className="w-2.5 h-2.5 text-slate-400" />
                                   Unsent
                                 </span>
+                              )}
+
+                              {item.department === 'BOT' && (
+                                <div className="mt-1">
+                                  {item.preparationMethod === 'READY_TO_SERVE' ? (
+                                    <span className="inline-block px-1 py-0.2 rounded text-[9px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+                                      Ready to Serve
+                                    </span>
+                                  ) : item.preparationMethod === 'REQUIRES_PREPARATION' ? (
+                                    <span className="inline-block px-1 py-0.2 rounded text-[9px] font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+                                      Requires Prep
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-1 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700" title="Preparation method not configured in Menu">
+                                      ⚠️ Unconfigured
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </td>
 

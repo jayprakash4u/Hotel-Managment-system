@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Hospitality.Domain.Entities;
 
 public class RestaurantOrder : BaseEntity
@@ -46,4 +48,10 @@ public class RestaurantOrder : BaseEntity
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<RestaurantOrderItem> Items { get; set; } = new List<RestaurantOrderItem>();
+
+    [NotMapped]
+    public Bill? Bill { get; set; }
+
+    [NotMapped]
+    public string? BillPaymentStatus { get; set; }
 }

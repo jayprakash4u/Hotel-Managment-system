@@ -14,7 +14,9 @@ public class StockMovement : BaseEntity
     public string? DestinationDepartment { get; set; }
     public string? TransferNumber { get; set; }
     public string? ReferenceNumber { get; set; }
+    public string? ReferenceType { get; set; } // PURCHASE, SALE, ADJUSTMENT, TRANSFER, OPENING, RETURN
     public string? Reason { get; set; }
+    public string? Notes { get; set; }
     public string PerformedBy { get; set; } = "Inventory Manager";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

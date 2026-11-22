@@ -736,24 +736,24 @@ export default function IncomeTab() {
       </div>
 
       {/* 4. Income Records Table */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071F1A] shadow-xs overflow-hidden">
+      <div className="rounded border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-semibold">
-                <th className="py-2.5 px-3">Date</th>
-                <th className="py-2.5 px-3">Voucher #</th>
-                <th className="py-2.5 px-3">Category</th>
-                <th className="py-2.5 px-3">Description</th>
-                <th className="py-2.5 px-3 text-right">Amount</th>
-                <th className="py-2.5 px-3">Received Via</th>
-                <th className="py-2.5 px-3">Receiving Account</th>
-                <th className="py-2.5 px-3">Reference / Payer</th>
-                <th className="py-2.5 px-3 text-center">Status</th>
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-[11px] border-b border-t border-slate-200 dark:border-slate-700 select-none">
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Date</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Voucher #</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Category</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Description</th>
+                <th className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700">Amount</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Received Via</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Receiving Account</th>
+                <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Reference / Payer</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                 <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
               {loading ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-slate-400">
@@ -779,10 +779,10 @@ export default function IncomeTab() {
                   return (
                     <tr
                       key={t.id}
-                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
                       {/* Date */}
-                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                         {new Date(t.incomeDate).toLocaleDateString('en-US', {
                           day: '2-digit',
                           month: 'short',
@@ -791,7 +791,7 @@ export default function IncomeTab() {
                       </td>
 
                       {/* Voucher Number */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
+                      <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         <button
                           type="button"
                           onClick={() => {
@@ -810,49 +810,43 @@ export default function IncomeTab() {
                       </td>
 
                       {/* Category */}
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
                           <span>{t.categoryName}</span>
-                          <span
-                            className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                              isOperating
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                            }`}
-                          >
-                            {isOperating ? 'Operating' : 'Non-Op'}
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            ({isOperating ? 'Operating' : 'Non-Op'})
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-400">{t.incomeAccountCode} - {t.incomeAccountName}</div>
                       </td>
 
                       {/* Description */}
-                      <td className="py-2.5 px-3 max-w-[240px]">
+                      <td className="py-2.5 px-3 max-w-[240px] border-r border-slate-200 dark:border-slate-700/60">
                         <p className="truncate text-slate-800 dark:text-slate-200" title={t.description}>
                           {t.description}
                         </p>
                       </td>
 
                       {/* Amount */}
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap font-mono font-bold text-slate-900 dark:text-white">
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {t.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
                       {/* Received Via */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 uppercase">
+                      <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
                           {t.receivedThrough}
                         </span>
                       </td>
 
                       {/* Receiving Account */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
+                      <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-medium text-slate-800 dark:text-slate-200">{t.receivingAccountName}</div>
                         <div className="text-[10px] font-mono text-slate-400">{t.receivingAccountCode}</div>
                       </td>
 
                       {/* Reference # / Payer */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
+                      <td className="py-2.5 px-3 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         <div className="text-slate-800 dark:text-slate-200">{t.payerName || '—'}</div>
                         {t.referenceNumber && (
                           <div className="text-[10px] font-mono text-slate-400">Ref: {t.referenceNumber}</div>
@@ -860,25 +854,27 @@ export default function IncomeTab() {
                       </td>
 
                       {/* Status */}
-                      <td className="py-2.5 px-3 whitespace-nowrap text-center">
-                        {t.status === 'POSTED' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            <Check className="w-2.5 h-2.5" />
-                            POSTED
-                          </span>
-                        )}
-                        {t.status === 'DRAFT' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            <Clock className="w-2.5 h-2.5" />
-                            DRAFT
-                          </span>
-                        )}
-                        {t.status === 'REVERSED' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                            <RotateCcw className="w-2.5 h-2.5" />
-                            REVERSED
-                          </span>
-                        )}
+                      <td className="py-2.5 px-3 whitespace-nowrap text-center border-r border-slate-200 dark:border-slate-700/60">
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
+                            t.status === 'POSTED'
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : t.status === 'DRAFT'
+                              ? 'text-amber-700 dark:text-amber-400'
+                              : 'text-rose-700 dark:text-rose-400'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              t.status === 'POSTED'
+                                ? 'bg-emerald-500'
+                                : t.status === 'DRAFT'
+                                ? 'bg-amber-500'
+                                : 'bg-rose-500'
+                            }`}
+                          />
+                          {t.status}
+                        </span>
                       </td>
 
                       {/* Actions */}

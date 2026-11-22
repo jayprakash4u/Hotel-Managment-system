@@ -223,10 +223,10 @@ export default function HousekeepingPage() {
       {/* -----------------------------------------------------------------------
           MAIN HOUSEKEEPING DATATABLE
           ----------------------------------------------------------------------- */}
-      <div className="rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-2xs">
+      <div className="rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-surface-card overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+            <thead className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
               <tr>
                 <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
                 <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">ROOM</th>
@@ -237,7 +237,7 @@ export default function HousekeepingPage() {
                 <th className="py-2.5 px-3 text-right">DISPATCH ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
+            <tbody className="divide-y-0 text-slate-700 dark:text-slate-200">
               {filteredList.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
@@ -253,17 +253,17 @@ export default function HousekeepingPage() {
                   return (
                     <tr
                       key={r.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
                       {/* # Number */}
-                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                         {(safeCurrentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Room & Floor */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-[#0B3D32] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-[3px] border border-emerald-200 dark:border-emerald-800 text-xs inline-block">
+                          <span className="font-bold text-slate-900 dark:text-white text-xs">
                             Room {r.number}
                           </span>
                           <span className="text-[11px] text-slate-400 font-medium">Floor {r.floor}</span>
@@ -271,7 +271,7 @@ export default function HousekeepingPage() {
                       </td>
 
                       {/* Room Type & Bed */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-semibold text-slate-900 dark:text-white text-xs">{r.type}</div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           {r.bedType} • {r.acType}
@@ -279,42 +279,59 @@ export default function HousekeepingPage() {
                       </td>
 
                       {/* Operational / Front Desk Status */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <span
                           className={cn(
-                            'text-[10px] font-bold px-2 py-0.5 rounded-[2px] uppercase inline-block',
+                            'text-xs font-semibold inline-flex items-center gap-1.5',
                             r.operationalStatus === 'OCCUPIED'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                              ? 'text-blue-600 dark:text-blue-400'
                               : r.operationalStatus === 'MAINTENANCE'
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-emerald-600 dark:text-emerald-400'
                           )}
                         >
-                          {r.operationalStatus}
+                          <span
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full',
+                              r.operationalStatus === 'OCCUPIED'
+                                ? 'bg-blue-500'
+                                : r.operationalStatus === 'MAINTENANCE'
+                                ? 'bg-rose-500'
+                                : 'bg-emerald-500'
+                            )}
+                          />
+                          <span>{r.operationalStatus}</span>
                         </span>
                       </td>
 
                       {/* Cleaning Status */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <span
                           className={cn(
-                            'text-[10px] font-bold px-2 py-0.5 rounded-[2px] inline-flex items-center gap-1 uppercase',
+                            'text-xs font-semibold inline-flex items-center gap-1.5',
                             isClean
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                              ? 'text-emerald-600 dark:text-emerald-400'
                               : isInCleaning
-                              ? 'bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                              ? 'text-cyan-600 dark:text-cyan-400'
+                              : 'text-amber-600 dark:text-amber-400'
                           )}
                         >
-                          {isClean && <Sparkles className="w-2.5 h-2.5 text-emerald-600" />}
-                          {isInCleaning && <Clock className="w-2.5 h-2.5 text-cyan-600 animate-spin" />}
-                          {isDirty && <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />}
+                          <span
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full',
+                              isClean
+                                ? 'bg-emerald-500'
+                                : isInCleaning
+                                ? 'bg-cyan-500 animate-pulse'
+                                : 'bg-amber-500'
+                            )}
+                          />
                           <span>{isClean ? 'Clean & Ready' : isInCleaning ? 'In Cleaning' : 'Dirty'}</span>
                         </span>
                       </td>
 
                       {/* Notes / Details */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-100 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         {r.operationalStatus === 'MAINTENANCE' ? (
                           <div className="flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400">
                             <Wrench className="w-3 h-3 shrink-0" />

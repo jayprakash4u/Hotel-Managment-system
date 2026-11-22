@@ -39,6 +39,7 @@ import {
   LayoutList,
   Eye,
   Package,
+  AlertTriangle,
 } from 'lucide-react';
 import { RoomSetupView } from '@/components/hotel/RoomSetupView';
 import { RoomDetailsModal } from '@/components/hotel/RoomDetailsModal';
@@ -88,7 +89,7 @@ export function CategoryAutocomplete({
   onChange,
   onAddNewCategory,
   availableCategories,
-  placeholder = 'Search category...',
+  placeholder = '',
 }: CategoryAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(value);
@@ -243,7 +244,7 @@ export function CategoryAutocomplete({
 
       {/* Suggestion Dropdown */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-56 overflow-y-auto rounded-[3px] border border-[#DCE3DF] bg-white shadow-xl dark:border-[#145447] dark:bg-[#071F1A] custom-scrollbar animate-in fade-in-50 duration-100">
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-36 overflow-y-auto rounded-[3px] border border-[#DCE3DF] bg-white shadow-xl dark:border-[#145447] dark:bg-[#071F1A] custom-scrollbar animate-in fade-in-50 duration-100">
           {filteredCategories.length > 0 && (
             <div className="py-1 divide-y divide-slate-100 dark:divide-[#0e3b31]">
               {filteredCategories.map((cat, idx) => {
@@ -256,7 +257,7 @@ export function CategoryAutocomplete({
                     type="button"
                     onClick={() => selectCategory(cat.name)}
                     className={cn(
-                      'w-full flex items-center justify-between px-3 py-2 text-left text-xs transition-colors cursor-pointer',
+                      'w-full flex items-center justify-between px-3 py-1.5 text-left text-xs transition-colors cursor-pointer',
                       isSelected
                         ? 'bg-emerald-50 text-[#0B3D32] font-bold dark:bg-emerald-950/70 dark:text-emerald-300'
                         : isHighlighted
@@ -306,6 +307,90 @@ export function CategoryAutocomplete({
         </div>
       )}
 
+    </div>
+  );
+}
+
+export interface ProductAutocompleteProps {
+  value: string;
+  onChange: (val: string) => void;
+  onSelectProduct: (product: { name: string; code: string }) => void;
+  availableProducts: MasterItemEntry[];
+  placeholder?: string;
+}
+
+export function ProductAutocomplete({
+  value,
+  onChange,
+  onSelectProduct,
+  availableProducts,
+  placeholder = 'Dish / product name',
+}: ProductAutocompleteProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  const matches = useMemo(() => {
+    if (!availableProducts || availableProducts.length === 0) return [];
+    const q = value.trim().toLowerCase();
+    if (!q) return availableProducts.slice(0, 8);
+    return availableProducts
+      .filter((p) => (p.name || '').toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [availableProducts, value]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <input
+        type="text"
+        required
+        autoFocus
+        value={value}
+        onFocus={() => setIsOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setIsOpen(true);
+        }}
+        placeholder={placeholder}
+        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
+      />
+      {isOpen && matches.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-56 overflow-y-auto rounded-[3px] border border-[#DCE3DF] bg-white shadow-xl dark:border-[#145447] dark:bg-[#071F1A] custom-scrollbar animate-in fade-in-50 duration-100">
+          <div className="px-2.5 py-1 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider bg-slate-50 dark:bg-[#061B16] border-b border-slate-100 dark:border-[#145447] flex items-center justify-between">
+            <span>Saved Products</span>
+            <span className="text-[9px] font-mono font-normal">General Product Setup</span>
+          </div>
+          <div className="py-1 divide-y divide-slate-100 dark:divide-[#0e3b31]">
+            {matches.map((p) => (
+              <button
+                key={p.id || p.code || p.name}
+                type="button"
+                onClick={() => {
+                  onSelectProduct({ name: p.name, code: p.code || '' });
+                  setIsOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#0A2E26] transition-colors cursor-pointer"
+              >
+                <span className="font-medium text-slate-900 dark:text-white truncate">{p.name}</span>
+                {p.code && (
+                  <span className="shrink-0 ml-2 font-mono text-[10px] font-bold uppercase rounded-[2px] bg-slate-100 dark:bg-[#0A2E26] px-1.5 py-0.5 text-[#0B3D32] dark:text-emerald-300 border border-slate-200 dark:border-[#145447]">
+                    {p.code}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1193,44 +1278,28 @@ export default function HotelSetupContent({
   >([]);
   const [newOrder, setNewOrder] = useState<string>('');
   const [newTrackStock, setNewTrackStock] = useState<boolean>(false);
+  const [newPreparationMethod, setNewPreparationMethod] = useState<'READY_TO_SERVE' | 'REQUIRES_PREPARATION' | 'NOT_CONFIGURED'>('NOT_CONFIGURED');
   const [newStock, setNewStock] = useState<string>('');
   const [newUnit, setNewUnit] = useState<string>('pieces');
   const [newBasePrice, setNewBasePrice] = useState<string>('');
   const [newCapacity, setNewCapacity] = useState<string>('4');
   const [newCreateQrCode, setNewCreateQrCode] = useState<boolean>(true);
+  const [showInlineAddCat, setShowInlineAddCat] = useState<boolean>(false);
+  const [inlineCatName, setInlineCatName] = useState<string>('');
 
   // Available categories for menu items setup
   const availableCategories = useMemo(() => {
     return masterItemsMap['categories-setup'] || INITIAL_MASTER_ITEMS['categories-setup'] || [];
   }, [masterItemsMap]);
 
-  // Available categories for item & product setup (amenities, goods, products)
+  // Available categories for item & product setup (Cold Drinks, Raw Materials, etc.)
   const availableItemCategories = useMemo(() => {
-    const saved = masterItemsMap['item-categories-setup'] || masterItemsMap['product-categories-setup'];
+    const saved =
+      masterItemsMap['product-categories-setup'] ||
+      masterItemsMap['item-categories-setup'];
     if (saved && saved.length > 0) return saved;
 
-    const defaults = [
-      'Guest Amenities',
-      'Housekeeping & Supplies',
-      'Linen & Bedding',
-      'Toiletries & Hygiene',
-      'Minibar & Beverages',
-      'Food & Snacks',
-      'Food Raw',
-      'Beverages',
-      'Kitchen Supplies',
-      'Room Assets & Electronics',
-      'Maintenance & Hardware',
-    ];
-    const set = new Set<string>(defaults);
-    (masterItemsMap['product-setup'] || masterItemsMap['item-setup'] || []).forEach((item) => {
-      if (item.category) set.add(item.category);
-    });
-    return Array.from(set).map((name, idx) => ({
-      id: `item-cat-${idx + 1}`,
-      code: `IC${idx + 1}`,
-      name,
-    }));
+    return INITIAL_MASTER_ITEMS['product-categories-setup'] || [];
   }, [masterItemsMap]);
 
   // Available categories for facility master
@@ -1478,7 +1547,7 @@ export default function HotelSetupContent({
   const isMenuItem = activeSubBox.id === 'menu-items-setup';
   const isFacilityItem = activeSubBox.id === 'facility-master';
   const isTableSetup = activeSubBox.id === 'table-setup';
-  const hasCategory = isMenuItem || isFacilityItem || isItemSetup || isTableSetup;
+  const hasCategory = isMenuItem || isFacilityItem || isTableSetup || isItemSetup;
 
   const currentCategoryList = useMemo(() => {
     if (isItemSetup) return availableItemCategories;
@@ -1620,11 +1689,11 @@ export default function HotelSetupContent({
       setNewCode('');
       setNewName('');
       setNewDescription('');
-      setNewCategory(availableItemCategories[0]?.name || 'Guest Amenities');
-      setNewUnit(availableQuantities[0]?.name || 'pieces');
+      setNewCategory(availableItemCategories[0]?.name || 'Cold Drinks');
+      setNewUnit('');
       setNewBasePrice('');
-      setNewTrackStock(true);
-      setNewStock('50');
+      setNewTrackStock(false);
+      setNewStock('');
       setNewOrder(((masterItemsMap[activeSubBox.id] || currentItems).length + 1).toString());
       setShowAddForm(true);
       return;
@@ -1653,6 +1722,7 @@ export default function HotelSetupContent({
         : availableCategories[0]?.name || ''
     );
     if (activeSubBox.id === 'menu-items-setup') {
+      setNewPreparationMethod('NOT_CONFIGURED');
       const defaultUnits = availableQuantities.slice(0, 2).map((q) => ({
         quantityName: q.name,
         price: '',
@@ -1754,17 +1824,7 @@ export default function HotelSetupContent({
       setNewCode(item.code);
       setNewName(item.name);
       setNewDescription(item.description || '');
-      setNewCategory(item.category || availableItemCategories[0]?.name || 'Guest Amenities');
-      setNewUnit(item.unit || item.quantityPrices?.[0]?.quantityName || 'pieces');
-      setNewBasePrice(
-        item.basePrice !== undefined
-          ? item.basePrice.toString()
-          : item.quantityPrices?.[0]?.price !== undefined
-            ? item.quantityPrices[0].price.toString()
-            : ''
-      );
-      setNewTrackStock(item.trackStock ?? true);
-      setNewStock(item.stock !== undefined ? item.stock.toString() : '');
+      setNewCategory(item.category || availableItemCategories[0]?.name || 'Cold Drinks');
       setNewOrder((item.order || 1).toString());
       setShowAddForm(true);
       return;
@@ -1810,6 +1870,7 @@ export default function HotelSetupContent({
     setNewOrder((item.order || 1).toString());
     setNewTrackStock(Boolean(item.trackStock));
     setNewStock(item.trackStock && item.stock !== undefined ? item.stock.toString() : '');
+    setNewPreparationMethod((item as any).preparationMethod || 'NOT_CONFIGURED');
     setShowAddForm(true);
   };
 
@@ -1841,16 +1902,19 @@ export default function HotelSetupContent({
 
       setMasterItemsMap((prev) => {
         const updatedCats = [
-          ...(prev['item-categories-setup'] || availableItemCategories),
+          ...(prev['product-categories-setup'] || prev['item-categories-setup'] || availableItemCategories),
           newCatEntry,
         ];
         if (typeof window !== 'undefined') {
           try {
+            localStorage.setItem('hotel_master_product-categories-setup', JSON.stringify(updatedCats));
             localStorage.setItem('hotel_master_item-categories-setup', JSON.stringify(updatedCats));
+            saveMasterItems('productCategories', updatedCats as unknown as SimpleMasterItem[]);
           } catch { }
         }
         return {
           ...prev,
+          'product-categories-setup': updatedCats,
           'item-categories-setup': updatedCats,
         };
       });
@@ -2133,7 +2197,6 @@ export default function HotelSetupContent({
     const isMenuItem = activeSubBox.id === 'menu-items-setup';
     const isFacilityItem = activeSubBox.id === 'facility-master';
     if (isMenuItem && !newCategory.trim() && availableCategories.length > 0) return;
-    if (isItemSetup && !newCategory.trim() && availableItemCategories.length > 0) return;
 
     let code = newCode.trim().toUpperCase() || newName.slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '');
     const currentList = masterItemsMap[activeSubBox.id] || currentItems;
@@ -2175,18 +2238,14 @@ export default function HotelSetupContent({
         try {
           const payload = {
             name: newName.trim(),
-            category: (newCategory || 'GENERAL').trim(),
-            minThreshold: 5,
-            unit: itemUnit || 'pieces',
-            costPerUnit: computedBasePrice || 0,
-            trackStock: newTrackStock,
+            sku: code,
           };
           await fetch(`/api/inventory/items/${editingItemId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           });
-          toast.success('Product Updated', `Product "${newName.trim()}" updated in database.`);
+          toast.success('Product Updated', `Product "${newName.trim()}" updated successfully.`);
         } catch (err) {
           console.error('Failed to update product in database:', err);
         }
@@ -2229,6 +2288,7 @@ export default function HotelSetupContent({
             outlet: 'RESTAURANT',
             variants: variantsPayload,
             variantsJson: JSON.stringify(variantsPayload),
+            preparationMethod: newPreparationMethod,
           });
         } catch (err) {
           console.warn('Could not sync menu item update to backend:', err);
@@ -2243,26 +2303,21 @@ export default function HotelSetupContent({
               code: code || item.code,
               name: newName.trim(),
               description: newDescription.trim() || undefined,
-              ...(isItemSetup || isMenuItem || isFacilityItem || isTableSetup
+              ...(isMenuItem || isFacilityItem || isTableSetup || isItemSetup
                 ? {
-                    category: newCategory.trim() || (isTableSetup ? 'Dining Hall' : isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General'),
+                    category: newCategory.trim() || (isTableSetup ? 'Dining Hall' : isFacilityItem ? 'Room Furniture' : availableItemCategories[0]?.name || 'Cold Drinks'),
                     ...(isTableSetup ? { capacity: parseInt(newCapacity, 10) || 4 } : {}),
                   }
                 : {}),
               basePrice: computedBasePrice ?? item.basePrice,
               quantityPrices: parsedQuantityPrices ?? item.quantityPrices,
-              ...(isItemSetup
+              ...(isMenuItem
                 ? {
-                  unit: itemUnit,
-                  trackStock: newTrackStock,
-                  stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
-                }
-                : isMenuItem
-                  ? {
                     trackStock: newTrackStock,
                     stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
+                    preparationMethod: newPreparationMethod,
                   }
-                  : {}),
+                : {}),
               order,
             }
             : item
@@ -2274,6 +2329,8 @@ export default function HotelSetupContent({
         if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'product-categories-setup' || activeSubBox.id === 'item-categories-setup') saveMasterItems('productCategories', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'product-categories-setup' || activeSubBox.id === 'item-categories-setup') saveMasterItems('productCategories', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
           try {
             localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
@@ -2302,13 +2359,7 @@ export default function HotelSetupContent({
           const payload = {
             name: newName.trim(),
             sku: code || undefined,
-            category: (newCategory || 'GENERAL').trim(),
-            unit: itemUnit || 'pieces',
-            costPerUnit: computedBasePrice || 0,
             department: 'HOTEL',
-            trackStock: newTrackStock,
-            openingStock: newTrackStock ? (parseInt(newStock, 10) || 0) : 0,
-            minThreshold: 5,
           };
           const res = await fetch('/api/inventory/items', {
             method: 'POST',
@@ -2319,7 +2370,7 @@ export default function HotelSetupContent({
           if (json?.success && json?.data?.id) {
             dbItemId = json.data.id;
             if (json.data.sku) code = json.data.sku;
-            toast.success('Product Saved', `Product "${newName.trim()}" saved to database.`);
+            toast.success('Product Saved', `Product "${newName.trim()}" saved.`);
           }
         } catch (err) {
           console.error('Failed to create product in database:', err);
@@ -2367,6 +2418,7 @@ export default function HotelSetupContent({
             trackStock: newTrackStock,
             variants: variantsPayload,
             variantsJson: JSON.stringify(variantsPayload),
+            preparationMethod: newPreparationMethod,
           });
           if (createdMenu?.id) dbItemId = createdMenu.id;
         } catch (err) {
@@ -2379,26 +2431,21 @@ export default function HotelSetupContent({
         code: code || 'NEW',
         name: newName.trim(),
         description: newDescription.trim() || undefined,
-        ...(isItemSetup || isMenuItem || isFacilityItem || isTableSetup
+        ...(isMenuItem || isFacilityItem || isTableSetup || isItemSetup
           ? {
-              category: newCategory.trim() || (isTableSetup ? 'Dining Hall' : isItemSetup ? 'Guest Amenities' : isFacilityItem ? 'Room Furniture' : 'General'),
+              category: newCategory.trim() || (isTableSetup ? 'Dining Hall' : isFacilityItem ? 'Room Furniture' : availableItemCategories[0]?.name || 'Cold Drinks'),
               ...(isTableSetup ? { capacity: parseInt(newCapacity, 10) || 4 } : {}),
             }
           : {}),
         basePrice: computedBasePrice,
         quantityPrices: parsedQuantityPrices,
-        ...(isItemSetup
+        ...(isMenuItem
           ? {
-            unit: itemUnit,
-            trackStock: newTrackStock,
-            stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
-          }
-          : isMenuItem
-            ? {
               trackStock: newTrackStock,
               stock: newTrackStock ? (parseInt(newStock, 10) || 0) : undefined,
+              preparationMethod: newPreparationMethod,
             }
-            : {}),
+          : {}),
         order,
         isActive: true,
       };
@@ -2412,6 +2459,8 @@ export default function HotelSetupContent({
         if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'product-categories-setup' || activeSubBox.id === 'item-categories-setup') saveMasterItems('productCategories', updatedList as unknown as SimpleMasterItem[]);
+        if (activeSubBox.id === 'product-categories-setup' || activeSubBox.id === 'item-categories-setup') saveMasterItems('productCategories', updatedList as unknown as SimpleMasterItem[]);
         if (activeSubBox.id === 'menu-items-setup' && typeof window !== 'undefined') {
           try {
             localStorage.setItem('hotel_menu_items', JSON.stringify(updatedList));
@@ -2655,6 +2704,7 @@ export default function HotelSetupContent({
       if (activeSubBox.id === 'agent-setup') saveMasterItems('bookingAgents', updatedList as unknown as SimpleMasterItem[]);
       if (activeSubBox.id === 'quantity-setup') saveMasterItems('units', updatedList as unknown as SimpleMasterItem[]);
       if (activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup') saveMasterItems('items', updatedList as unknown as SimpleMasterItem[]);
+      if (activeSubBox.id === 'product-categories-setup' || activeSubBox.id === 'item-categories-setup') saveMasterItems('productCategories', updatedList as unknown as SimpleMasterItem[]);
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem(`hotel_master_${activeSubBox.id}`, JSON.stringify(updatedList));
@@ -2890,7 +2940,7 @@ export default function HotelSetupContent({
                       title="Sort by Name"
                     >
                       <div className="inline-flex items-center gap-1">
-                        <span>{isMenuItem ? 'ITEM NAME' : isItemSetup ? 'ITEM / PRODUCT NAME' : isFacilityItem ? 'FACILITY NAME' : 'DISPLAY NAME'}</span>
+                        <span>{isMenuItem ? 'ITEM NAME' : isItemSetup ? 'PRODUCT NAME' : isFacilityItem ? 'FACILITY NAME' : 'DISPLAY NAME'}</span>
                         <ArrowUpDown className="w-2.5 h-2.5 opacity-60" />
                       </div>
                     </th>
@@ -2919,29 +2969,16 @@ export default function HotelSetupContent({
                       </th>
                     )}
                     {isItemSetup && (
-                      <>
-                        <th
-                          onClick={() => handleSort('unit')}
-                          className="py-2.5 px-3.5 w-28 border-r border-[#E5EEE9] dark:border-[#145447] cursor-pointer hover:bg-slate-200/50 dark:hover:bg-[#093027] transition-colors"
-                          title="Sort by Unit"
-                        >
-                          <div className="inline-flex items-center gap-1">
-                            <span>UNIT</span>
-                            <ArrowUpDown className="w-2.5 h-2.5 opacity-60" />
-                          </div>
-                        </th>
-                        <th
-                          onClick={() => handleSort('basePrice')}
-                          className="py-2.5 px-3.5 w-32 border-r border-[#E5EEE9] dark:border-[#145447] cursor-pointer hover:bg-slate-200/50 dark:hover:bg-[#093027] transition-colors"
-                          title="Sort by Base Price"
-                        >
-                          <div className="inline-flex items-center gap-1">
-                            <span>BASE PRICE</span>
-                            <ArrowUpDown className="w-2.5 h-2.5 opacity-60" />
-                          </div>
-                        </th>
-                        <th className="py-2.5 px-3.5 w-36 border-r border-[#E5EEE9] dark:border-[#145447]">STOCK TRACKING</th>
-                      </>
+                      <th
+                        onClick={() => handleSort('order')}
+                        className="py-2.5 px-3.5 w-24 text-center border-r border-[#E5EEE9] dark:border-[#145447] cursor-pointer hover:bg-slate-200/50 dark:hover:bg-[#093027] transition-colors"
+                        title="Sort by Order"
+                      >
+                        <div className="inline-flex items-center gap-1 justify-center">
+                          <span>ORDER</span>
+                          <ArrowUpDown className="w-2.5 h-2.5 opacity-60" />
+                        </div>
+                      </th>
                     )}
                     {isMenuItem && (
                       <th className="py-2.5 px-3.5 min-w-[220px] border-r border-[#E5EEE9] dark:border-[#145447]">UNIT & PRICING</th>
@@ -3127,32 +3164,13 @@ export default function HotelSetupContent({
                         </td>
                       )}
 
-                      {/* Item Setup Columns: Unit, Base Price, Stock Tracking */}
+                      {/* Product Setup: Order */}
                       {isItemSetup && (
-                        <>
-                          <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                            <span className="inline-flex items-center rounded-[2px] bg-white dark:bg-[#061B16] px-2 py-0.5 text-[11px] font-medium text-[#4D6358] dark:text-[#A4B8AE] border border-[#D5E0DB] dark:border-[#145447] capitalize">
-                              {item.unit || item.quantityPrices?.[0]?.quantityName || 'pieces'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                            <span className="font-mono font-bold text-xs text-[#0B3D32] dark:text-emerald-300">
-                              {item.basePrice !== undefined ? `रू ${Number(item.basePrice).toLocaleString()}` : '—'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
-                            {item.trackStock ? (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[2px] text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
-                                Tracked {item.stock !== undefined ? `(${item.stock} ${item.unit || 'pcs'})` : ''}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
-                                Untracked
-                              </span>
-                            )}
-                          </td>
-                        </>
+                        <td className="py-2.5 px-3.5 whitespace-nowrap text-center border-r border-[#E5EEE9] dark:border-[#145447]">
+                          <span className="font-mono text-xs font-semibold text-[#64736C] dark:text-[#A4B8AE]">
+                            {item.order || index + 1}
+                          </span>
+                        </td>
                       )}
 
                       {/* Unit & Pricing (Menu Items Setup - divided table-like pill) */}
@@ -3242,7 +3260,7 @@ export default function HotelSetupContent({
                 {filteredItems.length === 0 && (
                   <tr>
                     <td
-                      colSpan={isRoomSetup ? 10 : isItemSetup ? 8 : isMenuItem ? 7 : isTableSetup ? 6 : hasCategory ? 5 : 4}
+                      colSpan={isRoomSetup ? 10 : isItemSetup ? 6 : isMenuItem ? 7 : isTableSetup ? 6 : hasCategory ? 5 : 4}
                       className="py-12 text-center text-xs text-[#879B90]"
                     >
                       {tableSearchQuery ||
@@ -3725,6 +3743,8 @@ export default function HotelSetupContent({
                 onClick={() => {
                   setShowAddForm(false);
                   setEditingItemId(null);
+                  setShowInlineAddCat(false);
+                  setInlineCatName('');
                 }}
                 className="p-1 rounded-[2px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-[#0A2E26] dark:hover:text-white transition-colors"
               >
@@ -3737,10 +3757,10 @@ export default function HotelSetupContent({
               <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
                 {activeSubBox.id === 'item-setup' || activeSubBox.id === 'product-setup' ? (
                   <>
-                    {/* Item Name */}
+                    {/* Product Name */}
                     <div>
                       <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                        Item / Product Name <span className="text-rose-500">*</span>
+                        Product Name <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -3748,44 +3768,103 @@ export default function HotelSetupContent({
                         autoFocus
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        placeholder="e.g. Mineral Water (1 Ltr), Bath Towel, Herbal Shampoo"
-                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
+                        placeholder=""
+                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
                       />
                     </div>
 
-                    {/* Category, Code, Order Grid */}
-                    <div className="grid grid-cols-12 gap-3">
-                      {/* Category (Autocomplete) */}
-                      <div className="col-span-12 sm:col-span-6">
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                          Category <span className="text-rose-500">*</span>
+                    {/* Product Category (Dynamically fetched from Product Categories setup) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                          Product Category <span className="text-rose-500">*</span>
                         </label>
-                        <CategoryAutocomplete
-                          value={newCategory}
-                          onChange={(name) => setNewCategory(name)}
-                          onAddNewCategory={handleAddNewCategory}
-                          availableCategories={availableItemCategories}
-                          placeholder="Select or enter category..."
-                        />
+                        {!showInlineAddCat && (
+                          <button
+                            type="button"
+                            onClick={() => setShowInlineAddCat(true)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0B3D32] dark:text-emerald-400 hover:underline cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Add Cat</span>
+                          </button>
+                        )}
                       </div>
 
-                      {/* Code */}
-                      <div className="col-span-7 sm:col-span-3">
+                      {showInlineAddCat && (
+                        <div className="flex items-center gap-1.5 mb-2 p-1.5 rounded-[3px] bg-slate-50 dark:bg-[#0A2E26] border border-[#DCE3DF] dark:border-[#145447] animate-in fade-in-50 duration-100">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={inlineCatName}
+                            onChange={(e) => setInlineCatName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (inlineCatName.trim()) {
+                                  handleAddNewCategory(inlineCatName.trim());
+                                  setInlineCatName('');
+                                  setShowInlineAddCat(false);
+                                }
+                              } else if (e.key === 'Escape') {
+                                setShowInlineAddCat(false);
+                              }
+                            }}
+                            placeholder=""
+                            className="flex-1 rounded-[2px] border border-[#DCE3DF] bg-white px-2 py-1 text-xs text-[#24352F] dark:border-[#145447] dark:bg-[#071F1A] dark:text-white focus:outline-none focus:border-[#0B3D32]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (inlineCatName.trim()) {
+                                handleAddNewCategory(inlineCatName.trim());
+                                setInlineCatName('');
+                                setShowInlineAddCat(false);
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-[2px] bg-[#0B3D32] dark:bg-emerald-600 text-white text-[11px] font-semibold hover:bg-[#082a22] cursor-pointer"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInlineCatName('');
+                              setShowInlineAddCat(false);
+                            }}
+                            className="p-1 rounded-[2px] text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      <CategoryAutocomplete
+                        value={newCategory}
+                        onChange={(name) => setNewCategory(name)}
+                        onAddNewCategory={handleAddNewCategory}
+                        availableCategories={availableItemCategories}
+                        placeholder=""
+                      />
+                    </div>
+
+                    {/* Product Code & Order */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                          Item Code <span className="text-rose-500">*</span>
+                          Product Code <span className="text-rose-500">*</span>
                         </label>
                         <input
                           type="text"
                           required
                           value={newCode}
                           onChange={(e) => setNewCode(e.target.value)}
-                          placeholder="e.g. WAT-1L"
-                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs placeholder:normal-case"
+                          placeholder=""
+                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
                         />
                       </div>
 
-                      {/* Order */}
-                      <div className="col-span-5 sm:col-span-3">
+                      <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                           Order
                         </label>
@@ -3794,132 +3873,28 @@ export default function HotelSetupContent({
                           min={1}
                           value={newOrder}
                           onChange={(e) => setNewOrder(e.target.value)}
-                          placeholder="1"
+                          placeholder=""
                           className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
                         />
                       </div>
                     </div>
-
-                    {/* Unit & Base Price Grid */}
-                    <div className="grid grid-cols-12 gap-3">
-                      {/* Unit */}
-                      <div className="col-span-12 sm:col-span-6">
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                          Unit of Measurement <span className="text-rose-500">*</span>
-                        </label>
-                        <select
-                          value={newUnit}
-                          onChange={(e) => setNewUnit(e.target.value)}
-                          className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 cursor-pointer capitalize"
-                        >
-                          {availableQuantities.map((u) => (
-                            <option key={u.id} value={u.name}>
-                              {u.name} {u.code ? `(${u.code})` : ''}
-                            </option>
-                          ))}
-                          {availableQuantities.length === 0 && (
-                            <>
-                              <option value="pieces">Pieces (pcs)</option>
-                              <option value="bottle">Bottle (btl)</option>
-                              <option value="box">Box (bx)</option>
-                              <option value="pack">Pack (pk)</option>
-                              <option value="set">Set (st)</option>
-                              <option value="pair">Pair (pr)</option>
-                              <option value="kg">Kilogram (kg)</option>
-                              <option value="liter">Liter (ltr)</option>
-                            </>
-                          )}
-                        </select>
-                      </div>
-
-                      {/* Base / Cost Price */}
-                      <div className="col-span-12 sm:col-span-6">
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                          Base / Unit Price (रू)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none select-none">
-                            रू
-                          </span>
-                          <input
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={newBasePrice}
-                            onChange={(e) => setNewBasePrice(e.target.value)}
-                            placeholder="0.00"
-                            className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-2 pl-7 pr-3 text-xs font-mono font-semibold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stock Inventory Tracking */}
-                    <div className="rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-[#F7F9F8] dark:bg-[#061B16] p-3 space-y-2">
-                      <div className="flex items-start gap-2">
-                        <input
-                          id="itemModalTrackStock"
-                          type="checkbox"
-                          checked={newTrackStock}
-                          onChange={(e) => {
-                            const val = e.target.checked;
-                            setNewTrackStock(val);
-                            if (val && !newStock) setNewStock('50');
-                          }}
-                          className="w-4 h-4 rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32] border-[#C5D3CD] cursor-pointer mt-0.5"
-                        />
-                        <div>
-                          <label htmlFor="itemModalTrackStock" className="text-xs font-bold text-[#24352F] dark:text-white cursor-pointer flex items-center gap-1.5">
-                            <span>Track in Stock Inventory</span>
-                            {newTrackStock ? (
-                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                Active Tracking
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                Non-Stocked
-                              </span>
-                            )}
-                          </label>
-                          <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] mt-0.5">
-                            Enable to track inventory stock for guest amenities, room replenishment, and consumption.
-                          </p>
-                        </div>
-                      </div>
-
-                      {newTrackStock && (
-                        <div className="pt-2 border-t border-[#E5EEE9] dark:border-[#145447] space-y-1">
-                          <label className="block text-xs font-bold text-[#24352F] dark:text-white">
-                            Available Stock Quantity
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={newStock}
-                            onChange={(e) => setNewStock(e.target.value)}
-                            placeholder="e.g. 50"
-                            className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-1.5 px-2.5 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
-                          />
-                        </div>
-                      )}
-                    </div>
                   </>
                 ) : activeSubBox.id === 'menu-items-setup' ? (
                   <>
-                    {/* Item Name (Primary Field, Prominent) */}
+                    {/* Item Name (Primary Field, Prominent - with autocomplete from General Product Setup) */}
                     <div>
                       <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                         Item Name <span className="text-rose-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        required
-                        autoFocus
+                      <ProductAutocomplete
                         value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        placeholder="Dish name"
-                        className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
+                        onChange={setNewName}
+                        onSelectProduct={({ name, code }) => {
+                          setNewName(name);
+                          if (code) setNewCode(code);
+                        }}
+                        availableProducts={masterItemsMap['product-setup'] || masterItemsMap['item-setup'] || []}
+                        placeholder="Dish / product name"
                       />
                     </div>
 
@@ -4066,9 +4041,9 @@ export default function HotelSetupContent({
                       </div>
                     </div>
 
-                    {/* Stock Tracking: Checkbox & Conditional Quantity */}
-                    <div className="rounded-[3px] border border-[#DCE3DF] dark:border-[#145447] bg-[#F7F9F8] dark:bg-[#061B16] p-3 space-y-2 mt-2">
-                      <div className="flex items-start gap-2">
+                    {/* Stock Tracking: Simple Checkbox */}
+                    <div className="pt-2">
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
                         <input
                           id="modalTrackStock"
                           type="checkbox"
@@ -4078,32 +4053,16 @@ export default function HotelSetupContent({
                             setNewTrackStock(val);
                             if (val && !newStock) setNewStock('50');
                           }}
-                          className="w-4 h-4 rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32] border-[#C5D3CD] cursor-pointer mt-0.5"
+                          className="w-4 h-4 rounded-[2px] text-[#0B3D32] focus:ring-[#0B3D32] border-[#C5D3CD] cursor-pointer"
                         />
-                        <div>
-                          <label htmlFor="modalTrackStock" className="text-xs font-bold text-[#24352F] dark:text-white cursor-pointer flex items-center gap-1.5">
-                            <span>Track Stock</span>
-                            {newTrackStock ? (
-                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
-                                Stocked Product
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                Handmade / Prepared
-                              </span>
-                            )}
-                          </label>
-                          <p className="text-[11px] text-[#64736C] dark:text-[#A4B8AE] mt-0.5">
-                            {newTrackStock
-                              ? 'Enable for purchased retail goods (Beer, Coca-Cola, Bottled Water). Stock is deducted upon sale.'
-                              : 'Disable for dishes prepared on order (Tea, Coffee, Momo, Chowmein). No stock quantity required.'}
-                          </p>
-                        </div>
-                      </div>
+                        <span className="text-xs font-semibold text-[#24352F] dark:text-white">
+                          Track Stock
+                        </span>
+                      </label>
 
                       {newTrackStock && (
-                        <div className="pt-2 border-t border-[#E5EEE9] dark:border-[#145447] space-y-1">
-                          <label className="block text-xs font-bold text-[#24352F] dark:text-white">
+                        <div className="pt-2 pl-6 max-w-xs space-y-1">
+                          <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
                             Available Stock Quantity <span className="text-rose-500">*</span>
                           </label>
                           <input
@@ -4113,8 +4072,8 @@ export default function HotelSetupContent({
                             required={newTrackStock}
                             value={newStock}
                             onChange={(e) => setNewStock(e.target.value)}
-                            placeholder="e.g. 100"
-                            className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-1.5 px-2.5 text-xs font-mono font-bold text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
+                            placeholder="e.g. 50"
+                            className="w-full rounded-[3px] border border-[#DCE3DF] bg-white py-1.5 px-2.5 text-xs font-mono font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500"
                           />
                         </div>
                       )}
@@ -4464,7 +4423,11 @@ export default function HotelSetupContent({
                         autoFocus
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        placeholder={`${getSubBoxEntityName(activeSubBox)} name`}
+                        placeholder={
+                          activeSubBox.id === 'product-categories-setup'
+                            ? 'e.g. Cold Drinks, Raw Materials, Beverages'
+                            : `${getSubBoxEntityName(activeSubBox)} name`
+                        }
                         className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-medium text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs"
                       />
                     </div>
@@ -4479,7 +4442,11 @@ export default function HotelSetupContent({
                           required
                           value={newCode}
                           onChange={(e) => setNewCode(e.target.value)}
-                          placeholder="Code"
+                          placeholder={
+                            activeSubBox.id === 'product-categories-setup'
+                              ? 'e.g. CD'
+                              : 'Code'
+                          }
                           className="w-full rounded-[3px] border border-[#DCE3DF] bg-white px-3 py-2 text-xs font-mono font-medium uppercase text-[#24352F] shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:border-[#145447] dark:bg-[#07241E] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400/80 placeholder:font-normal placeholder:text-xs placeholder:normal-case"
                         />
                       </div>

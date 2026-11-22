@@ -273,7 +273,7 @@ export const StockTransfersView: React.FC<StockTransfersViewProps> = ({
       <div className="p-3 rounded-xl bg-white border border-slate-200 dark:bg-[#071F1A] dark:border-slate-800 shadow-2xs">
         <div className="max-w-sm w-full">
           <Input
-            placeholder="Search transfer #, item name, note..."
+            placeholder=""
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

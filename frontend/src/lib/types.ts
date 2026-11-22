@@ -343,6 +343,7 @@ export interface StockMovementLedgerRecord {
   department: string;
   movementType: string;
   referenceNumber: string;
+  referenceType?: string;
   quantityIn: number;
   quantityOut: number;
   quantity: number;
@@ -350,7 +351,15 @@ export interface StockMovementLedgerRecord {
   newBalance?: number | null;
   stockUnit: string;
   reason: string;
+  notes?: string | null;
   performedBy: string;
+}
+
+export interface StockMovementSummary {
+  totalMovements: number;
+  stockIn: number;
+  stockOut: number;
+  itemsWithChanges: number;
 }
 
 export interface StaffData {
@@ -659,6 +668,8 @@ export interface ActiveRestaurantOrderData {
   createdAt: string;
   updatedAt: string;
   items: RestaurantOrderItemData[];
+  bill?: BillData | null;
+  billPaymentStatus?: string | null;
 }
 
 export type BillingType = 'QUICK_BILL' | 'WALK_IN' | 'TABLE_ORDER' | 'ROOM_SERVICE' | 'HOTEL_CHECKOUT';
@@ -713,6 +724,7 @@ export interface BillData {
   balanceDue: number;
   paymentStatus: BillPaymentStatus;
   paymentMethod: string;
+  paidAt?: string;
   itemsJson: string;
   paymentsJson: string;
   notes?: string | null;
@@ -846,6 +858,9 @@ export interface PurchaseRecord {
   totalAmount: number;
   paymentMethod?: PurchasePaymentMethod | string;
   paymentStatus: PurchasePaymentStatus | string;
+  paidAmount?: number;
+  balanceAmount?: number;
+  receivingStatus?: 'RECEIVED' | 'PARTIALLY_RECEIVED' | 'PENDING' | string;
   notes?: string | null;
   attachmentUrl?: string | null;
   createdBy?: string | null;
@@ -3598,3 +3613,213 @@ export interface RestaurantWebsiteSettings {
   usefulLinks: UsefulLinkItem[];
   galleryImages: GalleryImageItem[];
 }
+
+// =========================================================================
+// STOCK ADJUSTMENTS MODULE
+// =========================================================================
+
+export interface StockAdjustmentItem {
+  itemId: string;
+  itemName: string;
+  itemCode?: string;
+  category?: string;
+  department?: string;
+  unit: string;
+  currentStock: number;
+  adjustmentType: 'INCREASE' | 'DECREASE';
+  quantity: number;
+  newStock: number;
+  reason: string;
+  notes?: string;
+  movementType?: string;
+}
+
+export interface StockAdjustmentRecord {
+  id: string;
+  hotelId?: string;
+  adjustmentNumber: string;
+  adjustmentDate: string;
+  department: 'HOTEL' | 'RESTAURANT' | 'SHARED' | string;
+  status: 'COMPLETED' | 'PENDING' | 'DRAFT' | string;
+  adjustmentType: 'INCREASE' | 'DECREASE' | 'MIXED';
+  itemCount: number;
+  totalQuantity: number;
+  primaryReason: string;
+  notes?: string | null;
+  adjustedBy: string;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  itemsJson: string;
+  items?: StockAdjustmentItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockAdjustmentSummary {
+  totalAdjustments: number;
+  stockIncreased: number;
+  stockDecreased: number;
+  todayAdjustments: number;
+}
+
+export interface CreateStockAdjustmentRequest {
+  adjustmentNumber?: string;
+  adjustmentDate?: string;
+  department?: string;
+  notes?: string;
+  adjustedBy?: string;
+  items: Array<{
+    itemId: string;
+    adjustmentType: 'INCREASE' | 'DECREASE';
+    quantity: number;
+    reason: string;
+    notes?: string;
+  }>;
+}
+
+// ==========================================
+// Product Ledger & Inventory Valuation Types
+// ==========================================
+
+export interface ProductLedgerEntry {
+  id: string;
+  date: string;
+  referenceNumber: string;
+  referenceType: string;
+  transactionType: string;
+  rawType: string;
+  description: string;
+  quantityIn: number;
+  quantityOut: number;
+  balanceQuantity: number;
+  unitCost: number;
+  stockInValue: number;
+  stockOutValue: number;
+  balanceValue: number;
+  department: string;
+  performedBy: string;
+}
+
+export interface ProductLedgerSummary {
+  totalInventoryItems: number;
+  totalInventoryValue: number;
+  openingStockQuantity: number;
+  openingStockValue: number;
+  openingUnitCost: number;
+  closingStockQuantity: number;
+  closingStockValue: number;
+  totalStockInQuantity: number;
+  totalStockOutQuantity: number;
+  netQuantityChange: number;
+  currentSystemStock: number;
+  isReconciledWithInventory: boolean;
+}
+
+export interface ProductLedgerSelectedItem {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  department: string;
+  unit: string;
+  purchaseUnit?: string;
+  conversionFactor?: number;
+  currentStock: number;
+  minThreshold: number;
+  costPerUnit: number;
+  totalValuation: number;
+  supplierName: string;
+  stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | string;
+}
+
+export interface ProductLedgerItemOption {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  department: string;
+  unit: string;
+  currentStock: number;
+  unitCost: number;
+  totalValue: number;
+}
+
+export interface ProductLedgerResponse {
+  costingMethod: string;
+  inventoryAssetAccount: string;
+  summary: ProductLedgerSummary;
+  selectedItem: ProductLedgerSelectedItem | null;
+  entries: ProductLedgerEntry[];
+  items: ProductLedgerItemOption[];
+}
+
+export interface ValuationItem {
+  sn: number;
+  id: string;
+  itemCode: string;
+  itemName: string;
+  category: string;
+  department: string;
+  currentQuantity: number;
+  unit: string;
+  valuationCost: number;
+  totalStockValue: number;
+  stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | string;
+  minThreshold: number;
+  supplierName: string;
+}
+
+export interface ValuationCategoryBreakdown {
+  category: string;
+  totalItems: number;
+  totalQuantity: number;
+  stockValue: number;
+  percentageOfTotal: number;
+}
+
+export interface ValuationDepartmentBreakdown {
+  department: string;
+  totalItems: number;
+  stockValue: number;
+  percentageOfTotal: number;
+}
+
+export interface ValuationUnitBreakdown {
+  unit: string;
+  totalQuantity: number;
+  itemCount: number;
+}
+
+export interface ValuationGlReconciliation {
+  account1200Code: string;
+  account1200Name: string;
+  account1200Balance: number;
+  account1210Code: string;
+  account1210Name: string;
+  account1210Balance: number;
+  totalGlBalance: number;
+  physicalValuationTotal: number;
+  variance: number;
+  isReconciled: boolean;
+  reconciliationStatus: 'RECONCILED' | 'VARIANCE_DETECTED' | string;
+  note: string;
+}
+
+export interface InventoryValuationResponse {
+  costingMethod: string;
+  asOfDate: string;
+  summary: {
+    totalInventoryValue: number;
+    totalInventoryItems: number;
+    inStockCount: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+    unitBreakdown: ValuationUnitBreakdown[];
+  };
+  glReconciliation: ValuationGlReconciliation;
+  categoryBreakdown: ValuationCategoryBreakdown[];
+  departmentBreakdown: ValuationDepartmentBreakdown[];
+  items: ValuationItem[];
+}
+
+

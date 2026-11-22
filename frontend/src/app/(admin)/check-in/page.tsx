@@ -2119,24 +2119,24 @@ function CheckInDeskContent() {
             </div>
 
             {/* Manifest Table */}
-            <div className="border border-slate-200 dark:border-[#145447] rounded-lg overflow-hidden bg-white dark:bg-[#071F1A]">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#FAFBF9] dark:bg-[#061B16] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-[#145447]">
+            <div className="border border-slate-300 dark:border-slate-700 rounded-[3px] overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
+              <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+                <thead className="bg-[#F8F9FA] dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 select-none">
                   <tr>
-                    <th className="py-2.5 px-3 text-center w-12 border-r border-slate-200 dark:border-[#145447]">#</th>
-                    <th className="py-2.5 px-3.5 w-24 border-r border-slate-200 dark:border-[#145447]">Code</th>
-                    <th className="py-2.5 px-4 border-r border-slate-200 dark:border-[#145447]">Guest & ID</th>
-                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-[#145447]">Stay Period</th>
-                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-[#145447]">Room</th>
-                    <th className="py-2.5 px-3.5 text-right border-r border-slate-200 dark:border-[#145447]">Tariff & Advance</th>
-                    <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-[#145447]">Status</th>
+                    <th className="py-2.5 px-3 text-center w-12 border-r border-slate-200 dark:border-slate-700">#</th>
+                    <th className="py-2.5 px-3.5 w-24 border-r border-slate-200 dark:border-slate-700">Code</th>
+                    <th className="py-2.5 px-4 border-r border-slate-200 dark:border-slate-700">Guest & ID</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">Stay Period</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">Room</th>
+                    <th className="py-2.5 px-3.5 text-right border-r border-slate-200 dark:border-slate-700">Tariff & Advance</th>
+                    <th className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700">Status</th>
                     <th className="py-2.5 px-3 text-center w-28">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-[#145447]">
+                <tbody className="divide-y-0 text-slate-700 dark:text-slate-300">
                   {manifestList.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-muted">
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
                         No bookings found for the selected filter.
                       </td>
                     </tr>
@@ -2146,14 +2146,17 @@ function CheckInDeskContent() {
                       const isCheckedIn = booking.status === 'CHECKED_IN';
 
                       return (
-                        <tr key={booking.id} className="hover:bg-slate-50/50 dark:hover:bg-[#093027]/40 transition-colors">
-                          <td className="py-2.5 px-3 text-center font-mono text-muted border-r border-slate-200 dark:border-[#145447]">
+                        <tr
+                          key={booking.id}
+                          className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
+                        >
+                          <td className="py-2.5 px-3 text-center font-mono text-slate-500 border-r border-slate-200 dark:border-slate-700/60">
                             {idx + 1}
                           </td>
-                          <td className="py-2.5 px-3.5 font-mono font-bold text-[#0B3D32] dark:text-[#8AB4F8] border-r border-slate-200 dark:border-[#334155]">
+                          <td className="py-2.5 px-3.5 font-mono font-bold text-[#0B3D32] dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700/60">
                             {booking.bookingCode}
                           </td>
-                          <td className="py-2.5 px-4 border-r border-slate-200 dark:border-[#334155]">
+                          <td className="py-2.5 px-4 border-r border-slate-200 dark:border-slate-700/60">
                             <div className="font-bold text-slate-900 dark:text-white">
                               {booking.guest.firstName} {booking.guest.lastName}
                             </div>
@@ -2161,11 +2164,11 @@ function CheckInDeskContent() {
                               {booking.guest.phone} · ID: {booking.guest.idNumber || 'Verified'}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-[#334155]">
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                             <div className="font-medium text-slate-800 dark:text-slate-200">
                               {booking.checkIn} → {booking.checkOut}
                             </div>
-                            <div className="text-[10px] text-muted flex items-center gap-1.5">
+                            <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
                               <span>{booking.nights} {booking.nights === 1 ? 'night' : 'nights'}</span>
                               {booking.checkInTime && (
                                 <>
@@ -2175,13 +2178,13 @@ function CheckInDeskContent() {
                               )}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-[#334155]">
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                             <span className="font-bold text-slate-800 dark:text-slate-200">
                               Room {booking.room.number}
                             </span>
-                            <span className="text-[11px] text-muted block">{booking.room.type}</span>
+                            <span className="text-[11px] text-slate-500 block">{booking.room.type}</span>
                           </td>
-                          <td className="py-2.5 px-3.5 text-right border-r border-slate-200 dark:border-[#334155]">
+                          <td className="py-2.5 px-3.5 text-right border-r border-slate-200 dark:border-slate-700/60">
                             <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
                               Rs. {fin.totalCharges.toLocaleString()}
                             </div>
@@ -2189,14 +2192,16 @@ function CheckInDeskContent() {
                               Adv: Rs. {fin.totalPaid.toLocaleString()}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-[#334155]">
+                          <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700/60">
                             {isCheckedIn ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
-                                In-House
+                              <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-600 dark:text-emerald-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>In-House</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950 dark:text-amber-300">
-                                Reserved
+                              <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-amber-600 dark:text-amber-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                <span>Reserved</span>
                               </span>
                             )}
                           </td>
@@ -2205,7 +2210,7 @@ function CheckInDeskContent() {
                               <button
                                 type="button"
                                 onClick={() => handleSelectReservationToAutoFill(booking)}
-                                className="px-3 py-1 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-[#0B3D32] cursor-pointer shadow-2xs"
+                                className="px-3 py-1 rounded-[2px] bg-[#0B3D32] hover:bg-[#093027] text-white text-xs font-bold transition-colors dark:bg-[#0B3D32] cursor-pointer shadow-2xs"
                               >
                                 Check In
                               </button>
@@ -2213,7 +2218,7 @@ function CheckInDeskContent() {
                               <button
                                 type="button"
                                 onClick={() => setSelectedBookingForRegCard(booking)}
-                                className="px-2 py-1 rounded-[3px] border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 dark:border-[#145447] dark:text-slate-300 cursor-pointer"
+                                className="px-2 py-1 rounded-[2px] border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-300 cursor-pointer shadow-2xs"
                               >
                                 Reg Card
                               </button>

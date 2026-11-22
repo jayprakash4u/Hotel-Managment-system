@@ -305,9 +305,9 @@ function CheckOutListContent() {
           MAIN CHECK-OUT DATATABLE
           ----------------------------------------------------------------------- */}
       <div className="rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+        <div className="overflow-x-auto border-t border-slate-200 dark:border-slate-700">
+          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+            <thead className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-[11px] select-none">
               <tr>
                 <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
                 <th className="py-2.5 px-3.5 w-28 border-r border-slate-200 dark:border-slate-700">RES ID</th>
@@ -323,7 +323,7 @@ function CheckOutListContent() {
                 <th className="py-2.5 px-3 text-center w-36">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+            <tbody className="text-slate-700 dark:text-slate-300">
               {paginatedList.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
@@ -338,15 +338,15 @@ function CheckOutListContent() {
                   return (
                     <tr
                       key={booking.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
                       {/* 1. Index */}
-                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                         {(safeCurrentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* 2. Res ID */}
-                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         <Link
                           href={`/reservations/${booking.id}`}
                           className="font-mono font-bold text-[#0B3D32] hover:underline dark:text-emerald-400"
@@ -356,7 +356,7 @@ function CheckOutListContent() {
                       </td>
 
                       {/* 3. Guest Name */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-bold text-slate-900 dark:text-white">
                           {booking.guest.firstName} {booking.guest.lastName}
                         </div>
@@ -364,7 +364,7 @@ function CheckOutListContent() {
                       </td>
 
                       {/* 4. Room */}
-                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                           <BedDouble className="w-3.5 h-3.5 text-slate-400" />
                           <span>Room {booking.room.number}</span>
@@ -373,7 +373,7 @@ function CheckOutListContent() {
                       </td>
 
                       {/* 5. Stay Dates */}
-                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         <div className="text-xs text-slate-800 dark:text-slate-200 font-medium">
                           {new Date(booking.checkIn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} –{' '}
                           {new Date(booking.checkOut).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
@@ -384,12 +384,12 @@ function CheckOutListContent() {
                       </td>
 
                       {/* 6. Room Fare */}
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {fin.roomCharges.toLocaleString()}
                       </td>
 
                       {/* 7. Orders */}
-                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200 dark:border-slate-700/60">
                         {fin.cafeTotal > 0 ? (
                           <span className="font-semibold text-[#0B3D32] dark:text-emerald-400">
                             Rs. {fin.cafeTotal.toLocaleString()}
@@ -400,17 +400,17 @@ function CheckOutListContent() {
                       </td>
 
                       {/* 8. Total Bill */}
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {fin.totalCharges.toLocaleString()}
                       </td>
 
                       {/* 9. Paid */}
-                      <td className="py-2.5 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400 font-semibold border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400 font-semibold border-r border-slate-200 dark:border-slate-700/60">
                         Rs. {fin.totalPaid.toLocaleString()}
                       </td>
 
                       {/* 10. Balance Due */}
-                      <td className="py-2.5 px-3.5 text-right font-mono border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 text-right font-mono border-r border-slate-200 dark:border-slate-700/60">
                         {fin.balanceDue > 0 ? (
                           <span className="font-bold text-rose-600 dark:text-rose-400">
                             Rs. {fin.balanceDue.toLocaleString()} Due
@@ -423,7 +423,7 @@ function CheckOutListContent() {
                       </td>
 
                       {/* 11. Status */}
-                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
+                      <td className="py-2.5 px-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-700/60">
                         {isCheckedOut ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                             <CheckCircle2 className="w-3 h-3 text-slate-500" />

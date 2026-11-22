@@ -8,22 +8,18 @@ import {
   RefreshCw,
   Download,
   Calendar,
-  ChevronDown,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   ChevronLeft,
   ChevronRight,
-  Filter,
   X,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { MenuItemSalesRecord, MenuItemSalesSummaryResponse } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 
-type DatePreset = 'today' | 'yesterday' | 'last7days' | 'thismonth' | 'custom';
 type SortField = 'menuItem' | 'category' | 'quantitySold' | 'totalSales' | 'averagePrice';
 type SortOrder = 'asc' | 'desc';
 
@@ -32,9 +28,16 @@ export default function MenuItemSalesPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Single Selected Date: default to Today
+  // Dates: default to Today
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(todayStr);
 
   // Table filters & controls
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,10 +53,15 @@ export default function MenuItemSalesPage() {
   const loadSalesData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const isToday = selectedDate === todayStr;
-      const params: any = isToday
-        ? { preset: 'today' }
-        : { startDate: selectedDate, endDate: selectedDate };
+      let params: any = {};
+      if (startDate === todayStr && endDate === todayStr) {
+        params = { preset: 'today' };
+      } else if (startDate === yesterdayStr && endDate === yesterdayStr) {
+        params = { preset: 'yesterday' };
+      } else {
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
+      }
 
       const res = await api.getMenuItemSales(params);
       const data = (res as any)?.data || res;
@@ -73,11 +81,9 @@ export default function MenuItemSalesPage() {
 
   // Automatically update when date changes
   useEffect(() => {
-    if (selectedDate) {
-      loadSalesData();
-      setCurrentPage(1);
-    }
-  }, [selectedDate]);
+    loadSalesData();
+    setCurrentPage(1);
+  }, [startDate, endDate]);
 
   // Currency Formatter
   const formatNpr = (amount: number | undefined | null): string => {
@@ -151,18 +157,28 @@ export default function MenuItemSalesPage() {
     setCurrentPage(1);
   };
 
+  // Handle Clear Filters
+  const handleClearFilters = () => {
+    setStartDate(todayStr);
+    setEndDate(todayStr);
+    setSearchQuery('');
+    setSelectedCategory('All');
+    setCurrentPage(1);
+  };
+
   // Export to CSV
   const handleExportCsv = () => {
     if (!processedItems.length) return;
 
-    const headers = ['#', 'Menu Item', 'Category', 'Quantity Sold', 'Total Sales (NPR)', 'Average Price (NPR)'];
+    const headers = ['#', 'Menu Item', 'Category', 'Type', 'Quantity Sold', 'Average Price (NPR)', 'Total Sales (NPR)'];
     const rows = processedItems.map((item, idx) => [
       idx + 1,
       `"${item.menuItem.replace(/"/g, '""')}"`,
       `"${item.category.replace(/"/g, '""')}"`,
+      item.isVeg ? 'Veg' : 'Non-Veg',
       item.quantitySold,
-      item.totalSales,
       item.averagePrice,
+      item.totalSales,
     ]);
 
     const csvContent =
@@ -174,7 +190,7 @@ export default function MenuItemSalesPage() {
     link.setAttribute('href', encodedUri);
     link.setAttribute(
       'download',
-      `menu-item-sales-${reportData?.startDate || 'report'}.csv`
+      `menu-item-sales-${startDate || 'report'}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -184,96 +200,171 @@ export default function MenuItemSalesPage() {
   const currencySymbol = reportData?.currencySymbol || 'रु';
   const categoriesList = reportData?.categories || ['All'];
 
+  // Summary Metrics
+  const totalQuantity = useMemo(
+    () => processedItems.reduce((acc, it) => acc + (Number(it.quantitySold) || 0), 0),
+    [processedItems]
+  );
+  const totalRevenue = useMemo(
+    () => processedItems.reduce((acc, it) => acc + (Number(it.totalSales) || 0), 0),
+    [processedItems]
+  );
+
+  const isToday = startDate === todayStr && endDate === todayStr;
+  const isYesterday = startDate === yesterdayStr && endDate === yesterdayStr;
+
   return (
-    <div className="w-full space-y-4 select-none font-sans">
+    <div className="w-full space-y-3 select-none font-sans">
       {/* 1. TOP HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-slate-800">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-          Menu Item Sales
-        </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Menu Item Sales
+          </h1>
+        </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => loadSalesData(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-2xs disabled:opacity-60 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-2xs disabled:opacity-60 cursor-pointer"
             title="Refresh sales list"
           >
-            <RefreshCw className={cn('w-3.5 h-3.5 text-slate-500', refreshing && 'animate-spin')} />
+            <RefreshCw className={cn('w-3 h-3 text-slate-500', refreshing && 'animate-spin')} />
             <span>{refreshing ? 'Syncing...' : 'Refresh'}</span>
           </button>
 
           <button
             onClick={handleExportCsv}
             disabled={!processedItems.length}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0B3D32] hover:bg-[#082d25] rounded-lg transition shadow-2xs disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-white bg-[#0B3D32] hover:bg-[#082d25] rounded transition shadow-2xs disabled:opacity-50 cursor-pointer"
             title="Download CSV report"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3 h-3" />
             <span>Export CSV</span>
           </button>
         </div>
       </div>
 
-      {/* 2. TOOLBAR CONTROLS: DATE SELECTOR CALENDAR, SEARCH, CATEGORY, PAGE SIZE */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-lg p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 flex-wrap flex-1">
-          {/* Clean Single Date Selector Calendar: default Today */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-2 h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs shadow-2xs">
-              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-transparent border-none text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-                title="Select Date"
-              />
+      {/* 2. SUMMARY STRIP (Clean & Subtle, NO Boxy Clutter) */}
+      <div className="flex items-center gap-4 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded border border-slate-200/80 dark:border-slate-800 overflow-x-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-slate-400 font-medium">Unique Items:</span>
+          <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">{processedItems.length}</span>
+        </div>
+        <span className="text-slate-300 dark:text-slate-700">|</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-slate-400 font-medium">Total Qty Sold:</span>
+          <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">{formatNumber(totalQuantity)}</span>
+        </div>
+        <span className="text-slate-300 dark:text-slate-700">|</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-slate-400 font-medium">Total Sales:</span>
+          <span className="font-bold text-[#0B3D32] dark:text-emerald-400 font-mono">
+            {currencySymbol} {formatNpr(totalRevenue)}
+          </span>
+        </div>
+        {reportData?.bestSellingItem && (
+          <>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-slate-400 font-medium">Top Seller:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                {reportData.bestSellingItem.name} ({reportData.bestSellingItem.quantitySold} sold)
+              </span>
             </div>
+          </>
+        )}
+      </div>
 
-            {selectedDate !== todayStr && (
-              <button
-                type="button"
-                onClick={() => setSelectedDate(todayStr)}
-                className="px-2.5 py-1.5 rounded-md text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition cursor-pointer"
-                title="View Today's Sales"
-              >
-                Today
-              </button>
-            )}
-          </div>
-
-          {/* Search box */}
-          <div className="relative flex-1 min-w-[180px] max-w-xs">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
+      {/* 3. TOOLBAR CONTROLS (DataTables exact layout: Show entries | Today | Yestdy | Date range | Clear | Search) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs pt-1">
+        {/* Left Side: Show entries + Date Controls + Category */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Show entries */}
+          <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400">
+            <span>Show</span>
+            <select
+              value={pageSize}
               onChange={(e) => {
-                setSearchQuery(e.target.value);
+                setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              placeholder="Search menu items..."
-              className="w-full h-9 pl-8 pr-7 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0B3D32]"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+              className="h-7 px-2 text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+            >
+              {[10, 25, 50, 100].map((sz) => (
+                <option key={sz} value={sz}>
+                  {sz}
+                </option>
+              ))}
+            </select>
+            <span>entries</span>
           </div>
 
-          {/* Category Filter Dropdown */}
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
+
+          {/* Quick Date Checkboxes / Buttons */}
+          <label className="inline-flex items-center gap-1 text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isToday}
+              onChange={() => {
+                setStartDate(todayStr);
+                setEndDate(todayStr);
+              }}
+              className="rounded border-slate-300 dark:border-slate-700 text-[#0B3D32] focus:ring-0 cursor-pointer"
+            />
+            <span>Today</span>
+          </label>
+
+          <label className="inline-flex items-center gap-1 text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isYesterday}
+              onChange={() => {
+                setStartDate(yesterdayStr);
+                setEndDate(yesterdayStr);
+              }}
+              className="rounded border-slate-300 dark:border-slate-700 text-[#0B3D32] focus:ring-0 cursor-pointer"
+            />
+            <span>Yestdy</span>
+          </label>
+
+          {/* Date range inputs */}
+          <div className="flex items-center gap-1">
+            <span className="text-slate-500 font-medium">Date</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="h-7 px-2 text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+            />
+            <span className="text-slate-400">-</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="h-7 px-2 text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+            />
+          </div>
+
+          {/* Clear button */}
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="h-7 px-2.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs shadow-2xs transition cursor-pointer"
+          >
+            Clear
+          </button>
+
+          {/* Category Dropdown */}
           <select
             value={selectedCategory}
             onChange={(e) => {
               setSelectedCategory(e.target.value);
               setCurrentPage(1);
             }}
-            className="h-9 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0B3D32] cursor-pointer"
+            className="h-7 px-2 text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
           >
             {categoriesList.map((cat) => (
               <option key={cat} value={cat}>
@@ -283,42 +374,49 @@ export default function MenuItemSalesPage() {
           </select>
         </div>
 
-        {/* Rows Per Page & Item Count */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-slate-500">
-          <div className="flex items-center gap-1.5">
-            <span>Rows:</span>
-            <select
-              value={pageSize}
+        {/* Right Side: Search */}
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <span className="text-slate-600 dark:text-slate-400 font-medium">Search:</span>
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
               onChange={(e) => {
-                setPageSize(Number(e.target.value));
+                setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-8 px-2 text-xs border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0B3D32] cursor-pointer"
-            >
-              {[10, 25, 50, 100].map((sz) => (
-                <option key={sz} value={sz}>
-                  {sz}
-                </option>
-              ))}
-            </select>
+              placeholder=""
+              className="h-7 px-2 pr-6 text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none w-44"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 3. DATA TABLE */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-lg shadow-2xs overflow-hidden">
+      {/* 4. DATA TABLE (DataTables grid: border-r on all columns, light gray header #F8F9FA, no boxy outlines inside cells) */}
+      <div className="border border-slate-200 dark:border-slate-700/60 rounded overflow-hidden bg-white dark:bg-slate-850 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
-              <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-2.5 px-3 w-12 text-center">#</th>
+              <tr className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-t border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 select-none">
+                <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700">
+                  SN
+                </th>
 
                 {/* Menu Item Column */}
                 <th
                   onClick={() => handleSort('menuItem')}
-                  className="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition"
+                  className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750 transition"
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-between gap-1">
                     <span>Menu Item</span>
                     {sortField === 'menuItem' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#0B3D32]" /> : <ArrowDown className="w-3 h-3 text-[#0B3D32]" />
@@ -331,9 +429,9 @@ export default function MenuItemSalesPage() {
                 {/* Category Column */}
                 <th
                   onClick={() => handleSort('category')}
-                  className="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition"
+                  className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750 transition"
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-between gap-1">
                     <span>Category</span>
                     {sortField === 'category' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#0B3D32]" /> : <ArrowDown className="w-3 h-3 text-[#0B3D32]" />
@@ -343,10 +441,15 @@ export default function MenuItemSalesPage() {
                   </div>
                 </th>
 
+                {/* Type Column (Veg / Non-Veg) */}
+                <th className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-slate-700">
+                  Type
+                </th>
+
                 {/* Quantity Sold Column */}
                 <th
                   onClick={() => handleSort('quantitySold')}
-                  className="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition"
+                  className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750 transition"
                 >
                   <div className="flex items-center justify-end gap-1">
                     <span>Quantity Sold</span>
@@ -358,14 +461,14 @@ export default function MenuItemSalesPage() {
                   </div>
                 </th>
 
-                {/* Total Sales Column */}
+                {/* Average Price Column */}
                 <th
-                  onClick={() => handleSort('totalSales')}
-                  className="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition"
+                  onClick={() => handleSort('averagePrice')}
+                  className="py-2.5 px-3 text-right border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750 transition"
                 >
                   <div className="flex items-center justify-end gap-1">
-                    <span>Total Sales ({currencySymbol})</span>
-                    {sortField === 'totalSales' ? (
+                    <span>Average Price ({currencySymbol})</span>
+                    {sortField === 'averagePrice' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#0B3D32]" /> : <ArrowDown className="w-3 h-3 text-[#0B3D32]" />
                     ) : (
                       <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
@@ -373,14 +476,14 @@ export default function MenuItemSalesPage() {
                   </div>
                 </th>
 
-                {/* Average Price Column */}
+                {/* Total Sales Column */}
                 <th
-                  onClick={() => handleSort('averagePrice')}
-                  className="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition"
+                  onClick={() => handleSort('totalSales')}
+                  className="py-2.5 px-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750 transition"
                 >
                   <div className="flex items-center justify-end gap-1">
-                    <span>Average Price ({currencySymbol})</span>
-                    {sortField === 'averagePrice' ? (
+                    <span>Total Sales ({currencySymbol})</span>
+                    {sortField === 'totalSales' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#0B3D32]" /> : <ArrowDown className="w-3 h-3 text-[#0B3D32]" />
                     ) : (
                       <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
@@ -393,13 +496,14 @@ export default function MenuItemSalesPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading && !reportData ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    Loading sales data...
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2 text-slate-400" />
+                    <span>Loading sales data...</span>
                   </td>
                 </tr>
               ) : paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     {searchQuery || selectedCategory !== 'All'
                       ? 'No menu items match your search or filter.'
                       : 'No menu items have been sold during the selected date range.'}
@@ -411,48 +515,55 @@ export default function MenuItemSalesPage() {
                   return (
                     <tr
                       key={item.menuItem + idx}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
+                      className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors even:bg-slate-50/30 dark:even:bg-slate-900/10"
                     >
-                      <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                      {/* SN */}
+                      <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px] border-r border-slate-200 dark:border-slate-700 align-middle">
                         {rowNumber}
                       </td>
 
                       {/* Menu Item Name */}
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'w-2 h-2 rounded-full flex-shrink-0',
-                              item.isVeg ? 'bg-emerald-600' : 'bg-rose-600'
-                            )}
-                            title={item.isVeg ? 'Vegetarian' : 'Non-Vegetarian'}
-                          />
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            {item.menuItem}
-                          </span>
-                        </div>
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">
+                          {item.menuItem}
+                        </span>
                       </td>
 
-                      {/* Category */}
-                      <td className="py-2.5 px-3">
-                        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      {/* Category - Plain Text, NO Outline Box */}
+                      <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <span className="text-slate-600 dark:text-slate-400 font-medium">
                           {item.category || 'General'}
                         </span>
                       </td>
 
+                      {/* Type - Clean Dot + Text, NO Outline Box */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200 dark:border-slate-700 align-middle">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                          <span
+                            className={cn(
+                              'w-2 h-2 rounded-full shrink-0',
+                              item.isVeg ? 'bg-emerald-600' : 'bg-rose-600'
+                            )}
+                          />
+                          <span className={item.isVeg ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}>
+                            {item.isVeg ? 'Veg' : 'Non-Veg'}
+                          </span>
+                        </span>
+                      </td>
+
                       {/* Quantity Sold */}
-                      <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-slate-100 font-mono">
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-slate-100 font-mono border-r border-slate-200 dark:border-slate-700 align-middle">
                         {formatNumber(item.quantitySold)}
                       </td>
 
-                      {/* Total Sales */}
-                      <td className="py-2.5 px-3 text-right font-bold font-mono text-[#0B3D32] dark:text-emerald-400">
-                        {currencySymbol} {formatNpr(item.totalSales)}
+                      {/* Average Price */}
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 align-middle">
+                        {formatNpr(item.averagePrice)}
                       </td>
 
-                      {/* Average Price */}
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300">
-                        {currencySymbol} {formatNpr(item.averagePrice)}
+                      {/* Total Sales */}
+                      <td className="py-2.5 px-3 text-right font-bold font-mono text-[#0B3D32] dark:text-emerald-400 align-middle">
+                        {formatNpr(item.totalSales)}
                       </td>
                     </tr>
                   );
@@ -462,30 +573,29 @@ export default function MenuItemSalesPage() {
           </table>
         </div>
 
-        {/* 6. PAGINATION CONTROLS */}
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs bg-slate-50/50 dark:bg-slate-900/40">
+        {/* 5. PAGINATION CONTROLS (DataTables exact layout: Showing 1 to 10 of X entries | Previous 1 2 3 ... Next) */}
+        <div className="p-2.5 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs bg-slate-50/50 dark:bg-slate-900/40">
           <div className="text-slate-500 dark:text-slate-400">
             {processedItems.length > 0 ? (
               <span>
                 Showing <span className="font-semibold text-slate-700 dark:text-slate-200">{(currentPage - 1) * pageSize + 1}</span> to{' '}
                 <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.min(processedItems.length, currentPage * pageSize)}</span> of{' '}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">{processedItems.length}</span> items
+                <span className="font-semibold text-slate-700 dark:text-slate-200">{processedItems.length}</span> entries
               </span>
             ) : (
-              <span>No items to display</span>
+              <span>Showing 0 to 0 of 0 entries</span>
             )}
           </div>
 
-          {/* Right Bottom Side Pagination: Prev 1 2 3 Next */}
-          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+          {/* Right Bottom Side Pagination: Previous 1 2 3 ... Next */}
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs text-xs font-medium"
+              className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition text-xs font-medium shadow-2xs"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>Prev</span>
+              Previous
             </button>
 
             {Array.from({ length: totalPages }).map((_, idx) => {
@@ -502,7 +612,7 @@ export default function MenuItemSalesPage() {
                     type="button"
                     onClick={() => setCurrentPage(pageNum)}
                     className={cn(
-                      'min-w-[30px] h-7 px-2 font-mono text-xs font-semibold rounded-md transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
+                      'min-w-[28px] h-7 px-2 font-mono text-xs font-semibold rounded transition cursor-pointer flex items-center justify-center shadow-2xs',
                       isCurrent
                         ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-600 dark:border-emerald-600'
                         : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
@@ -526,10 +636,9 @@ export default function MenuItemSalesPage() {
               type="button"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs text-xs font-medium"
+              className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition text-xs font-medium shadow-2xs"
             >
-              <span>Next</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              Next
             </button>
           </div>
         </div>
