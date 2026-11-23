@@ -22,6 +22,7 @@ import {
   Snowflake,
   BedSingle,
   Package,
+  Award,
 } from 'lucide-react';
 import {
   DEFAULT_RELATIONSHIPS,
@@ -289,6 +290,12 @@ export const MASTER_CATEGORIES: MasterCategory[] = [
         name: 'Room Facilities',
         icon: Armchair,
         description: 'Manage in-room items & amenities: Work Desk, Smart TV, Shower, Toilet',
+      },
+      {
+        id: 'membership-settings',
+        name: 'Membership Settings',
+        icon: Award,
+        description: 'Configure customer loyalty tiers, stay thresholds, benefits & discounts',
       },
     ],
   },

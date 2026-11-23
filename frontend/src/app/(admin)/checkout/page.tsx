@@ -32,6 +32,7 @@ import {
   getRelativeDate,
   performCheckOut,
 } from '../reservations/reservationsData';
+import { checkAndApplyCheckoutUpgrade } from '@/lib/loyalty';
 
 type TabFilter = 'ALL' | 'TODAY' | 'TOMORROW' | 'WEEK' | 'IN_HOUSE' | 'DUE' | 'CHECKED_OUT';
 
@@ -173,12 +174,26 @@ function CheckOutListContent() {
     }
 
     const roomNumber = selectedBookingForCheckOut.room.number;
+    const guestName = `${selectedBookingForCheckOut.guest.firstName} ${selectedBookingForCheckOut.guest.lastName}`.trim();
+
+    // Automatic Customer Loyalty & Membership Tier Upgrade Check
+    const upgradeResult = checkAndApplyCheckoutUpgrade(selectedBookingForCheckOut, updatedBookings);
+
     setSelectedBookingForCheckOut(null);
 
     toast.celebrate(
       'Check-Out Completed',
       `Room ${roomNumber} folio settled and released for housekeeping.`
     );
+
+    if (upgradeResult.wasUpgraded && upgradeResult.newTier) {
+      setTimeout(() => {
+        toast.celebrate(
+          'Loyalty Tier Upgraded!',
+          `Congratulations! ${guestName} has been upgraded to ${upgradeResult.newTier?.name} Membership (${upgradeResult.stayCount} completed stays).`
+        );
+      }, 700);
+    }
   };
 
   return (

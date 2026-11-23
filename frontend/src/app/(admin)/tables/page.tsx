@@ -3373,135 +3373,85 @@ function TablesContent() {
   if (activeTable) {
     return (
       <div className="space-y-4 pb-12 select-none animate-in fade-in duration-150">
-        {/* Top Navigation Bar: Back Button, Table Title, and Primary Actions */}
+        {/* Top Navigation Bar: Back Button, Clean Table Title, and Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-default dark:border-border-default">
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <BackButton onClick={handleBackToTables} label="Back" />
+            <span className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
 
-            <button
-              type="button"
-              onClick={() => {
-                handleBackToTables();
-                setActiveTab('ACTIVE_ORDERS');
-                fetchActiveOrders();
-              }}
-              className="inline-flex items-center gap-1.5 rounded-[3px] border border-brand/30 bg-emerald-50 hover:bg-emerald-100 text-brand dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 px-3 py-1.5 text-xs font-bold shadow-2xs transition-all cursor-pointer"
-              title="View all active restaurant and quick orders"
-            >
-              <ClipboardList className="w-3.5 h-3.5 text-brand dark:text-emerald-400" />
-              <span>Orders List</span>
-              {activeOrders.length > 0 && (
-                <span className="rounded-full bg-emerald-700 text-white px-1.5 py-0.2 text-[9px] font-mono font-bold">
-                  {activeOrders.length}
-                </span>
-              )}
-            </button>
-
-            <div className="flex flex-wrap items-center gap-2 ml-1">
-              <h1 className="text-xl sm:text-2xl font-black font-heading text-body dark:text-body tracking-tight">
-                {activeTable.isNoTable ? activeTable.tableNumber : `Table ${activeTable.tableNumber}`} · Order Management
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white font-heading">
+                {activeTable.isNoTable ? activeTable.tableNumber : `Table ${activeTable.tableNumber}`}
               </h1>
 
               {activeTable.orderNumber && (
-                <span className="rounded-[2px] bg-slate-900 text-amber-300 dark:bg-surface-card dark:text-amber-400 border border-slate-700 px-2 py-0.5 text-[10px] font-mono font-bold">
-                  {activeTable.orderNumber}
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  #{activeTable.orderNumber}
                 </span>
               )}
 
               <span
                 className={cn(
-                  'rounded-[2px] text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider',
-                  activeTable.isNoTable
-                    ? activeTable.orderType === 'TAKEAWAY' ? 'bg-purple-700' : 'bg-blue-700'
-                    : activeTable.status === 'BILLED'
-                    ? 'bg-amber-600'
+                  'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium',
+                  activeTable.status === 'BILLED'
+                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
                     : activeTable.kotNumber
-                    ? 'bg-emerald-700'
-                    : 'bg-[#A51F36]'
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : activeTable.isNoTable
+                    ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'
+                    : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                 )}
               >
-                {activeTable.isNoTable
-                  ? activeTable.orderType === 'TAKEAWAY' ? 'Takeaway' : 'No Table'
-                  : activeTable.status === 'BILLED'
-                  ? 'Billed'
-                  : activeTable.kotNumber
-                  ? 'In Kitchen'
-                  : 'Occupied'}
+                <span
+                  className={cn(
+                    'w-1.5 h-1.5 rounded-full',
+                    activeTable.status === 'BILLED'
+                      ? 'bg-amber-500'
+                      : activeTable.kotNumber
+                      ? 'bg-emerald-500'
+                      : activeTable.isNoTable
+                      ? 'bg-purple-500'
+                      : 'bg-rose-500'
+                  )}
+                />
+                <span>
+                  {activeTable.isNoTable
+                    ? activeTable.orderType === 'TAKEAWAY' ? 'Takeaway' : 'No Table'
+                    : activeTable.status === 'BILLED'
+                    ? 'Billed'
+                    : activeTable.kotNumber
+                    ? 'In Kitchen'
+                    : 'Occupied'}
+                </span>
               </span>
 
-              {(activeTable.notes || activeTable.seatingNote) && (
-                <span className="rounded-[2px] bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-300 dark:border-sky-800 px-2 py-0.5 text-[9px] font-medium">
-                  {activeTable.notes || activeTable.seatingNote}
+              {activeTable.kotNumber && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800">
+                  {activeTable.kotNumber}
                 </span>
               )}
 
-              {activeTable.kotNumber && (
-                <span className="rounded-[2px] bg-success-subtle text-success dark:bg-emerald-950 dark:text-success border border-success dark:border-success px-2 py-0.5 text-[9px] font-mono font-bold">
-                  {activeTable.kotNumber}
+              {(activeTable.notes || activeTable.seatingNote) && (
+                <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+                  · {activeTable.notes || activeTable.seatingNote}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Primary Action: Assign Table (if No Table order) */}
-            {activeTable.isNoTable && (
+          {activeTable.isNoTable && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => handleOpenAssignTableModal(activeTable)}
-                className="inline-flex items-center gap-1.5 rounded-[3px] border border-blue-600/40 bg-blue-50 hover:bg-blue-100 text-blue-900 px-3 py-1.5 text-xs font-bold transition-all dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-800 cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-[3px] border border-blue-600/30 bg-blue-50 hover:bg-blue-100 text-blue-900 px-3 py-1.5 text-xs font-bold transition-all dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-800 cursor-pointer shadow-2xs"
                 title="Assign an available dining table to this customer"
               >
                 <Table2 className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
                 <span>Assign Table</span>
               </button>
-            )}
-
-            {/* Primary Action 2: Generate Bill (Req 6) */}
-            <button
-              type="button"
-              onClick={handleGenerateBill}
-              className="inline-flex items-center gap-1.5 rounded-[3px] border border-amber-600/40 bg-amber-50 hover:bg-amber-100 text-amber-900 px-3 py-1.5 text-xs font-bold transition-all dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800 cursor-pointer"
-              title="Generate bill, review itemized order, and collect payment"
-            >
-              <Receipt className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
-              <span>Generate Bill</span>
-            </button>
-
-            {/* Primary Action 3: Print Receipt Preview (Req 7) */}
-            <button
-              type="button"
-              onClick={handleOpenReceiptPreview}
-              className="inline-flex items-center gap-1.5 rounded-[3px] border border-border-default bg-white hover:bg-surface-muted text-body px-3 py-1.5 text-xs font-bold transition-all dark:bg-surface-card dark:text-body dark:border-border-default cursor-pointer shadow-2xs"
-              title="Preview and print customer receipt"
-            >
-              <Printer className="w-3.5 h-3.5 text-muted dark:text-slate-300" />
-              <span>Print Receipt</span>
-            </button>
-
-            {/* Action 4: Clear Table or Close Order */}
-            {!activeTable.isNoTable ? (
-              <button
-                type="button"
-                onClick={(e) => handleClearTable(activeTable.id, e)}
-                className="inline-flex items-center gap-1 rounded-[3px] border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-[#A51F36] hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 transition-colors cursor-pointer"
-                title="Vacate and release this table back to Available"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Clear Table</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleBackToTables}
-                className="inline-flex items-center gap-1 rounded-[3px] border border-border-default bg-surface-muted px-3 py-1.5 text-xs font-bold text-body hover:bg-surface-muted dark:border-border-default bg-surface-card dark:text-slate-300 transition-colors cursor-pointer"
-                title="Close active order view"
-              >
-                <X className="w-3 h-3" />
-                <span>Close</span>
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
 
@@ -3510,12 +3460,6 @@ function TablesContent() {
             Fetches directly from Setted Menu (hotel_menu_items)
            ========================================================================= */}
         <div className="space-y-3 w-full">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold font-heading text-body dark:text-body uppercase tracking-wider flex items-center gap-1.5">
-              <UtensilsCrossed className="w-4 h-4 text-brand dark:text-brand" />
-              <span>Add Order · {activeTable.isNoTable ? activeTable.tableNumber : `Table ${activeTable.tableNumber}`}</span>
-            </h2>
-          </div>
 
           {/* Search Input Bar with Instant Dropdown Suggestions Below */}
           <div className="relative w-full max-w-sm sm:max-w-md">
@@ -4905,12 +4849,14 @@ function TablesContent() {
                 </div>
 
                 {/* Weekday & Date Label Pill */}
-                <span className="h-7.5 inline-flex items-center px-2.5 rounded-[4px] bg-brand/10 dark:bg-brand/20 border border-brand/20 dark:border-brand/30 text-brand dark:text-success text-xs font-bold tracking-tight whitespace-nowrap shrink-0">
+                <span suppressHydrationWarning className="h-7.5 inline-flex items-center px-2.5 rounded-[4px] bg-brand/10 dark:bg-brand/20 border border-brand/20 dark:border-brand/30 text-brand dark:text-success text-xs font-bold tracking-tight whitespace-nowrap shrink-0">
                   {(() => {
                     try {
                       const [y, m, day] = selectedDate.split('-').map(Number);
                       const dt = new Date(y, m - 1, day);
-                      return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      return `${days[dt.getDay()]}, ${dt.getDate()} ${months[dt.getMonth()]}`;
                     } catch {
                       return '';
                     }

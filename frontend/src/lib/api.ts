@@ -1,4 +1,4 @@
-import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, RestaurantDashboardSummaryData, MenuItemSalesSummaryResponse, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse, TaxSummaryResponse, TaxRecordsListResponse, RecordTaxPaymentDto } from './types';
+import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, RestaurantDashboardSummaryData, MenuItemSalesSummaryResponse, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse, TaxSummaryResponse, TaxRecordsListResponse, RecordTaxPaymentDto, ActiveRestaurantOrderData } from './types';
 
 // ============================================================================
 // DATA CACHING & REQUEST DEDUPLICATION ARCHITECTURE
@@ -72,9 +72,16 @@ export async function fetcher<T>(
         },
       });
 
-      const json = await res.json();
+      const text = await res.text();
+      let json: any;
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error(text || `Request failed with status ${res.status}`);
+      }
+
       if (!res.ok || json.success === false) {
-        throw new Error(json.error || `Request failed with status ${res.status}`);
+        throw new Error(json.error || json.message || text || `Request failed with status ${res.status}`);
       }
 
       const data = json.data as T;
@@ -518,7 +525,7 @@ export const api = {
         return acc;
       }, {} as Record<string, string>)
     ).toString();
-    return fetcher<import('./types').ActiveRestaurantOrderData[]>(`/api/restaurant/orders?${query}`);
+    return fetcher<ActiveRestaurantOrderData[]>(`/api/restaurant/orders?${query}`);
   },
 
   getRestaurantOrderMetrics: (params?: {
@@ -557,6 +564,10 @@ export const api = {
   },
 
   getActiveTableOrder: (tableId: string) => {
+    return fetcher<any>(`/api/restaurant/tables/${tableId}/active-order`);
+  },
+
+  getTableActiveOrder: (tableId: string) => {
     return fetcher<any>(`/api/restaurant/tables/${tableId}/active-order`);
   },
 

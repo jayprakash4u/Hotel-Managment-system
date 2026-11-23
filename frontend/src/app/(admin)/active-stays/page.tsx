@@ -35,6 +35,9 @@ import { cn } from '@/lib/utils';
 
 type InHouseTab = 'ALL' | 'DEPARTING_TODAY' | 'STAYOVER' | 'BALANCE_DUE' | 'VIP';
 
+type SortField = 'sn' | 'room' | 'guest' | 'mobile' | 'dates' | 'roomFare' | 'diningFare' | 'due';
+type SortOrder = 'asc' | 'desc';
+
 export default function InHouseGuestsPage() {
   const [bookings, setBookings] = useState<RoomBooking[]>(() => loadBookingsFromStorage());
   const [activeTab, setActiveTab] = useState<InHouseTab>('ALL');
@@ -42,6 +45,8 @@ export default function InHouseGuestsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedFolioBooking, setSelectedFolioBooking] = useState<RoomBooking | null>(null);
+  const [sortField, setSortField] = useState<SortField>('sn');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   const todayStr = useMemo(() => getRelativeDate(0), []);
 
@@ -99,13 +104,61 @@ export default function InHouseGuestsPage() {
     });
   }, [inHouseList, activeTab, todayStr, searchQuery]);
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortedGuests = useMemo(() => {
+    const list = [...filteredGuests];
+    list.sort((a, b) => {
+      let valA: string | number = '';
+      let valB: string | number = '';
+
+      if (sortField === 'room') {
+        valA = a.room.number;
+        valB = b.room.number;
+      } else if (sortField === 'guest') {
+        valA = `${a.guest.firstName} ${a.guest.lastName}`.toLowerCase();
+        valB = `${b.guest.firstName} ${b.guest.lastName}`.toLowerCase();
+      } else if (sortField === 'mobile') {
+        valA = a.guest.phone || '';
+        valB = b.guest.phone || '';
+      } else if (sortField === 'dates') {
+        valA = a.checkIn;
+        valB = b.checkIn;
+      } else if (sortField === 'roomFare') {
+        valA = getBookingFinancials(a).roomCharges;
+        valB = getBookingFinancials(b).roomCharges;
+      } else if (sortField === 'diningFare') {
+        valA = getBookingFinancials(a).cafeTotal;
+        valB = getBookingFinancials(b).cafeTotal;
+      } else if (sortField === 'due') {
+        valA = getBookingFinancials(a).balanceDue;
+        valB = getBookingFinancials(b).balanceDue;
+      } else {
+        // sn: by index/id
+        return 0;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [filteredGuests, sortField, sortOrder]);
+
   // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredGuests.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(sortedGuests.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedGuests = useMemo(() => {
     const start = (safeCurrentPage - 1) * pageSize;
-    return filteredGuests.slice(start, start + pageSize);
-  }, [filteredGuests, safeCurrentPage, pageSize]);
+    return sortedGuests.slice(start, start + pageSize);
+  }, [sortedGuests, safeCurrentPage, pageSize]);
 
   // Reset page when tab or search changes
   useEffect(() => {
@@ -144,205 +197,241 @@ export default function InHouseGuestsPage() {
       </div>
 
       {/* -----------------------------------------------------------------------
-          FILTER TOOLBAR: Box-type Status Buttons (No numbers) & Search Box
-          ----------------------------------------------------------------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
-        {/* Left Side: Box-type Status Buttons */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'px-3 py-1.5 text-xs font-semibold rounded-[3px] border transition-all cursor-pointer select-none whitespace-nowrap',
-                  isActive
-                    ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs font-bold dark:bg-emerald-700 dark:border-emerald-700'
-                    : 'bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 border-slate-300 dark:border-border-default hover:bg-slate-50 dark:hover:bg-slate-800'
-                )}
-              >
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Right Side: Search Box (compact, aligned to right) */}
-        <div className="relative w-full sm:w-52 shrink-0 sm:ml-auto">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search guest, room #..."
-            className="w-full h-[28px] rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card pl-8 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:text-white dark:focus:border-emerald-500 placeholder:text-slate-400"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* -----------------------------------------------------------------------
-          MAIN IN-HOUSE GUESTS DATATABLE
+          TABLE CARD: Controls Bar (Show Entries + Filter Tabs + Search) & Table
+          Matching reference DataTables pattern
           ----------------------------------------------------------------------- */}
       <div className="rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto border-t border-slate-200 dark:border-slate-700">
+        {/* Top Controls Bar */}
+        <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-[#FAFBFB] dark:bg-slate-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          {/* Left Controls: Show entries & Status Filter Tabs */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Show Entries */}
+            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+              <span className="font-medium text-xs">Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="h-[27px] px-2 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="font-medium text-xs">entries</span>
+            </div>
+
+            <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1 flex-wrap">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'px-2.5 py-1 text-xs font-semibold rounded-[2px] border transition-all cursor-pointer select-none whitespace-nowrap',
+                      isActive
+                        ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs font-bold dark:bg-emerald-700 dark:border-emerald-700'
+                        : 'bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 border-slate-300 dark:border-border-default hover:bg-slate-50 dark:hover:bg-slate-800'
+                    )}
+                  >
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right Side: Search Box */}
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <span className="text-slate-600 dark:text-slate-400 font-medium text-xs shrink-0">Search:</span>
+            <div className="relative w-full md:w-56 shrink-0">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder=""
+                className="w-full h-[27px] rounded-[2px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card px-2.5 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:text-white dark:focus:border-emerald-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Table */}
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
-            <thead className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-[11px] select-none">
+            <thead className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs select-none">
               <tr>
-                <th className="py-2.5 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
-                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">ROOM &amp; SUITE</th>
-                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">GUEST &amp; VIP</th>
-                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">CONTACT</th>
-                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">DATES &amp; STAY</th>
-                <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">FOLIO CHARGES</th>
-                <th className="py-2.5 px-3 text-right w-44">ACTIONS</th>
+                <th
+                  onClick={() => handleSort('sn')}
+                  className="py-2.5 px-3 w-14 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>SN</span>
+                    <span className="text-slate-400 text-[10px]">{sortField === 'sn' ? (sortOrder === 'asc' ? '▼' : '▲') : '⇅'}</span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('room')}
+                  className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Room No</span>
+                    <span className="text-slate-400 text-[10px]">{sortField === 'room' ? (sortOrder === 'asc' ? '▼' : '▲') : '⇅'}</span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('guest')}
+                  className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Customer Name</span>
+                    <span className="text-slate-400 text-[10px]">{sortField === 'guest' ? (sortOrder === 'asc' ? '▼' : '▲') : '⇅'}</span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('mobile')}
+                  className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Mobile No</span>
+                    <span className="text-slate-400 text-[10px]">{sortField === 'mobile' ? (sortOrder === 'asc' ? '▼' : '▲') : '⇅'}</span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('dates')}
+                  className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Dates &amp; Stay</span>
+                    <span className="text-slate-400 text-[10px]">{sortField === 'dates' ? (sortOrder === 'asc' ? '▼' : '▲') : '⇅'}</span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('roomFare')}
+                  className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors text-right"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Room Fare</span>
+                    <span className="text-slate-400 text-[10px]">{sortField === 'roomFare' ? (sortOrder === 'asc' ? '▼' : '▲') : '⇅'}</span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('diningFare')}
+                  className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors text-right"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Dining Fare</span>
+                    <span className="text-slate-400 text-[10px]">{sortField === 'diningFare' ? (sortOrder === 'asc' ? '▼' : '▲') : '⇅'}</span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('due')}
+                  className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Due / Balance</span>
+                    <span className="text-slate-400 text-[10px]">{sortField === 'due' ? (sortOrder === 'asc' ? '▼' : '▲') : '⇅'}</span>
+                  </div>
+                </th>
+                <th className="py-2.5 px-3 text-right w-44">Action</th>
               </tr>
             </thead>
             <tbody className="text-slate-700 dark:text-slate-200">
-              {filteredGuests.length === 0 ? (
+              {sortedGuests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
+                  <td colSpan={9} className="py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
                     No in-house guests found matching your search or filters.
                   </td>
                 </tr>
               ) : (
                 paginatedGuests.map((b, idx) => {
                   const fin = getBookingFinancials(b);
-                  const isDepartingToday = b.checkOut === todayStr;
-                  const isOverstay = b.checkOut < todayStr;
-                  const isVip = b.guest.vipTier && b.guest.vipTier !== 'STANDARD';
 
                   return (
                     <tr
                       key={b.id}
-                      className="group bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
+                      className="bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
                     >
-                      {/* # Number */}
-                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
+                      {/* SN */}
+                      <td className="py-2.5 px-3 text-center font-mono text-xs text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
                         {(safeCurrentPage - 1) * pageSize + idx + 1}
                       </td>
 
-                      {/* Room & Suite */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-[#0B3D32] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-[3px] border border-emerald-200 dark:border-emerald-800 text-xs inline-block">
-                            Room {b.room.number}
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-medium">{b.room.floorLevel || 'Floor 1'}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-[150px]">
-                          {b.room.type}
-                        </div>
+                      {/* Room No (Clean text - no box badges) */}
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-medium text-slate-900 dark:text-white text-xs">
+                        Room {b.room.number}
                       </td>
 
-                      {/* Guest & VIP */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
-                        <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
-                          <span>
-                            {b.guest.firstName} {b.guest.lastName}
-                          </span>
-                          {isVip && (
-                            <span
-                              className={cn(
-                                'inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-[2px] text-[9px] font-black uppercase tracking-wider border',
-                                b.guest.vipTier === 'PLATINUM'
-                                  ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
-                                  : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-                              )}
-                            >
-                              <Award className="w-2.5 h-2.5" />
-                              {b.guest.vipTier}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5 font-mono">
-                          {b.bookingCode || b.id}
-                        </div>
+                      {/* Customer Name (Clean text - no VIP box) */}
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-medium text-slate-900 dark:text-white text-xs">
+                        {b.guest.firstName} {b.guest.lastName}
                       </td>
 
-                      {/* Contact */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
-                        <div className="flex items-center gap-1 text-[11px] text-slate-700 dark:text-slate-300">
-                          <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>{b.guest.phone || 'N/A'}</span>
-                        </div>
-                        {b.guest.email && (
-                          <div className="flex items-center gap-1 mt-0.5 text-[10px] text-slate-400">
-                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span className="truncate max-w-[140px]">{b.guest.email}</span>
-                          </div>
-                        )}
+                      {/* Mobile No (Clean plain text) */}
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-mono text-slate-700 dark:text-slate-300 text-xs">
+                        {b.guest.phone || '—'}
                       </td>
 
-                      {/* Dates & Stay */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
-                        <div className="font-medium text-slate-900 dark:text-white text-xs">
-                          <span>{b.checkIn}</span>
-                          <span className="text-slate-400 mx-1">→</span>
-                          <span>{b.checkOut}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                            {b.nights} {b.nights === 1 ? 'Night' : 'Nights'}
-                          </span>
-                          {isDepartingToday && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-[2px] bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 uppercase">
-                              Departs Today
-                            </span>
-                          )}
-                          {isOverstay && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-[2px] bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 uppercase">
-                              Overstay
-                            </span>
-                          )}
-                        </div>
+                      {/* Dates & Stay (Clean plain text) */}
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300 text-xs font-mono">
+                        {b.checkIn} to {b.checkOut}
                       </td>
 
-                      {/* Folio Charges & Balance */}
-                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
-                        <div className="font-bold text-slate-900 dark:text-white text-xs">
-                          Rs. {fin.totalCharges.toLocaleString()}
-                        </div>
-                        <div className="text-[11px] mt-0.5">
-                          {fin.balanceDue > 0 ? (
-                            <span className="text-rose-600 dark:text-rose-400 font-bold">
-                              Due: Rs. {fin.balanceDue.toLocaleString()}
-                            </span>
-                          ) : (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                              Settled
-                            </span>
-                          )}
-                        </div>
+                      {/* Room Fare */}
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-mono text-slate-800 dark:text-slate-200 text-xs text-right whitespace-nowrap">
+                        {fin.roomCharges.toFixed(2)}
                       </td>
 
-                      {/* Actions */}
+                      {/* Dining Fare */}
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-mono text-slate-800 dark:text-slate-200 text-xs text-right whitespace-nowrap">
+                        {fin.cafeTotal.toFixed(2)}
+                      </td>
+
+                      {/* Due / Balance matching screenshot (e.g. 0.00 / 240.00) */}
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-mono text-xs whitespace-nowrap">
+                        <span className={cn('font-bold', fin.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-[#0F5132] dark:text-emerald-400')}>
+                          {fin.balanceDue.toFixed(2)}
+                        </span>
+                        <span className="text-slate-400 mx-1.5 font-normal">/</span>
+                        <span className="font-bold text-[#0F5132] dark:text-emerald-400">
+                          {fin.totalCharges.toFixed(2)}
+                        </span>
+                      </td>
+
+                      {/* Action */}
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => setSelectedFolioBooking(b)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-[3px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-[11px] cursor-pointer transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs transition-colors cursor-pointer shadow-2xs"
                           >
-                            <Receipt className="w-3 h-3 text-slate-500" />
+                            <Receipt className="w-3 h-3" />
                             <span>Folio</span>
                           </button>
 
                           <Link
                             href="/checkout"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-semibold text-[11px] cursor-pointer transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] bg-[#f59e0b] hover:bg-[#d97706] text-white font-semibold text-xs transition-colors cursor-pointer shadow-2xs"
                           >
-                            <LogOut className="w-3 h-3 text-rose-600" />
+                            <LogOut className="w-3 h-3" />
                             <span>Check-Out</span>
                           </Link>
                         </div>
@@ -358,45 +447,23 @@ export default function InHouseGuestsPage() {
 
       {/* -----------------------------------------------------------------------
           DATATABLES PAGINATION FOOTER
-          Left: Show [10 v] entries per page | Showing X to Y of Z entries
+          Left: Showing X to Y of Z entries
           Right: [< Previous] [1] [2] [Next >]
           ----------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1 select-none">
-        {/* Left side: Show Entries per page + Entries summary */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
-            <span className="text-slate-500 font-medium text-[11px]">Show</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="h-[28px] px-2 border border-slate-300 dark:border-border-default rounded-[3px] bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-slate-500 font-medium text-[11px]">entries per page</span>
-          </div>
-
-          <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
-
-          <div>
-            Showing{' '}
-            <strong className="text-slate-800 dark:text-slate-200">
-              {filteredGuests.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}
-            </strong>{' '}
-            to{' '}
-            <strong className="text-slate-800 dark:text-slate-200">
-              {Math.min(safeCurrentPage * pageSize, filteredGuests.length)}
-            </strong>{' '}
-            of{' '}
-            <strong className="text-slate-800 dark:text-slate-200">{filteredGuests.length}</strong>{' '}
-            entries
-          </div>
+        {/* Left side: Entries summary */}
+        <div>
+          Showing{' '}
+          <strong className="text-slate-800 dark:text-slate-200">
+            {sortedGuests.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}
+          </strong>{' '}
+          to{' '}
+          <strong className="text-slate-800 dark:text-slate-200">
+            {Math.min(safeCurrentPage * pageSize, sortedGuests.length)}
+          </strong>{' '}
+          of{' '}
+          <strong className="text-slate-800 dark:text-slate-200">{sortedGuests.length}</strong>{' '}
+          entries
         </div>
 
         {/* DataTables Prev / Page Numbers / Next */}

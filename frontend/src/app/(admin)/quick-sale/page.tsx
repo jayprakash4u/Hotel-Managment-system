@@ -53,6 +53,7 @@ import {
   getSettedMenuItems,
   resolveItemUnitInfo,
   consolidateMenuCatalog,
+  isBeverageCategory,
 } from '@/lib/menuData';
 import {
   QuickBillRecord,
@@ -125,17 +126,87 @@ export default function QuickSalePage() {
   const [dispatchModalDept, setDispatchModalDept] = useState<'KOT' | 'BOT' | null>(null);
 
   // Order Type & Packing Management (Dine-in, Takeaway, Delivery)
-  const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'>('TAKEAWAY');
+  const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'>('DINE_IN');
   const [tablesList, setTablesList] = useState<any[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string>('');
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
+  // 1. Initial Mount: Fetch tables list & restore saved table session or draft cart
   useEffect(() => {
     api.getRestaurantTables()
       .then((res) => {
         if (Array.isArray(res)) setTablesList(res);
       })
       .catch(() => {});
+
+    const savedDraft = sessionStorage.getItem('quick_sale_draft_cart');
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCart(parsed);
+        }
+      } catch {}
+    }
+
+    const savedTableId = sessionStorage.getItem('quick_sale_table_id');
+    if (savedTableId) {
+      setSelectedTableId(savedTableId);
+    }
   }, []);
+
+  // 2. Persist unsaved draft cart to sessionStorage across page reloads
+  useEffect(() => {
+    if (cart.length > 0) {
+      sessionStorage.setItem('quick_sale_draft_cart', JSON.stringify(cart));
+    } else {
+      sessionStorage.removeItem('quick_sale_draft_cart');
+    }
+  }, [cart]);
+
+  // 3. Auto-load active order dynamically from backend whenever table is selected in Dine-in
+  useEffect(() => {
+    if (orderType === 'DINE_IN' && selectedTableId) {
+      sessionStorage.setItem('quick_sale_table_id', selectedTableId);
+      api.getTableActiveOrder(selectedTableId)
+        .then((activeOrder: any) => {
+          if (activeOrder && activeOrder.items && activeOrder.items.length > 0) {
+            setActiveOrderId(activeOrder.id);
+            setActiveOrderNumber(activeOrder.orderNumber);
+            sessionStorage.setItem('quick_sale_active_order_id', activeOrder.id);
+            if (activeOrder.customerName) setCustomerName(activeOrder.customerName);
+            if (activeOrder.customerPhone) setCustomerPhone(activeOrder.customerPhone);
+            if (activeOrder.notes) setBillRemarks(activeOrder.notes);
+
+            const loadedItems: QuickCartItem[] = activeOrder.items.map((it: any) => ({
+              id: it.id,
+              productId: it.productId,
+              name: it.productName,
+              unit: 'Regular',
+              unitPrice: it.unitPrice,
+              quantity: it.quantity,
+              remarks: it.notes,
+              category: it.department === 'BOT' ? 'Bar' : 'Kitchen',
+              department: it.department || (isBeverageCategory(undefined, it.productName) ? 'BOT' : 'KOT'),
+              dispatchedQuantity: it.dispatchedQuantity ?? it.quantity,
+              kotNumber: it.kotNumber,
+              botNumber: it.botNumber,
+              preparationMethod: it.preparationMethod,
+            }));
+            setCart(loadedItems);
+          } else {
+            setActiveOrderId(null);
+            sessionStorage.removeItem('quick_sale_active_order_id');
+          }
+        })
+        .catch((err: any) => {
+          console.error('Error fetching table active order:', err);
+        });
+    } else if (!selectedTableId) {
+      sessionStorage.removeItem('quick_sale_table_id');
+      setActiveOrderId(null);
+    }
+  }, [orderType, selectedTableId]);
   const [packingCharge, setPackingCharge] = useState<string>('0');
   const [autoPackingCharge, setAutoPackingCharge] = useState<number>(0);
 
@@ -814,7 +885,7 @@ export default function QuickSalePage() {
           quantity: qty,
           trackStock: menuItem.trackStock,
           stock: menuItem.stock,
-          department: unitInfo.department || menuItem.department || 'KOT',
+          department: unitInfo.department || menuItem.department || (isBeverageCategory(menuItem.category, name) ? 'BOT' : 'KOT'),
           dispatchedQuantity: 0,
         },
       ];
@@ -965,7 +1036,12 @@ export default function QuickSalePage() {
     setBillRemarks('');
     setCustomerName('');
     setCustomerPhone('');
-    setOrderType('TAKEAWAY');
+    setOrderType('DINE_IN');
+    setSelectedTableId('');
+    setActiveOrderId(null);
+    sessionStorage.removeItem('quick_sale_table_id');
+    sessionStorage.removeItem('quick_sale_active_order_id');
+    sessionStorage.removeItem('quick_sale_draft_cart');
     setPackingCharge('0');
     setAutoPackingCharge(0);
     setActiveOrderNumber(generateNewOrderNumber());
@@ -1013,10 +1089,10 @@ export default function QuickSalePage() {
     toast.success('Customer Details Saved', customerNameInput.trim() || 'Details updated.');
   };
 
-  // Dispatch KOT / BOT / All Tickets from Quick Sale
-  const handleDispatchTicket = (targetDept: 'KOT' | 'BOT' | 'ALL', shouldPrint: boolean = true) => {
+  // Dispatch KOT / BOT / All Tickets from Quick Sale to Backend & Printers
+  const handleDispatchTicket = async (targetDept: 'KOT' | 'BOT' | 'ALL', shouldPrint: boolean = true) => {
     if (cart.length === 0) {
-      toast.error('Cart Empty', 'Please add items before printing tickets.');
+      toast.error('Cart Empty', 'Please add items before dispatching tickets.');
       return;
     }
 
@@ -1029,14 +1105,14 @@ export default function QuickSalePage() {
     let pendingItems = cart.filter((i) => {
       const isPending = i.quantity > (i.dispatchedQuantity || 0);
       if (!isPending) return false;
-      if (targetDept === 'KOT') return (i.department === 'KOT' || !i.department);
+      if (targetDept === 'KOT') return i.department === 'KOT' || !i.department;
       if (targetDept === 'BOT') return i.department === 'BOT';
       return true;
     });
 
     if (pendingItems.length === 0) {
       pendingItems = cart.filter((i) => {
-        if (targetDept === 'KOT') return (i.department === 'KOT' || !i.department);
+        if (targetDept === 'KOT') return i.department === 'KOT' || !i.department;
         if (targetDept === 'BOT') return i.department === 'BOT';
         return true;
       });
@@ -1047,72 +1123,186 @@ export default function QuickSalePage() {
       return;
     }
 
-    const ticketNumber = targetDept === 'BOT' ? `BOT-${Math.floor(100 + Math.random() * 900)}` : `KOT-${Math.floor(200 + Math.random() * 800)}`;
+    setIsSubmitting(true);
+    try {
+      let currentOrderId = activeOrderId;
+      let currentOrderNumber = activeOrderNumber;
 
-    setCart((prev) =>
-      prev.map((i) => {
-        const matches =
-          targetDept === 'ALL' ||
-          (targetDept === 'KOT' && (i.department === 'KOT' || !i.department)) ||
-          (targetDept === 'BOT' && i.department === 'BOT');
-        if (matches) {
-          return {
-            ...i,
-            dispatchedQuantity: i.quantity,
-            kotNumber: targetDept === 'BOT' ? i.kotNumber : ticketNumber,
-            botNumber: targetDept === 'KOT' ? i.botNumber : ticketNumber,
-          };
-        }
-        return i;
-      })
-    );
-
-    const printItems = pendingItems.map((i) => {
-      const remainingQty = i.quantity - (i.dispatchedQuantity || 0);
-      const qty = remainingQty > 0 ? remainingQty : i.quantity;
-      return {
+      // 1. Build and sync items with backend database
+      const itemsPayload = cart.map((i) => ({
+        productId: i.productId,
         productName: i.unit ? `${i.name} (${i.unit})` : i.name,
-        quantity: qty,
         unitPrice: i.unitPrice,
-        total: i.unitPrice * qty,
+        quantity: i.quantity,
         notes: i.remarks,
-      };
-    });
+        department: i.department || (isBeverageCategory(i.category, i.name) ? 'BOT' : 'KOT'),
+        dispatchedQuantity: i.dispatchedQuantity || 0,
+        kotNumber: i.kotNumber,
+        botNumber: i.botNumber,
+        preparationMethod: i.preparationMethod,
+      }));
 
-    if (shouldPrint) {
-      setReceiptData({
-        isOpen: true,
-        onClose: () => setIsReceiptModalOpen(false),
-        orderNumber: activeOrderNumber || 'QS-ORDER',
-        ticketType: (targetDept === 'BOT' ? 'BOT' : targetDept === 'ALL' ? 'ALL' : 'KOT') as any,
-        kotNumber: targetDept !== 'BOT' ? ticketNumber : undefined,
-        botNumber: targetDept === 'BOT' ? ticketNumber : undefined,
-        receiptNumber: ticketNumber,
-        orderType: orderType === 'DINE_IN' ? 'DINE_IN' : orderType === 'DELIVERY' ? 'DELIVERY' : 'TAKEAWAY',
-        tableNumber: null,
-        seatingNote: orderType === 'DINE_IN' ? 'Dine-In' : orderType === 'DELIVERY' ? 'Delivery' : 'Takeaway',
-        createdAt: new Date().toISOString(),
-        serverName: 'ADMIN',
-        customerName: customerName.trim() || undefined,
-        customerPhone: customerPhone.trim() || undefined,
-        items: printItems,
-        subtotal: printItems.reduce((s, i) => s + i.total, 0),
-        tax: 0,
-        total: printItems.reduce((s, i) => s + i.total, 0),
-      });
-      setIsReceiptModalOpen(true);
-      toast.celebrate(`Ticket Printed!`, `${printItems.length} item(s) (${ticketNumber}).`);
-    } else {
-      toast.success(
-        `${targetDept} Sent to ${targetDept === 'BOT' ? 'Bar' : 'Kitchen'}!`,
-        `${printItems.length} item(s) dispatched (${ticketNumber}) without printing.`
+      if (currentOrderId) {
+        await (api as any).updateRestaurantOrderItems(currentOrderId, {
+          items: itemsPayload,
+          notes: billRemarks.trim() || undefined,
+        });
+      } else {
+        const resolvedOrderType =
+          orderType === 'DINE_IN'
+            ? selectedTableId
+              ? 'DINE_IN'
+              : 'NO_TABLE'
+            : orderType;
+
+        const created = await api.createRestaurantOrder({
+          outlet: 'RESTAURANT',
+          tableId: orderType === 'DINE_IN' && selectedTableId ? selectedTableId : undefined,
+          orderType: resolvedOrderType,
+          customerName: customerName.trim() || (isOpenOrder ? openOrderToken.trim() : undefined),
+          customerPhone: customerPhone.trim() || undefined,
+          packingCharge: parsedPackingCharge > 0 ? parsedPackingCharge : undefined,
+          notes: billRemarks.trim() || (isOpenOrder ? `Token: ${openOrderToken.trim()}` : undefined),
+          serverName: 'Counter Cashier',
+          items: itemsPayload,
+        });
+
+        if (created) {
+          currentOrderId = created.id;
+          currentOrderNumber = created.orderNumber;
+          setActiveOrderId(created.id);
+          setActiveOrderNumber(created.orderNumber);
+          sessionStorage.setItem('quick_sale_active_order_id', created.id);
+        }
+      }
+
+      if (!currentOrderId) {
+        throw new Error('Failed to create or update active order in database.');
+      }
+
+      // 2. Dispatch Tickets via Backend API
+      let generatedKot: string | undefined;
+      let generatedBot: string | undefined;
+
+      if (targetDept === 'KOT' || targetDept === 'ALL') {
+        try {
+          const kotRes = await (api as any).dispatchRestaurantOrderKot(currentOrderId);
+          generatedKot = kotRes?.ticketNumber || kotRes?.kotNumber;
+        } catch (e: any) {
+          console.warn('dispatchRestaurantOrderKot notice:', e);
+        }
+      }
+
+      if (targetDept === 'BOT' || targetDept === 'ALL') {
+        try {
+          const botRes = await (api as any).dispatchRestaurantOrderBot(currentOrderId);
+          generatedBot = botRes?.ticketNumber || botRes?.botNumber;
+        } catch (e: any) {
+          console.warn('dispatchRestaurantOrderBot notice:', e);
+        }
+      }
+
+      const fallbackKot = generatedKot || `KOT-${Math.floor(200 + Math.random() * 800)}`;
+      const fallbackBot = generatedBot || `BOT-${Math.floor(100 + Math.random() * 900)}`;
+
+      // 3. Mark items as dispatched in local cart
+      setCart((prev) =>
+        prev.map((i) => {
+          const isTarget = pendingItems.some((p) => p.id === i.id);
+          if (!isTarget) return i;
+
+          const isKotItem = i.department === 'KOT' || !i.department;
+          const isBotItem = i.department === 'BOT';
+
+          if (targetDept === 'KOT' && isKotItem) {
+            return {
+              ...i,
+              dispatchedQuantity: i.quantity,
+              kotNumber: fallbackKot,
+            };
+          }
+          if (targetDept === 'BOT' && isBotItem) {
+            return {
+              ...i,
+              dispatchedQuantity: i.quantity,
+              botNumber: fallbackBot,
+            };
+          }
+          if (targetDept === 'ALL') {
+            return {
+              ...i,
+              dispatchedQuantity: i.quantity,
+              kotNumber: isKotItem ? fallbackKot : i.kotNumber,
+              botNumber: isBotItem ? fallbackBot : i.botNumber,
+            };
+          }
+          return i;
+        })
       );
+
+      // Refresh tables list to show Table as OCCUPIED
+      api.getRestaurantTables().then((res) => {
+        if (Array.isArray(res)) setTablesList(res);
+      });
+
+      const ticketNumber = targetDept === 'BOT' ? fallbackBot : fallbackKot;
+
+      const printItems = pendingItems.map((i) => {
+        const remainingQty = i.quantity - (i.dispatchedQuantity || 0);
+        const qty = remainingQty > 0 ? remainingQty : i.quantity;
+        return {
+          productName: i.unit ? `${i.name} (${i.unit})` : i.name,
+          quantity: qty,
+          unitPrice: i.unitPrice,
+          total: i.unitPrice * qty,
+          notes: i.remarks,
+        };
+      });
+
+      // 4. Print if requested
+      if (shouldPrint) {
+        const currentTable = tablesList.find((t) => t.id === selectedTableId);
+        setReceiptData({
+          isOpen: true,
+          onClose: () => setIsReceiptModalOpen(false),
+          orderNumber: currentOrderNumber || 'QS-ORDER',
+          ticketType: (targetDept === 'BOT' ? 'BOT' : targetDept === 'ALL' ? 'ALL' : 'KOT') as any,
+          kotNumber: targetDept !== 'BOT' ? fallbackKot : undefined,
+          botNumber: targetDept === 'BOT' ? fallbackBot : undefined,
+          receiptNumber: ticketNumber,
+          orderType: orderType === 'DINE_IN' ? 'DINE_IN' : orderType === 'DELIVERY' ? 'DELIVERY' : 'TAKEAWAY',
+          tableNumber: currentTable ? currentTable.tableNumber : null,
+          seatingNote: currentTable ? `Table ${currentTable.tableNumber}` : orderType,
+          createdAt: new Date().toISOString(),
+          serverName: 'Counter Cashier',
+          customerName: customerName.trim() || undefined,
+          customerPhone: customerPhone.trim() || undefined,
+          items: printItems,
+          subtotal: printItems.reduce((s, i) => s + i.total, 0),
+          tax: 0,
+          total: printItems.reduce((s, i) => s + i.total, 0),
+        });
+        setIsReceiptModalOpen(true);
+        toast.celebrate(
+          `${targetDept} Printed & Sent!`,
+          `${printItems.length} item(s) dispatched to ${targetDept === 'BOT' ? 'Bar' : 'Kitchen'} (${ticketNumber}).`
+        );
+      } else {
+        toast.success(
+          `${targetDept} Sent to ${targetDept === 'BOT' ? 'Bar' : 'Kitchen'}!`,
+          `${printItems.length} item(s) saved in DB & sent to display (${ticketNumber}).`
+        );
+      }
+    } catch (err: any) {
+      console.error('Failed to dispatch ticket:', err);
+      toast.error('Dispatch Failed', err.message || 'Could not send ticket to kitchen/bar.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-
   // ---------------------------------------------------------------------------
-  // Save != Print POS Engine: Open Orders vs Direct Quick Bill
+  // Save Order to Backend Database (Active Order / Table / Open Order)
   // ---------------------------------------------------------------------------
   const handleSaveAction = async (shouldPrint = false) => {
     if (cart.length === 0) {
@@ -1126,173 +1316,106 @@ export default function QuickSalePage() {
       return;
     }
 
-    // LANE 1: Ticked -> OPEN ORDER (Save != Print)
-    if (isOpenOrder) {
-      if (!openOrderToken.trim()) {
-        toast.error('Token Required', 'Please enter a Token #, Chair position, or Customer identifier for open orders.');
-        return;
-      }
+    setIsSubmitting(true);
+    try {
+      let resOrder: any = null;
 
-      // Proforma notice if printed while open
-      if (shouldPrint) {
-        const proformaConfirm = confirm('Ticked open order cannot be printed as final legal tax invoice until settlement.\n\nPrint a "PROFORMA – NOT FINAL" copy?');
-        if (!proformaConfirm) return;
-      }
+      const itemsPayload = cart.map((i) => ({
+        productId: i.productId,
+        productName: i.unit ? `${i.name} (${i.unit})` : i.name,
+        unitPrice: i.unitPrice,
+        quantity: i.quantity,
+        notes: i.remarks,
+        department: i.department || (isBeverageCategory(i.category, i.name) ? 'BOT' : 'KOT'),
+        dispatchedQuantity: i.dispatchedQuantity || 0,
+        kotNumber: i.kotNumber,
+        botNumber: i.botNumber,
+        preparationMethod: i.preparationMethod,
+      }));
 
-      // Case A: Editing an existing open order (Adding another round)
-      if (editingOpenBill) {
-        const roundNum = (editingOpenBill.currentRound || 1) + 1;
-        const newItems = cart.map((i, idx) => ({
-          id: `item-${Date.now()}-${idx}`,
-          roundNumber: roundNum,
-          addedAt: new Date().toISOString(),
-          productId: i.productId,
-          name: i.unit ? `${i.name} (${i.unit})` : i.name,
-          category: i.category || 'Kitchen',
-          unit: i.unit || 'Regular',
-          unitPrice: i.unitPrice,
-          quantity: i.quantity,
-          total: i.unitPrice * i.quantity,
-          notes: i.remarks,
-        }));
-
-        const updated = addItemsToOpenOrder(editingOpenBill.id, newItems, {
-          discountPercent: parsedDisPercent,
-          discountAmount: effectiveDisAmt,
-          roundOff: parsedRoundOff,
+      if (activeOrderId) {
+        resOrder = await (api as any).updateRestaurantOrderItems(activeOrderId, {
+          items: itemsPayload,
           notes: billRemarks.trim() || undefined,
         });
+      } else {
+        const resolvedOrderType =
+          orderType === 'DINE_IN'
+            ? selectedTableId
+              ? 'DINE_IN'
+              : 'NO_TABLE'
+            : orderType;
 
-        if (updated) {
-          toast.celebrate(
-            'Round Added to Open Order!',
-            `Order ${updated.masterBillNumber} (${updated.token}) updated with Round ${roundNum}. Total: Rs. ${updated.grandTotal.toFixed(0)}`
-          );
-
-          if (shouldPrint) {
-            setReceiptData({
-              isOpen: true,
-              onClose: () => setIsReceiptModalOpen(false),
-              orderNumber: updated.masterBillNumber,
-              receiptNumber: `PROFORMA-${updated.masterBillNumber}`,
-              orderType: 'COUNTER_SALE',
-              tableNumber: null,
-              seatingNote: `[PROFORMA - NOT FINAL] ${updated.token} (Round ${roundNum})`,
-              createdAt: updated.lastUpdatedAt,
-              serverName: updated.staffUser,
-              customerName: updated.customerName || updated.token,
-              customerPhone: updated.customerPhone,
-              items: updated.items.map((it: any) => ({
-                productName: `[R${it.roundNumber}] ${it.name}`,
-                quantity: it.quantity,
-                unitPrice: it.unitPrice,
-                total: it.total,
-                notes: it.notes,
-              })),
-              subtotal: updated.subtotal,
-              discountAmount: updated.discountAmount,
-              discountPercent: updated.discountPercent,
-              tax: updated.vatAmount,
-              serviceCharge: 0,
-              total: updated.grandTotal,
-              paymentMethod: 'UNPAID (OPEN TAB)',
-              paymentStatus: 'UNPAID' as any,
-            });
-            setIsReceiptModalOpen(true);
-          }
-
-          setEditingOpenBill(null);
-          setIsOpenOrder(false);
-          setOpenOrderToken('');
-          handleClearCart();
-          refreshOpenOrders();
-        }
-        return;
+        resOrder = await api.createRestaurantOrder({
+          outlet: 'RESTAURANT',
+          tableId: orderType === 'DINE_IN' && selectedTableId ? selectedTableId : undefined,
+          orderType: resolvedOrderType,
+          customerName: customerName.trim() || (isOpenOrder ? openOrderToken.trim() : undefined),
+          customerPhone: customerPhone.trim() || undefined,
+          packingCharge: parsedPackingCharge > 0 ? parsedPackingCharge : undefined,
+          notes: billRemarks.trim() || (isOpenOrder ? `Token: ${openOrderToken.trim()}` : undefined),
+          serverName: 'Counter Cashier',
+          items: itemsPayload,
+        });
       }
 
-      // Case B: Brand new open order
-      if (isTokenInUse(openOrderToken)) {
-        toast.error('Token In Use', `"${openOrderToken}" already has an active open order. Please choose another token or reopen the existing one.`);
-        return;
+      const savedId = resOrder?.id || activeOrderId;
+      const savedNum = resOrder?.orderNumber || activeOrderNumber;
+
+      if (savedId) {
+        setActiveOrderId(savedId);
+        sessionStorage.setItem('quick_sale_active_order_id', savedId);
+      }
+      if (savedNum) {
+        setActiveOrderNumber(savedNum);
       }
 
-      const created = saveOpenOrder({
-        token: openOrderToken.trim(),
-        source: openOrderSource,
-        billType: openBillType,
-        customerName: customerName.trim() || undefined,
-        customerPhone: customerPhone.trim() || undefined,
-        items: cart.map((i, idx) => ({
-          id: `item-${Date.now()}-${idx}`,
-          roundNumber: 1,
-          addedAt: new Date().toISOString(),
-          productId: i.productId,
-          name: i.unit ? `${i.name} (${i.unit})` : i.name,
-          category: i.category || 'Kitchen',
-          unit: i.unit || 'Regular',
-          unitPrice: i.unitPrice,
-          quantity: i.quantity,
-          total: i.unitPrice * i.quantity,
-          notes: i.remarks,
-        })),
-        subtotal: basicTotal,
-        discountPercent: parsedDisPercent,
-        discountAmount: effectiveDisAmt,
-        taxableAmount: taxableAmount,
-        vatPercent: isVatBill ? 13 : 0,
-        vatAmount: vatAmount,
-        roundOff: parsedRoundOff,
-        grandTotal: netAmount,
-        notes: billRemarks.trim() || undefined,
-        staffUser: 'Counter Cashier',
+      toast.success('Order Saved', `Order #${savedNum || savedId} saved successfully in database.`);
+
+      api.getRestaurantTables().then((res) => {
+        if (Array.isArray(res)) setTablesList(res);
       });
 
-      toast.celebrate(
-        'Open Order Saved (Save != Print)',
-        `Bill #${created.masterBillNumber} saved for ${created.token}. Moved to Open Orders.`
-      );
+      refreshOpenOrders();
 
       if (shouldPrint) {
+        const currentTable = tablesList.find((t) => t.id === selectedTableId);
         setReceiptData({
           isOpen: true,
           onClose: () => setIsReceiptModalOpen(false),
-          orderNumber: created.masterBillNumber,
-          receiptNumber: `PROFORMA-${created.masterBillNumber}`,
-          orderType: 'COUNTER_SALE',
-          tableNumber: null,
-          seatingNote: `[PROFORMA - NOT FINAL] ${created.token}`,
-          createdAt: created.openedAt,
-          serverName: created.staffUser,
-          customerName: created.customerName || created.token,
-          customerPhone: created.customerPhone,
-          items: created.items.map((it: any) => ({
-            productName: it.name,
-            quantity: it.quantity,
-            unitPrice: it.unitPrice,
-            total: it.total,
-            notes: it.notes,
+          orderNumber: savedNum || 'ORD-SAVED',
+          receiptNumber: `ORDER-${savedNum || 'SAVED'}`,
+          orderType: orderType,
+          tableNumber: currentTable ? currentTable.tableNumber : null,
+          seatingNote: currentTable ? `Table ${currentTable.tableNumber}` : orderType,
+          createdAt: new Date().toISOString(),
+          serverName: 'Counter Cashier',
+          customerName: customerName.trim() || undefined,
+          customerPhone: customerPhone.trim() || undefined,
+          items: cart.map((i) => ({
+            productName: i.unit ? `${i.name} (${i.unit})` : i.name,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            total: i.unitPrice * i.quantity,
+            notes: i.remarks,
           })),
-          subtotal: created.subtotal,
-          discountAmount: created.discountAmount,
-          discountPercent: created.discountPercent,
-          tax: created.vatAmount,
+          subtotal: basicTotal,
+          discountAmount: effectiveDisAmt,
+          discountPercent: parsedDisPercent,
+          tax: isVatBill ? vatAmount : 0,
           serviceCharge: 0,
-          total: created.grandTotal,
-          paymentMethod: 'UNPAID (OPEN TAB)',
+          total: netAmount,
+          paymentMethod: 'PENDING',
           paymentStatus: 'UNPAID' as any,
         });
         setIsReceiptModalOpen(true);
       }
-
-      setIsOpenOrder(false);
-      setOpenOrderToken('');
-      handleClearCart();
-      refreshOpenOrders();
-      return;
+    } catch (err: any) {
+      console.error('Failed to save order to database:', err);
+      toast.error('Failed to Save Order', err.message || 'Could not save order to database.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // LANE 2: Unticked -> Normal quick bill
-    await handleCompleteSale(shouldPrint);
   };
 
   // ---------------------------------------------------------------------------
@@ -1554,22 +1677,6 @@ export default function QuickSalePage() {
         </div>
 
         <div className="flex items-center gap-2">
-
-          {/* Daily Sales Quick Metric Button */}
-          {dailySales && (
-            <button
-              type="button"
-              onClick={() => setIsDailySalesModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 text-[#0B3D32] dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-100 transition-all cursor-pointer shadow-2xs"
-              title="Click to view daily sales & audit report"
-            >
-              <TrendingUp className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-              <span>Today: Rs. {dailySales.totalSales.toFixed(0)}</span>
-              <span className="font-mono text-[10px] opacity-75">({dailySales.totalOrders} bills)</span>
-            </button>
-          )}
-
-          
           {/* Open Orders Toggle */}
           <button
             type="button"

@@ -158,253 +158,27 @@ export function peekNextMasterBillNumber(): string {
   }
 }
 
-// Initial seed bills for demonstration & immediate testing
+// Initial bills: strictly empty array so no fake mock orders are created
 function getInitialBills(): QuickBillRecord[] {
-  const now = new Date();
-  const tMinus15m = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
-  const tMinus35m = new Date(now.getTime() - 35 * 60 * 1000).toISOString();
-  const tMinus55m = new Date(now.getTime() - 55 * 60 * 1000).toISOString();
-  const tMinus2h = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
-  const tMinus1h = new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString();
-
-  return [
-    // Open Order 1: Token #7 sitting on chair with multiple rounds
-    {
-      id: 'qb-1001',
-      masterBillNumber: 'BILL-1001',
-      isOpenOrder: true,
-      status: 'OPEN',
-      token: 'Token #7 (Corner Chair)',
-      source: 'NO_TABLE',
-      billType: 'NORMAL',
-      currentRound: 2,
-      openedAt: tMinus35m,
-      lastUpdatedAt: tMinus15m,
-      staffUser: 'Ramesh T.',
-      items: [
-        {
-          id: 'item-1001-1',
-          roundNumber: 1,
-          addedAt: tMinus35m,
-          name: 'Chicken Steam Momo',
-          category: 'Appetizers & Starters',
-          unit: 'Plate (10 Pcs)',
-          unitPrice: 280,
-          quantity: 2,
-          total: 560,
-        },
-        {
-          id: 'item-1001-2',
-          roundNumber: 1,
-          addedAt: tMinus35m,
-          name: 'Mineral Water (1 Ltr)',
-          category: 'Beverages',
-          unit: 'Bottle',
-          unitPrice: 50,
-          quantity: 1,
-          total: 50,
-        },
-        {
-          id: 'item-1001-3',
-          roundNumber: 2,
-          addedAt: tMinus15m,
-          name: 'Tuborg Classic Beer (650ml)',
-          category: 'Bar & Beverages',
-          unit: 'Bottle',
-          unitPrice: 480,
-          quantity: 2,
-          total: 960,
-          notes: 'Chilled bottle with glasses',
-        },
-      ],
-      subtotal: 1570,
-      discountPercent: 0,
-      discountAmount: 0,
-      taxableAmount: 1570,
-      vatPercent: 0,
-      vatAmount: 0,
-      roundOff: 0,
-      grandTotal: 1570,
-      paidAmount: 0,
-      changeDue: 0,
-      paymentMethod: 'CASH',
-      notes: 'Customer sitting at lounge chair, ordering in rounds',
-    },
-    // Open Order 2: Token #12 sitting on chair
-    {
-      id: 'qb-1002',
-      masterBillNumber: 'BILL-1002',
-      isOpenOrder: true,
-      status: 'OPEN',
-      token: 'Token #12 (Balcony Barstool)',
-      source: 'NO_TABLE',
-      billType: 'VAT',
-      currentRound: 1,
-      openedAt: tMinus55m,
-      lastUpdatedAt: tMinus55m,
-      staffUser: 'Priya S.',
-      items: [
-        {
-          id: 'item-1002-1',
-          roundNumber: 1,
-          addedAt: tMinus55m,
-          name: 'Chicken Sekuwa Platter',
-          category: 'Appetizers & Starters',
-          unit: 'Plate',
-          unitPrice: 420,
-          quantity: 1,
-          total: 420,
-        },
-        {
-          id: 'item-1002-2',
-          roundNumber: 1,
-          addedAt: tMinus55m,
-          name: 'Fresh Mint Lemonade',
-          category: 'Beverages',
-          unit: 'Glass',
-          unitPrice: 160,
-          quantity: 2,
-          total: 320,
-        },
-      ],
-      subtotal: 740,
-      discountPercent: 0,
-      discountAmount: 0,
-      taxableAmount: 740,
-      vatPercent: 13,
-      vatAmount: 96.2,
-      roundOff: -0.2,
-      grandTotal: 836,
-      paidAmount: 0,
-      changeDue: 0,
-      paymentMethod: 'QR_PAY',
-    },
-    // Settled Bill 1: Walk-in Pack Customer (Never in open orders)
-    {
-      id: 'qb-1003',
-      masterBillNumber: 'BILL-1003',
-      isOpenOrder: false,
-      status: 'PAID',
-      token: 'Pack Walk-in',
-      source: 'QUICK',
-      billType: 'NORMAL',
-      currentRound: 1,
-      openedAt: tMinus2h,
-      lastUpdatedAt: tMinus2h,
-      paidAt: tMinus2h,
-      staffUser: 'Ramesh T.',
-      items: [
-        {
-          id: 'item-1003-1',
-          roundNumber: 1,
-          addedAt: tMinus2h,
-          name: 'Chicken Fried Rice',
-          category: 'Main Course',
-          unit: 'Plate',
-          unitPrice: 260,
-          quantity: 2,
-          total: 520,
-          notes: 'Packed for takeaway',
-        },
-        {
-          id: 'item-1003-2',
-          roundNumber: 1,
-          addedAt: tMinus2h,
-          name: 'Coca-Cola (500ml)',
-          category: 'Beverages',
-          unit: 'Bottle',
-          unitPrice: 90,
-          quantity: 2,
-          total: 180,
-        },
-      ],
-      subtotal: 700,
-      discountPercent: 0,
-      discountAmount: 0,
-      taxableAmount: 700,
-      vatPercent: 0,
-      vatAmount: 0,
-      roundOff: 0,
-      grandTotal: 700,
-      paidAmount: 700,
-      changeDue: 0,
-      paymentMethod: 'CASH',
-      customerName: 'Sanjay Subedi',
-    },
-    // Settled Bill 2: Settled VAT Invoice
-    {
-      id: 'qb-1004',
-      masterBillNumber: 'BILL-1004',
-      vatInvoiceNumber: 'INV-0001',
-      isOpenOrder: false,
-      status: 'PAID',
-      token: 'Corporate Guest',
-      source: 'HOTEL',
-      billType: 'VAT',
-      currentRound: 1,
-      openedAt: tMinus1h,
-      lastUpdatedAt: tMinus1h,
-      paidAt: tMinus1h,
-      staffUser: 'Sunita G.',
-      items: [
-        {
-          id: 'item-1004-1',
-          roundNumber: 1,
-          addedAt: tMinus1h,
-          name: 'Buff Chilli Momo',
-          category: 'Appetizers & Starters',
-          unit: 'Plate',
-          unitPrice: 240,
-          quantity: 3,
-          total: 720,
-        },
-        {
-          id: 'item-1004-2',
-          roundNumber: 1,
-          addedAt: tMinus1h,
-          name: 'Mineral Water (1 Ltr)',
-          category: 'Beverages',
-          unit: 'Bottle',
-          unitPrice: 50,
-          quantity: 4,
-          total: 200,
-        },
-      ],
-      subtotal: 920,
-      discountPercent: 0,
-      discountAmount: 0,
-      taxableAmount: 920,
-      vatPercent: 13,
-      vatAmount: 119.6,
-      roundOff: 0.4,
-      grandTotal: 1040,
-      paidAmount: 1040,
-      changeDue: 0,
-      paymentMethod: 'CARD',
-      customerName: 'Vertex Tech Pvt Ltd',
-      customerPan: '601245892',
-    },
-  ];
+  return [];
 }
 
 // Load all bills from storage
 export function getAllQuickBills(): QuickBillRecord[] {
-  if (typeof window === 'undefined') return getInitialBills();
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.BILLS);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        // Purge any legacy demo mock bills (e.g. qb-1001, qb-1002, qb-1003, qb-1004)
+        return parsed.filter((b) => !b.id?.startsWith('qb-100') && !b.masterBillNumber?.startsWith('BILL-100'));
+      }
     }
-    // Seed initial demo data
-    const initial = getInitialBills();
-    localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(initial));
-    localStorage.setItem(STORAGE_KEYS.MASTER_SEQ, '1004');
-    localStorage.setItem(STORAGE_KEYS.VAT_SEQ, '1');
-    return initial;
+    return [];
   } catch (err) {
     console.error('Failed to load quick bills', err);
-    return getInitialBills();
+    return [];
   }
 }
 

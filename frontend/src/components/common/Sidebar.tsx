@@ -136,11 +136,11 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
   },
   {
     id: 'guest-directory',
-    name: 'Guest Directory',
+    name: 'Guest Management',
     href: '/guests',
     icon: HotelGuestDirectoryIcon,
-    tag: 'CRM',
-    description: 'Guest history, VIP tiers, preferences & profiles',
+    tag: 'LOYALTY',
+    description: 'Guest directory, profiles & membership loyalty program',
   },
   {
     id: 'housekeeping',
@@ -378,50 +378,8 @@ export const Sidebar: React.FC<{
     ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
   }, [pathname, currentSearch]);
 
-  const [hotelName, setHotelName] = useState<string>(() => {
-    if (typeof localStorage !== 'undefined') {
-      const stored = localStorage.getItem('auth_hotel_name');
-      if (stored && stored !== 'HOTEL MASTER') return stored;
-      try {
-        const rawActive = localStorage.getItem('active_hotel');
-        if (rawActive) {
-          const parsed = JSON.parse(rawActive);
-          if (parsed?.name) return parsed.name;
-        }
-      } catch {}
-      return stored || 'HOTEL MASTER';
-    }
-    return 'HOTEL MASTER';
-  });
-
-  const [hotelLogo, setHotelLogo] = useState<string>(() => {
-    if (typeof localStorage !== 'undefined') {
-      const stored = localStorage.getItem('auth_hotel_logo');
-      if (stored) return stored;
-      try {
-        const rawActive = localStorage.getItem('active_hotel');
-        if (rawActive) {
-          const parsed = JSON.parse(rawActive);
-          if (parsed?.logo) return parsed.logo;
-        }
-      } catch {}
-      try {
-        const rawClients = localStorage.getItem('superadmin_clean_clients');
-        if (rawClients) {
-          const parsedList = JSON.parse(rawClients);
-          const activeId = localStorage.getItem('auth_hotel_id');
-          const activeName = localStorage.getItem('auth_hotel_name')?.toLowerCase().trim();
-          const found = parsedList.find((c: any) =>
-            (activeId && c.id === activeId && c.logo) ||
-            (activeName && c.name?.toLowerCase().trim() === activeName && c.logo) ||
-            (c.logo && parsedList.length === 1)
-          );
-          if (found?.logo) return found.logo;
-        }
-      } catch {}
-    }
-    return '';
-  });
+  const [hotelName, setHotelName] = useState<string>('HOTEL MASTER');
+  const [hotelLogo, setHotelLogo] = useState<string>('');
 
   useEffect(() => {
     const updateLogoAndName = () => {
@@ -736,8 +694,8 @@ export const Sidebar: React.FC<{
                   className="max-h-12 max-w-[210px] w-auto object-contain transition-transform hover:scale-[1.02]"
                 />
               ) : (
-                <div className="truncate text-center w-full px-2">
-                  <h1 className="text-sm font-black tracking-tight text-[var(--text-heading)] dark:text-[var(--text-heading)] leading-tight uppercase font-heading truncate" title={hotelName}>
+                <div className="truncate text-center w-full px-2" suppressHydrationWarning>
+                  <h1 suppressHydrationWarning className="text-sm font-black tracking-tight text-[var(--text-heading)] dark:text-[var(--text-heading)] leading-tight uppercase font-heading truncate" title={hotelName}>
                     {hotelName}
                   </h1>
                 </div>
