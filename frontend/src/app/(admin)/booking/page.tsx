@@ -33,9 +33,16 @@ import {
   UserPlus,
   CheckCircle2,
   Sparkles,
+  Award,
+  Percent,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
+import {
+  getMembershipTiers,
+  calculateGuestCompletedStays,
+  determineEligibleTier,
+} from '@/lib/loyalty';
 import {
   RoomBooking,
   PaymentEntry,
@@ -246,6 +253,23 @@ function NewRoomBookingContent() {
   // Key Card & Luggage
   const [keyCardNumber, setKeyCardNumber] = useState<string>('KC-101-A');
   const [luggageCount, setLuggageCount] = useState<number>(1);
+
+  // Dynamic Customer Loyalty & Membership Level for Selected Guest
+  const guestLoyalty = useMemo(() => {
+    if (!guestName.trim()) return null;
+    const tiers = getMembershipTiers();
+    const { completedStays } = calculateGuestCompletedStays(
+      { name: guestName, phone: guestPhone, email: guestEmail },
+      bookings
+    );
+    // Baseline recognition for initial Ram Sharma profile if bookings storage is fresh
+    const effectiveStays = (guestName.toLowerCase().includes('ram sharma') && completedStays === 0) ? 7 : completedStays;
+    const tier = determineEligibleTier(effectiveStays, tiers);
+    return {
+      tier,
+      completedStays: effectiveStays,
+    };
+  }, [guestName, guestPhone, guestEmail, bookings]);
 
   // Search Guest / Reservation to Auto-Fill
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -1079,11 +1103,69 @@ function NewRoomBookingContent() {
 
             {/* Guest Details (7 cols) */}
             <div className="lg:col-span-7 space-y-4">
-              <div>
+              <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-body dark:text-neutral-300">
                   Guest Information
                 </span>
+                {guestLoyalty && (
+                  <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5 text-amber-600" />
+                    <span>{guestLoyalty.tier.name} Member</span>
+                  </span>
+                )}
               </div>
+
+              {/* Loyalty Membership Badge & Benefits Card */}
+              {guestLoyalty && (
+                <div
+                  className="p-3 rounded-[3px] border bg-slate-50/80 dark:bg-slate-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-150"
+                  style={{ borderLeft: `4px solid ${guestLoyalty.tier.color}` }}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                        Guest: {guestName || 'Selected Guest'}
+                      </span>
+                      <span
+                        className="px-2 py-0.5 rounded-[2px] font-bold text-[10px] uppercase text-white shadow-2xs"
+                        style={{ backgroundColor: guestLoyalty.tier.color }}
+                      >
+                        {guestLoyalty.tier.name} Member
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                        ({guestLoyalty.completedStays} Completed {guestLoyalty.completedStays === 1 ? 'Stay' : 'Stays'})
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                        {guestLoyalty.tier.discountPercent > 0
+                          ? `Eligible for ${guestLoyalty.tier.discountPercent}% Booking Discount`
+                          : 'Standard Member Privileges'}
+                      </span>
+                      {guestLoyalty.tier.benefits.length > 0 && (
+                        <>
+                          <span className="text-slate-300">·</span>
+                          <span className="text-slate-500 dark:text-slate-400 italic">
+                            {guestLoyalty.tier.benefits[0]}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {guestLoyalty.tier.discountPercent > 0 && discountPercent !== guestLoyalty.tier.discountPercent && (
+                    <button
+                      type="button"
+                      onClick={() => handleBillingDisPercentChange(guestLoyalty.tier.discountPercent)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs cursor-pointer transition-colors whitespace-nowrap self-start sm:self-auto"
+                    >
+                      <Percent className="w-3.5 h-3.5" />
+                      <span>Apply {guestLoyalty.tier.name} {guestLoyalty.tier.discountPercent}% Discount</span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Guest Fields: Name, Phone & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { RoomSetupView } from '@/components/hotel/RoomSetupView';
 import { RoomDetailsModal } from '@/components/hotel/RoomDetailsModal';
+import MembershipSettingsManager from '@/components/hotel/MembershipSettingsManager';
 
 import {
   SubOptionBox,
@@ -2751,7 +2752,16 @@ export default function HotelSetupContent({
     );
   };
 
-  const renderTableContent = () => (
+  const renderTableContent = () => {
+    if (activeSubBox.id === 'membership-settings') {
+      return (
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-[#F7F5F0] dark:bg-[#071512] overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <MembershipSettingsManager />
+        </div>
+      );
+    }
+
+    return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-[#F7F5F0] dark:bg-[#071512] overflow-hidden">
       {/* Header Bar: Title, Count, Status Chips, Search & Filter Controls, Add Button */}
       <div className="shrink-0 px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#E5EEE9] dark:border-[#145447]/60 bg-white/60 dark:bg-[#071F1A]/60 backdrop-blur-xs">
@@ -3382,7 +3392,8 @@ export default function HotelSetupContent({
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
 
   return (

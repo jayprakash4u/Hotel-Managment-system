@@ -127,12 +127,37 @@ using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<HospitalityDbContext>();
         await db.Database.ExecuteSqlRawAsync(@"
+            -- POSProduct & POSProducts
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""trackStock"" boolean DEFAULT false;
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""isAvailable"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""isPublished"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""displayOrder"" integer DEFAULT 0;
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""inventoryItemId"" text;
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""variantsJson"" text DEFAULT '[]';
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
             ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""preparationMethod"" text DEFAULT 'NOT_CONFIGURED';
+            ALTER TABLE IF EXISTS ""POSProduct"" ADD COLUMN IF NOT EXISTS ""packingConfigJson"" text DEFAULT '[]';
+
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""trackStock"" boolean DEFAULT false;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""isAvailable"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""isPublished"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""displayOrder"" integer DEFAULT 0;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""inventoryItemId"" text;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""variantsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""preparationMethod"" text DEFAULT 'NOT_CONFIGURED';
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""packingConfigJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""TrackStock"" boolean DEFAULT false;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""IsAvailable"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""IsPublished"" boolean DEFAULT true;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""DisplayOrder"" integer DEFAULT 0;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""InventoryItemId"" text;
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""VariantsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""Department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""PreparationMethod"" text DEFAULT 'NOT_CONFIGURED';
+            ALTER TABLE IF EXISTS ""POSProducts"" ADD COLUMN IF NOT EXISTS ""PackingConfigJson"" text DEFAULT '[]';
+
+            -- RestaurantOrderItem & RestaurantOrderItems
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""preparationMethod"" text DEFAULT 'NOT_CONFIGURED';
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""status"" text DEFAULT 'RECEIVED';
@@ -143,14 +168,46 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""dispatchedQuantity"" integer DEFAULT 0;
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""kotNumber"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrderItem"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
+
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""Department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""PreparationMethod"" text DEFAULT 'NOT_CONFIGURED';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""Status"" text DEFAULT 'RECEIVED';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""PreparationStartedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""PreparationCompletedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""PreparedBy"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""PreparationDurationMinutes"" double precision;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""DispatchedQuantity"" integer DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""KotNumber"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""BotNumber"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""department"" text DEFAULT 'KOT';
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""dispatchedQuantity"" integer DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""kotNumber"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrderItems"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
+
+            -- RestaurantOrder & RestaurantOrders
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""botNumber"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""reservationId"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""customerName"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""customerPhone"" text;
-            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""CustomerName"" text;
-            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""CustomerPhone"" text;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountAmount"" double precision DEFAULT 0;
             ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""discountPercent"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packingCharge"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packingStatus"" text DEFAULT 'PENDING';
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packingDetailsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""RestaurantOrder"" ADD COLUMN IF NOT EXISTS ""packedBy"" text;
+
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""BotNumber"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""ReservationId"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""CustomerName"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""CustomerPhone"" text;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""DiscountAmount"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""DiscountPercent"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""PackingCharge"" double precision DEFAULT 0;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""PackingStatus"" text DEFAULT 'PENDING';
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""PackingDetailsJson"" text DEFAULT '[]';
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""PackedAt"" timestamp with time zone;
+            ALTER TABLE IF EXISTS ""RestaurantOrders"" ADD COLUMN IF NOT EXISTS ""PackedBy"" text;
             ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""cleaningStatus"" text DEFAULT 'CLEAN';
             ALTER TABLE IF EXISTS ""RestaurantTable"" ADD COLUMN IF NOT EXISTS ""maintenanceNotes"" text;
 
@@ -894,6 +951,26 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS ""ix_bill_status"" ON ""Bill"" (""paymentStatus"");
             CREATE INDEX IF NOT EXISTS ""ix_bill_created"" ON ""Bill"" (""createdAt"");
 
+            CREATE TABLE IF NOT EXISTS ""ReservationAlerts"" (
+                ""Id"" text PRIMARY KEY,
+                ""HotelId"" text NOT NULL,
+                ""ReservationId"" text NOT NULL,
+                ""TableId"" text,
+                ""AlertType"" text NOT NULL DEFAULT 'PREPARATION_15MIN',
+                ""ScheduledFor"" timestamp with time zone NOT NULL,
+                ""TriggeredAt"" timestamp with time zone,
+                ""Status"" text NOT NULL DEFAULT 'ACTIVE',
+                ""Severity"" text NOT NULL DEFAULT 'WARNING',
+                ""Title"" text NOT NULL,
+                ""Message"" text NOT NULL,
+                ""TargetRoles"" text NOT NULL DEFAULT 'MANAGER,WAITER,STAFF',
+                ""IsRead"" boolean NOT NULL DEFAULT false,
+                ""AcknowledgedBy"" text,
+                ""AcknowledgedAt"" timestamp with time zone,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""UpdatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
             CREATE TABLE IF NOT EXISTS ""ReservationAlert"" (
                 ""id"" text PRIMARY KEY,
                 ""hotelId"" text NOT NULL,
@@ -913,6 +990,10 @@ using (var scope = app.Services.CreateScope())
                 ""createdAt"" timestamp with time zone NOT NULL DEFAULT now(),
                 ""updatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
+
+            CREATE INDEX IF NOT EXISTS ""ix_reservationalerts_status"" ON ""ReservationAlerts"" (""Status"");
+            CREATE INDEX IF NOT EXISTS ""ix_reservationalerts_res_type"" ON ""ReservationAlerts"" (""ReservationId"", ""AlertType"");
+            CREATE INDEX IF NOT EXISTS ""ix_reservationalerts_hotel_status"" ON ""ReservationAlerts"" (""HotelId"", ""Status"");
 
             CREATE TABLE IF NOT EXISTS ""DigitalWalletAccount"" (
                 ""id"" text PRIMARY KEY,
