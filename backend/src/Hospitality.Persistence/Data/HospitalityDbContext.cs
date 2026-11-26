@@ -67,6 +67,14 @@ public class HospitalityDbContext : DbContext
     public DbSet<LiabilityAccountConfig> LiabilityAccountConfigs => Set<LiabilityAccountConfig>();
     public DbSet<RestaurantMenuSettings> RestaurantMenuSettings => Set<RestaurantMenuSettings>();
     public DbSet<RestaurantQrCode> RestaurantQrCodes => Set<RestaurantQrCode>();
+    public DbSet<Country> Countries => Set<Country>();
+    public DbSet<MembershipTier> MembershipTiers => Set<MembershipTier>();
+    public DbSet<GuestMembership> GuestMemberships => Set<GuestMembership>();
+    public DbSet<MembershipHistory> MembershipHistories => Set<MembershipHistory>();
+    public DbSet<MembershipDiscountApplication> MembershipDiscountApplications => Set<MembershipDiscountApplication>();
+    public DbSet<BusinessPartner> BusinessPartners => Set<BusinessPartner>();
+    public DbSet<PartnerCommission> PartnerCommissions => Set<PartnerCommission>();
+    public DbSet<PartnerCommissionPayment> PartnerCommissionPayments => Set<PartnerCommissionPayment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -320,5 +328,63 @@ public class HospitalityDbContext : DbContext
 
         modelBuilder.Entity<RestaurantQrCode>()
             .HasIndex(q => new { q.HotelId, q.TableId });
+
+        // Country Master & Nationality mappings
+        modelBuilder.Entity<Country>()
+            .HasIndex(c => c.CountryCode)
+            .IsUnique();
+
+        modelBuilder.Entity<Country>()
+            .HasIndex(c => c.NationalityName);
+
+        modelBuilder.Entity<Country>()
+            .HasIndex(c => c.CountryName);
+
+        modelBuilder.Entity<Guest>()
+            .HasOne(g => g.CountryRef)
+            .WithMany()
+            .HasForeignKey(g => g.CountryId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Membership Management & Tier Mappings
+        modelBuilder.Entity<MembershipTier>()
+            .HasIndex(t => t.Code)
+            .IsUnique();
+
+        modelBuilder.Entity<MembershipTier>()
+            .HasIndex(t => t.MinNights);
+
+        modelBuilder.Entity<GuestMembership>()
+            .HasIndex(m => m.MembershipNumber)
+            .IsUnique();
+
+        modelBuilder.Entity<GuestMembership>()
+            .HasIndex(m => m.GuestId)
+            .IsUnique();
+
+        modelBuilder.Entity<GuestMembership>()
+            .HasOne(m => m.Guest)
+            .WithOne(g => g.Membership)
+            .HasForeignKey<GuestMembership>(m => m.GuestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<GuestMembership>()
+            .HasOne(m => m.CurrentTier)
+            .WithMany(t => t.Memberships)
+            .HasForeignKey(m => m.CurrentTierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MembershipHistory>()
+            .HasOne(h => h.GuestMembership)
+            .WithMany(m => m.History)
+            .HasForeignKey(h => h.GuestMembershipId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<MembershipDiscountApplication>()
+            .HasIndex(a => a.MembershipNumber);
+
+        modelBuilder.Entity<MembershipDiscountApplication>()
+            .HasIndex(a => a.BillId);
     }
 }

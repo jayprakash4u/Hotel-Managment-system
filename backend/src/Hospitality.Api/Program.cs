@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Hospitality.Infrastructure;
 using Hospitality.Persistence;
 using Hospitality.Persistence.Data;
+using Hospitality.Persistence.Seeders;
 using System.Text.Json;
 using Hospitality.Api.Common;
 using Hospitality.Domain.Entities;
@@ -2023,6 +2024,10 @@ using (var scope = app.Services.CreateScope())
                 }
             }
             await db.SaveChangesAsync();
+            // Seed complete Country Master & safely migrate existing guest records
+            await CountrySeeder.SeedCountriesAndMigrateGuestsAsync(db, logger);
+            // Seed Membership Tiers & enroll guests
+            await MembershipSeeder.SeedMembershipsAsync(db, logger);
         }
     }
     catch (Exception ex)

@@ -2755,7 +2755,7 @@ export default function HotelSetupContent({
   const renderTableContent = () => {
     if (activeSubBox.id === 'membership-settings') {
       return (
-        <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-[#F7F5F0] dark:bg-[#071512] overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-[#F7F5F0] dark:bg-[#071512] overflow-hidden">
           <MembershipSettingsManager />
         </div>
       );
@@ -3010,10 +3010,10 @@ export default function HotelSetupContent({
                     return (
                       <tr
                         key={item.id}
-                        className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
+                        className="group border-b border-[#E5EEE9] dark:border-[#145447] bg-white even:bg-[#F9FAFB] dark:bg-[#07241E] dark:even:bg-[#061B16] hover:bg-[#F1F5F9] dark:hover:bg-[#0B3D32]/20 transition-colors"
                       >
                         {/* Index */}
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
                           <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
                             {startIndex + index + 1}
                           </span>
@@ -3104,7 +3104,7 @@ export default function HotelSetupContent({
                               type="button"
                               onClick={() => handleOpenViewModal(item)}
                               title={`View Details for Room ${item.roomNumber || item.code}`}
-                              className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                              className="p-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer shadow-2xs transition-colors"
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
@@ -3112,7 +3112,7 @@ export default function HotelSetupContent({
                               type="button"
                               onClick={() => handleOpenEditModal(item)}
                               title={`Edit Room ${item.roomNumber || item.code}`}
-                              className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                              className="p-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer shadow-2xs transition-colors"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
@@ -3120,7 +3120,7 @@ export default function HotelSetupContent({
                               type="button"
                               onClick={() => handleDeleteItem(item.id)}
                               title={`Delete Room ${item.roomNumber || item.code}`}
-                              className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors cursor-pointer"
+                              className="p-1 rounded-[3px] border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 hover:bg-rose-100 cursor-pointer shadow-2xs transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -3133,10 +3133,10 @@ export default function HotelSetupContent({
                   paginatedItems.map((item, index) => (
                     <tr
                       key={item.id}
-                      className="group hover:bg-[#F8FAF9] dark:hover:bg-[#093027]/40 transition-colors"
+                      className="group border-b border-[#E5EEE9] dark:border-[#145447] bg-white even:bg-[#F9FAFB] dark:bg-[#07241E] dark:even:bg-[#061B16] hover:bg-[#F1F5F9] dark:hover:bg-[#0B3D32]/20 transition-colors"
                     >
                       {/* Order / Index */}
-                      <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447] bg-[#FAFBF9]/40 dark:bg-[#061B16]/20">
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap border-r border-[#E5EEE9] dark:border-[#145447]">
                         <span className="font-mono text-[11px] font-semibold text-[#64736C] dark:text-[#A4B8AE]">
                           {startIndex + index + 1}
                         </span>
@@ -3250,7 +3250,7 @@ export default function HotelSetupContent({
                             type="button"
                             onClick={() => handleOpenEditModal(item)}
                             title={`Edit ${item.name}`}
-                            className="p-1 rounded-[2px] text-[#64736C] hover:text-[#0B3D32] hover:bg-[#EEF4F1] dark:text-[#A4B8AE] dark:hover:bg-[#0A2E26] dark:hover:text-emerald-300 transition-colors"
+                            className="p-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer shadow-2xs transition-colors"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
@@ -3258,7 +3258,7 @@ export default function HotelSetupContent({
                             type="button"
                             onClick={() => handleDeleteItem(item.id)}
                             title={`Delete ${item.name}`}
-                            className="p-1 rounded-[2px] text-[#879B90] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 transition-colors"
+                            className="p-1 rounded-[3px] border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 hover:bg-rose-100 cursor-pointer shadow-2xs transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

@@ -25,6 +25,8 @@ import {
   ShieldCheck,
   Luggage,
   UserCheck,
+  Building2,
+  Compass,
   UploadCloud,
   FileCheck,
   Trash2,
@@ -39,11 +41,6 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import {
-  getMembershipTiers,
-  calculateGuestCompletedStays,
-  determineEligibleTier,
-} from '@/lib/loyalty';
-import {
   RoomBooking,
   PaymentEntry,
   loadBookingsFromStorage,
@@ -54,34 +51,33 @@ import {
   getBookingFinancials,
   AccompanyingGuest,
   doDatesOverlap,
+  RegisteredGuest,
+  DEFAULT_GUESTS,
 } from '../reservations/reservationsData';
+import { INITIAL_GUEST_360_PROFILES } from '@/lib/guest360Data';
 import { useMasterOptions } from '@/lib/mastersData';
+import { useCountryMaster } from '@/lib/countryMasterData';
 import MasterSearchableSelect from '@/components/ui/MasterSearchableSelect';
+import { MembershipTierBadge } from '@/components/membership/MembershipTierBadge';
+import {
+  BusinessPartner,
+  loadBusinessPartnersFromStorage,
+  saveBusinessPartnersToStorage,
+  calculatePartnerCommission,
+  PartnerCommission,
+  loadCommissionsFromStorage,
+  saveCommissionsToStorage,
+  recordCorporatePaymentTransaction,
+} from '@/lib/businessPartners';
 
 // Form Room Row for multi-room bookings
-export interface FormRoomRow {
+interface FormRoomRow {
   id: string;
   roomId: string;
   rate: number;
   discount: number;
   guestsCount: number;
 }
-
-// Registered Guest Interface for search/autocomplete
-interface RegisteredGuest {
-  id: string;
-  name: string;
-  phone: string;
-  email?: string;
-}
-
-const DEFAULT_GUESTS: RegisteredGuest[] = [
-  { id: 'gst-1', name: 'Ram Sharma', phone: '+977 9841234567', email: 'ram.sharma@gmail.com' },
-  { id: 'gst-2', name: 'Sita Thapa', phone: '+977 9851122334', email: 'sita.thapa@outlook.com' },
-  { id: 'gst-3', name: 'Rajesh Hamal', phone: '+977 9801998877', email: 'rajesh.hamal@kollywood.np' },
-  { id: 'gst-4', name: 'Maya Gurung', phone: '+977 9813445566', email: 'maya.gurung@annapurna.org' },
-  { id: 'gst-5', name: 'Johnathan Doe', phone: '+1 415 555 2671', email: 'john.doe@techcorp.io' },
-];
 
 const ID_DOCUMENT_TYPES = [
   'Citizenship Card',
@@ -214,12 +210,14 @@ function NewRoomBookingContent() {
   // ---------------------------------------------------------------------------
   // 2. GUEST DETAILS & KYC STATE (Includes extended check-in fields)
   // ---------------------------------------------------------------------------
-  const [guestSearchQuery, setGuestSearchQuery] = useState<string>('');
-  const [showGuestSuggestions, setShowGuestSuggestions] = useState<boolean>(false);
   const [guestName, setGuestName] = useState<string>('Ram Sharma');
   const [guestPhone, setGuestPhone] = useState<string>('+977 9841234567');
   const [guestEmail, setGuestEmail] = useState<string>('ram.sharma@gmail.com');
-  const [guestNationality, setGuestNationality] = useState<string>('');
+  const countryMaster = useCountryMaster();
+  const [guestCountryId, setGuestCountryId] = useState<string>('c-np');
+  const [guestNationality, setGuestNationality] = useState<string>('Nepali');
+  const [guestCountryName, setGuestCountryName] = useState<string>('Nepal');
+  const [guestVipTier, setGuestVipTier] = useState<string>('GOLD');
   const [guestAddress, setGuestAddress] = useState<string>('New Baneshwor, Kathmandu');
   const [guestCity, setGuestCity] = useState<string>('Kathmandu');
 
@@ -239,6 +237,27 @@ function NewRoomBookingContent() {
   const povMaster = useMasterOptions('purposeOfVisit');
   const agentMaster = useMasterOptions('bookingAgents');
 
+  // Business Partner Integration - Exactly 4 Booking Source Categories
+  const [partnersList] = useState<BusinessPartner[]>(() => loadBusinessPartnersFromStorage());
+  const [bookingSource, setBookingSource] = useState<
+    'DIRECT_WALKIN' | 'CORPORATE' | 'TRAVEL_AGENT' | 'INDIVIDUAL_REFERRAL'
+  >('DIRECT_WALKIN');
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
+  const [paymentResponsibility, setPaymentResponsibility] = useState<'COMPANY_PAYS' | 'GUEST_PAYS' | 'SPLIT'>('COMPANY_PAYS');
+  const [billingArrangement, setBillingArrangement] = useState<'COMPANY_ACCOUNT' | 'GUEST_DIRECT' | 'SPLIT_BILLING'>('COMPANY_ACCOUNT');
+  const [splitCompanyAmount, setSplitCompanyAmount] = useState<number>(0);
+  const [splitGuestAmount, setSplitGuestAmount] = useState<number>(0);
+
+  // Separation of Bill Responsibility from Actual Payment Payer
+  const [paymentReceivedFrom, setPaymentReceivedFrom] = useState<'COMPANY' | 'GUEST_EMPLOYEE' | 'OTHER'>('COMPANY');
+  const [actualPayerName, setActualPayerName] = useState<string>('');
+  const [paymentAllocatedTo, setPaymentAllocatedTo] = useState<'COMPANY_ACCOUNT' | 'GUEST_FOLIO'>('COMPANY_ACCOUNT');
+  const [paymentTxReference, setPaymentTxReference] = useState<string>('');
+
+  const selectedPartner = useMemo(() => {
+    return partnersList.find((p) => p.id === selectedPartnerId) || null;
+  }, [partnersList, selectedPartnerId]);
+
   const [purposeOfVisit, setPurposeOfVisit] = useState<string>('');
   const [bookingAgent, setBookingAgent] = useState<string>('');
   const [arrivedFrom, setArrivedFrom] = useState<string>('');
@@ -254,71 +273,185 @@ function NewRoomBookingContent() {
   const [keyCardNumber, setKeyCardNumber] = useState<string>('KC-101-A');
   const [luggageCount, setLuggageCount] = useState<number>(1);
 
-  // Dynamic Customer Loyalty & Membership Level for Selected Guest
-  const guestLoyalty = useMemo(() => {
-    if (!guestName.trim()) return null;
-    const tiers = getMembershipTiers();
-    const { completedStays } = calculateGuestCompletedStays(
-      { name: guestName, phone: guestPhone, email: guestEmail },
-      bookings
-    );
-    // Baseline recognition for initial Ram Sharma profile if bookings storage is fresh
-    const effectiveStays = (guestName.toLowerCase().includes('ram sharma') && completedStays === 0) ? 7 : completedStays;
-    const tier = determineEligibleTier(effectiveStays, tiers);
-    return {
-      tier,
-      completedStays: effectiveStays,
-    };
-  }, [guestName, guestPhone, guestEmail, bookings]);
-
-  // Search Guest / Reservation to Auto-Fill
+  // Search Guest / Returning Guest Lookup State
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearchSuggestions, setShowSearchSuggestions] = useState<boolean>(false);
-  const [resSearchQuery, setResSearchQuery] = useState<string>('');
-  const [showResSuggestions, setShowResSuggestions] = useState<boolean>(false);
   const [linkedBooking, setLinkedBooking] = useState<RoomBooking | null>(null);
   const [advancePaidAtBooking, setAdvancePaidAtBooking] = useState<number>(0);
   const [advanceReceiptInfo, setAdvanceReceiptInfo] = useState<string>('');
 
+  // Search for guests who lived in our hotel earlier (Returning Guest History Lookup)
   const guestSuggestions = useMemo(() => {
-    if (!guestSearchQuery.trim()) return [];
-    const q = guestSearchQuery.toLowerCase().trim();
-    return registeredGuests.filter(
-      (g) => g.name.toLowerCase().includes(q) || g.phone.toLowerCase().includes(q)
-    );
-  }, [guestSearchQuery, registeredGuests]);
+    const q = (searchQuery || '').toLowerCase().trim();
+    if (!q) return [];
 
+    const combined: RegisteredGuest[] = [...DEFAULT_GUESTS];
+
+    // Add registered/past CRM profiles from INITIAL_GUEST_360_PROFILES
+    INITIAL_GUEST_360_PROFILES.forEach((p) => {
+      const pClean = (p.phone || '').replace(/\D/g, '');
+      if (!combined.some((c) => (pClean && c.phone.replace(/\D/g, '').endsWith(pClean)) || c.name.toLowerCase() === p.fullName.toLowerCase())) {
+        combined.push({
+          id: p.id,
+          code: p.id,
+          title: 'Mr.',
+          name: p.fullName,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          phone: p.phone,
+          email: p.email,
+          country: p.country,
+          address: p.address,
+          city: p.address.split(',').pop()?.trim() || 'Kathmandu',
+          idType: p.idType,
+          idNumber: p.idNumber,
+          vipTier: p.vipTier,
+          gender: 'M',
+        });
+      }
+    });
+
+    // Add unique guests who lived in our hotel earlier from bookings database
+    bookings.forEach((b) => {
+      const bName = `${b.guest.firstName} ${b.guest.lastName}`.trim();
+      const bClean = (b.guest.phone || '').replace(/\D/g, '');
+      if (!combined.some((c) => (bClean && c.phone.replace(/\D/g, '').endsWith(bClean)) || c.name.toLowerCase() === bName.toLowerCase())) {
+        combined.push({
+          id: b.id,
+          code: `P${b.bookingCode.replace(/\D/g, '').slice(-4) || '100'}`,
+          title: 'Mr.',
+          name: bName,
+          firstName: b.guest.firstName,
+          lastName: b.guest.lastName,
+          phone: b.guest.phone || '',
+          email: b.guest.email || '',
+          country: b.guest.country || 'Nepal',
+          address: b.guest.address || '',
+          city: b.guest.city || '',
+          idType: b.guest.idType || '',
+          idNumber: b.guest.idNumber || '',
+          vipTier: (b.guest as any).vipTier || ((b.guest as any).isVip ? 'VIP' : 'MEMBER'),
+          gender: 'M',
+        });
+      }
+    });
+
+    const cleanQ = q.replace(/[\s\-\+]/g, '');
+
+    return combined.filter((g) => {
+      const fName = (g.firstName || '').toLowerCase();
+      const lName = (g.lastName || '').toLowerCase();
+      const fullName = (g.name || '').toLowerCase();
+      const email = (g.email || '').toLowerCase();
+      const code = (g.code || g.id || '').toLowerCase();
+      const phoneClean = (g.phone || '').replace(/[\s\-\+]/g, '').toLowerCase();
+
+      return (
+        fullName.includes(q) ||
+        fName.includes(q) ||
+        lName.includes(q) ||
+        email.includes(q) ||
+        code.includes(q) ||
+        (cleanQ && phoneClean.includes(cleanQ))
+      );
+    });
+  }, [searchQuery, bookings]);
+
+  const handleNationalityChange = (val: string) => {
+    const match = countryMaster.findCountry(val);
+    if (match) {
+      setGuestCountryId(match.id);
+      setGuestNationality(match.nationalityName);
+      setGuestCountryName(match.countryName);
+    } else {
+      setGuestCountryId(val);
+      setGuestNationality(val);
+      setGuestCountryName(val);
+    }
+  };
+
+  // When a returning guest is selected: only auto-fill their contact & KYC profile!
+  // NEVER touch advance payment, stay dates, or room allocations for the new booking!
   const handleSelectGuestSuggestion = (g: RegisteredGuest) => {
     setGuestName(g.name);
     setGuestPhone(g.phone);
     if (g.email) setGuestEmail(g.email);
-    setGuestSearchQuery('');
-    setShowGuestSuggestions(false);
+    if (g.countryId) {
+      setGuestCountryId(g.countryId);
+      const match = countryMaster.findCountry(g.countryId);
+      if (match) {
+        setGuestNationality(match.nationalityName);
+        setGuestCountryName(match.countryName);
+      }
+    } else if (g.country || g.nationality) {
+      const query = g.nationality || g.country || '';
+      const match = countryMaster.findCountry(query);
+      if (match) {
+        setGuestCountryId(match.id);
+        setGuestNationality(match.nationalityName);
+        setGuestCountryName(match.countryName);
+      } else {
+        setGuestNationality(query);
+        setGuestCountryName(g.country || query);
+      }
+    }
+    if (g.address) setGuestAddress(g.address);
+    if (g.city) setGuestCity(g.city);
+    if (g.idType) setIdType(g.idType);
+    if (g.idNumber) setIdNumber(g.idNumber);
+    if (g.vipTier) {
+      const v = g.vipTier.toUpperCase();
+      if (v.includes('PLATINUM')) setGuestVipTier('PLATINUM');
+      else if (v.includes('GOLD')) setGuestVipTier('GOLD');
+      else if (v.includes('SILVER')) setGuestVipTier('SILVER');
+      else if (v.includes('VIP')) setGuestVipTier('VIP');
+      else setGuestVipTier('REGULAR');
+    } else {
+      setGuestVipTier('REGULAR');
+    }
+    setApplyMemberDiscountAtBooking(false); // ALWAYS unchecked by default!
+    setSearchQuery('');
+    setShowSearchSuggestions(false);
+    toast.success('Returning Guest Loaded', `${g.name} (${g.phone}) profile details loaded.`);
   };
 
-  // Search Guest / Reservation for Auto-Fill
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return bookings.filter((b) => {
-      const fullName = `${b.guest.firstName} ${b.guest.lastName}`.toLowerCase();
-      return (
-        b.bookingCode.toLowerCase().includes(q) ||
-        fullName.includes(q) ||
-        b.guest.phone.toLowerCase().includes(q) ||
-        b.room.number.toLowerCase().includes(q)
-      );
-    });
-  }, [bookings, searchQuery]);
-
-  const handleSelectReservationToAutoFill = (b: RoomBooking) => {
+  // Only used when editing a specific reservation via URL query param: ?id=bk-1001
+  const handleLoadParamBookingForEdit = (b: RoomBooking) => {
     setLinkedBooking(b);
     setGuestName(`${b.guest.firstName} ${b.guest.lastName}`.trim());
     setGuestPhone(b.guest.phone || '');
     setGuestEmail(b.guest.email || '');
     setGuestAddress(b.guest.address || 'Kathmandu, Nepal');
-    setGuestNationality(b.guest.country || '');
+    if (b.guest.countryId) {
+      setGuestCountryId(b.guest.countryId);
+      const match = countryMaster.findCountry(b.guest.countryId);
+      if (match) {
+        setGuestNationality(match.nationalityName);
+        setGuestCountryName(match.countryName);
+      }
+    } else if (b.guest.country || b.guest.nationality) {
+      const query = b.guest.nationality || b.guest.country || '';
+      const match = countryMaster.findCountry(query);
+      if (match) {
+        setGuestCountryId(match.id);
+        setGuestNationality(match.nationalityName);
+        setGuestCountryName(match.countryName);
+      } else {
+        setGuestNationality(query);
+        setGuestCountryName(b.guest.country || query);
+      }
+    } else {
+      setGuestNationality('');
+    }
     if (b.guest.city) setGuestCity(b.guest.city);
+    if (b.guest.vipTier) {
+      const v = b.guest.vipTier.toUpperCase();
+      if (v.includes('PLATINUM')) setGuestVipTier('PLATINUM');
+      else if (v.includes('GOLD')) setGuestVipTier('GOLD');
+      else if (v.includes('SILVER')) setGuestVipTier('SILVER');
+      else if (v.includes('VIP')) setGuestVipTier('VIP');
+      else setGuestVipTier('REGULAR');
+    }
     if (b.guest.idType && b.guest.idType !== 'Citizenship') {
       setIdType(b.guest.idType);
     } else {
@@ -347,6 +480,52 @@ function NewRoomBookingContent() {
     if (b.notes) setBookingNotes(b.notes);
     if (b.guest.accompanyingGuests) setAccompanyingGuests(b.guest.accompanyingGuests);
 
+    // Restore saved booking source and partner when editing an existing reservation
+    if (b.bookingSource) {
+      const src = b.bookingSource;
+      const normalizedSource: 'DIRECT_WALKIN' | 'CORPORATE' | 'TRAVEL_AGENT' | 'INDIVIDUAL_REFERRAL' =
+        src === 'CORPORATE'
+          ? 'CORPORATE'
+          : src === 'TRAVEL_AGENT'
+          ? 'TRAVEL_AGENT'
+          : src === 'INDIVIDUAL_REFERRAL'
+          ? 'INDIVIDUAL_REFERRAL'
+          : 'DIRECT_WALKIN';
+      setBookingSource(normalizedSource);
+
+      if (b.partnerId && normalizedSource !== 'DIRECT_WALKIN') {
+        setSelectedPartnerId(b.partnerId);
+      } else {
+        setSelectedPartnerId('');
+      }
+
+      if (normalizedSource === 'CORPORATE') {
+        if (b.billingArrangement) {
+          const arr = b.billingArrangement;
+          setBillingArrangement(
+            arr === 'GUEST_DIRECT' || arr === 'GUEST_PAYS'
+              ? 'GUEST_DIRECT'
+              : arr === 'SPLIT_BILLING' || arr === 'SPLIT'
+              ? 'SPLIT_BILLING'
+              : 'COMPANY_ACCOUNT'
+          );
+        } else if (b.paymentResponsibility) {
+          setBillingArrangement(
+            b.paymentResponsibility === 'GUEST_PAYS'
+              ? 'GUEST_DIRECT'
+              : b.paymentResponsibility === 'SPLIT'
+              ? 'SPLIT_BILLING'
+              : 'COMPANY_ACCOUNT'
+          );
+        }
+        if (b.splitCompanyAmount !== undefined) setSplitCompanyAmount(b.splitCompanyAmount);
+        if (b.splitGuestAmount !== undefined) setSplitGuestAmount(b.splitGuestAmount);
+      }
+    } else {
+      setBookingSource('DIRECT_WALKIN');
+      setSelectedPartnerId('');
+    }
+
     // Calculate advance paid
     const fin = getBookingFinancials(b);
     const totalPaid = (b.payments || []).reduce((sum, p) => sum + p.amount, 0);
@@ -354,14 +533,64 @@ function NewRoomBookingContent() {
     if (b.payments && b.payments[0]) {
       setAdvanceReceiptInfo(`Receipt #${b.payments[0].receiptNo} (${b.payments[0].method})`);
     }
+  };
 
-    setSearchQuery('');
-    setShowSearchSuggestions(false);
+  // Handle Booking Source Change (Segment Switcher)
+  const handleBookingSourceChange = (src: 'DIRECT_WALKIN' | 'CORPORATE' | 'TRAVEL_AGENT' | 'INDIVIDUAL_REFERRAL') => {
+    setBookingSource(src);
+    setSelectedPartnerId('');
 
-    toast.info(
-      'Reservation Auto-Filled!',
-      `Loaded booking ${b.bookingCode} for ${b.guest.firstName} ${b.guest.lastName}. Advance paid: Rs. ${(totalPaid || fin.totalPaid || 0).toLocaleString()}.`
-    );
+    if (src === 'DIRECT_WALKIN') {
+      setBillingArrangement('GUEST_DIRECT');
+      setPaymentResponsibility('GUEST_PAYS');
+      setPaymentAllocatedTo('GUEST_FOLIO');
+      setPaymentReceivedFrom('GUEST_EMPLOYEE');
+      setActualPayerName(guestName.trim());
+    } else if (src === 'CORPORATE') {
+      setBillingArrangement('COMPANY_ACCOUNT');
+      setPaymentResponsibility('COMPANY_PAYS');
+      setPaymentAllocatedTo('COMPANY_ACCOUNT');
+      setPaymentReceivedFrom('COMPANY');
+    } else {
+      setBillingArrangement('GUEST_DIRECT');
+      setPaymentResponsibility('GUEST_PAYS');
+      setPaymentAllocatedTo('GUEST_FOLIO');
+      setPaymentReceivedFrom('GUEST_EMPLOYEE');
+      setActualPayerName(guestName.trim());
+    }
+  };
+
+  // Handle Business Partner Selection
+  const handlePartnerSelect = (pId: string) => {
+    setSelectedPartnerId(pId);
+    const p = partnersList.find((x) => x.id === pId);
+    if (p) {
+      if (bookingSource === 'CORPORATE') {
+        const defArr = p.defaultBillingArrangement || p.defaultPaymentResponsibility || 'COMPANY_ACCOUNT';
+        const normalizedArr =
+          defArr === 'GUEST_PAYS' || defArr === 'GUEST_DIRECT'
+            ? 'GUEST_DIRECT'
+            : defArr === 'SPLIT' || defArr === 'SPLIT_BILLING'
+            ? 'SPLIT_BILLING'
+            : 'COMPANY_ACCOUNT';
+        setBillingArrangement(normalizedArr);
+        setPaymentResponsibility(
+          normalizedArr === 'GUEST_DIRECT' ? 'GUEST_PAYS' : normalizedArr === 'SPLIT_BILLING' ? 'SPLIT' : 'COMPANY_PAYS'
+        );
+        setSplitCompanyAmount(subtotal);
+        setSplitGuestAmount(Math.max(0, totalPayable - subtotal));
+        setActualPayerName(p.partnerName);
+        setPaymentAllocatedTo('COMPANY_ACCOUNT');
+
+        if (p.negotiatedDiscountPercent && p.negotiatedDiscountPercent > 0) {
+          toast.info('Corporate Discount', `${p.negotiatedDiscountPercent}% discount applied to selected rooms.`);
+        }
+      } else {
+        setActualPayerName(guestName.trim());
+        setPaymentAllocatedTo('GUEST_FOLIO');
+        setPaymentReceivedFrom('GUEST_EMPLOYEE');
+      }
+    }
   };
 
   // Add / Remove Accompanying Guest
@@ -542,6 +771,15 @@ function NewRoomBookingContent() {
   const [sendEmail, setSendEmail] = useState<boolean>(false);
   const [printLabel, setPrintLabel] = useState<boolean>(false);
 
+  // Manual membership discount checkbox (unchecked by default per business rules)
+  const [applyMemberDiscountAtBooking, setApplyMemberDiscountAtBooking] = useState<boolean>(false);
+  const memberDiscountRate = useMemo(() => {
+    if (guestVipTier === 'PLATINUM') return 15;
+    if (guestVipTier === 'GOLD') return 10;
+    if (guestVipTier === 'SILVER') return 5;
+    return 0;
+  }, [guestVipTier]);
+
   const [bookingNotes, setBookingNotes] = useState<string>('');
   const [paymentChoice, setPaymentChoice] = useState<'LATER' | 'ADVANCE' | 'FULL'>('FULL');
   const [advancedAmount, setAdvancedAmount] = useState<number>(0);
@@ -571,7 +809,7 @@ function NewRoomBookingContent() {
     if (paramBookingId) {
       const b = bookings.find((item) => item.id === paramBookingId);
       if (b) {
-        handleSelectReservationToAutoFill(b);
+        handleLoadParamBookingForEdit(b);
         setFormMode('CHECK_IN');
       }
     }
@@ -687,7 +925,10 @@ function NewRoomBookingContent() {
     setGuestPhone('');
     setGuestEmail('');
     setGuestAddress('');
+    setGuestCountryId('');
     setGuestNationality('');
+    setGuestCountryName('');
+    setGuestVipTier('REGULAR');
     setIdType('');
     setIdNumber('');
     setIdIssuePlace('');
@@ -739,6 +980,18 @@ function NewRoomBookingContent() {
       return;
     }
 
+    // Validate partner selection for non-direct sources
+    if (bookingSource !== 'DIRECT_WALKIN' && !selectedPartnerId) {
+      const partnerRole =
+        bookingSource === 'CORPORATE'
+          ? 'Corporate Company'
+          : bookingSource === 'TRAVEL_AGENT'
+          ? 'Travel Agent'
+          : 'Individual Referral Partner';
+      toast.error('Partner Required', `Please select an active ${partnerRole} for this reservation.`);
+      return;
+    }
+
     const [first, ...rest] = guestName.trim().split(' ');
     const firstName = first || 'Guest';
     const lastName = rest.join(' ') || 'Customer';
@@ -767,7 +1020,14 @@ function NewRoomBookingContent() {
           amount: paidNow,
           method: (paymentMethod === 'PAY_LATER' ? 'CASH' : paymentMethod) as any,
           type: paidNow >= remainingBalanceDue ? 'SETTLEMENT' : 'ADVANCE',
-          notes: shouldCheckInNow ? 'Check-in desk payment received' : 'Advance deposit received at booking',
+          receivedFrom: bookingSource === 'CORPORATE' ? paymentReceivedFrom : 'GUEST_EMPLOYEE',
+          payerName: bookingSource === 'CORPORATE' ? (actualPayerName.trim() || guestName) : guestName,
+          allocatedTo: bookingSource === 'CORPORATE' ? paymentAllocatedTo : 'GUEST_FOLIO',
+          transactionReference: paymentTxReference.trim() || undefined,
+          notes:
+            bookingSource === 'CORPORATE' && paymentAllocatedTo === 'COMPANY_ACCOUNT' && actualPayerName && actualPayerName !== selectedPartner?.partnerName
+              ? `Advance deposit collected from ${actualPayerName} on behalf of ${selectedPartner?.partnerName}`
+              : (shouldCheckInNow ? 'Check-in desk payment received' : 'Advance deposit received at booking'),
         });
       }
 
@@ -797,7 +1057,9 @@ function NewRoomBookingContent() {
           email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
           address: guestAddress,
           city: guestCity,
-          country: guestNationality,
+          country: guestCountryName || guestNationality || 'Nepal',
+          countryId: guestCountryId || undefined,
+          nationality: guestNationality || 'Nepali',
           idType,
           idNumber: idNumber.trim() || 'To be collected at check-in',
           idIssuePlace,
@@ -809,7 +1071,7 @@ function NewRoomBookingContent() {
           proceedingTo,
           vehicleNumber,
           accompanyingGuests: isPrimary ? accompanyingGuests : [],
-          vipTier: linkedBooking?.guest.vipTier || 'STANDARD',
+          vipTier: (guestVipTier as any) || linkedBooking?.guest.vipTier || 'STANDARD',
         },
         cafeOrders: isPrimary ? (linkedBooking?.cafeOrders || []) : [],
         payments: paymentRecords,
@@ -819,9 +1081,110 @@ function NewRoomBookingContent() {
           : (roomRowsCalculated.length > 1 ? `Room ${idx + 1} of ${roomRowsCalculated.length}` : undefined),
         keyCardNumber: `KC-${rowItem.roomObj.number}-A`,
         luggageCount: isPrimary ? luggageCount : 0,
-        bookingAgent,
+        bookingAgent: bookingSource !== 'DIRECT_WALKIN' && selectedPartner ? `${selectedPartner.partnerName} (${selectedPartner.partnerCode})` : bookingAgent,
+        bookingSource,
+        partnerId: bookingSource !== 'DIRECT_WALKIN' ? selectedPartner?.id : undefined,
+        partnerCode: bookingSource !== 'DIRECT_WALKIN' ? selectedPartner?.partnerCode : undefined,
+        partnerName: bookingSource !== 'DIRECT_WALKIN' ? selectedPartner?.partnerName : undefined,
+        partnerType: bookingSource !== 'DIRECT_WALKIN' ? selectedPartner?.partnerType : undefined,
+        billingArrangement: bookingSource === 'CORPORATE' ? billingArrangement : undefined,
+        paymentResponsibility: bookingSource === 'CORPORATE' ? paymentResponsibility : undefined,
+        splitCompanyAmount: bookingSource === 'CORPORATE' && billingArrangement === 'SPLIT_BILLING' ? splitCompanyAmount : undefined,
+        splitGuestAmount: bookingSource === 'CORPORATE' && billingArrangement === 'SPLIT_BILLING' ? splitGuestAmount : undefined,
+        negotiatedRate: bookingSource === 'CORPORATE' ? selectedPartner?.negotiatedRoomRate : undefined,
+        calculatedCommission: (bookingSource === 'TRAVEL_AGENT' || bookingSource === 'INDIVIDUAL_REFERRAL') && selectedPartner?.commissionEnabled
+          ? calculatePartnerCommission(selectedPartner, subtotal, totalPayable, nights)
+          : 0,
       };
     });
+
+    // Record Partner Commission for Travel Agents and Individual Referrals
+    if (
+      (bookingSource === 'TRAVEL_AGENT' || bookingSource === 'INDIVIDUAL_REFERRAL') &&
+      selectedPartner &&
+      selectedPartner.commissionEnabled
+    ) {
+      const commAmt = calculatePartnerCommission(selectedPartner, subtotal, totalPayable, nights);
+      if (commAmt > 0) {
+        const commRec: PartnerCommission = {
+          id: `comm_${Date.now()}`,
+          partnerId: selectedPartner.id,
+          partnerCode: selectedPartner.partnerCode,
+          partnerName: selectedPartner.partnerName,
+          partnerType: selectedPartner.partnerType,
+          reservationId: createdBookings[0].id,
+          bookingCode: createdBookings[0].bookingCode,
+          guestName: guestName.trim(),
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          roomNights: nights,
+          roomRate: roomRowsCalculated[0]?.rate || roomRowsCalculated[0]?.roomObj.pricePerNight || 0,
+          eligibleAmount: subtotal,
+          commissionType: selectedPartner.commissionType,
+          commissionRate: selectedPartner.commissionValue,
+          commissionAmount: commAmt,
+          calculationBasis: selectedPartner.commissionBasis,
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+        };
+        const allComms = loadCommissionsFromStorage();
+        saveCommissionsToStorage([commRec, ...allComms]);
+
+        // Update partner aggregate numbers
+        const allPartners = loadBusinessPartnersFromStorage();
+        const updatedAll = allPartners.map((p) =>
+          p.id === selectedPartner.id
+            ? {
+                ...p,
+                totalBookings: p.totalBookings + 1,
+                totalCommissionEarned: p.totalCommissionEarned + commAmt,
+                outstandingCommission: p.outstandingCommission + commAmt,
+                updatedAt: new Date().toISOString(),
+              }
+            : p
+        );
+        saveBusinessPartnersToStorage(updatedAll);
+      }
+    } else if (selectedPartner && bookingSource === 'CORPORATE') {
+      const allPartners = loadBusinessPartnersFromStorage();
+      const billedToCompany =
+        billingArrangement === 'COMPANY_ACCOUNT' || paymentResponsibility === 'COMPANY_PAYS'
+          ? totalPayable
+          : billingArrangement === 'SPLIT_BILLING' || paymentResponsibility === 'SPLIT'
+          ? (splitCompanyAmount || subtotal)
+          : 0;
+
+      const advanceCreditedToCompany =
+        paidNow > 0 && paymentAllocatedTo === 'COMPANY_ACCOUNT' ? paidNow : 0;
+      const netReceivableAddition = Math.max(0, billedToCompany - advanceCreditedToCompany);
+
+      const updatedAll = allPartners.map((p) =>
+        p.id === selectedPartner.id
+          ? {
+              ...p,
+              totalBookings: p.totalBookings + 1,
+              corporateReceivableBalance: p.corporateReceivableBalance + netReceivableAddition,
+              updatedAt: new Date().toISOString(),
+            }
+          : p
+      );
+      saveBusinessPartnersToStorage(updatedAll);
+
+      // Record in corporate statement if an advance payment was allocated to company account
+      if (advanceCreditedToCompany > 0) {
+        recordCorporatePaymentTransaction({
+          partnerId: selectedPartner.id,
+          amount: advanceCreditedToCompany,
+          paymentMethod: paymentMethod === 'PAY_LATER' ? 'CASH' : paymentMethod,
+          referenceNumber: `REC-${Date.now().toString().slice(-4)}`,
+          reservationCode: createdBookings[0].bookingCode,
+          guestName: guestName.trim(),
+          actualPayerName: actualPayerName.trim() || guestName.trim(),
+          receivedFrom: paymentReceivedFrom,
+          notes: 'Advance deposit received at reservation creation',
+        });
+      }
+    }
 
     let updated = [...currentBookings];
     createdBookings.forEach((nb) => {
@@ -944,14 +1307,77 @@ function NewRoomBookingContent() {
         </div>
 
         {/* Content Body */}
-        <div className="p-6 lg:p-8 space-y-8">
-          {/* SEARCH GUEST / RESERVATION TO AUTO-FILL */}
-          <div className="space-y-2 max-w-sm">
-            <label className="block mb-1 text-xs font-bold text-muted dark:text-neutral-400">
-              Search Guest
-            </label>
+        <div className="p-6 lg:p-8 space-y-6">
+          {/* TOP BAR: BOOKING CATEGORY (DIRECT, CORPORATE, TRAVEL AGENT, REFERRAL) & RETURNING GUEST SEARCH */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-border-default dark:border-border-default">
+            {/* Booking Type Segment: Direct/Walk-in | Corporate | Travel Agent | Referral */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted dark:text-neutral-400">
+                Booking Type
+              </label>
+              <div className="inline-flex rounded-lg border border-border-default dark:border-border-default bg-surface-muted dark:bg-surface-card p-1 gap-1 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleBookingSourceChange('DIRECT_WALKIN')}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5',
+                    bookingSource === 'DIRECT_WALKIN'
+                      ? 'bg-[#0B3D32] text-white shadow-2xs font-bold dark:bg-emerald-700'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50'
+                  )}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Direct / Walk-in</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBookingSourceChange('CORPORATE')}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5',
+                    bookingSource === 'CORPORATE'
+                      ? 'bg-[#0B3D32] text-white shadow-2xs font-bold dark:bg-emerald-700'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50'
+                  )}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Corporate / Company</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBookingSourceChange('TRAVEL_AGENT')}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5',
+                    bookingSource === 'TRAVEL_AGENT'
+                      ? 'bg-[#0B3D32] text-white shadow-2xs font-bold dark:bg-emerald-700'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50'
+                  )}
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Travel Agent</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBookingSourceChange('INDIVIDUAL_REFERRAL')}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5',
+                    bookingSource === 'INDIVIDUAL_REFERRAL'
+                      ? 'bg-[#0B3D32] text-white shadow-2xs font-bold dark:bg-emerald-700'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50'
+                  )}
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Referral Partner</span>
+                </button>
+              </div>
+            </div>
+
+            {/* SEARCH GUEST WHO LIVED IN HOTEL EARLIER (GUEST HISTORY LOOKUP) */}
+            <div className="space-y-1.5 w-full lg:w-80 relative">
+              <label className="block text-xs font-bold text-slate-800 dark:text-neutral-200">
+                Search Returning Guest
+              </label>
             <div className="relative">
-              <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -959,9 +1385,10 @@ function NewRoomBookingContent() {
                   setSearchQuery(e.target.value);
                   setShowSearchSuggestions(true);
                 }}
-                onFocus={() => setShowSearchSuggestions(true)}
-                placeholder="Search by name or Mobilenumber"
-                className="w-full pl-9 pr-8 py-2 rounded-lg border border-border-default dark:border-border-default text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32] transition-all"
+                onFocus={() => {
+                  if (searchQuery.trim()) setShowSearchSuggestions(true);
+                }}
+                className="w-full h-9 pl-9 pr-8 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-[#0B3D32] focus:ring-1 focus:ring-[#0B3D32] transition-all"
               />
               {searchQuery && (
                 <button
@@ -970,50 +1397,199 @@ function NewRoomBookingContent() {
                     setSearchQuery('');
                     setShowSearchSuggestions(false);
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-muted cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
 
-              {/* Suggestions Dropdown */}
-              {showSearchSuggestions && searchResults.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-lg border border-border-default dark:border-border-default bg-white dark:bg-surface-card shadow-xl overflow-hidden divide-y divide-[#E2E8F0] dark:divide-[#334155] max-h-60 overflow-y-auto">
-                  {searchResults.map((b) => {
-                    const fin = getBookingFinancials(b);
-                    return (
-                      <div
-                        key={b.id}
-                        onClick={() => handleSelectReservationToAutoFill(b)}
-                        className="p-3 hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer flex items-center justify-between text-xs"
-                      >
-                        <div>
-                          <div className="font-bold text-body dark:text-white flex items-center gap-2">
-                            <span>{b.guest.firstName} {b.guest.lastName}</span>
-                            <span className="font-mono text-muted">({b.bookingCode})</span>
-                            <span className="px-1.5 py-0.2 rounded text-[10px] bg-surface-muted dark:bg-slate-800 text-body dark:text-slate-300">
-                              Room {b.room.number}
+              {/* Suggestions Dropdown Table Matching App Brand Color Pattern */}
+              {showSearchSuggestions && guestSuggestions.length > 0 && (
+                <div className="absolute left-0 top-full mt-1.5 z-50 w-[700px] max-w-[92vw] rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-card shadow-2xl overflow-hidden max-h-72 overflow-y-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#F4F7F5] dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 sticky top-0">
+                        <th className="py-2.5 px-3">ID / Code</th>
+                        <th className="py-2.5 px-3">Guest Name</th>
+                        <th className="py-2.5 px-3">Mobile No</th>
+                        <th className="py-2.5 px-3">Country / City</th>
+                        <th className="py-2.5 px-3">Email</th>
+                        <th className="py-2.5 px-3 text-right">VIP Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                      {guestSuggestions.map((g) => (
+                        <tr
+                          key={g.id}
+                          onClick={() => handleSelectGuestSuggestion(g)}
+                          className="hover:bg-[#EBF3F0] dark:hover:bg-[#1E293B] cursor-pointer transition-colors"
+                        >
+                          <td className="py-2.5 px-3">
+                            <span className="font-mono text-xs font-bold text-brand dark:text-emerald-400 bg-brand/5 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                              {g.code || g.id}
                             </span>
-                          </div>
-                          <span className="text-[11px] text-muted font-mono">
-                            {b.guest.phone} · {b.checkIn} to {b.checkOut} ({b.nights}n)
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-bold text-body dark:text-white block">
-                            Rs. {fin.totalCharges.toLocaleString()}
-                          </span>
-                          <span className="text-[10px] font-bold text-success block">
-                            {fin.totalPaid > 0 ? `Adv: Rs. ${fin.totalPaid.toLocaleString()}` : 'No Advance'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                          </td>
+                          <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
+                            {g.name}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300">
+                            {g.phone}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
+                            {g.country || g.city || '-'}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400 text-[11px]">
+                            {g.email || '-'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            {g.vipTier ? (
+                              <span
+                                className={cn(
+                                  'inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border',
+                                  g.vipTier.toUpperCase().includes('PLATINUM')
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800'
+                                    : g.vipTier.toUpperCase().includes('GOLD')
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
+                                    : g.vipTier.toUpperCase().includes('SILVER')
+                                    ? 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+                                )}
+                              >
+                                {g.vipTier}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
           </div>
+        </div>
+
+          {/* Partner & Billing Arrangement Bar (Shows when Corporate, Travel Agent, or Referral is active) */}
+          {bookingSource !== 'DIRECT_WALKIN' && (
+            <div className="p-3 rounded border border-border-default dark:border-border-default bg-[#F8FAFC] dark:bg-surface-card/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+                <div className="w-72">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {bookingSource === 'CORPORATE' ? 'Corporate Company' : bookingSource === 'TRAVEL_AGENT' ? 'Travel Agency' : 'Referral Partner'} <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={selectedPartnerId}
+                    onChange={(e) => handlePartnerSelect(e.target.value)}
+                    className="w-full h-7.5 px-2.5 rounded border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-white outline-none focus:border-[#0B3D32] cursor-pointer"
+                  >
+                    <option value="">
+                      {bookingSource === 'CORPORATE' ? '— Choose Corporate Company —' : bookingSource === 'TRAVEL_AGENT' ? '— Choose Travel Agency —' : '— Choose Referral Partner —'}
+                    </option>
+                    {partnersList
+                      .filter((p) => p.partnerType === bookingSource && p.status === 'ACTIVE')
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.partnerName} ({p.partnerCode})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {bookingSource === 'CORPORATE' && selectedPartner && (
+                  <div className="w-60">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Billing Arrangement
+                    </label>
+                    <select
+                      value={billingArrangement}
+                      onChange={(e) => {
+                        const val = e.target.value as 'COMPANY_ACCOUNT' | 'GUEST_DIRECT' | 'SPLIT_BILLING';
+                        setBillingArrangement(val);
+                        setPaymentResponsibility(
+                          val === 'GUEST_DIRECT' ? 'GUEST_PAYS' : val === 'SPLIT_BILLING' ? 'SPLIT' : 'COMPANY_PAYS'
+                        );
+                        if (val === 'SPLIT_BILLING') {
+                          setSplitCompanyAmount(subtotal);
+                          setSplitGuestAmount(Math.max(0, totalPayable - subtotal));
+                        }
+                      }}
+                      className="w-full h-7.5 px-2.5 rounded border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-white outline-none focus:border-[#0B3D32] cursor-pointer"
+                    >
+                      <option value="COMPANY_ACCOUNT">Company Account (Direct Billing)</option>
+                      <option value="GUEST_DIRECT">Guest Direct Payment</option>
+                      <option value="SPLIT_BILLING">Split Billing</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {selectedPartner && (
+                <div className="flex items-center gap-3 text-xs font-medium text-slate-600 dark:text-slate-300 pt-1 lg:pt-0 border-t lg:border-t-0 lg:border-l border-border-default dark:border-border-default lg:pl-3">
+                  {bookingSource === 'CORPORATE' ? (
+                    <>
+                      <div className="px-2 py-1 rounded bg-white dark:bg-surface-card border border-border-default dark:border-border-default text-[11px]">
+                        Credit: <strong className="text-slate-900 dark:text-white font-semibold">{selectedPartner.creditAllowed === false ? 'No Credit' : `${selectedPartner.paymentTerms?.replace('NET_', '') || '30'} Days`}</strong>
+                      </div>
+                      {selectedPartner.negotiatedDiscountPercent ? (
+                        <div className="px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300">
+                          Discount: <strong className="font-bold">{selectedPartner.negotiatedDiscountPercent}% Off</strong>
+                        </div>
+                      ) : null}
+                      <div className="text-[11px] text-muted dark:text-neutral-400">
+                        Contact: <strong className="text-slate-800 dark:text-slate-200">{selectedPartner.contactPerson || selectedPartner.phone}</strong>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300">
+                        Commission: <strong className="font-bold">{selectedPartner.commissionEnabled ? `NPR ${calculatePartnerCommission(selectedPartner, subtotal, totalPayable, nights).toLocaleString()}` : 'None'}</strong>
+                      </div>
+                      <div className="text-[11px] text-muted dark:text-neutral-400">
+                        Contact: <strong className="text-slate-800 dark:text-slate-200">{selectedPartner.contactPerson || selectedPartner.phone}</strong>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Split Charge Input (When Split Billing is Active) */}
+          {bookingSource === 'CORPORATE' && selectedPartner && billingArrangement === 'SPLIT_BILLING' && (
+            <div className="p-2.5 rounded border border-border-default dark:border-border-default bg-[#F8FAFC] dark:bg-surface-card/60 flex flex-wrap items-center gap-4 text-xs">
+              <span className="font-bold text-[#0B3D32] dark:text-emerald-400 uppercase tracking-wide text-[11px]">
+                Split Allocation:
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-600 dark:text-slate-400">Company (Room):</span>
+                <input
+                  type="number"
+                  value={splitCompanyAmount}
+                  onChange={(e) => {
+                    const cAmt = Number(e.target.value);
+                    setSplitCompanyAmount(cAmt);
+                    setSplitGuestAmount(Math.max(0, totalPayable - cAmt));
+                  }}
+                  className="w-28 h-7 px-2 rounded border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-bold font-mono text-slate-800 dark:text-white"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-600 dark:text-slate-400">Guest (Incidentals):</span>
+                <input
+                  type="number"
+                  value={splitGuestAmount}
+                  onChange={(e) => {
+                    const gAmt = Number(e.target.value);
+                    setSplitGuestAmount(gAmt);
+                    setSplitCompanyAmount(Math.max(0, totalPayable - gAmt));
+                  }}
+                  className="w-28 h-7 px-2 rounded border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-bold font-mono text-slate-800 dark:text-white"
+                />
+              </div>
+            </div>
+          )}
 
           {/* ===============================================================
               SECTION 1: STAY SCHEDULE & GUEST INFORMATION (5 + 7 Cols)
@@ -1098,74 +1674,18 @@ function NewRoomBookingContent() {
                   />
                 </div>
               </div>
-
             </div>
 
             {/* Guest Details (7 cols) */}
             <div className="lg:col-span-7 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pb-2 border-b border-border-default dark:border-border-default">
                 <span className="text-xs font-bold uppercase tracking-wider text-body dark:text-neutral-300">
                   Guest Information
                 </span>
-                {guestLoyalty && (
-                  <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                    <Award className="w-3.5 h-3.5 text-amber-600" />
-                    <span>{guestLoyalty.tier.name} Member</span>
-                  </span>
+                {guestVipTier && guestVipTier !== 'REGULAR' && (
+                  <MembershipTierBadge tierCode={guestVipTier} size="xs" />
                 )}
               </div>
-
-              {/* Loyalty Membership Badge & Benefits Card */}
-              {guestLoyalty && (
-                <div
-                  className="p-3 rounded-[3px] border bg-slate-50/80 dark:bg-slate-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-150"
-                  style={{ borderLeft: `4px solid ${guestLoyalty.tier.color}` }}
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                        Guest: {guestName || 'Selected Guest'}
-                      </span>
-                      <span
-                        className="px-2 py-0.5 rounded-[2px] font-bold text-[10px] uppercase text-white shadow-2xs"
-                        style={{ backgroundColor: guestLoyalty.tier.color }}
-                      >
-                        {guestLoyalty.tier.name} Member
-                      </span>
-                      <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                        ({guestLoyalty.completedStays} Completed {guestLoyalty.completedStays === 1 ? 'Stay' : 'Stays'})
-                      </span>
-                    </div>
-
-                    <div className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-emerald-700 dark:text-emerald-400">
-                        {guestLoyalty.tier.discountPercent > 0
-                          ? `Eligible for ${guestLoyalty.tier.discountPercent}% Booking Discount`
-                          : 'Standard Member Privileges'}
-                      </span>
-                      {guestLoyalty.tier.benefits.length > 0 && (
-                        <>
-                          <span className="text-slate-300">·</span>
-                          <span className="text-slate-500 dark:text-slate-400 italic">
-                            {guestLoyalty.tier.benefits[0]}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {guestLoyalty.tier.discountPercent > 0 && discountPercent !== guestLoyalty.tier.discountPercent && (
-                    <button
-                      type="button"
-                      onClick={() => handleBillingDisPercentChange(guestLoyalty.tier.discountPercent)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs cursor-pointer transition-colors whitespace-nowrap self-start sm:self-auto"
-                    >
-                      <Percent className="w-3.5 h-3.5" />
-                      <span>Apply {guestLoyalty.tier.name} {guestLoyalty.tier.discountPercent}% Discount</span>
-                    </button>
-                  )}
-                </div>
-              )}
 
               {/* Guest Fields: Name, Phone & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1220,23 +1740,37 @@ function NewRoomBookingContent() {
                 </div>
 
                 <div>
+                  <label className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
+                    Membership / VIP Tier
+                  </label>
+                  <select
+                    value={guestVipTier}
+                    onChange={(e) => setGuestVipTier(e.target.value)}
+                    className="w-full h-9 px-3 rounded-[3px] border border-border-default dark:border-border-default bg-white dark:bg-surface-card text-xs font-medium text-body dark:text-white outline-none focus:border-[#0B3D32]"
+                  >
+                    <option value="REGULAR">Standard / Non-Member</option>
+                    <option value="SILVER">Silver Member</option>
+                    <option value="GOLD">Gold VIP</option>
+                    <option value="PLATINUM">Platinum VIP</option>
+                    <option value="VIP">VIP Guest</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
                   <MasterSearchableSelect
                     label="Nationality"
-                    value={guestNationality}
-                    onChange={setGuestNationality}
-                    options={natMaster.activeItems.map((i) => ({
-                      label: i.name,
-                      value: i.name,
-                      subtext: i.description,
-                    }))}
+                    value={guestCountryId || guestNationality}
+                    onChange={handleNationalityChange}
+                    options={countryMaster.options}
                     placeholder="Select Nationality"
                     searchPlaceholder="Search nationality / country..."
-                    onAddNew={(val, desc) => {
-                      natMaster.addItem(val, desc);
-                      toast.success('Nationality Added', `"${val}" added to Nationality masters.`);
-                    }}
-                    addNewTitle="Nationality"
+                    allowClear={true}
                   />
+                  {countryMaster.error && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                      {countryMaster.error}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1447,207 +1981,272 @@ function NewRoomBookingContent() {
 
           </div>
           {/* ===============================================================
-              SECTION 3: BILLING & SETTLEMENT (Boxed Container Matching Check-In)
+              SECTION 3: BILLING & SETTLEMENT
               =============================================================== */}
-          <div className="space-y-3 pt-6 border-t border-border-default dark:border-border-default">
-            <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-brand dark:text-blue-400" />
-              <h2 className="text-sm font-bold text-body dark:text-white tracking-tight">
-                Billing & Settlement
-              </h2>
+          <div className="space-y-4 pt-6 border-t border-border-default dark:border-border-default">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-brand dark:text-blue-400" />
+                <h2 className="text-sm font-bold text-body dark:text-white tracking-tight">
+                  Billing &amp; Settlement
+                </h2>
+              </div>
+              <span className="text-[11px] text-muted dark:text-muted hidden sm:inline">
+                Tariff breakdown, payment settlement &amp; corporate folio
+              </span>
             </div>
 
-            {/* The Reference Pattern Card (Boxed Container Matching Check-In Desk) */}
-            <div className="border border-border-default dark:border-border-default rounded-md p-4 bg-white dark:bg-surface-card space-y-3.5 shadow-2xs">
-              {/* Row 1: Basic Total, Dis %, Dis Amt, Tax Amt(3%), Round off, Net Amount */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div>
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Basic Total
-                  </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
-                    {subtotal.toLocaleString()}
+            {/* The Reference Pattern Card */}
+            <div className="border border-border-default dark:border-border-default rounded-lg p-5 bg-white dark:bg-surface-card space-y-4 shadow-2xs">
+              {/* Membership recognition & manual discount application (Never automatic) */}
+              {guestVipTier && guestVipTier !== 'REGULAR' && memberDiscountRate > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-md bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 text-xs">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <MembershipTierBadge tierCode={guestVipTier} size="xs" />
+                    <span className="text-amber-950 dark:text-amber-200 font-medium">
+                      Loyalty Privilege: Guest is eligible for a <strong>{memberDiscountRate}% room fare discount</strong> (Room Tariff only).
+                    </span>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Dis %
+                  <label className="inline-flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 cursor-pointer select-none bg-white dark:bg-slate-900 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-700 shadow-2xs hover:bg-amber-50/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={applyMemberDiscountAtBooking}
+                      onChange={(e) => {
+                        const willApply = e.target.checked;
+                        setApplyMemberDiscountAtBooking(willApply);
+                        handleBillingDisPercentChange(willApply ? memberDiscountRate : 0);
+                      }}
+                      className="w-4 h-4 rounded border-amber-400 text-amber-700 focus:ring-amber-600 cursor-pointer"
+                    />
+                    <span>Apply Membership Discount</span>
                   </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={discountPercent || ''}
-                    onChange={(e) => {
-                      const p = Math.max(0, Math.min(100, Number(e.target.value) || 0));
-                      handleBillingDisPercentChange(p);
-                    }}
-                    placeholder="0"
-                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-surface-card border border-border-default dark:border-slate-600 rounded-xs text-body dark:text-white outline-none focus:border-slate-400"
-                  />
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Dis Amt
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={totalDiscount || ''}
-                    onChange={(e) => {
-                      const d = Math.max(0, Number(e.target.value) || 0);
-                      handleBillingDisAmtChange(d);
-                    }}
-                    placeholder="0"
-                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-surface-card border border-border-default dark:border-slate-600 rounded-xs text-body dark:text-white outline-none focus:border-slate-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Tax Amt(3%)
-                  </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
-                    0.00
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Round off
-                  </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
-                    0.00
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Net Amount
-                  </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
-                    {totalPayable.toLocaleString()}
-                  </div>
-                </div>
-              </div>
+              )}
 
               {/* Previously Paid Advance Info Banner (if linked reservation has deposit) */}
               {advancePaidAtBooking > 0 && (
-                <div className="p-2.5 rounded bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-semibold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                <div className="p-3 rounded-md bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>Advance Previously Paid: <strong className="font-mono">Rs. {advancePaidAtBooking.toLocaleString()}</strong></span>
-                    {advanceReceiptInfo && <span className="text-[11px] font-normal text-success">({advanceReceiptInfo})</span>}
+                    {advanceReceiptInfo && <span className="text-[11px] font-normal text-emerald-700 dark:text-emerald-400">({advanceReceiptInfo})</span>}
                   </div>
-                  <div className="text-body dark:text-slate-200 font-bold">
-                    Remaining Balance Due: <span className="font-mono text-amber-700 dark:text-amber-400">Rs. {remainingBalanceDue.toLocaleString()}</span>
+                  <div className="text-body dark:text-slate-200 font-semibold">
+                    Remaining Balance Due: <span className="font-mono text-amber-700 dark:text-amber-400 font-bold">Rs. {remainingBalanceDue.toLocaleString()}</span>
                   </div>
                 </div>
               )}
 
-              {/* Row 2: Payment Option, Paid Amt., Ref. Due, Mode, Remarks */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+              {/* Tariff Calculation Breakdown */}
+              <div className="bg-slate-50/70 dark:bg-slate-800/30 p-3.5 rounded-md border border-slate-200/80 dark:border-slate-700/60">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+                  {/* Basic Total */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                      Basic Total
+                    </label>
+                    <div className="h-8 px-2.5 flex items-center justify-end font-mono font-medium text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded border border-slate-200 dark:border-slate-700 tabular-nums">
+                      <span className="text-slate-400 mr-1 text-[10px]">Rs.</span>
+                      {subtotal.toLocaleString()}
+                    </div>
+                  </div>
+
+                  {/* Dis % */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Dis %
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={discountPercent || ''}
+                        onChange={(e) => {
+                          const p = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                          handleBillingDisPercentChange(p);
+                        }}
+                        placeholder="0"
+                        className="w-full h-8 pl-2.5 pr-6 text-right font-mono text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-slate-900 dark:text-white outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 transition-all"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">%</span>
+                    </div>
+                  </div>
+
+                  {/* Dis Amt */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Dis Amt (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={totalDiscount || ''}
+                      onChange={(e) => {
+                        const d = Math.max(0, Number(e.target.value) || 0);
+                        handleBillingDisAmtChange(d);
+                      }}
+                      placeholder="0"
+                      className="w-full h-8 px-2.5 text-right font-mono text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-slate-900 dark:text-white outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 transition-all"
+                    />
+                  </div>
+
+                  {/* Tax Amt */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                      Tax (3%)
+                    </label>
+                    <div className="h-8 px-2.5 flex items-center justify-end font-mono text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700 tabular-nums">
+                      <span className="text-slate-400 mr-1 text-[10px]">Rs.</span>
+                      0.00
+                    </div>
+                  </div>
+
+                  {/* Round off */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                      Round off
+                    </label>
+                    <div className="h-8 px-2.5 flex items-center justify-end font-mono text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700 tabular-nums">
+                      0.00
+                    </div>
+                  </div>
+
+                  {/* Net Amount */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1">
+                      Net Amount
+                    </label>
+                    <div className="h-8 px-2.5 flex items-center justify-end font-mono font-bold text-sm bg-slate-900 dark:bg-slate-700 text-white rounded border border-slate-900 dark:border-slate-600 tabular-nums shadow-2xs">
+                      <span className="text-slate-400 mr-1 text-[11px] font-normal">Rs.</span>
+                      {totalPayable.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Settlement Method & Amounts */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Payment Option
                   </label>
                   <select
                     value={paymentChoice}
                     onChange={(e) => setPaymentChoice(e.target.value as 'FULL' | 'ADVANCE' | 'LATER')}
-                    className="w-full h-7 px-2 text-xs border border-border-default dark:border-slate-600 rounded-xs bg-white dark:bg-surface-card text-body dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer font-semibold"
+                    className="w-full h-8 px-2.5 text-xs font-semibold border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-surface-card text-slate-800 dark:text-slate-200 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-300 cursor-pointer"
                   >
                     <option value="FULL">Pay Full</option>
-                    <option value="ADVANCE">Advance</option>
-                    <option value="LATER">Pay Later</option>
+                    <option value="ADVANCE">Advance Deposit</option>
+                    <option value="LATER">Pay Later (Credit)</option>
                   </select>
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Paid Amt.
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Paid Amount
                   </label>
-                  <input
-                    type="number"
-                    min={0}
-                    disabled={paymentChoice === 'LATER'}
-                    value={paymentChoice === 'LATER' ? 0 : advancedAmount}
-                    onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full h-7 px-2 text-right font-mono text-xs bg-white dark:bg-surface-card border border-border-default dark:border-slate-600 rounded-xs text-body dark:text-white outline-none focus:border-slate-400 disabled:opacity-50 disabled:bg-surface-muted dark:disabled:bg-slate-800"
-                  />
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      disabled={paymentChoice === 'LATER'}
+                      value={paymentChoice === 'LATER' ? 0 : advancedAmount}
+                      onChange={(e) => setAdvancedAmount(Math.max(0, Number(e.target.value) || 0))}
+                      className="w-full h-8 pl-6 pr-2.5 text-right font-mono text-xs font-semibold bg-white dark:bg-surface-card border border-slate-300 dark:border-slate-600 rounded text-slate-900 dark:text-white outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-300 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+                    />
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">Rs.</span>
+                  </div>
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Ref. Due
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Balance Due
                   </label>
-                  <div className="h-7 px-2 flex items-center justify-end font-mono font-medium text-xs bg-[#eaedf1] dark:bg-slate-800 text-body dark:text-white rounded-xs border border-border-default dark:border-border-default tabular-nums">
+                  <div className={cn(
+                    "h-8 px-2.5 flex items-center justify-end font-mono font-bold text-xs rounded border tabular-nums",
+                    dueAmountAtCheckout > 0 
+                      ? "bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 border-amber-200 dark:border-amber-800/60"
+                      : "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60"
+                  )}>
+                    <span className="text-slate-400 mr-1 text-[10px] font-normal">Rs.</span>
                     {dueAmountAtCheckout.toLocaleString()}
                   </div>
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Mode
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Payment Mode
                   </label>
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     disabled={paymentChoice === 'LATER'}
-                    className="w-full h-7 px-2 text-xs border border-border-default dark:border-slate-600 rounded-xs bg-white dark:bg-surface-card text-body dark:text-slate-200 outline-none focus:border-slate-400 cursor-pointer disabled:opacity-50"
+                    className="w-full h-8 px-2.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-surface-card text-slate-800 dark:text-slate-200 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-300 cursor-pointer disabled:opacity-50"
                   >
                     <option value="CASH">Cash</option>
-                    <option value="CARD">Card</option>
-                    <option value="UPI_QR">UPI / QR</option>
+                    <option value="CARD">Credit / Debit Card</option>
+                    <option value="UPI_QR">UPI / Fonepay QR</option>
                     <option value="ESEWA_KHALTI">eSewa / Khalti</option>
-                    <option value="BANK_TRANSFER">Bank</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
                   </select>
                 </div>
 
                 <div className="lg:col-span-4">
-                  <label className="block text-[11px] font-medium text-muted dark:text-muted mb-1">
-                    Remarks / Special Requests
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Remarks / Folio Note
                   </label>
                   <input
                     type="text"
                     value={bookingNotes}
                     onChange={(e) => setBookingNotes(e.target.value)}
-                    placeholder="Airport pickup, high floor, preferences..."
-                    className="w-full h-7 px-2 text-xs border border-border-default dark:border-slate-600 rounded-xs bg-white dark:bg-surface-card text-body dark:text-white outline-none focus:border-slate-400"
+                    placeholder="Guest preferences, billing notes, or corporate instructions..."
+                    className="w-full h-8 px-2.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-surface-card text-slate-900 dark:text-white outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-300"
                   />
                 </div>
               </div>
 
-              {/* Row 3: Options & Check-In Style Action Buttons */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-5 text-xs text-muted dark:text-muted">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+
+
+              {/* Action Buttons & Notification Toggles */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-slate-200 dark:border-slate-700">
+                {/* Notification Options */}
+                <div className="flex items-center gap-5 text-xs text-slate-600 dark:text-slate-400">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={sendSms}
                       onChange={(e) => setSendSms(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-brand accent-[#0B3D32] border-border-default cursor-pointer"
+                      className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-500 cursor-pointer"
                     />
-                    <span className="text-[11px] font-medium">Send SMS</span>
+                    <span className="font-medium">Send SMS Confirmation</span>
                   </label>
 
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={sendEmail}
                       onChange={(e) => setSendEmail(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-brand accent-[#0B3D32] border-border-default cursor-pointer"
+                      className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-500 cursor-pointer"
                     />
-                    <span className="text-[11px] font-medium">Send Email</span>
+                    <span className="font-medium">Send Email Voucher</span>
                   </label>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* Main Action CTAs */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleResetForm}
+                    className="h-8 px-3.5 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-xs font-medium cursor-pointer bg-white dark:bg-surface-card transition-colors"
+                  >
+                    Reset
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => handleSaveBooking(false, false)}
-                    className="h-7 px-4 rounded-xs border border-[#0B3D32] bg-brand text-white hover:bg-[#093027] text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-brand dark:hover:bg-[#093027]"
+                    className="h-8 px-4 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-surface-card text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
                   >
                     Save Booking
                   </button>
@@ -1655,26 +2254,19 @@ function NewRoomBookingContent() {
                   <button
                     type="button"
                     onClick={() => handleSaveBooking(false, true)}
-                    className="h-7 px-3.5 rounded-xs border border-[#093027] bg-[#093027] hover:bg-[#06241D] text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs dark:bg-[#093027] dark:hover:bg-[#06241D] inline-flex items-center gap-1.5"
+                    className="h-8 px-4 rounded border border-slate-700 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs inline-flex items-center gap-1.5"
                   >
                     <Printer className="w-3.5 h-3.5" />
-                    <span>Save & Print</span>
+                    <span>Save &amp; Print</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSaveBooking(true, false)}
-                    className="h-7 px-4 rounded-xs border border-emerald-600 text-emerald-700 dark:text-brand hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold cursor-pointer transition-colors bg-white dark:bg-surface-card"
+                    className="h-8 px-5 rounded bg-[#0B3D32] hover:bg-[#072821] text-white text-xs font-bold cursor-pointer transition-all shadow-xs hover:shadow-sm inline-flex items-center gap-1.5"
                   >
-                    Check In Now →
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleResetForm}
-                    className="h-7 px-3.5 rounded-xs border border-border-default dark:border-slate-600 text-muted dark:text-muted hover:border-[#DC2626] hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-normal cursor-pointer bg-white dark:bg-surface-card transition-colors"
-                  >
-                    Reset
+                    <span>Check In Now</span>
+                    <span>&rarr;</span>
                   </button>
                 </div>
               </div>

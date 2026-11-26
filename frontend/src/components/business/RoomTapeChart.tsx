@@ -29,6 +29,8 @@ import {
   getRelativeDate,
   saveBookingsToStorage,
   getBookingFinancials,
+  DEFAULT_GUESTS,
+  RegisteredGuest,
 } from '@/app/(admin)/reservations/reservationsData';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
@@ -195,6 +197,51 @@ export function RoomTapeChart({
 
   // Quick Booking / Check-in Modal State
   const [bookingModal, setBookingModal] = useState<QuickReservationModalState | null>(null);
+  const [tapeGuestMatches, setTapeGuestMatches] = useState<RegisteredGuest[]>([]);
+  const [showTapeGuestSuggestions, setShowTapeGuestSuggestions] = useState<boolean>(false);
+
+  const handleTapeGuestSearch = (query: string) => {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      setShowTapeGuestSuggestions(false);
+      return;
+    }
+    const cleanQ = q.replace(/[\s\-\+]/g, '');
+    const matches = DEFAULT_GUESTS.filter((g) => {
+      const fName = (g.firstName || '').toLowerCase();
+      const lName = (g.lastName || '').toLowerCase();
+      const fullName = (g.name || '').toLowerCase();
+      const email = (g.email || '').toLowerCase();
+      const code = (g.code || g.id || '').toLowerCase();
+      const phoneClean = (g.phone || '').replace(/[\s\-\+]/g, '').toLowerCase();
+
+      return (
+        fullName.includes(q) ||
+        fName.includes(q) ||
+        lName.includes(q) ||
+        email.includes(q) ||
+        code.includes(q) ||
+        (cleanQ && phoneClean.includes(cleanQ))
+      );
+    });
+    setTapeGuestMatches(matches);
+    setShowTapeGuestSuggestions(matches.length > 0);
+  };
+
+  const handleSelectTapeGuest = (g: RegisteredGuest) => {
+    if (!bookingModal) return;
+    setBookingModal({
+      ...bookingModal,
+      title: (g.title as any) || bookingModal.title || 'Mr.',
+      firstName: g.firstName || g.name.split(' ')[0] || '',
+      lastName: g.lastName || g.name.split(' ').slice(1).join(' ') || '',
+      phone: g.phone || '',
+      email: g.email || '',
+      idType: g.idType || bookingModal.idType || 'Citizenship',
+      idNumber: g.idNumber || bookingModal.idNumber || '',
+    });
+    setShowTapeGuestSuggestions(false);
+  };
 
   // Close quick reservation modal on Escape key and prevent background scroll
   useEffect(() => {
@@ -1667,23 +1714,102 @@ export function RoomTapeChart({
                         <option value="Prof.">Prof.</option>
                       </select>
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
                       <input
                         type="text"
                         placeholder="First Name *"
                         required
                         value={bookingModal.firstName}
-                        onChange={(e) => setBookingModal({ ...bookingModal, firstName: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setBookingModal({ ...bookingModal, firstName: val });
+                          handleTapeGuestSearch(val);
+                        }}
+                        onFocus={(e) => {
+                          if (e.target.value.trim()) handleTapeGuestSearch(e.target.value);
+                        }}
                         className="w-full h-10 rounded-lg border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#0A2620] px-3.5 text-xs font-semibold text-[#24352F] dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0B3D32]/20 focus:border-[#0B3D32]"
                         autoFocus
                       />
+
+                      {/* Dropdown suggestions table matching app brand color pattern */}
+                      {showTapeGuestSuggestions && tapeGuestMatches.length > 0 && (
+                        <div className="absolute top-full left-0 w-[500px] sm:w-[620px] z-50 mt-1.5 bg-white dark:bg-surface-card border border-slate-200 dark:border-slate-700 rounded-md shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-[#F4F7F5] dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 sticky top-0">
+                                <th className="py-2 px-3">ID / Code</th>
+                                <th className="py-2 px-3">Guest Name</th>
+                                <th className="py-2 px-3">Mobile No</th>
+                                <th className="py-2 px-3">Country / City</th>
+                                <th className="py-2 px-3">Email</th>
+                                <th className="py-2 px-3 text-right">VIP Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                              {tapeGuestMatches.map((g) => (
+                                <tr
+                                  key={g.id}
+                                  onClick={() => handleSelectTapeGuest(g)}
+                                  className="hover:bg-[#EBF3F0] dark:hover:bg-[#1E293B] cursor-pointer transition-colors"
+                                >
+                                  <td className="py-2 px-3">
+                                    <span className="font-mono text-xs font-bold text-brand dark:text-emerald-400 bg-brand/5 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                                      {g.code || g.id}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white">
+                                    {g.name}
+                                  </td>
+                                  <td className="py-2 px-3 font-mono text-slate-600 dark:text-slate-300">
+                                    {g.phone}
+                                  </td>
+                                  <td className="py-2 px-3 text-slate-600 dark:text-slate-400">
+                                    {g.country || g.city || '-'}
+                                  </td>
+                                  <td className="py-2 px-3 font-mono text-slate-500 dark:text-slate-400 text-[11px]">
+                                    {g.email || '-'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right">
+                                    {g.vipTier ? (
+                                      <span
+                                        className={cn(
+                                          'inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border',
+                                          g.vipTier.toUpperCase().includes('PLATINUM')
+                                            ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800'
+                                            : g.vipTier.toUpperCase().includes('GOLD')
+                                            ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
+                                            : g.vipTier.toUpperCase().includes('SILVER')
+                                            ? 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                            : 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+                                        )}
+                                      >
+                                        {g.vipTier}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[11px] text-slate-400">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <input
                         type="text"
                         placeholder="Last Name"
                         value={bookingModal.lastName}
-                        onChange={(e) => setBookingModal({ ...bookingModal, lastName: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setBookingModal({ ...bookingModal, lastName: val });
+                          handleTapeGuestSearch(val);
+                        }}
+                        onFocus={(e) => {
+                          if (e.target.value.trim()) handleTapeGuestSearch(e.target.value);
+                        }}
                         className="w-full h-10 rounded-lg border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#0A2620] px-3.5 text-xs font-semibold text-[#24352F] dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0B3D32]/20 focus:border-[#0B3D32]"
                       />
                     </div>
@@ -1698,7 +1824,14 @@ export function RoomTapeChart({
                       type="tel"
                       placeholder="Phone Number"
                       value={bookingModal.phone}
-                      onChange={(e) => setBookingModal({ ...bookingModal, phone: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBookingModal({ ...bookingModal, phone: val });
+                        handleTapeGuestSearch(val);
+                      }}
+                      onFocus={(e) => {
+                        if (e.target.value.trim()) handleTapeGuestSearch(e.target.value);
+                      }}
                       className="w-full h-10 rounded-lg border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#0A2620] pl-9 pr-3 text-xs font-semibold text-[#24352F] dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0B3D32]/20 focus:border-[#0B3D32]"
                     />
                   </div>
@@ -1709,7 +1842,14 @@ export function RoomTapeChart({
                       type="email"
                       placeholder="Email Address"
                       value={bookingModal.email}
-                      onChange={(e) => setBookingModal({ ...bookingModal, email: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBookingModal({ ...bookingModal, email: val });
+                        handleTapeGuestSearch(val);
+                      }}
+                      onFocus={(e) => {
+                        if (e.target.value.trim()) handleTapeGuestSearch(e.target.value);
+                      }}
                       className="w-full h-10 rounded-lg border border-[#DCE3DF] dark:border-[#145447] bg-white dark:bg-[#0A2620] pl-9 pr-3 text-xs font-semibold text-[#24352F] dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0B3D32]/20 focus:border-[#0B3D32]"
                     />
                   </div>

@@ -490,6 +490,14 @@ function RoomBookingsContent() {
                               <span className="text-slate-400 dark:text-slate-500">{booking.guest.email}</span>
                             </>
                           )}
+                          {booking.partnerName && (
+                            <>
+                              <span className="text-slate-300 dark:text-slate-600">·</span>
+                              <span className="text-[10px] font-bold text-[#0B3D32] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded-[2px] border border-emerald-200 dark:border-emerald-800">
+                                {booking.partnerName}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/60">

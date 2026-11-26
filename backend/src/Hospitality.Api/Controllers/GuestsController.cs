@@ -51,6 +51,50 @@ public class GuestsController : ControllerBase
             return BadRequest(ApiResponse.Fail("First name is required."));
         }
 
+        // Validate Country / Nationality master relationship
+        if (!string.IsNullOrWhiteSpace(guest.CountryId))
+        {
+            var country = await _db.Countries.FirstOrDefaultAsync(c => c.Id == guest.CountryId && c.IsActive);
+            if (country == null)
+            {
+                return BadRequest(ApiResponse.Fail("Selected nationality or country master record is invalid or inactive."));
+            }
+            guest.CountryId = country.Id;
+            guest.Nationality = country.NationalityName;
+            guest.Country = country.CountryName;
+        }
+        else if (!string.IsNullOrWhiteSpace(guest.Country))
+        {
+            // Attempt to resolve country by name or code
+            var country = await _db.Countries.FirstOrDefaultAsync(c =>
+                c.IsActive &&
+                (c.CountryName.ToLower() == guest.Country.Trim().ToLower() ||
+                 c.NationalityName.ToLower() == guest.Country.Trim().ToLower() ||
+                 c.CountryCode.ToLower() == guest.Country.Trim().ToLower()));
+
+            if (country != null)
+            {
+                guest.CountryId = country.Id;
+                guest.Nationality = country.NationalityName;
+                guest.Country = country.CountryName;
+            }
+        }
+
+        // Check if guest already exists by phone
+        if (!string.IsNullOrWhiteSpace(guest.Phone))
+        {
+            var cleanPhone = guest.Phone.Trim();
+            var existingGuest = await _db.Guests
+                .Include(g => g.Membership)
+                    .ThenInclude(m => m!.CurrentTier)
+                .FirstOrDefaultAsync(g => g.Phone == cleanPhone);
+
+            if (existingGuest != null)
+            {
+                return Ok(ApiResponse.Ok(existingGuest, "Existing guest profile found and used."));
+            }
+        }
+
         if (string.IsNullOrEmpty(guest.HotelId))
         {
             var hotel = await _db.Hotels.FirstOrDefaultAsync();
@@ -63,6 +107,45 @@ public class GuestsController : ControllerBase
         _db.Guests.Add(guest);
         await _db.SaveChangesAsync();
 
-        return Ok(ApiResponse.Ok(guest, "Guest created successfully."));
+        // Automatic Membership Creation for New Guests (Default: Regular Member)
+        var regularTier = await _db.MembershipTiers.FirstOrDefaultAsync(t => t.Code == "REGULAR")
+                          ?? await _db.MembershipTiers.OrderBy(t => t.MinNights).FirstOrDefaultAsync();
+
+        if (regularTier != null)
+        {
+            var totalMemberships = await _db.GuestMemberships.CountAsync();
+            var newMem = new GuestMembership
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                GuestId = guest.Id,
+                MembershipNumber = $"MEM-{10001 + totalMemberships}",
+                CurrentTierId = regularTier.Id,
+                Status = "ACTIVE",
+                MemberSince = DateTime.UtcNow,
+                LifetimeCompletedStays = 0,
+                LifetimeCompletedNights = 0,
+                QualifyingNights = 0,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _db.GuestMemberships.Add(newMem);
+            _db.MembershipHistories.Add(new MembershipHistory
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                GuestMembershipId = newMem.Id,
+                OldTierName = "None",
+                NewTierName = regularTier.Name,
+                QualifyingNights = 0,
+                Reason = "Automatic membership creation for newly registered guest",
+                PerformedBy = "System",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _db.SaveChangesAsync();
+            guest.Membership = newMem;
+        }
+
+        return Ok(ApiResponse.Ok(guest, "Guest created successfully and enrolled into membership."));
     }
 }

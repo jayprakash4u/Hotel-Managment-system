@@ -3,6 +3,7 @@
 import {
   HotelConciergeBellIcon,
   HotelRoomBoardBedIcon,
+  HotelRoomStatusIcon,
   HotelBookNowIcon,
   HotelReservationsIcon,
   HotelCheckInLuggageIcon,
@@ -11,6 +12,7 @@ import {
   HotelGuestDirectoryIcon,
   HotelHousekeepingIcon,
   HotelSetupBuildingIcon,
+  HotelBusinessPartnerIcon,
   RestaurantDashboardIcon,
   RestaurantDiningTableIcon,
   RestaurantTableReservationIcon,
@@ -95,6 +97,14 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     description: 'Live room status matrix, tape chart & front desk floor grid',
   },
   {
+    id: 'room-status',
+    name: 'Room Status',
+    href: '/room-status',
+    icon: HotelRoomStatusIcon,
+    tag: 'STATUS',
+    description: 'Daily house status report, room inventory, guest demographics & operations audit',
+  },
+  {
     id: 'book-now',
     name: 'Book Now',
     href: '/booking',
@@ -149,6 +159,14 @@ export const HOTEL_SIDEBAR_OPTIONS: NavBoxItem[] = [
     icon: HotelHousekeepingIcon,
     tag: 'CLEAN',
     description: 'Room cleaning tasks, maid assignments & inspections',
+  },
+  {
+    id: 'business-partners',
+    name: 'Business Partners',
+    href: '/partners',
+    icon: HotelBusinessPartnerIcon,
+    tag: 'PARTNER',
+    description: 'Corporate companies, travel agents & individual referral partners',
   },
   {
     id: 'hotel-setup',
@@ -365,6 +383,7 @@ export const Sidebar: React.FC<{
     return [
       '/hotel-management',
       '/front-desk',
+      '/room-status',
       '/room-board',
       '/rooms',
       '/booking',
@@ -555,6 +574,9 @@ export const Sidebar: React.FC<{
     }
     if (item.id === 'room-board') {
       return pathname === '/front-desk' || pathname === '/room-board';
+    }
+    if (item.id === 'room-status') {
+      return pathname === '/room-status';
     }
     if (item.id === 'book-now') {
       return pathname === '/booking';

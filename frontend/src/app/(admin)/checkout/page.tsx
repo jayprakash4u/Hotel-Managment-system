@@ -21,6 +21,9 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  Award,
+  Percent,
+  Info,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
@@ -32,7 +35,16 @@ import {
   getRelativeDate,
   performCheckOut,
 } from '../reservations/reservationsData';
-import { checkAndApplyCheckoutUpgrade } from '@/lib/loyalty';
+import {
+  checkAndApplyCheckoutUpgrade,
+  getMembershipTiers,
+  determineEligibleTier,
+  calculateMembershipDiscount,
+  calculateGuestCompletedNightsAndStays,
+} from '@/lib/loyalty';
+import { MembershipTierBadge } from '@/components/membership/MembershipTierBadge';
+import { recordCorporatePaymentTransaction } from '@/lib/businessPartners';
+import { api } from '@/lib/api';
 
 type TabFilter = 'ALL' | 'TODAY' | 'TOMORROW' | 'WEEK' | 'IN_HOUSE' | 'DUE' | 'CHECKED_OUT';
 
@@ -56,8 +68,14 @@ function CheckOutListContent() {
 
   // Checkout modal states
   const [selectedBookingForCheckOut, setSelectedBookingForCheckOut] = useState<RoomBooking | null>(null);
-  const [settlementMethod, setSettlementMethod] = useState<'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER'>('CASH');
+  const [applyMembershipDiscount, setApplyMembershipDiscount] = useState<boolean>(false);
+  const [settlementMethod, setSettlementMethod] = useState<'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER' | 'CHEQUE' | 'OTHER'>('CASH');
   const [settlementAmount, setSettlementAmount] = useState<number>(0);
+  const [settlementReceivedFrom, setSettlementReceivedFrom] = useState<'COMPANY' | 'GUEST_EMPLOYEE' | 'OTHER'>('GUEST_EMPLOYEE');
+  const [settlementPayerName, setSettlementPayerName] = useState<string>('');
+  const [settlementAllocatedTo, setSettlementAllocatedTo] = useState<'COMPANY_ACCOUNT' | 'GUEST_FOLIO'>('GUEST_FOLIO');
+  const [settlementTxRef, setSettlementTxRef] = useState<string>('');
+  const [settlementNotes, setSettlementNotes] = useState<string>('');
 
   // Reload bookings from storage
   const reloadData = () => {
@@ -142,8 +160,28 @@ function CheckOutListContent() {
   const handleOpenCheckOut = (b: RoomBooking) => {
     const fin = getBookingFinancials(b);
     setSelectedBookingForCheckOut(b);
+    setApplyMembershipDiscount(false); // ALWAYS unchecked by default!
     setSettlementAmount(fin.balanceDue);
     setSettlementMethod('CASH');
+    setSettlementTxRef('');
+    setSettlementNotes('');
+
+    const guestFullName = `${b.guest.firstName} ${b.guest.lastName}`.trim();
+    if (b.bookingSource === 'CORPORATE') {
+      const isCompanyArrangement =
+        b.billingArrangement === 'COMPANY_ACCOUNT' ||
+        b.paymentResponsibility === 'COMPANY_PAYS' ||
+        b.billingArrangement === 'SPLIT_BILLING' ||
+        b.paymentResponsibility === 'SPLIT';
+
+      setSettlementReceivedFrom('GUEST_EMPLOYEE');
+      setSettlementPayerName(guestFullName);
+      setSettlementAllocatedTo(isCompanyArrangement ? 'COMPANY_ACCOUNT' : 'GUEST_FOLIO');
+    } else {
+      setSettlementReceivedFrom('GUEST_EMPLOYEE');
+      setSettlementPayerName(guestFullName);
+      setSettlementAllocatedTo('GUEST_FOLIO');
+    }
   };
 
   // Submit Checkout & Settle
@@ -151,14 +189,42 @@ function CheckOutListContent() {
     e.preventDefault();
     if (!selectedBookingForCheckOut) return;
 
+    const guestName = `${selectedBookingForCheckOut.guest.firstName} ${selectedBookingForCheckOut.guest.lastName}`.trim();
+    const isCorp = selectedBookingForCheckOut.bookingSource === 'CORPORATE';
+
     const { updatedBookings } = performCheckOut(bookings, selectedBookingForCheckOut.id, {
       settlementAmount: Number(settlementAmount) || 0,
       paymentMethod: settlementMethod,
-      housekeepingNotes: `Checkout completed for ${selectedBookingForCheckOut.guest.firstName} ${selectedBookingForCheckOut.guest.lastName}. Room sent for cleaning.`,
+      receivedFrom: isCorp ? settlementReceivedFrom : undefined,
+      payerName: settlementPayerName.trim() || guestName,
+      allocatedTo: isCorp ? settlementAllocatedTo : 'GUEST_FOLIO',
+      transactionReference: settlementTxRef.trim() || undefined,
+      notes: settlementNotes.trim() || undefined,
+      housekeepingNotes: `Checkout completed for ${guestName}. Room sent for cleaning.`,
     });
 
     setBookings(updatedBookings);
     saveBookingsToStorage(updatedBookings);
+
+    // If payment allocated to corporate company account, update corporate statement and ledger
+    if (
+      isCorp &&
+      selectedBookingForCheckOut.partnerId &&
+      settlementAllocatedTo === 'COMPANY_ACCOUNT' &&
+      Number(settlementAmount) > 0
+    ) {
+      recordCorporatePaymentTransaction({
+        partnerId: selectedBookingForCheckOut.partnerId,
+        amount: Number(settlementAmount),
+        paymentMethod: settlementMethod,
+        referenceNumber: settlementTxRef.trim() || `RCT-CHK-${Date.now().toString().slice(-4)}`,
+        reservationCode: selectedBookingForCheckOut.bookingCode,
+        guestName,
+        actualPayerName: settlementPayerName.trim() || guestName,
+        receivedFrom: settlementReceivedFrom,
+        notes: settlementNotes.trim() || 'Checkout desk settlement',
+      });
+    }
 
     // Notify backend DB room status if room exists in database
     try {
@@ -174,10 +240,43 @@ function CheckOutListContent() {
     }
 
     const roomNumber = selectedBookingForCheckOut.room.number;
-    const guestName = `${selectedBookingForCheckOut.guest.firstName} ${selectedBookingForCheckOut.guest.lastName}`.trim();
 
     // Automatic Customer Loyalty & Membership Tier Upgrade Check
     const upgradeResult = checkAndApplyCheckoutUpgrade(selectedBookingForCheckOut, updatedBookings);
+
+    // Record membership discount application if explicitly applied by staff
+    if (applyMembershipDiscount && selectedBookingForCheckOut.guest) {
+      try {
+        const guestCompletedMetrics = calculateGuestCompletedNightsAndStays(selectedBookingForCheckOut.guest, bookings);
+        const guestTier = determineEligibleTier(guestCompletedMetrics.completedNights);
+        const fin = getBookingFinancials(selectedBookingForCheckOut);
+        const discountCalc = calculateMembershipDiscount(guestTier, 'HOTEL', fin.roomCharges);
+
+        if (discountCalc.discountAmount > 0) {
+          api.applyMembershipDiscount({
+            reservationId: selectedBookingForCheckOut.id,
+            invoiceNumber: selectedBookingForCheckOut.bookingCode,
+            guestId: selectedBookingForCheckOut.guest.id,
+            membershipNumber: selectedBookingForCheckOut.guest.phone ? `MEM-${selectedBookingForCheckOut.guest.phone.replace(/\D/g, '').slice(-5)}` : 'MEM-10023',
+            tierName: guestTier.name,
+            module: 'HOTEL',
+            discountType: discountCalc.discountType,
+            discountValue: discountCalc.discountValue,
+            actualDiscountAmount: discountCalc.discountAmount,
+            subtotalBeforeDiscount: fin.roomCharges,
+            eligibleItemsSummary: `Room ${selectedBookingForCheckOut.room.number} nightly charges`,
+            appliedBy: 'Front Desk Cashier',
+          }).catch(() => {});
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    // Trigger backend membership qualification recalculation
+    if (selectedBookingForCheckOut.guest?.id) {
+      api.recalculateGuestMembership(selectedBookingForCheckOut.guest.id).catch(() => {});
+    }
 
     setSelectedBookingForCheckOut(null);
 
@@ -601,6 +700,14 @@ function CheckOutListContent() {
       {selectedBookingForCheckOut && (() => {
         const b = selectedBookingForCheckOut;
         const fin = getBookingFinancials(b);
+        const configuredTiers = getMembershipTiers();
+        const guestCompletedMetrics = calculateGuestCompletedNightsAndStays(b.guest, bookings);
+        const guestTier = determineEligibleTier(guestCompletedMetrics.completedNights, configuredTiers);
+        const discountCalc = calculateMembershipDiscount(guestTier, 'HOTEL', fin.roomCharges);
+        const effectiveDiscount = applyMembershipDiscount ? discountCalc.discountAmount : 0;
+        const netTotalCharges = Math.max(0, fin.totalCharges - effectiveDiscount);
+        const netBalanceDue = Math.max(0, fin.balanceDue - effectiveDiscount);
+        const memNumber = b.guest.phone ? `MEM-${b.guest.phone.replace(/\D/g, '').slice(-5)}` : 'MEM-10023';
 
         return (
           <div
@@ -631,6 +738,59 @@ function CheckOutListContent() {
               </div>
 
               <form onSubmit={handleConfirmCheckOut} className="p-4 space-y-3.5 text-xs">
+                {/* Guest Membership Information Card & Manual Checkbox */}
+                <div className="rounded-[3px] border border-slate-200 dark:border-border-default bg-slate-50/80 dark:bg-slate-900/40 p-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                        Guest Membership Profile
+                      </span>
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {b.guest.firstName} {b.guest.lastName}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-mono ml-2">
+                        {memNumber}
+                      </span>
+                    </div>
+
+                    <MembershipTierBadge tier={guestTier} size="xs" />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 text-xs">
+                    <div className="text-slate-600 dark:text-slate-300">
+                      Eligible Hotel Discount:{' '}
+                      <strong className="font-mono text-emerald-700 dark:text-emerald-400">
+                        {guestTier.hotelDiscountEnabled ? `${guestTier.hotelDiscountValue}%` : '0% (Standard)'}
+                      </strong>
+                      <span className="text-[10px] text-slate-400 ml-1">
+                        ({guestCompletedMetrics.completedNights} qualifying nights)
+                      </span>
+                    </div>
+
+                    {guestTier.hotelDiscountEnabled && guestTier.hotelDiscountValue > 0 ? (
+                      <label className="flex items-center gap-2 font-bold text-[#0B3D32] dark:text-emerald-400 cursor-pointer select-none bg-white dark:bg-slate-800 px-2 py-1 rounded border border-[#0B3D32]/30 dark:border-emerald-700/50 shadow-2xs">
+                        <input
+                          type="checkbox"
+                          checked={applyMembershipDiscount}
+                          onChange={(e) => {
+                            const willApply = e.target.checked;
+                            setApplyMembershipDiscount(willApply);
+                            const discountAmt = willApply ? discountCalc.discountAmount : 0;
+                            const newDue = Math.max(0, fin.balanceDue - discountAmt);
+                            setSettlementAmount(newDue);
+                          }}
+                          className="rounded text-[#0B3D32] focus:ring-[#0B3D32] w-3.5 h-3.5 cursor-pointer"
+                        />
+                        <span>Apply Membership Discount</span>
+                      </label>
+                    ) : (
+                      <span className="text-slate-400 italic text-[11px]">
+                        Regular tier &mdash; no hotel discount
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 {/* Billing Summary Box */}
                 <div className="border border-slate-200 dark:border-border-default rounded-[3px] bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-1.5 font-medium text-slate-700 dark:text-slate-300">
                   <div className="flex justify-between items-center text-xs">
@@ -639,13 +799,20 @@ function CheckOutListContent() {
                   </div>
 
                   <div className="flex justify-between items-center text-xs">
-                    <span>Restaurant & Room Orders</span>
+                    <span>Restaurant &amp; Room Orders</span>
                     <span className="font-mono font-semibold">Rs. {fin.cafeTotal.toLocaleString()}</span>
                   </div>
 
+                  {applyMembershipDiscount && effectiveDiscount > 0 && (
+                    <div className="flex justify-between items-center text-xs text-emerald-800 dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/60 p-1.5 rounded border border-emerald-200 dark:border-emerald-800">
+                      <span>{discountCalc.discountLabel}</span>
+                      <span className="font-mono">- Rs. {effectiveDiscount.toLocaleString()}</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200 dark:border-slate-800">
                     <span>Total Bill</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">Rs. {fin.totalCharges.toLocaleString()}</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">Rs. {netTotalCharges.toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between items-center text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
@@ -653,46 +820,157 @@ function CheckOutListContent() {
                     <span className="font-mono">Rs. {fin.totalPaid.toLocaleString()}</span>
                   </div>
 
+                  {b.bookingSource === 'CORPORATE' && (
+                    <div className="p-2 rounded bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-blue-900 dark:text-blue-300">
+                        <span>Billing Arrangement:</span>
+                        <span className="font-mono uppercase">{b.billingArrangement || b.paymentResponsibility || 'COMPANY_ACCOUNT'}</span>
+                      </div>
+                      {b.billingArrangement === 'SPLIT_BILLING' || b.paymentResponsibility === 'SPLIT' ? (
+                        <div className="text-[11px] space-y-0.5 text-blue-800 dark:text-blue-200 pt-1 border-t border-blue-200 dark:border-blue-800">
+                          <div className="flex justify-between">
+                            <span>Company Responsibility ({b.partnerName || 'Company'}):</span>
+                            <span className="font-mono font-bold">Rs. {fin.companyResponsibility.toLocaleString()} (Paid: Rs. {fin.companyPaid.toLocaleString()}, Due: Rs. {fin.companyBalanceDue.toLocaleString()})</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Guest Direct Responsibility:</span>
+                            <span className="font-mono font-bold">Rs. {fin.guestResponsibility.toLocaleString()} (Paid: Rs. {fin.guestPaid.toLocaleString()}, Due: Rs. {fin.guestBalanceDue.toLocaleString()})</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-blue-800 dark:text-blue-200">
+                          Responsible Entity: <strong className="font-semibold">{b.billingArrangement === 'GUEST_DIRECT' || b.paymentResponsibility === 'GUEST_PAYS' ? `${b.guest.firstName} ${b.guest.lastName}` : (b.partnerName || 'Corporate Partner')}</strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center text-sm font-bold pt-1.5 border-t border-slate-300 dark:border-slate-700">
                     <span className="text-slate-900 dark:text-white">Net Balance Due</span>
-                    <span className={cn('font-mono text-base', fin.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
-                      Rs. {fin.balanceDue.toLocaleString()}
+                    <span className={cn('font-mono text-base', netBalanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                      Rs. {netBalanceDue.toLocaleString()}
                     </span>
                   </div>
                 </div>
 
                 {/* Settlement Controls (if balance due > 0) */}
-                {fin.balanceDue > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">
-                        Payment Method
-                      </label>
-                      <select
-                        value={settlementMethod}
-                        onChange={(e) => setSettlementMethod(e.target.value as any)}
-                        className="w-full h-8 px-2.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
-                      >
-                        <option value="CASH">Cash</option>
-                        <option value="CARD">Credit/Debit Card</option>
-                        <option value="UPI_QR">Fonepay / QR Code</option>
-                        <option value="ESEWA_KHALTI">eSewa / Khalti</option>
-                        <option value="BANK_TRANSFER">Bank Transfer</option>
-                      </select>
-                    </div>
+                {netBalanceDue > 0 ? (
+                  <div className="space-y-2.5 pt-1">
+                    {/* For corporate stays: Separation of Bill Responsibility from Actual Payer */}
+                    {b.bookingSource === 'CORPORATE' && (
+                      <div className="p-2.5 rounded-[3px] border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-[#0B3D32] dark:text-emerald-300 uppercase tracking-wider">
+                            Payer &amp; Account Allocation
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            Physical payer vs responsible receivable account
+                          </span>
+                        </div>
 
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">
-                        Settlement Amount (Rs.)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={fin.balanceDue}
-                        value={settlementAmount}
-                        onChange={(e) => setSettlementAmount(Number(e.target.value))}
-                        className="w-full h-8 px-2.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-xs font-mono font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
-                      />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              Received From
+                            </label>
+                            <select
+                              value={settlementReceivedFrom}
+                              onChange={(e) => {
+                                const val = e.target.value as 'COMPANY' | 'GUEST_EMPLOYEE' | 'OTHER';
+                                setSettlementReceivedFrom(val);
+                                if (val === 'COMPANY') {
+                                  setSettlementPayerName(b.partnerName || 'Corporate Company');
+                                  setSettlementAllocatedTo('COMPANY_ACCOUNT');
+                                } else if (val === 'GUEST_EMPLOYEE') {
+                                  setSettlementPayerName(`${b.guest.firstName} ${b.guest.lastName}`.trim());
+                                } else {
+                                  setSettlementPayerName('');
+                                }
+                              }}
+                              className="w-full h-7 px-2 border border-emerald-300 rounded text-xs font-semibold bg-white text-slate-800"
+                            >
+                              <option value="COMPANY">Company ({b.partnerName ? b.partnerName.slice(0, 18) + '...' : 'Company'})</option>
+                              <option value="GUEST_EMPLOYEE">Guest / Employee</option>
+                              <option value="OTHER">Other Payer</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              Actual Payer Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={settlementPayerName}
+                              onChange={(e) => setSettlementPayerName(e.target.value)}
+                              placeholder="Name of person paying"
+                              className="w-full h-7 px-2 border border-emerald-300 rounded text-xs font-semibold bg-white text-slate-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              Allocated Account
+                            </label>
+                            <select
+                              value={settlementAllocatedTo}
+                              onChange={(e) => setSettlementAllocatedTo(e.target.value as 'COMPANY_ACCOUNT' | 'GUEST_FOLIO')}
+                              className="w-full h-7 px-2 border border-emerald-300 rounded text-xs font-bold bg-white text-[#0B3D32]"
+                            >
+                              <option value="COMPANY_ACCOUNT">Company Account (Credits Company Balance)</option>
+                              <option value="GUEST_FOLIO">Guest Folio (Personal Direct Payment)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              Transaction Reference
+                            </label>
+                            <input
+                              type="text"
+                              value={settlementTxRef}
+                              onChange={(e) => setSettlementTxRef(e.target.value)}
+                              placeholder="Voucher #, Bank Ref, Cheque #"
+                              className="w-full h-7 px-2 border border-emerald-300 rounded text-xs font-mono bg-white text-slate-800"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">
+                          Payment Method
+                        </label>
+                        <select
+                          value={settlementMethod}
+                          onChange={(e) => setSettlementMethod(e.target.value as any)}
+                          className="w-full h-8 px-2.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer"
+                        >
+                          <option value="CASH">Cash</option>
+                          <option value="CARD">Credit/Debit Card</option>
+                          <option value="UPI_QR">Fonepay / QR Code</option>
+                          <option value="ESEWA_KHALTI">eSewa / Khalti</option>
+                          <option value="BANK_TRANSFER">Bank Transfer</option>
+                          <option value="CHEQUE">Cheque</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">
+                          Settlement Amount (Rs.)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={netBalanceDue}
+                          value={settlementAmount}
+                          onChange={(e) => setSettlementAmount(Number(e.target.value))}
+                          className="w-full h-8 px-2.5 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-xs font-mono font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32]"
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : (

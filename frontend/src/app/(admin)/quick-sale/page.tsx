@@ -35,11 +35,15 @@ import {
   Table2,
   ExternalLink,
   Send,
+  Award,
 } from 'lucide-react';
 import { RestaurantReceiptModal, ReceiptModalProps, ReceiptItem } from '@/components/common/RestaurantReceiptModal';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { cn, formatCurrency } from '@/lib/utils';
+import { getMembershipTiers, calculateMembershipDiscount } from '@/lib/loyalty';
+import { MembershipTierBadge } from '@/components/membership/MembershipTierBadge';
+import { DEFAULT_GUESTS } from '../reservations/reservationsData';
 import {
   POSProductData,
   QuickSalePayload,
@@ -216,6 +220,7 @@ export default function QuickSalePage() {
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerNameInput, setCustomerNameInput] = useState<string>('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState<string>('');
+  const [applyMembershipDiscount, setApplyMembershipDiscount] = useState<boolean>(false);
 
 
   // Charge to Room Verification State (for hotel guests at counter)
@@ -2455,6 +2460,66 @@ export default function QuickSalePage() {
           BOTTOM SECTION: BILLING PANEL (EXACT DESIGN MATCHING USER SCREENSHOT)
           =================================================================== */}
       <div className="border border-slate-200 dark:border-slate-800 rounded-md p-3.5 bg-white dark:bg-[#071F1A] shadow-2xs space-y-3">
+        {/* Membership Tier Banner & Manual Discount Checkbox */}
+        {(() => {
+          const query = (customerPhone || customerName || selectedCreditCustomer?.phone || selectedCreditCustomer?.name || '').trim();
+          if (!query) return null;
+          const tiers = getMembershipTiers();
+          const lower = query.toLowerCase();
+          const matchedProfile = DEFAULT_GUESTS.find(g =>
+            (g.phone && g.phone.includes(query)) ||
+            (g.name && g.name.toLowerCase().includes(lower))
+          );
+          const currentTier = matchedProfile?.vipTier
+            ? (tiers.find(t => t.code.toUpperCase() === matchedProfile.vipTier?.toUpperCase()) || tiers.find(t => t.code === 'REGULAR'))
+            : (selectedCreditCustomer ? (tiers.find(t => t.code === 'GOLD') || tiers[0]) : (tiers.find(t => t.code === 'REGULAR') || tiers[0]));
+
+          const isEligible = Boolean(currentTier && currentTier.restaurantDiscountEnabled && currentTier.restaurantDiscountValue > 0);
+
+          return (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 text-xs">
+              <div className="flex items-center gap-2">
+                <MembershipTierBadge
+                  tierCode={currentTier?.code || 'REGULAR'}
+                  tierName={currentTier?.name || 'Regular Member'}
+                  size="xs"
+                />
+                <span className="text-slate-600 dark:text-slate-400">
+                  Eligible Dining Discount:{' '}
+                  <strong className="font-mono text-emerald-700 dark:text-emerald-400">
+                    {isEligible ? `${currentTier?.restaurantDiscountValue}%` : '0% (Standard)'}
+                  </strong>
+                </span>
+              </div>
+
+              {isEligible ? (
+                <label className="flex items-center gap-1.5 font-bold text-[#0B3D32] dark:text-emerald-400 cursor-pointer select-none bg-white dark:bg-[#061D18] px-2.5 py-1 rounded border border-[#0B3D32]/30 shadow-2xs">
+                  <input
+                    type="checkbox"
+                    checked={applyMembershipDiscount}
+                    onChange={(e) => {
+                      const willApply = e.target.checked;
+                      setApplyMembershipDiscount(willApply);
+                      if (willApply && currentTier) {
+                        handleDisPercentChange(currentTier.restaurantDiscountValue.toString());
+                      } else {
+                        handleDisPercentChange('');
+                        handleDisAmtChange('');
+                      }
+                    }}
+                    className="rounded text-[#0B3D32] focus:ring-[#0B3D32] w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span>Apply Membership Discount</span>
+                </label>
+              ) : (
+                <span className="text-slate-400 italic text-[11px]">
+                  Regular member &mdash; no dining discount
+                </span>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Row 1: Basic Total | Dis % | Dis Amt | Packing | Round off | Net Amount | Paid Amt. */}
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
           <div>

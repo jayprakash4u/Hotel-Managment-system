@@ -43,7 +43,15 @@ public class Reservation : BaseEntity
     }
 
     public string PaymentStatus { get; set; } = "UNPAID"; // UNPAID, PARTIAL, PAID, REFUNDED
-    public string Source { get; set; } = "DIRECT"; // DIRECT, ONLINE, OTA, WALK_IN
+    public string Source { get; set; } = "DIRECT"; // DIRECT, WALK_IN, CORPORATE, TRAVEL_AGENT, INDIVIDUAL_REFERRAL
+    public string? PartnerId { get; set; }
+    public string? PartnerType { get; set; } // CORPORATE, TRAVEL_AGENT, INDIVIDUAL_REFERRAL
+    public string? BillingArrangement { get; set; } // COMPANY_ACCOUNT, GUEST_DIRECT, SPLIT_BILLING
+    public string? PaymentResponsibility { get; set; } // COMPANY_PAYS, GUEST_PAYS, SPLIT
+    public double SplitCompanyAmount { get; set; } = 0;
+    public double SplitGuestAmount { get; set; } = 0;
+    public double NegotiatedRate { get; set; } = 0;
+    public double CalculatedCommission { get; set; } = 0;
     public string? SpecialRequests { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

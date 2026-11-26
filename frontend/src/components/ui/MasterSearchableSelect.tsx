@@ -82,7 +82,12 @@ export default function MasterSearchableSelect({
   // Current display label
   const displayLabel = useMemo(() => {
     if (!value) return '';
-    const matched = normalizedOptions.find((o) => o.value === value);
+    const matched = normalizedOptions.find(
+      (o) =>
+        o.value === value ||
+        o.label.toLowerCase() === value.toLowerCase() ||
+        (o.subtext && o.subtext.toLowerCase() === value.toLowerCase())
+    );
     return matched ? matched.label : value;
   }, [normalizedOptions, value]);
 

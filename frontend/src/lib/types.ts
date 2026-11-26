@@ -122,6 +122,8 @@ export interface GuestData {
   idNumber: string;
   idType: string;
   country: string;
+  countryId?: string | null;
+  nationality?: string | null;
   vipTier: VipTierType;
   loyaltyPoints: number;
   preferences?: string | null;
@@ -3821,5 +3823,98 @@ export interface InventoryValuationResponse {
   departmentBreakdown: ValuationDepartmentBreakdown[];
   items: ValuationItem[];
 }
+
+export interface CountryMasterItem {
+  id: string;
+  countryCode: string;
+  countryName: string;
+  nationalityName: string;
+  isActive: boolean;
+  displayOrder?: number;
+}
+
+export interface MembershipTierItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  minNights: number;
+  hotelDiscountEnabled: boolean;
+  hotelDiscountType: 'PERCENTAGE' | 'FIXED';
+  hotelDiscountValue: number;
+  hotelMaxDiscount?: number | null;
+  restaurantDiscountEnabled: boolean;
+  restaurantDiscountType: 'PERCENTAGE' | 'FIXED';
+  restaurantDiscountValue: number;
+  restaurantMaxDiscount?: number | null;
+  color: string;
+  benefitsJson: string;
+  isActive: boolean;
+  displayOrder: number;
+}
+
+export interface MembershipHistoryItem {
+  id: string;
+  oldTierName: string;
+  newTierName: string;
+  qualifyingNights: number;
+  reason: string;
+  performedBy: string;
+  createdAt: string;
+}
+
+export interface GuestMembershipDetails {
+  id: string;
+  guestId: string;
+  guestName: string;
+  membershipNumber: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  memberSince: string;
+  currentTier: MembershipTierItem;
+  nextTier?: MembershipTierItem | null;
+  lifetimeCompletedStays: number;
+  lifetimeCompletedNights: number;
+  qualifyingNights: number;
+  nightsNeededForNext: number;
+  progressPercent: number;
+  history: MembershipHistoryItem[];
+}
+
+export interface CalculateDiscountRequestPayload {
+  guestId?: string;
+  membershipNumber?: string;
+  module: 'HOTEL' | 'RESTAURANT';
+  eligibleSubtotal: number;
+}
+
+export interface CalculateDiscountResponseData {
+  isEligible: boolean;
+  membershipNumber: string;
+  tierName: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  calculatedDiscountAmount: number;
+  subtotalAfterDiscount: number;
+  message: string;
+}
+
+export interface RecordDiscountPayload {
+  billId?: string;
+  invoiceNumber?: string;
+  reservationId?: string;
+  orderId?: string;
+  guestId: string;
+  membershipNumber: string;
+  tierName: string;
+  module: 'HOTEL' | 'RESTAURANT';
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  actualDiscountAmount: number;
+  subtotalBeforeDiscount: number;
+  eligibleItemsSummary?: string;
+  appliedBy: string;
+}
+
+
 
 

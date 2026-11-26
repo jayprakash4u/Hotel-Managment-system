@@ -214,6 +214,7 @@ export function getTabInfoForUrl(
     '/': { title: 'Dashboard', iconName: 'LayoutDashboard', closable: false },
     '/hotel-management': { title: 'Hotel Overview', iconName: 'LayoutDashboard', closable: true },
     '/front-desk': { title: 'Room Board', iconName: 'BedDouble', closable: true },
+    '/room-status': { title: 'Room Status', iconName: 'ClipboardList', closable: true },
     '/room-board': { title: 'Room Board', iconName: 'BedDouble', closable: true },
     '/booking': { title: 'Book Now', iconName: 'CalendarPlus', closable: true },
     '/reservations': { title: 'Room Bookings', iconName: 'CalendarCheck', closable: true },

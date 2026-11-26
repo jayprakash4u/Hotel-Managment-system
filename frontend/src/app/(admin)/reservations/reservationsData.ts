@@ -31,9 +31,15 @@ export interface PaymentEntry {
   receiptNo: string;
   date: string;
   amount: number;
-  method: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER';
+  method: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER' | 'CHEQUE' | 'OTHER';
   type: 'ADVANCE' | 'PARTIAL' | 'SETTLEMENT';
   notes?: string;
+  // Separation of Bill Responsibility vs Actual Payer
+  receivedFrom?: 'COMPANY' | 'GUEST_EMPLOYEE' | 'OTHER';
+  payerName?: string;
+  allocatedTo?: 'COMPANY_ACCOUNT' | 'GUEST_FOLIO';
+  transactionReference?: string;
+  recordedBy?: string;
 }
 
 export interface PastBookingRecord {
@@ -54,6 +60,40 @@ export interface AccompanyingGuest {
   idNumber?: string;
 }
 
+// Registered Guest Interface for search/autocomplete across Front Desk and Booking
+export interface RegisteredGuest {
+  id: string;
+  code?: string;
+  title?: string;
+  firstName?: string;
+  lastName?: string;
+  name: string;
+  phone: string;
+  email?: string;
+  country?: string;
+  countryId?: string;
+  nationality?: string;
+  address?: string;
+  city?: string;
+  idType?: string;
+  idNumber?: string;
+  vipTier?: string;
+  gender?: string;
+}
+
+export const DEFAULT_GUESTS: RegisteredGuest[] = [
+  { id: 'gst-944', code: 'P944', title: 'Dr.', firstName: 'Abhishek', lastName: 'G', name: 'Dr. Abhishek G', phone: '9898777777', email: 'r@mai.com', country: 'India', gender: 'M', vipTier: 'VIP' },
+  { id: 'gst-1108', code: 'P1108', title: 'Miss', firstName: 'Kate', lastName: 'T', name: 'Miss Kate T', phone: '54566486', email: 'kate.t@gmail.com', country: 'United Kingdom', gender: 'F', vipTier: 'PLATINUM' },
+  { id: 'gst-1388', code: 'P1388', title: 'Mr.', firstName: 'Adarsh', lastName: 'Nair', name: 'Mr. Adarsh Nair', phone: '+94456789088', email: 'rahul@gmail.com', country: 'Australia', gender: 'M', vipTier: 'GOLD' },
+  { id: 'gst-1395', code: 'P1395', title: 'Mr.', firstName: 'Rahul', lastName: 'Pratap', name: 'Mr. Rahul Pratap', phone: '+94456789088', email: 'AmalunaResorts@gm', country: 'Sri Lanka', gender: 'M', vipTier: 'SILVER' },
+  { id: 'gst-1399', code: 'P1399', title: 'Mr.', firstName: 'Mohamed', lastName: 'Ali', name: 'Mr. Mohamed Ali', phone: '+94456789088', email: 'rahul@gmail.com', country: 'India', gender: 'M', vipTier: 'MEMBER' },
+  { id: 'gst-101', code: 'P101', title: 'Mr.', firstName: 'Ram', lastName: 'Sharma', name: 'Ram Sharma', phone: '+977 9841234567', email: 'ram.sharma@gmail.com', country: 'Nepal', address: 'New Baneshwor, Ward 10', city: 'Kathmandu', idType: 'Citizenship', idNumber: '27-01-72-0451', gender: 'M', vipTier: 'GOLD' },
+  { id: 'gst-102', code: 'P102', title: 'Ms.', firstName: 'Priya', lastName: 'Sharma', name: 'Priya Sharma', phone: '+977 9801987654', email: 'priya.sharma@nepalcorp.com', country: 'Nepal', address: 'Jhamsikhel, Lalitpur', city: 'Lalitpur', idType: 'National ID', idNumber: '102-4589-99', gender: 'F', vipTier: 'PLATINUM' },
+  { id: 'gst-103', code: 'P103', title: 'Mr.', firstName: 'Bikash', lastName: 'Gurung', name: 'Bikash Gurung', phone: '+977 9856012345', email: 'bikash.gurung@outlook.com', country: 'Nepal', address: 'Lakeside 6, Pokhara', city: 'Pokhara', idType: 'Driving License', idNumber: 'DL-06-88741', gender: 'M', vipTier: 'SILVER' },
+  { id: 'gst-104', code: 'P104', title: 'Mr.', firstName: 'Siddharth', lastName: 'Shrestha', name: 'Siddharth Shrestha', phone: '+977 9813245678', email: 'siddharth@shresthait.com', country: 'Nepal', address: 'New Road, Kathmandu', city: 'Kathmandu', idType: 'Citizenship', idNumber: '27-02-74-8841', gender: 'M', vipTier: 'MEMBER' },
+  { id: 'gst-105', code: 'P105', title: 'Mr.', firstName: 'Aarav', lastName: 'Karki', name: 'Aarav Karki', phone: '+977 9841214567', email: 'aarav.karki@gmail.com', country: 'Nepal', address: 'Maharajgunj, Ward 3', city: 'Kathmandu', idType: 'Passport', idNumber: 'PP-9901452', gender: 'M', vipTier: 'VIP' },
+];
+
 export interface RoomBooking {
   id: string;
   bookingCode: string; // e.g. BK-1001
@@ -68,6 +108,8 @@ export interface RoomBooking {
     idType: string;
     idNumber: string;
     country: string;
+    countryId?: string;
+    nationality?: string;
     vipTier: 'STANDARD' | 'SILVER' | 'GOLD' | 'PLATINUM';
     // Extended KYC & verification fields
     idIssueDate?: string;
@@ -109,6 +151,17 @@ export interface RoomBooking {
   checkInTime?: string;
   securityDeposit?: number;
   bookingAgent?: string;
+  bookingSource?: 'DIRECT_WALKIN' | 'DIRECT' | 'WALK_IN' | 'CORPORATE' | 'TRAVEL_AGENT' | 'INDIVIDUAL_REFERRAL' | 'OTA' | 'OTHER';
+  partnerId?: string;
+  partnerCode?: string;
+  partnerName?: string;
+  partnerType?: 'CORPORATE' | 'TRAVEL_AGENT' | 'INDIVIDUAL_REFERRAL';
+  paymentResponsibility?: 'COMPANY_PAYS' | 'GUEST_PAYS' | 'SPLIT' | 'COMPANY_ACCOUNT' | 'GUEST_DIRECT' | 'SPLIT_BILLING';
+  billingArrangement?: 'COMPANY_ACCOUNT' | 'GUEST_DIRECT' | 'SPLIT_BILLING' | 'COMPANY_PAYS' | 'GUEST_PAYS' | 'SPLIT';
+  splitCompanyAmount?: number;
+  splitGuestAmount?: number;
+  negotiatedRate?: number;
+  calculatedCommission?: number;
 }
 
 export interface AvailableRoomOption {
@@ -362,8 +415,13 @@ export function performCheckOut(
   bookingId: string,
   params?: {
     settlementAmount?: number;
-    paymentMethod?: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER';
+    paymentMethod?: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER' | 'CHEQUE' | 'OTHER';
     housekeepingNotes?: string;
+    receivedFrom?: 'COMPANY' | 'GUEST_EMPLOYEE' | 'OTHER';
+    payerName?: string;
+    allocatedTo?: 'COMPANY_ACCOUNT' | 'GUEST_FOLIO';
+    transactionReference?: string;
+    notes?: string;
   }
 ): { updatedBookings: RoomBooking[]; checkedOutBooking: RoomBooking | undefined } {
   let checkedOut: RoomBooking | undefined;
@@ -380,7 +438,13 @@ export function performCheckOut(
         amount: params.settlementAmount,
         method: params.paymentMethod || 'CASH',
         type: 'SETTLEMENT',
-        notes: 'Final settlement payment collected at Check-in Desk',
+        receivedFrom: params.receivedFrom || (b.bookingSource === 'CORPORATE' ? 'GUEST_EMPLOYEE' : undefined),
+        payerName: params.payerName || `${b.guest.firstName} ${b.guest.lastName}`,
+        allocatedTo: params.allocatedTo || (b.bookingSource === 'CORPORATE' && (b.billingArrangement === 'COMPANY_ACCOUNT' || b.paymentResponsibility === 'COMPANY_PAYS') ? 'COMPANY_ACCOUNT' : 'GUEST_FOLIO'),
+        transactionReference: params.transactionReference,
+        notes: params.notes || (params.payerName && params.allocatedTo === 'COMPANY_ACCOUNT'
+          ? `Settlement received from ${params.payerName} credited to ${b.partnerName || 'Company Account'}`
+          : 'Final settlement payment collected at Check-out Desk'),
       });
     }
 
@@ -600,6 +664,53 @@ export function getBookingFinancials(booking: RoomBooking) {
   const totalPaid = (booking.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
   const balanceDue = Math.max(0, totalCharges - totalPaid);
 
+  // Billing arrangement & responsibility allocations
+  const arrangement =
+    booking.billingArrangement ||
+    booking.paymentResponsibility ||
+    (booking.bookingSource === 'CORPORATE' ? 'COMPANY_ACCOUNT' : 'GUEST_DIRECT');
+
+  let companyResponsibility = 0;
+  let guestResponsibility = 0;
+
+  if (booking.bookingSource === 'CORPORATE') {
+    if (arrangement === 'COMPANY_ACCOUNT' || arrangement === 'COMPANY_PAYS') {
+      companyResponsibility = totalCharges;
+      guestResponsibility = 0;
+    } else if (arrangement === 'GUEST_DIRECT' || arrangement === 'GUEST_PAYS') {
+      companyResponsibility = 0;
+      guestResponsibility = totalCharges;
+    } else if (arrangement === 'SPLIT_BILLING' || arrangement === 'SPLIT') {
+      companyResponsibility =
+        booking.splitCompanyAmount !== undefined ? booking.splitCompanyAmount : roomCharges;
+      guestResponsibility =
+        booking.splitGuestAmount !== undefined ? booking.splitGuestAmount : cafeTotal;
+    }
+  } else {
+    guestResponsibility = totalCharges;
+  }
+
+  // Calculate payments allocated to company account vs guest folio
+  let companyPaid = 0;
+  let guestPaid = 0;
+
+  (booking.payments || []).forEach((p) => {
+    if (p.allocatedTo === 'COMPANY_ACCOUNT') {
+      companyPaid += p.amount || 0;
+    } else if (p.allocatedTo === 'GUEST_FOLIO') {
+      guestPaid += p.amount || 0;
+    } else {
+      if (arrangement === 'COMPANY_ACCOUNT' || arrangement === 'COMPANY_PAYS') {
+        companyPaid += p.amount || 0;
+      } else {
+        guestPaid += p.amount || 0;
+      }
+    }
+  });
+
+  const companyBalanceDue = Math.max(0, companyResponsibility - companyPaid);
+  const guestBalanceDue = Math.max(0, guestResponsibility - guestPaid);
+
   return {
     roomCharges,
     cafeTotal,
@@ -607,6 +718,13 @@ export function getBookingFinancials(booking: RoomBooking) {
     totalPaid,
     balanceDue,
     isSettled: balanceDue === 0,
+    companyResponsibility,
+    guestResponsibility,
+    companyPaid,
+    guestPaid,
+    companyBalanceDue,
+    guestBalanceDue,
+    arrangement,
   };
 }
 
@@ -722,7 +840,7 @@ export interface ConsolidatedPaymentRecord {
   roomNumber: string;
   guestName: string;
   amount: number;
-  method: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER';
+  method: 'CASH' | 'CARD' | 'UPI_QR' | 'ESEWA_KHALTI' | 'BANK_TRANSFER' | 'CHEQUE' | 'OTHER';
   type: 'ADVANCE' | 'PARTIAL' | 'SETTLEMENT';
   notes?: string;
 }

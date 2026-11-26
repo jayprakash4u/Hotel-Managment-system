@@ -51,6 +51,7 @@ import {
   doDatesOverlap,
 } from '../reservations/reservationsData';
 import { useMasterOptions } from '@/lib/mastersData';
+import { useCountryMaster } from '@/lib/countryMasterData';
 import MasterSearchableSelect from '@/components/ui/MasterSearchableSelect';
 
 // Form Room Row for multi-room check-in
@@ -218,9 +219,25 @@ function CheckInDeskContent() {
   const [guestName, setGuestName] = useState<string>('Ram Sharma');
   const [guestPhone, setGuestPhone] = useState<string>('+977 9841234567');
   const [guestEmail, setGuestEmail] = useState<string>('ram.sharma@gmail.com');
-  const [guestNationality, setGuestNationality] = useState<string>('');
+  const countryMaster = useCountryMaster();
+  const [guestCountryId, setGuestCountryId] = useState<string>('c-np');
+  const [guestNationality, setGuestNationality] = useState<string>('Nepali');
+  const [guestCountryName, setGuestCountryName] = useState<string>('Nepal');
   const [guestAddress, setGuestAddress] = useState<string>('New Baneshwor, Kathmandu');
   const [guestCity, setGuestCity] = useState<string>('Kathmandu');
+
+  const handleNationalityChange = (val: string) => {
+    const match = countryMaster.findCountry(val);
+    if (match) {
+      setGuestCountryId(match.id);
+      setGuestNationality(match.nationalityName);
+      setGuestCountryName(match.countryName);
+    } else {
+      setGuestCountryId(val);
+      setGuestNationality(val);
+      setGuestCountryName(val);
+    }
+  };
 
   // KYC Fields
   const [idType, setIdType] = useState<string>('');
@@ -536,7 +553,27 @@ function CheckInDeskContent() {
     setGuestPhone(b.guest.phone || '');
     setGuestEmail(b.guest.email || '');
     setGuestAddress(b.guest.address || 'Kathmandu, Nepal');
-    setGuestNationality(b.guest.country || '');
+    if (b.guest.countryId) {
+      setGuestCountryId(b.guest.countryId);
+      const match = countryMaster.findCountry(b.guest.countryId);
+      if (match) {
+        setGuestNationality(match.nationalityName);
+        setGuestCountryName(match.countryName);
+      }
+    } else if (b.guest.country || b.guest.nationality) {
+      const query = b.guest.nationality || b.guest.country || '';
+      const match = countryMaster.findCountry(query);
+      if (match) {
+        setGuestCountryId(match.id);
+        setGuestNationality(match.nationalityName);
+        setGuestCountryName(match.countryName);
+      } else {
+        setGuestNationality(query);
+        setGuestCountryName(b.guest.country || query);
+      }
+    } else {
+      setGuestNationality('');
+    }
     if (b.guest.city) setGuestCity(b.guest.city);
     if (b.guest.idType && b.guest.idType !== 'Citizenship') {
       setIdType(b.guest.idType);
@@ -704,7 +741,9 @@ function CheckInDeskContent() {
     setGuestPhone('');
     setGuestEmail('');
     setGuestAddress('');
+    setGuestCountryId('');
     setGuestNationality('');
+    setGuestCountryName('');
     setIdType('');
     setIdNumber('');
     setIdDocumentImage(null);
@@ -812,7 +851,9 @@ function CheckInDeskContent() {
           email: guestEmail.trim() || `${guestPhone.trim()}@guest.hotel`,
           address: guestAddress,
           city: guestCity,
-          country: guestNationality,
+          country: guestCountryName || guestNationality || 'Nepal',
+          countryId: guestCountryId || undefined,
+          nationality: guestNationality || 'Nepali',
           idType,
           idNumber: idNumber.trim(),
           idIssuePlace,
@@ -872,7 +913,9 @@ function CheckInDeskContent() {
           idDocumentImages: idDocumentPhotos.map((p) => p.dataUrl),
           address: guestAddress,
           city: guestCity,
-          country: guestNationality,
+          country: guestCountryName || guestNationality || 'Nepal',
+          countryId: guestCountryId || null,
+          nationality: guestNationality || 'Nepali',
           purposeOfVisit,
           arrivedFrom,
           proceedingTo,
@@ -1331,21 +1374,18 @@ function CheckInDeskContent() {
                   <div>
                     <MasterSearchableSelect
                       label="Nationality"
-                      value={guestNationality}
-                      onChange={setGuestNationality}
-                      options={natMaster.activeItems.map((i) => ({
-                        label: i.name,
-                        value: i.name,
-                        subtext: i.description,
-                      }))}
+                      value={guestCountryId || guestNationality}
+                      onChange={handleNationalityChange}
+                      options={countryMaster.options}
                       placeholder="Select Nationality"
                       searchPlaceholder="Search nationality / country..."
-                      onAddNew={(val, desc) => {
-                        natMaster.addItem(val, desc);
-                        toast.success('Nationality Added', `"${val}" added to Nationality masters.`);
-                      }}
-                      addNewTitle="Nationality"
+                      allowClear={true}
                     />
+                    {countryMaster.error && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                        {countryMaster.error}
+                      </p>
+                    )}
                   </div>
                 </div>
 

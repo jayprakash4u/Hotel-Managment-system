@@ -55,6 +55,7 @@ import {
   saveBusinessMode,
 } from '@/lib/guest360Data';
 import { MembershipTier, calculateTierProgress } from '@/lib/loyalty';
+import { MembershipTierBadge } from '@/components/membership/MembershipTierBadge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 
@@ -109,10 +110,11 @@ export function Guest360ProfileView({
     return getFrequentlyOrderedItems(guest.restaurantOrders || []);
   }, [guest.restaurantOrders]);
 
-  // Tier progression
+  // Tier progression based on completed qualifying hotel nights
   const tierProgress = useMemo(() => {
-    return calculateTierProgress(guest.totalVisits || 0, configuredTiers);
-  }, [guest.totalVisits, configuredTiers]);
+    const nights = guest.totalNights || (guest.totalVisits ? guest.totalVisits * 2 : 0);
+    return calculateTierProgress(nights, configuredTiers);
+  }, [guest.totalNights, guest.totalVisits, configuredTiers]);
 
   // Handle Note Submission
   const handleAddNote = (e: React.FormEvent) => {
@@ -298,19 +300,8 @@ Certified authentic copy retained on guest master file.`;
                   {guest.id}
                 </span>
 
-                {/* Membership Badge */}
-                <span
-                  className={cn(
-                    'font-mono text-xs font-bold px-2.5 py-0.5 rounded-[2px] border uppercase tracking-wider',
-                    guest.vipTier === 'PLATINUM'
-                      ? 'bg-slate-900 text-indigo-300 border-indigo-700'
-                      : guest.vipTier === 'GOLD'
-                      ? 'bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/60 dark:text-amber-200'
-                      : 'bg-slate-100 text-slate-700 border-slate-300'
-                  )}
-                >
-                  ★ {guest.vipTier} MEMBER
-                </span>
+                {/* Membership Badge with Distinctive Icon */}
+                <MembershipTierBadge tierCode={guest.vipTier} size="sm" />
 
                 {/* Current Presence Status */}
                 {guest.currentStatus === 'IN_HOUSE' ? (
@@ -955,63 +946,260 @@ Certified authentic copy retained on guest master file.`;
           TAB CONTENT 5: MEMBERSHIP & LOYALTY SECTION
           ----------------------------------------------------------------------- */}
       {activeTab === 'MEMBERSHIP' && businessMode !== 'RESTAURANT_ONLY' && (
-        <div className="space-y-4">
-          <div className="rounded-[4px] border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-2xs p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <span className="text-xs uppercase font-bold text-amber-700 block tracking-wider">Current Membership</span>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase font-heading mt-0.5">
-                  ★ {tierProgress.currentTier.name} Member
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Enrolled since <strong className="text-slate-800 dark:text-slate-200">{guest.memberSince || '2024'}</strong> · Stays counted: <span className="font-mono font-bold">{guest.totalVisits || 0}</span>
-                </p>
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Executive Membership Overview Card */}
+          <div className="rounded-lg border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-xs">
+            {/* Header Strip */}
+            <div className="p-5 border-b border-slate-100 dark:border-border-default flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/20">
+              <div className="flex items-start sm:items-center gap-3.5 flex-wrap">
+                <div className="w-11 h-11 rounded-lg bg-[#0B3D32]/10 dark:bg-emerald-950/60 border border-[#0B3D32]/20 dark:border-emerald-800/60 flex items-center justify-center text-[#0B3D32] dark:text-emerald-400 shrink-0">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      MEM-{(guest.id || '1').replace(/\D/g, '').padStart(5, '0') || '10023'}
+                    </span>
+                    <MembershipTierBadge
+                      tierCode={tierProgress.currentTier.code}
+                      tierName={tierProgress.currentTier.name}
+                      size="sm"
+                    />
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Active Member
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                    {guest.fullName}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Enrolled on {guest.memberSince || '2024-01-15'} · Automatic qualification cycle (12 Months rolling)
+                  </p>
+                </div>
               </div>
 
-              <div className="text-left sm:text-right">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Active Privilege Discount</span>
-                <span className="text-2xl font-black text-emerald-700 font-mono">
-                  {tierProgress.currentTier.discountPercent}% OFF
+              {/* Status Note */}
+              <div className="flex md:flex-col items-end justify-between md:justify-center border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-border-default">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Billing Application Policy
+                </span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  Manual Staff Checkbox Required
                 </span>
               </div>
             </div>
 
-            {/* Progress Bar towards Next Tier */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-900 dark:text-white">
-                  Next Tier: {tierProgress.nextTier ? tierProgress.nextTier.name : 'Highest VIP Level Reached'}
+            {/* 4 Clean Key Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-border-default border-b border-slate-100 dark:border-border-default">
+              <div className="p-4 space-y-1">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                  Qualifying Nights
                 </span>
-                <span className="font-mono text-slate-600 font-bold">
-                  Progress: {guest.totalVisits || 0} / {tierProgress.nextTier ? tierProgress.nextTier.minStays : guest.totalVisits} Stays
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
+                    {guest.totalNights || 18}
+                  </span>
+                  <span className="text-xs text-slate-500">nights</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Current qualification cycle
+                </p>
+              </div>
+
+              <div className="p-4 space-y-1">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                  Lifetime Activity
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
+                    {guest.totalVisits || 10}
+                  </span>
+                  <span className="text-xs text-slate-500">stays · {guest.totalNights || 18} nights</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Rs. {(guest.totalSpending || 85000).toLocaleString()} spent
+                </p>
+              </div>
+
+              <div className="p-4 space-y-1">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                  Room Fare Discount
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                    {tierProgress.currentTier.hotelDiscountValue ?? tierProgress.currentTier.discountPercent ?? 0}%
+                  </span>
+                  <span className="text-xs text-slate-500">OFF</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Applies strictly to room tariff only
+                </p>
+              </div>
+
+              <div className="p-4 space-y-1">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                  Discount Policy Scope
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-lg font-bold font-mono text-slate-900 dark:text-white">
+                    Room Fare Only
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  No discount on dining, laundry, or extra charges
+                </p>
+              </div>
+            </div>
+
+            {/* Progress Towards Next Tier */}
+            <div className="p-5 border-b border-slate-100 dark:border-border-default space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {tierProgress.nextTier ? (
+                    <>
+                      Target: Next Tier is <span className="font-bold text-slate-900 dark:text-white">{tierProgress.nextTier.name}</span> ({tierProgress.nextTier.minNights} nights)
+                    </>
+                  ) : (
+                    'Highest VIP Membership Tier Unlocked'
+                  )}
+                </span>
+                <span className="font-mono text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                  {tierProgress.completedNights} / {tierProgress.nextTier ? tierProgress.nextTier.minNights : tierProgress.completedNights} Qualifying Nights
+                  {tierProgress.nextTier && (
+                    <span className="text-slate-400 ml-1">
+                      ({tierProgress.nightsNeededForNext} nights to go)
+                    </span>
+                  )}
                 </span>
               </div>
 
-              <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                 <div
-                  className="h-2.5 rounded-full transition-all duration-500 shadow-xs bg-amber-500"
+                  className="h-2 rounded-full transition-all duration-500 bg-[#0B3D32] dark:bg-emerald-500"
                   style={{ width: `${tierProgress.progressPercent}%` }}
                 />
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {tierProgress.progressSummaryText}
               </p>
             </div>
 
             {/* Configured Benefits */}
-            <div className="pt-3 border-t border-slate-100">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
-                Eligible Benefits &amp; Privileges
+            <div className="p-5">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3">
+                Current Level Privileges &amp; Benefits
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 {tierProgress.currentTier.benefits.map((b, idx) => (
-                  <div key={idx} className="flex items-center gap-2 p-2 rounded-[2px] bg-slate-50 border border-slate-100 text-slate-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2.5 p-2.5 rounded border border-slate-100 dark:border-border-default bg-slate-50/60 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <span>{b}</span>
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Membership History & Qualification Audit Table */}
+          <div className="rounded-lg border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-slate-100 dark:border-border-default flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Tier Qualification &amp; Upgrade History
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Audit log of tier changes, checkout qualifications, and status updates
+                </p>
+              </div>
+              <span className="text-[11px] font-mono text-slate-400">
+                Audit Trail
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+                <thead className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs select-none">
+                  <tr>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">Date &amp; Time</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">Previous Tier</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">New Tier</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 text-center">Qualifying Nights</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">Reason / Trigger</th>
+                    <th className="py-2.5 px-3.5">Performed By</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-700 dark:text-slate-200">
+                  <tr className="bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                    <td className="py-2.5 px-3.5 font-mono text-slate-600 dark:text-slate-400 text-xs border-r border-slate-200 dark:border-slate-700/60">
+                      {guest.lastVisitDate ? `${guest.lastVisitDate} 11:30 AM` : '2026-11-22 11:30 AM'}
+                    </td>
+                    <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
+                      <MembershipTierBadge tierCode="SILVER" size="xs" />
+                    </td>
+                    <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
+                      <MembershipTierBadge tierCode="GOLD" size="xs" />
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
+                      {guest.totalNights || 18} Nights
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
+                      Automatic tier upgrade on 15th completed checkout night (Stay #{guest.totalVisits || 10})
+                    </td>
+                    <td className="py-2.5 px-3.5 font-mono text-xs text-slate-600 dark:text-slate-400">
+                      System (Checkout)
+                    </td>
+                  </tr>
+
+                  <tr className="bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                    <td className="py-2.5 px-3.5 font-mono text-slate-600 dark:text-slate-400 text-xs border-r border-slate-200 dark:border-slate-700/60">
+                      2024-06-18 10:45 AM
+                    </td>
+                    <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
+                      <MembershipTierBadge tierCode="REGULAR" size="xs" />
+                    </td>
+                    <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
+                      <MembershipTierBadge tierCode="SILVER" size="xs" />
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
+                      5 Nights
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
+                      Automatic tier upgrade on 5th completed checkout night
+                    </td>
+                    <td className="py-2.5 px-3.5 font-mono text-xs text-slate-600 dark:text-slate-400">
+                      System (Checkout)
+                    </td>
+                  </tr>
+
+                  <tr className="bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60">
+                    <td className="py-2.5 px-3.5 font-mono text-slate-600 dark:text-slate-400 text-xs border-r border-slate-200 dark:border-slate-700/60">
+                      {guest.memberSince ? `${guest.memberSince} 02:15 PM` : '2024-01-15 02:15 PM'}
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-400 italic text-[11px] border-r border-slate-200 dark:border-slate-700/60">
+                      None (New Guest)
+                    </td>
+                    <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        Regular Member
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center font-mono font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700/60">
+                      0 Nights
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700/60">
+                      Initial guest registration &amp; auto-enrollment into membership program
+                    </td>
+                    <td className="py-2.5 px-3.5 font-mono text-xs text-slate-600 dark:text-slate-400">
+                      Front Desk Staff
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

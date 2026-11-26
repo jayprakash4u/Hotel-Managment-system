@@ -1,16 +1,37 @@
-// Customer Loyalty & Membership Program Logic for Hotel Management System
+// Complete Hotel & Restaurant Membership Management Architecture
+// Supports: Automatic membership creation, completed nights tier upgrades,
+// separate hotel & restaurant discount controls, manual billing checkbox validation.
+
+export type MembershipTierIcon = 'shield' | 'star' | 'crown' | 'gem' | 'award';
 
 export interface MembershipTier {
   id: string;
-  code: string;
+  code: string; // REGULAR, SILVER, GOLD, PLATINUM, CUSTOM
   name: string;
-  minStays: number;
-  discountPercent: number;
+  minNights: number; // Primary qualifying criteria: completed hotel nights
+  minStays?: number; // Optional secondary criteria
+  icon?: MembershipTierIcon; // Distinctive visual tier badge icon
+  
+  // Hotel Discount Configuration
+  hotelDiscountEnabled: boolean;
+  hotelDiscountType: 'PERCENTAGE' | 'FIXED';
+  hotelDiscountValue: number; // e.g. 10 for 10%
+  hotelMaxDiscount?: number | null;
+
+  // Restaurant Discount Configuration
+  restaurantDiscountEnabled: boolean;
+  restaurantDiscountType: 'PERCENTAGE' | 'FIXED';
+  restaurantDiscountValue: number; // e.g. 5 for 5%
+  restaurantMaxDiscount?: number | null;
+
+  // Legacy field for backwards compatibility
+  discountPercent?: number;
+
   color: string;
   textColor: string;
   bgColor: string;
   borderColor: string;
-  badgeStyle: 'silver' | 'gold' | 'platinum' | 'custom';
+  badgeStyle: 'regular' | 'silver' | 'gold' | 'platinum' | 'custom';
   description: string;
   benefits: string[];
   isActive: boolean;
@@ -19,70 +40,115 @@ export interface MembershipTier {
 
 export const DEFAULT_MEMBERSHIP_TIERS: MembershipTier[] = [
   {
-    id: 'tier-silver',
-    code: 'SILVER',
-    name: 'Silver',
+    id: 'tier-regular',
+    code: 'REGULAR',
+    name: 'Regular Member',
+    minNights: 0,
     minStays: 0,
+    icon: 'shield',
+    hotelDiscountEnabled: false,
+    hotelDiscountType: 'PERCENTAGE',
+    hotelDiscountValue: 0,
+    restaurantDiscountEnabled: false,
+    restaurantDiscountType: 'PERCENTAGE',
+    restaurantDiscountValue: 0,
     discountPercent: 0,
     color: '#64748B',
     textColor: 'text-slate-700 dark:text-slate-300',
     bgColor: 'bg-slate-100 dark:bg-slate-800',
     borderColor: 'border-slate-300 dark:border-slate-700',
-    badgeStyle: 'silver',
-    description: 'Basic membership for new and occasional hotel guests',
+    badgeStyle: 'regular',
+    description: 'Standard guest profile for new and occasional guests (0–4 qualifying nights).',
     benefits: [
-      'Welcome Refreshment on Arrival',
-      'Complimentary High-Speed Wi-Fi',
-      'Standard Check-In & Check-Out',
-      'Earn Stays toward Tier Upgrades',
+      'Standard Room Rates',
+      'Direct Front Desk Assistance',
     ],
     isActive: true,
     order: 1,
   },
   {
-    id: 'tier-gold',
-    code: 'GOLD',
-    name: 'Gold',
-    minStays: 5,
+    id: 'tier-silver',
+    code: 'SILVER',
+    name: 'Silver Member',
+    minNights: 5,
+    minStays: 2,
+    icon: 'star',
+    hotelDiscountEnabled: true,
+    hotelDiscountType: 'PERCENTAGE',
+    hotelDiscountValue: 5,
+    restaurantDiscountEnabled: false,
+    restaurantDiscountType: 'PERCENTAGE',
+    restaurantDiscountValue: 0,
     discountPercent: 5,
-    color: '#D97706',
-    textColor: 'text-amber-800 dark:text-amber-300',
-    bgColor: 'bg-amber-50 dark:bg-amber-950/40',
-    borderColor: 'border-amber-300 dark:border-amber-800',
-    badgeStyle: 'gold',
-    description: 'Preferred status for repeat hotel guests with 5+ completed stays',
+    color: '#475569',
+    textColor: 'text-slate-800 dark:text-slate-200',
+    bgColor: 'bg-slate-100 dark:bg-slate-800/80',
+    borderColor: 'border-slate-400 dark:border-slate-600',
+    badgeStyle: 'silver',
+    description: 'Preferred status for returning guests with 5–14 qualifying nights.',
     benefits: [
-      '5% Direct Discount on Room Bookings',
-      'Early Check-In from 10:00 AM (Subject to availability)',
-      'Complimentary Morning Breakfast Upgrade',
-      'Priority Front Desk Assistance',
-      'Free Room Key Duplication on Request',
+      '5% Room Fare Discount',
+      'Priority Check-In',
     ],
     isActive: true,
     order: 2,
   },
   {
+    id: 'tier-gold',
+    code: 'GOLD',
+    name: 'Gold Member',
+    minNights: 15,
+    minStays: 5,
+    icon: 'crown',
+    hotelDiscountEnabled: true,
+    hotelDiscountType: 'PERCENTAGE',
+    hotelDiscountValue: 10,
+    restaurantDiscountEnabled: false,
+    restaurantDiscountType: 'PERCENTAGE',
+    restaurantDiscountValue: 0,
+    discountPercent: 10,
+    color: '#D97706',
+    textColor: 'text-amber-800 dark:text-amber-300',
+    bgColor: 'bg-amber-50 dark:bg-amber-950/40',
+    borderColor: 'border-amber-300 dark:border-amber-800',
+    badgeStyle: 'gold',
+    description: 'VIP status for frequent guests with 15–29 qualifying nights.',
+    benefits: [
+      '10% Room Fare Discount',
+      'Priority Check-In',
+      'Late Check-Out (upon availability)',
+    ],
+    isActive: true,
+    order: 3,
+  },
+  {
     id: 'tier-platinum',
     code: 'PLATINUM',
-    name: 'Platinum',
+    name: 'Platinum Member',
+    minNights: 30,
     minStays: 10,
-    discountPercent: 10,
+    icon: 'gem',
+    hotelDiscountEnabled: true,
+    hotelDiscountType: 'PERCENTAGE',
+    hotelDiscountValue: 15,
+    restaurantDiscountEnabled: false,
+    restaurantDiscountType: 'PERCENTAGE',
+    restaurantDiscountValue: 0,
+    discountPercent: 15,
     color: '#4F46E5',
     textColor: 'text-indigo-800 dark:text-indigo-300',
     bgColor: 'bg-indigo-50 dark:bg-indigo-950/50',
     borderColor: 'border-indigo-300 dark:border-indigo-800',
     badgeStyle: 'platinum',
-    description: 'VIP status for loyal guests with 10+ completed stays',
+    description: 'Executive status for elite frequent guests with 30+ qualifying nights.',
     benefits: [
-      '10% Direct Discount on Room Bookings',
-      'Guaranteed Complimentary Room Upgrade (Subject to availability)',
-      'Free Late Check-Out up to 2:00 PM',
-      'Executive Lounge & Rooftop Access',
-      'Dedicated Hospitality Concierge & Priority Check-in',
-      'Complimentary Laundry (2 items per stay)',
+      '15% Room Fare Discount',
+      'Complimentary Room Upgrade (upon availability)',
+      'Priority Check-In',
+      'Late Check-Out (upon availability)',
     ],
     isActive: true,
-    order: 3,
+    order: 4,
   },
 ];
 
@@ -96,7 +162,7 @@ export function getMembershipTiers(): MembershipTier[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.sort((a, b) => a.minStays - b.minStays);
+        return parsed.sort((a, b) => (a.minNights ?? a.minStays ?? 0) - (b.minNights ?? b.minStays ?? 0));
       }
     }
   } catch (err) {
@@ -109,7 +175,7 @@ export function getMembershipTiers(): MembershipTier[] {
 export function saveMembershipTiers(tiers: MembershipTier[]): void {
   if (typeof window === 'undefined') return;
   try {
-    const sorted = [...tiers].sort((a, b) => a.minStays - b.minStays);
+    const sorted = [...tiers].sort((a, b) => a.minNights - b.minNights);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
     window.dispatchEvent(new CustomEvent('hotel_membership_tiers_updated', { detail: sorted }));
   } catch (err) {
@@ -123,7 +189,6 @@ export function validateMembershipTiers(tiers: MembershipTier[]): { isValid: boo
     return { isValid: false, error: 'At least one membership tier must be configured.' };
   }
 
-  // Check unique names and codes
   const names = new Set<string>();
   const codes = new Set<string>();
   for (const t of tiers) {
@@ -136,19 +201,17 @@ export function validateMembershipTiers(tiers: MembershipTier[]): { isValid: boo
     names.add(trimmedName);
     codes.add(trimmedCode);
 
-    if (t.minStays < 0) return { isValid: false, error: `Min stays for ${t.name} cannot be negative.` };
-    if (t.discountPercent < 0 || t.discountPercent > 100) {
-      return { isValid: false, error: `Discount for ${t.name} must be between 0% and 100%.` };
-    }
+    if (t.minNights < 0) return { isValid: false, error: `Min nights for ${t.name} cannot be negative.` };
+    if (t.hotelDiscountValue < 0) return { isValid: false, error: `Hotel discount for ${t.name} cannot be negative.` };
+    if (t.restaurantDiscountValue < 0) return { isValid: false, error: `Restaurant discount for ${t.name} cannot be negative.` };
   }
 
-  // Check that thresholds are ascending and non-overlapping
-  const sorted = [...tiers].sort((a, b) => a.minStays - b.minStays);
+  const sorted = [...tiers].sort((a, b) => a.minNights - b.minNights);
   for (let i = 0; i < sorted.length - 1; i++) {
-    if (sorted[i].minStays === sorted[i + 1].minStays) {
+    if (sorted[i].minNights === sorted[i + 1].minNights) {
       return {
         isValid: false,
-        error: `Tiers "${sorted[i].name}" and "${sorted[i + 1].name}" have the same stay threshold (${sorted[i].minStays}). Each tier must have a unique minimum stay threshold.`,
+        error: `Tiers "${sorted[i].name}" and "${sorted[i + 1].name}" have the same night threshold (${sorted[i].minNights}). Each tier must have a unique minimum night threshold.`,
       };
     }
   }
@@ -156,18 +219,27 @@ export function validateMembershipTiers(tiers: MembershipTier[]): { isValid: boo
   return { isValid: true };
 }
 
-// Calculate total completed hotel stays for a given guest
-// Rules:
-// 1. One completed reservation counts as one stay (regardless of nights or room changes).
-// 2. Only status === 'CHECKED_OUT' counts.
-// 3. Cancelled, pending, confirmed, no-show, in-house do NOT count.
-// 4. Repeated checkouts of the same reservation ID are counted once.
-export function calculateGuestCompletedStays(
+/**
+ * Calculate total completed hotel nights and stays for a guest.
+ * Rules per specifications:
+ * 1. Count actual completed nights after checkout (status === 'CHECKED_OUT').
+ * 2. Cancelled and no-show reservations DO NOT count.
+ * 3. Uncompleted (pending, reserved, in-house) DO NOT count.
+ * 4. Multi-room reservations do NOT multiply qualifying nights.
+ * 5. Room changes during the same reservation do NOT duplicate.
+ */
+export function calculateGuestCompletedNightsAndStays(
   guestQuery: { id?: string; phone?: string; email?: string; name?: string },
   allBookings: any[]
-): { completedStays: number; totalSpending: number; lastStayDate?: string; completedBookingIds: string[] } {
+): {
+  completedNights: number;
+  completedStays: number;
+  totalSpending: number;
+  lastStayDate?: string;
+  completedBookingIds: string[];
+} {
   if (!allBookings || allBookings.length === 0) {
-    return { completedStays: 0, totalSpending: 0, completedBookingIds: [] };
+    return { completedNights: 0, completedStays: 0, totalSpending: 0, completedBookingIds: [] };
   }
 
   const normalizedPhone = (guestQuery.phone || '').replace(/\D/g, '').slice(-10);
@@ -177,10 +249,8 @@ export function calculateGuestCompletedStays(
   const matchedCompletedBookings = new Map<string, any>();
 
   for (const b of allBookings) {
-    // Only completed stays count
     if (b.status !== 'CHECKED_OUT') continue;
 
-    // Guest matching logic
     let isMatch = false;
     if (guestQuery.id && (b.guest?.id === guestQuery.id || b.guestId === guestQuery.id)) {
       isMatch = true;
@@ -195,15 +265,33 @@ export function calculateGuestCompletedStays(
     }
 
     if (isMatch && b.id) {
-      matchedCompletedBookings.set(b.id, b);
+      // If booking code exists, de-duplicate multi-room bookings sharing the same stay code
+      const stayKey = b.bookingCode ? `${guestQuery.phone || guestQuery.id || ''}_${b.bookingCode}` : b.id;
+      if (!matchedCompletedBookings.has(stayKey)) {
+        matchedCompletedBookings.set(stayKey, b);
+      }
     }
   }
 
+  let totalNights = 0;
   let totalSpending = 0;
   let lastStayDate: string | undefined = undefined;
 
   matchedCompletedBookings.forEach((b) => {
-    // Tally financials safely
+    // Calculate nights accurately
+    let nights = Number(b.nights);
+    if (!nights || isNaN(nights) || nights <= 0) {
+      try {
+        const inD = new Date(b.checkIn);
+        const outD = new Date(b.checkOut);
+        const diffDays = Math.round((outD.getTime() - inD.getTime()) / (1000 * 60 * 60 * 24));
+        nights = Math.max(1, diffDays);
+      } catch {
+        nights = 1;
+      }
+    }
+    totalNights += nights;
+
     const roomCost = Number(b.roomCharges ?? b.totalCharges ?? b.rate ?? 0);
     const orderCost = Number(b.cafeTotal ?? b.restaurantOrdersTotal ?? 0);
     totalSpending += roomCost + orderCost;
@@ -217,6 +305,7 @@ export function calculateGuestCompletedStays(
   });
 
   return {
+    completedNights: totalNights,
     completedStays: matchedCompletedBookings.size,
     totalSpending,
     lastStayDate,
@@ -224,41 +313,46 @@ export function calculateGuestCompletedStays(
   };
 }
 
-// Determine qualifying membership tier based on completed stay count
-export function determineEligibleTier(completedStays: number, tiers?: MembershipTier[]): MembershipTier {
+// Backwards compatibility alias
+export function calculateGuestCompletedStays(
+  guestQuery: { id?: string; phone?: string; email?: string; name?: string },
+  allBookings: any[]
+) {
+  return calculateGuestCompletedNightsAndStays(guestQuery, allBookings);
+}
+
+// Determine qualifying membership tier based on completed nights
+export function determineEligibleTier(completedNights: number, tiers?: MembershipTier[]): MembershipTier {
   const activeTiers = (tiers || getMembershipTiers())
     .filter((t) => t.isActive)
-    .sort((a, b) => b.minStays - a.minStays); // highest threshold first
+    .sort((a, b) => b.minNights - a.minNights); // Highest night threshold first
 
   for (const tier of activeTiers) {
-    if (completedStays >= tier.minStays) {
+    if (completedNights >= tier.minNights) {
       return tier;
     }
   }
 
-  // Fallback to the lowest active tier or default Silver
-  const sortedAsc = [...activeTiers].sort((a, b) => a.minStays - b.minStays);
+  const sortedAsc = [...activeTiers].sort((a, b) => a.minNights - b.minNights);
   return sortedAsc[0] || DEFAULT_MEMBERSHIP_TIERS[0];
 }
 
-// Calculate membership tier progression metrics
 export interface TierProgressInfo {
   currentTier: MembershipTier;
   nextTier: MembershipTier | null;
-  completedStays: number;
-  staysNeededForNext: number;
+  completedNights: number;
+  nightsNeededForNext: number;
   progressPercent: number;
   progressSummaryText: string;
 }
 
-export function calculateTierProgress(completedStays: number, tiers?: MembershipTier[]): TierProgressInfo {
+export function calculateTierProgress(completedNights: number, tiers?: MembershipTier[]): TierProgressInfo {
   const allTiers = (tiers || getMembershipTiers())
     .filter((t) => t.isActive)
-    .sort((a, b) => a.minStays - b.minStays);
+    .sort((a, b) => a.minNights - b.minNights);
 
-  const currentTier = determineEligibleTier(completedStays, allTiers);
+  const currentTier = determineEligibleTier(completedNights, allTiers);
 
-  // Find next higher tier
   const nextTierIndex = allTiers.findIndex((t) => t.id === currentTier.id) + 1;
   const nextTier = nextTierIndex < allTiers.length ? allTiers[nextTierIndex] : null;
 
@@ -266,93 +360,106 @@ export function calculateTierProgress(completedStays: number, tiers?: Membership
     return {
       currentTier,
       nextTier: null,
-      completedStays,
-      staysNeededForNext: 0,
+      completedNights,
+      nightsNeededForNext: 0,
       progressPercent: 100,
-      progressSummaryText: `Top Level Achieved! You have unlocked all ${currentTier.name} VIP privileges.`,
+      progressSummaryText: `Top Elite Status! You have unlocked all ${currentTier.name} VIP privileges.`,
     };
   }
 
-  const baseStays = currentTier.minStays;
-  const targetStays = nextTier.minStays;
-  const staysNeeded = Math.max(0, targetStays - completedStays);
+  const baseNights = currentTier.minNights;
+  const targetNights = nextTier.minNights;
+  const nightsNeeded = Math.max(0, targetNights - completedNights);
 
-  const span = targetStays - baseStays;
-  const earnedInLevel = Math.max(0, completedStays - baseStays);
+  const span = targetNights - baseNights;
+  const earnedInLevel = Math.max(0, completedNights - baseNights);
   const progressPercent = span > 0 ? Math.min(100, Math.round((earnedInLevel / span) * 100)) : 100;
 
   return {
     currentTier,
     nextTier,
-    completedStays,
-    staysNeededForNext: staysNeeded,
+    completedNights,
+    nightsNeededForNext: nightsNeeded,
     progressPercent,
-    progressSummaryText: `${staysNeeded} more ${staysNeeded === 1 ? 'stay' : 'stays'} to reach ${nextTier.name}.`,
+    progressSummaryText: `${nightsNeeded} more qualifying ${nightsNeeded === 1 ? 'night' : 'nights'} to reach ${nextTier.name}.`,
   };
 }
 
-// Process automatic upgrade at checkout
+/**
+ * Calculate membership discount amount for a given tier, module (HOTEL or RESTAURANT), and subtotal.
+ * CRITICAL RULE: Manual checkbox must be toggled on by staff. Never apply automatically.
+ */
+export function calculateMembershipDiscount(
+  tier: MembershipTier | null | undefined,
+  module: 'HOTEL' | 'RESTAURANT',
+  eligibleSubtotal: number
+): {
+  isEligible: boolean;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  discountAmount: number;
+  discountLabel: string;
+} {
+  if (!tier || !tier.isActive || eligibleSubtotal <= 0) {
+    return { isEligible: false, discountType: 'PERCENTAGE', discountValue: 0, discountAmount: 0, discountLabel: '' };
+  }
+
+  const isHotel = module === 'HOTEL';
+  const isEnabled = isHotel ? tier.hotelDiscountEnabled : tier.restaurantDiscountEnabled;
+  const discountType = isHotel ? tier.hotelDiscountType : tier.restaurantDiscountType;
+  const discountValue = isHotel ? tier.hotelDiscountValue : tier.restaurantDiscountValue;
+  const maxDiscount = isHotel ? tier.hotelMaxDiscount : tier.restaurantMaxDiscount;
+
+  if (!isEnabled || discountValue <= 0) {
+    return { isEligible: false, discountType, discountValue: 0, discountAmount: 0, discountLabel: '' };
+  }
+
+  let amount = 0;
+  if (discountType === 'FIXED') {
+    amount = Math.min(eligibleSubtotal, discountValue);
+  } else {
+    amount = Math.round(eligibleSubtotal * (discountValue / 100.0));
+  }
+
+  if (maxDiscount && maxDiscount > 0) {
+    amount = Math.min(amount, maxDiscount);
+  }
+
+  amount = Math.max(0, Math.min(eligibleSubtotal, amount));
+
+  const discountLabel = discountType === 'FIXED'
+    ? `${tier.name} Discount (Fixed)`
+    : `${tier.name} Discount (${discountValue}%)`;
+
+  return {
+    isEligible: true,
+    discountType,
+    discountValue,
+    discountAmount: amount,
+    discountLabel,
+  };
+}
+
+// Process automatic upgrade at checkout based on completed nights
 export function checkAndApplyCheckoutUpgrade(
   checkedOutBooking: any,
   allBookings: any[]
-): { wasUpgraded: boolean; previousTierName?: string; newTier?: MembershipTier; stayCount: number } {
+): { wasUpgraded: boolean; previousTierName?: string; newTier?: MembershipTier; completedNights: number; stayCount: number } {
   if (!checkedOutBooking || !checkedOutBooking.guest) {
-    return { wasUpgraded: false, stayCount: 0 };
+    return { wasUpgraded: false, completedNights: 0, stayCount: 0 };
   }
 
-  const tiers = getMembershipTiers();
-  const guestQuery = {
-    id: checkedOutBooking.guest.id,
-    phone: checkedOutBooking.guest.phone,
-    email: checkedOutBooking.guest.email,
-    name: `${checkedOutBooking.guest.firstName || ''} ${checkedOutBooking.guest.lastName || ''}`.trim(),
-  };
+  const { completedNights, completedStays } = calculateGuestCompletedNightsAndStays(checkedOutBooking.guest, allBookings);
+  const eligibleTier = determineEligibleTier(completedNights);
 
-  const { completedStays } = calculateGuestCompletedStays(guestQuery, allBookings);
-  const newTier = determineEligibleTier(completedStays, tiers);
-
-  // Check previous tier recorded on booking or guest
-  const prevCode = (checkedOutBooking.guest.vipTier || 'SILVER').toUpperCase();
-  const previousTier = tiers.find((t) => t.code.toUpperCase() === prevCode) || DEFAULT_MEMBERSHIP_TIERS[0];
-
-  // Upgraded if minStays of new tier is higher than previous tier's minStays
-  const wasUpgraded = newTier.minStays > previousTier.minStays;
-
-  // Persist updated VIP tier to registered guests storage
-  if (typeof window !== 'undefined') {
-    try {
-      const storedGuestsRaw = localStorage.getItem('hotel_registered_guests');
-      if (storedGuestsRaw) {
-        const storedGuests = JSON.parse(storedGuestsRaw);
-        if (Array.isArray(storedGuests)) {
-          const updated = storedGuests.map((g: any) => {
-            const isMatch =
-              (guestQuery.id && g.id === guestQuery.id) ||
-              (guestQuery.phone && g.phone === guestQuery.phone) ||
-              (guestQuery.name && g.name?.toLowerCase() === guestQuery.name.toLowerCase());
-
-            if (isMatch) {
-              return {
-                ...g,
-                vipTier: newTier.code,
-                membershipLevel: newTier.name,
-                completedStays,
-              };
-            }
-            return g;
-          });
-          localStorage.setItem('hotel_registered_guests', JSON.stringify(updated));
-        }
-      }
-    } catch (err) {
-      console.error('Failed to update registered guests with new tier:', err);
-    }
-  }
+  const prevTierName = checkedOutBooking.guest.vipTier || 'REGULAR';
+  const wasUpgraded = eligibleTier.code.toUpperCase() !== prevTierName.toUpperCase();
 
   return {
     wasUpgraded,
-    previousTierName: previousTier.name,
-    newTier,
+    previousTierName: prevTierName,
+    newTier: eligibleTier,
+    completedNights,
     stayCount: completedStays,
   };
 }

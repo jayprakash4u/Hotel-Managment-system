@@ -1,4 +1,4 @@
-import { RoomWithDetails, ReservationData, GuestData, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, RestaurantDashboardSummaryData, MenuItemSalesSummaryResponse, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse, TaxSummaryResponse, TaxRecordsListResponse, RecordTaxPaymentDto, ActiveRestaurantOrderData } from './types';
+import { RoomWithDetails, ReservationData, GuestData, CountryMasterItem, MembershipTierItem, GuestMembershipDetails, CalculateDiscountRequestPayload, CalculateDiscountResponseData, RecordDiscountPayload, HousekeepingTaskData, MaintenanceTicketData, POSProductData, InventoryItemData, DashboardMetrics, TableReservationData, QuickSalePayload, QuickSaleReceipt, DailySalesSummaryData, RestaurantDashboardSummaryData, MenuItemSalesSummaryResponse, IncomeCategoryItem, IncomeTransactionItem, IncomeSummary, IncomeReceivingAccount, IncomeReportsData, CreateIncomeDto, CreateIncomeCategoryDto, ExpenseCategoryItem, ExpenseTransactionItem, ExpensePaymentItem, ExpenseSummary, ExpensePaymentAccount, ExpenseReportsData, CreateExpenseDto, RecordExpensePaymentDto, CreateExpenseCategoryDto, AssetCategoryItem, AssetDepreciationEntryItem, AssetMovementItem, FixedAssetItem, FixedAssetsSummary, FixedAssetsReportsData, CreateFixedAssetDto, TransferAssetDto, DisposeAssetDto, BatchDepreciationDto, CreateAssetCategoryDto, LiabilityOverviewItem, LiabilitiesSummary, LoanObligationItem, LoanRepaymentScheduleItem, CreateLoanDto, RecordLoanRepaymentDto, LiabilitiesReportsData, LiabilityAccountConfigItem, PnLComparisonMode, PnLStatementResponse, PnLDrilldownResponse, BalanceSheetComparisonMode, BalanceSheetViewMode, BalanceSheetStatementResponse, BalanceSheetDrilldownResponse, DiscrepancyDiagnosticResponse, CashFlowComparisonMode, CashFlowPresentationMethod, CashFlowStatementResponse, CashFlowDrilldownResponse, FinancialSummaryDashboardResponse, TaxSummaryResponse, TaxRecordsListResponse, RecordTaxPaymentDto, ActiveRestaurantOrderData } from './types';
 
 // ============================================================================
 // DATA CACHING & REQUEST DEDUPLICATION ARCHITECTURE
@@ -283,6 +283,55 @@ export const api = {
     return fetcher<GuestData>('/api/guests', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  // Countries & Nationality Master
+  getCountries: (params?: { search?: string }) => {
+    const query = params?.search ? `?search=${encodeURIComponent(params.search)}` : '';
+    return fetcher<CountryMasterItem[]>(`/api/countries${query}`, { cacheTtlMs: 3600000 });
+  },
+
+  // Hotel & Restaurant Membership System
+  getMembershipTiers: () => {
+    return fetcher<MembershipTierItem[]>('/api/memberships/tiers', { cacheTtlMs: 60000 });
+  },
+
+  createMembershipTier: (data: Partial<MembershipTierItem>) => {
+    return fetcher<MembershipTierItem>('/api/memberships/tiers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateMembershipTier: (id: string, data: Partial<MembershipTierItem>) => {
+    return fetcher<MembershipTierItem>(`/api/memberships/tiers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getGuestMembership: (guestIdOrNumber: string) => {
+    return fetcher<GuestMembershipDetails>(`/api/memberships/guest/${encodeURIComponent(guestIdOrNumber)}`);
+  },
+
+  calculateMembershipDiscount: (payload: CalculateDiscountRequestPayload) => {
+    return fetcher<CalculateDiscountResponseData>('/api/memberships/calculate-discount', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  applyMembershipDiscount: (payload: RecordDiscountPayload) => {
+    return fetcher<any>('/api/memberships/apply-discount', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  recalculateGuestMembership: (guestId: string) => {
+    return fetcher<any>(`/api/memberships/recalculate/${encodeURIComponent(guestId)}`, {
+      method: 'POST',
     });
   },
 

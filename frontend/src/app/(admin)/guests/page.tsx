@@ -39,6 +39,7 @@ import {
   BusinessMode,
 } from '@/lib/guest360Data';
 import { Guest360ProfileView } from '@/components/guests/Guest360ProfileView';
+import { MembershipTierBadge } from '@/components/membership/MembershipTierBadge';
 import {
   RoomBooking,
   loadBookingsFromStorage,
@@ -804,12 +805,14 @@ function GuestDirectoryContent() {
     let gold = 0;
     let platinum = 0;
     let totalSpent = 0;
+    let totalNights = 0;
 
     guestList.forEach((g) => {
       if (g.vipTier === 'PLATINUM') platinum++;
       else if (g.vipTier === 'GOLD') gold++;
       else silver++;
       totalSpent += g.totalSpent || 0;
+      totalNights += g.totalNights || 0;
     });
 
     return {
@@ -817,58 +820,55 @@ function GuestDirectoryContent() {
       silver,
       gold,
       platinum,
+      totalNights,
       avgSpend: guestList.length > 0 ? Math.round(totalSpent / guestList.length) : 0,
       totalSpend: totalSpent,
     };
   }, [guestList]);
 
-  // Render membership badge matching specified styling
+  // Membership Tab Controls State
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [memberTierFilter, setMemberTierFilter] = useState<'ALL' | 'SILVER' | 'GOLD' | 'PLATINUM'>('ALL');
+  const [memberPageSize, setMemberPageSize] = useState<number>(10);
+  const [memberCurrentPage, setMemberCurrentPage] = useState<number>(1);
+
+  // Filtered & Paginated Membership List
+  const filteredMembers = useMemo(() => {
+    let result = [...guestList];
+
+    if (memberTierFilter !== 'ALL') {
+      result = result.filter((g) => (g.vipTier || '').toUpperCase().includes(memberTierFilter));
+    }
+
+    if (memberSearchQuery.trim()) {
+      const q = memberSearchQuery.toLowerCase().trim();
+      result = result.filter((g) => {
+        const id = (g.id || '').toLowerCase();
+        const memId = `mem-${(g.id || '').replace(/\D/g, '').padStart(5, '0')}`.toLowerCase();
+        const name = (g.fullName || '').toLowerCase();
+        const phone = (g.phone || '').toLowerCase();
+        const tier = (g.vipTier || '').toLowerCase();
+        return id.includes(q) || memId.includes(q) || name.includes(q) || phone.includes(q) || tier.includes(q);
+      });
+    }
+
+    return result;
+  }, [guestList, memberTierFilter, memberSearchQuery]);
+
+  const totalMemberPages = Math.max(1, Math.ceil(filteredMembers.length / memberPageSize));
+  const safeMemberPage = Math.min(memberCurrentPage, totalMemberPages);
+  const memberStartIndex = (safeMemberPage - 1) * memberPageSize;
+  const paginatedMembers = useMemo(() => {
+    return filteredMembers.slice(memberStartIndex, memberStartIndex + memberPageSize);
+  }, [filteredMembers, memberStartIndex, memberPageSize]);
+
+  useEffect(() => {
+    setMemberCurrentPage(1);
+  }, [memberTierFilter, memberSearchQuery]);
+
+  // Render membership badge with distinctive visual icons
   const renderMembershipBadge = (tierCode: string, size: 'sm' | 'md' = 'sm') => {
-    const code = (tierCode || 'SILVER').toUpperCase();
-    if (code === 'PLATINUM') {
-      return (
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 font-bold rounded-[3px] border uppercase tracking-wider',
-            size === 'sm'
-              ? 'px-2 py-0.5 text-[10px] bg-slate-900 text-white border-slate-700 shadow-2xs'
-              : 'px-3 py-1 text-xs bg-slate-900 text-indigo-300 border-indigo-700 shadow-xs'
-          )}
-        >
-          <Award className={cn(size === 'sm' ? 'w-3 h-3 text-indigo-400' : 'w-4 h-4 text-indigo-400')} />
-          <span>Platinum</span>
-        </span>
-      );
-    }
-    if (code === 'GOLD') {
-      return (
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 font-bold rounded-[3px] border uppercase tracking-wider',
-            size === 'sm'
-              ? 'px-2 py-0.5 text-[10px] bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-700 shadow-2xs'
-              : 'px-3 py-1 text-xs bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-600 shadow-xs'
-          )}
-        >
-          <Award className={cn(size === 'sm' ? 'w-3 h-3 text-amber-600' : 'w-4 h-4 text-amber-500')} />
-          <span>Gold</span>
-        </span>
-      );
-    }
-    // Silver / Default
-    return (
-      <span
-        className={cn(
-          'inline-flex items-center gap-1 font-bold rounded-[3px] border uppercase tracking-wider',
-          size === 'sm'
-            ? 'px-2 py-0.5 text-[10px] bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 shadow-2xs'
-            : 'px-3 py-1 text-xs bg-slate-200 text-slate-800 border-slate-400 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 shadow-xs'
-        )}
-      >
-        <Award className={cn(size === 'sm' ? 'w-3 h-3 text-slate-500' : 'w-4 h-4 text-slate-400')} />
-        <span>Silver</span>
-      </span>
-    );
+    return <MembershipTierBadge tierCode={tierCode} size={size} />;
   };
 
   return (
@@ -1355,139 +1355,283 @@ function GuestDirectoryContent() {
       )}
 
       {/* =======================================================================
-          TAB 3: GUEST MEMBERSHIP / LOYALTY (OVERVIEW & TIER DISTRIBUTION)
+          TAB 3: GUEST MEMBERSHIP / LOYALTY (DataTables Design Matching Guest List)
          ======================================================================= */}
       {activeMainTab === 'MEMBERSHIP_LOYALTY' && (
-        <div className="space-y-4">
-          {/* KPI Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div className="p-4 rounded-lg border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-400 uppercase">Total Loyalty Members</span>
-              <div className="text-2xl font-black text-slate-900 dark:text-white font-mono mt-1">
-                {loyaltyStats.total}
+        <div className="rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-2xs">
+          {/* Top Controls Bar: Show entries, Tier Filters & Search Box (Matching Guest List) */}
+          <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-[#FAFBFB] dark:bg-slate-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            {/* Left Controls: Show entries & Tier Filter Tabs */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Show Entries */}
+              <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                <span className="font-medium text-xs">Show</span>
+                <select
+                  value={memberPageSize}
+                  onChange={(e) => {
+                    setMemberPageSize(Number(e.target.value));
+                    setMemberCurrentPage(1);
+                  }}
+                  className="h-[27px] px-2 border border-slate-300 dark:border-slate-700 rounded-[2px] bg-white dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#0B3D32] cursor-pointer shadow-2xs"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="font-medium text-xs">entries</span>
               </div>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">Registered guests</span>
+
+              <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
+
+              {/* Tier Filter Tabs */}
+              <div className="flex items-center gap-1 flex-wrap">
+                {(['ALL', 'SILVER', 'GOLD', 'PLATINUM'] as const).map((tier) => (
+                  <button
+                    key={tier}
+                    type="button"
+                    onClick={() => {
+                      setMemberTierFilter(tier);
+                      setMemberCurrentPage(1);
+                    }}
+                    className={cn(
+                      'px-2.5 py-1 text-xs font-semibold rounded-[2px] border transition-all cursor-pointer select-none',
+                      memberTierFilter === tier
+                        ? 'bg-[#0B3D32] text-white border-[#0B3D32] shadow-2xs font-bold dark:bg-emerald-700'
+                        : 'bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 border-slate-300 dark:border-border-default hover:bg-slate-50'
+                    )}
+                  >
+                    {tier === 'ALL' ? 'All' : tier.charAt(0) + tier.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="p-4 rounded-lg border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Silver Members</span>
-              <div className="text-2xl font-black text-slate-700 dark:text-slate-300 font-mono mt-1">
-                {loyaltyStats.silver}
+            {/* Right Side: Search Box */}
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <span className="text-slate-600 dark:text-slate-400 font-medium text-xs shrink-0">Search:</span>
+              <div className="relative w-full md:w-56 shrink-0">
+                <input
+                  type="text"
+                  value={memberSearchQuery}
+                  onChange={(e) => {
+                    setMemberSearchQuery(e.target.value);
+                    setMemberCurrentPage(1);
+                  }}
+                  placeholder=""
+                  className="w-full h-[27px] rounded-[2px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card px-2.5 pr-7 text-xs font-medium text-slate-800 shadow-2xs focus:border-[#0B3D32] focus:outline-none focus:ring-1 focus:ring-[#0B3D32] dark:text-white dark:focus:border-emerald-500"
+                />
+                {memberSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMemberSearchQuery('');
+                      setMemberCurrentPage(1);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">0–4 completed stays</span>
-            </div>
-
-            <div className="p-4 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20 shadow-2xs">
-              <span className="text-[11px] font-bold text-amber-800 dark:text-amber-400 uppercase">Gold Members</span>
-              <div className="text-2xl font-black text-amber-700 dark:text-amber-400 font-mono mt-1">
-                {loyaltyStats.gold}
-              </div>
-              <span className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5 block">5–9 completed stays</span>
-            </div>
-
-            <div className="p-4 rounded-lg border border-indigo-200 dark:border-indigo-900/40 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-2xs">
-              <span className="text-[11px] font-bold text-indigo-800 dark:text-indigo-400 uppercase">Platinum Members</span>
-              <div className="text-2xl font-black text-indigo-700 dark:text-indigo-400 font-mono mt-1">
-                {loyaltyStats.platinum}
-              </div>
-              <span className="text-[10px] text-indigo-600 dark:text-indigo-500 mt-0.5 block">10+ completed stays</span>
-            </div>
-
-            <div className="p-4 rounded-lg border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-400 uppercase">Avg Spend Per Member</span>
-              <div className="text-xl font-black text-[#0B3D32] dark:text-emerald-400 font-mono mt-1">
-                Rs. {loyaltyStats.avgSpend.toLocaleString()}
-              </div>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">Lifetime hotel spend</span>
             </div>
           </div>
 
-          {/* Quick link to Hotel Setup -> Membership Settings */}
-          <div className="flex items-center justify-between p-3.5 rounded-lg border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card shadow-2xs">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                <Settings className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-xs">
-                  Configure Loyalty Tiers &amp; Stay Thresholds
-                </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Hotel Administrators can add, reorder, edit discounts, and adjust minimum stay thresholds under Hotel Setup.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              href="/hotel?category=room-setup&sub=membership-settings"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#0B3D32] hover:bg-[#093027] text-white font-bold text-xs shadow-2xs dark:bg-emerald-700"
-            >
-              <span>Manage Tiers in Hotel Setup</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          {/* Loyalty Members Roster Table */}
-          <div className="rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card overflow-hidden shadow-2xs">
-            <div className="px-4 py-3 bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-              <h3 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                Loyalty Member Directory
-              </h3>
-              <span className="text-xs text-slate-500">{guestList.length} Total Enrolled</span>
-            </div>
+            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
-                <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold text-[11px]">
+                <thead className="bg-[#F8F9FA] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs select-none">
                   <tr>
-                    <th className="py-2 px-3 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
-                    <th className="py-2 px-3.5 border-r border-slate-200 dark:border-slate-700">Member Name</th>
-                    <th className="py-2 px-3.5 border-r border-slate-200 dark:border-slate-700 text-center">Current Level</th>
-                    <th className="py-2 px-3.5 border-r border-slate-200 dark:border-slate-700 text-center">Completed Stays</th>
-                    <th className="py-2 px-3.5 border-r border-slate-200 dark:border-slate-700 text-center">Next Tier Target</th>
-                    <th className="py-2 px-3.5 border-r border-slate-200 dark:border-slate-700 text-right">Lifetime Spend</th>
-                    <th className="py-2 px-3 text-center w-28">Action</th>
+                    <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700">SN</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700">Member ID</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">Member Name</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700">Mobile No</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 text-center">Current Level</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 text-center">Qualifying Nights</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 text-center">Room Fare Discount</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 text-center">Next Tier Target</th>
+                    <th className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700 text-right">Lifetime Spend</th>
+                    <th className="py-2.5 px-3 text-center w-14">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
-                  {guestList.map((g, idx) => {
-                    const prog = calculateTierProgress(g.completedStaysCount, configuredTiers);
-                    return (
-                      <tr key={g.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                        <td className="py-2.5 px-3 text-center font-mono text-slate-400 border-r border-slate-200 dark:border-slate-700/60">{idx + 1}</td>
-                        <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-bold text-slate-900 dark:text-white">{g.fullName}</td>
-                        <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 text-center">{renderMembershipBadge(g.vipTier)}</td>
-                        <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-mono font-bold text-center">{g.completedStaysCount} Stays</td>
-                        <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 text-center font-mono text-[11px] text-slate-600 dark:text-slate-400">
-                          {prog.nextTier ? `${prog.staysNeededForNext} stays to ${prog.nextTier.name}` : 'Max Tier'}
-                        </td>
-                        <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 text-right font-mono font-bold text-slate-900 dark:text-white">Rs. {g.totalSpent.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-center">
-                          <div className="relative inline-flex items-center justify-center group">
+                <tbody className="text-slate-700 dark:text-slate-200">
+                  {paginatedMembers.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
+                        No members found matching your search or tier filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedMembers.map((g, idx) => {
+                      const prog = calculateTierProgress(g.totalNights, configuredTiers);
+                      const memId = `MEM-${(g.id || '').replace(/\D/g, '').padStart(5, '0')}`;
+                      const curTier = prog.currentTier;
+                      return (
+                        <tr
+                          key={g.id}
+                          className="bg-white even:bg-[#F9FAFB] dark:bg-slate-900 dark:even:bg-slate-800/35 hover:bg-[#F1F5F9] dark:hover:bg-slate-800/70 transition-colors border-b border-slate-200 dark:border-slate-700/60"
+                        >
+                          {/* 1. SN */}
+                          <td className="py-2.5 px-3 text-center font-mono text-xs text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700/60">
+                            {memberStartIndex + idx + 1}
+                          </td>
+
+                          {/* 2. Member ID */}
+                          <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-700/60 font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            {memId}
+                          </td>
+
+                          {/* 3. Member Name */}
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-semibold text-slate-900 dark:text-white text-xs">
                             <button
                               type="button"
                               onClick={() => openGuest360(g)}
-                              className="inline-flex items-center justify-center w-7 h-7 rounded-[3px] bg-slate-50 hover:bg-[#0284c7] text-slate-600 hover:text-white border border-slate-300 hover:border-[#0284c7] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-[#0284c7] dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
-                              title="View 360°"
-                              aria-label="View 360°"
+                              className="hover:text-[#0B3D32] dark:hover:text-emerald-400 hover:underline cursor-pointer text-left"
+                              title="Click to view Guest 360° Profile"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              {g.fullName}
                             </button>
-                            <div className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-30">
-                              <div className="px-2 py-0.5 text-[10px] font-bold text-white bg-slate-900 dark:bg-slate-800 rounded-[2px] shadow-md whitespace-nowrap border border-slate-700">
-                                View 360°
+                          </td>
+
+                          {/* 4. Mobile No */}
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-mono text-slate-700 dark:text-slate-300 text-xs">
+                            {g.phone || '—'}
+                          </td>
+
+                          {/* 5. Current Level */}
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 text-center">
+                            {renderMembershipBadge(g.vipTier, 'sm')}
+                          </td>
+
+                          {/* 6. Qualifying Nights */}
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 font-mono font-bold text-center text-slate-900 dark:text-white">
+                            {g.totalNights} Nights <span className="text-[11px] text-slate-400 font-normal">({g.completedStaysCount} stays)</span>
+                          </td>
+
+                          {/* 7. Eligible Room Fare Discount (Only Room Tariff) */}
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 text-center font-mono text-xs">
+                            {(curTier.hotelDiscountValue || curTier.discountPercent || 0) > 0 ? (
+                              <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                {curTier.hotelDiscountValue || curTier.discountPercent}% Room Fare
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic">0% (Standard Rate)</span>
+                            )}
+                          </td>
+
+                          {/* 8. Next Tier Target */}
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 text-center font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                            {prog.nextTier ? `${prog.nightsNeededForNext} nights to ${prog.nextTier.name}` : 'Top Tier Unlocked'}
+                          </td>
+
+                          {/* 9. Lifetime Spend */}
+                          <td className="py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-700/60 text-right font-mono font-bold text-slate-900 dark:text-white">
+                            Rs. {g.totalSpent.toLocaleString()}
+                          </td>
+
+                          {/* 10. Action */}
+                          <td className="py-2.5 px-3 text-center">
+                            <div className="relative inline-flex items-center justify-center group">
+                              <button
+                                type="button"
+                                onClick={() => openGuest360(g)}
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-[3px] bg-slate-50 hover:bg-[#0284c7] text-slate-600 hover:text-white border border-slate-300 hover:border-[#0284c7] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-[#0284c7] dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
+                                title="View 360°"
+                                aria-label="View 360°"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-30">
+                                <div className="px-2 py-0.5 text-[10px] font-bold text-white bg-slate-900 dark:bg-slate-800 rounded-[2px] shadow-md whitespace-nowrap border border-slate-700">
+                                  View 360°
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Footer (Matching Guest List) */}
+            <div className="px-3.5 py-2.5 bg-[#FAFBFB] dark:bg-slate-900/60 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 select-none">
+              <div>
+                Showing{' '}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {filteredMembers.length === 0 ? 0 : memberStartIndex + 1}
+                </strong>{' '}
+                to{' '}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {Math.min(memberStartIndex + memberPageSize, filteredMembers.length)}
+                </strong>{' '}
+                of{' '}
+                <strong className="text-slate-800 dark:text-slate-200">{filteredMembers.length}</strong>{' '}
+                entries
+              </div>
+
+              {totalMemberPages > 1 && (
+                <div className="flex items-center gap-1.5 font-medium">
+                  <button
+                    type="button"
+                    disabled={safeMemberPage <= 1}
+                    onClick={() => setMemberCurrentPage((p) => Math.max(1, p - 1))}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Previous</span>
+                  </button>
+
+                  {Array.from({ length: totalMemberPages }).map((_, idx) => {
+                    const pageNum = idx + 1;
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalMemberPages ||
+                      (pageNum >= safeMemberPage - 1 && pageNum <= safeMemberPage + 1)
+                    ) {
+                      const isCurrent = pageNum === safeMemberPage;
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setMemberCurrentPage(pageNum)}
+                          className={cn(
+                            'min-w-[26px] h-[26px] px-1.5 font-mono text-xs font-bold rounded-[3px] transition-colors cursor-pointer flex items-center justify-center shadow-2xs',
+                            isCurrent
+                              ? 'bg-[#0B3D32] text-white border border-[#0B3D32] dark:bg-emerald-700'
+                              : 'bg-white dark:bg-surface-card border border-slate-300 dark:border-border-default text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                          )}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    }
+                    if (pageNum === safeMemberPage - 2 || pageNum === safeMemberPage + 2) {
+                      return (
+                        <span key={pageNum} className="px-1 text-slate-400 select-none font-bold">
+                          …
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+
+                  <button
+                    type="button"
+                    disabled={safeMemberPage >= totalMemberPages}
+                    onClick={() => setMemberCurrentPage((p) => Math.min(totalMemberPages, p + 1))}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[3px] border border-slate-300 dark:border-border-default bg-white dark:bg-surface-card text-slate-700 dark:text-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
