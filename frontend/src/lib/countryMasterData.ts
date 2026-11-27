@@ -228,17 +228,46 @@ export const FALLBACK_COUNTRIES: CountryMasterItem[] = [
   { id: 'c-tc', countryCode: 'TC', countryName: 'Turks and Caicos Islands', nationalityName: 'Turks and Caicos Islander', isActive: true, displayOrder: 100 },
 ];
 
+/**
+ * Static 10 Primary Countries & Nationalities:
+ * Used for fast, clean front desk operation until server database table is connected.
+ */
+export const STATIC_10_COUNTRIES: CountryMasterItem[] = [
+  { id: 'c-np', countryCode: 'NP', countryName: 'Nepal', nationalityName: 'Nepali', isActive: true, displayOrder: 1 },
+  { id: 'c-in', countryCode: 'IN', countryName: 'India', nationalityName: 'Indian', isActive: true, displayOrder: 2 },
+  { id: 'c-cn', countryCode: 'CN', countryName: 'China', nationalityName: 'Chinese', isActive: true, displayOrder: 3 },
+  { id: 'c-us', countryCode: 'US', countryName: 'United States', nationalityName: 'American', isActive: true, displayOrder: 4 },
+  { id: 'c-gb', countryCode: 'GB', countryName: 'United Kingdom', nationalityName: 'British', isActive: true, displayOrder: 5 },
+  { id: 'c-au', countryCode: 'AU', countryName: 'Australia', nationalityName: 'Australian', isActive: true, displayOrder: 6 },
+  { id: 'c-jp', countryCode: 'JP', countryName: 'Japan', nationalityName: 'Japanese', isActive: true, displayOrder: 7 },
+  { id: 'c-de', countryCode: 'DE', countryName: 'Germany', nationalityName: 'German', isActive: true, displayOrder: 8 },
+  { id: 'c-fr', countryCode: 'FR', countryName: 'France', nationalityName: 'French', isActive: true, displayOrder: 9 },
+  { id: 'c-ca', countryCode: 'CA', countryName: 'Canada', nationalityName: 'Canadian', isActive: true, displayOrder: 10 },
+];
+
+/**
+ * Toggle dynamic database fetching.
+ * Set to false for now so front desk uses static 10 countries without database connection errors.
+ * Flip to true once server database "Country" table is migrated.
+ */
+export const ENABLE_DYNAMIC_DATABASE_FETCH = false;
+
 let globalCachedCountries: CountryMasterItem[] | null = null;
 let inFlightFetch: Promise<CountryMasterItem[]> | null = null;
 
 export function useCountryMaster() {
-  const [countries, setCountries] = useState<CountryMasterItem[]>(() => {
-    return globalCachedCountries || FALLBACK_COUNTRIES;
-  });
-  const [loading, setLoading] = useState<boolean>(!globalCachedCountries);
+  const [countries, setCountries] = useState<CountryMasterItem[]>(STATIC_10_COUNTRIES);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadCountries = useCallback(async (forceRefresh = false) => {
+    if (!ENABLE_DYNAMIC_DATABASE_FETCH) {
+      setCountries(STATIC_10_COUNTRIES);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     if (!forceRefresh && globalCachedCountries) {
       setCountries(globalCachedCountries);
       setLoading(false);
@@ -255,16 +284,17 @@ export function useCountryMaster() {
             globalCachedCountries = data;
             return data;
           }
-          return FALLBACK_COUNTRIES;
+          return STATIC_10_COUNTRIES;
         });
       }
 
       const res = await inFlightFetch;
       setCountries(res);
     } catch (err: any) {
-      console.warn('Could not load countries from API, using complete offline master dataset:', err);
-      setError(err?.message || 'Failed to fetch country records. Using offline master list.');
-      setCountries(globalCachedCountries || FALLBACK_COUNTRIES);
+      console.warn('Could not load countries from API, using static 10 countries list:', err);
+      // Suppress raw server exception on client UI
+      setError(null);
+      setCountries(globalCachedCountries || STATIC_10_COUNTRIES);
     } finally {
       setLoading(false);
       inFlightFetch = null;

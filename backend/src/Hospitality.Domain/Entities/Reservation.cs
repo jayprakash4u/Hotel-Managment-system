@@ -54,6 +54,17 @@ public class Reservation : BaseEntity
     public double CalculatedCommission { get; set; } = 0;
     public string? SpecialRequests { get; set; }
 
+    // Membership Discount & Stacking Audit
+    public string? GuestMembershipTier { get; set; }
+    public bool IsMembershipDiscountApplied { get; set; } = false;
+    public double MembershipDiscountPercent { get; set; } = 0;
+    public double MembershipDiscountAmount { get; set; } = 0;
+    public double CorporateDiscountPercent { get; set; } = 0;
+    public double CorporateDiscountAmount { get; set; } = 0;
+    public string? DiscountStackingPolicy { get; set; }
+    public string? DiscountAppliedBy { get; set; }
+    public DateTime? DiscountAppliedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

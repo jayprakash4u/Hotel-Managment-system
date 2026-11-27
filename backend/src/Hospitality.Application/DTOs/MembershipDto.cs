@@ -94,3 +94,44 @@ public class RecordDiscountApplicationDto
     public string? EligibleItemsSummary { get; set; }
     public string AppliedBy { get; set; } = "Staff";
 }
+
+public class MembershipEligibilitySettingsDto
+{
+    public bool AllowDirectWalkin { get; set; } = true;
+    public bool AllowCorporate { get; set; } = false;
+    public bool AllowTravelAgent { get; set; } = false;
+    public bool AllowIndividualReferral { get; set; } = false;
+
+    public bool AllowStackWithCorporateDiscount { get; set; } = false;
+    public bool AllowStackWithCorporateRate { get; set; } = false;
+    public bool AllowStackWithOtherPromotions { get; set; } = false;
+    public string StackingOrder { get; set; } = "CORPORATE_FIRST_THEN_MEMBERSHIP";
+}
+
+public class CalculateReservationDiscountRequest
+{
+    public string BookingSource { get; set; } = "DIRECT_WALKIN";
+    public string? GuestId { get; set; }
+    public string? MembershipTierCode { get; set; }
+    public double Subtotal { get; set; }
+    public double CorporateDiscountPercent { get; set; }
+    public bool HasCorporateRate { get; set; }
+    public bool ApplyMembershipDiscount { get; set; }
+    public double ManualDiscountAmount { get; set; }
+}
+
+public class CalculateReservationDiscountResponse
+{
+    public bool IsAllowedByBookingSource { get; set; }
+    public bool IsAllowedByStacking { get; set; }
+    public bool IsGuestEligible { get; set; }
+    public bool CanApply { get; set; }
+    public string? IneligibilityReason { get; set; }
+    public double TierDiscountPercent { get; set; }
+    public string TierName { get; set; } = string.Empty;
+    public double CorporateDiscountAmount { get; set; }
+    public double MembershipDiscountAmount { get; set; }
+    public double ManualDiscountAmount { get; set; }
+    public double TotalDiscountAmount { get; set; }
+    public double NetRoomCharges { get; set; }
+}

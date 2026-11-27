@@ -32,6 +32,27 @@ export function getTabInfoForUrl(
   const fullPath = search ? `${pathname}?${search}` : pathname;
 
   // Specific query param routes
+  if (pathname === '/booking') {
+    const params = new URLSearchParams(search);
+    const src = params.get('source')?.toUpperCase();
+    if (src === 'CORPORATE' || src === 'TRAVEL_AGENT' || src === 'GROUP') {
+      return {
+        id: '/booking?source=reservation',
+        path: fullPath,
+        title: 'Reservation',
+        iconName: 'CalendarCheck',
+        closable: true,
+      };
+    }
+    return {
+      id: '/booking',
+      path: fullPath,
+      title: 'Book Now',
+      iconName: 'CalendarPlus',
+      closable: true,
+    };
+  }
+
   if (pathname === '/kitchen' || (pathname === '/restaurant-management' && search.includes('section=kitchen'))) {
     return {
       id: '/restaurant-management?section=kitchen',
@@ -287,6 +308,7 @@ export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [tabs, setTabs] = useState<WorkspaceTab[]>([DEFAULT_HOME_TAB]);
   const [activeTabId, setActiveTabId] = useState<string>(DEFAULT_HOME_TAB.id);
   const pageCacheRef = useRef<Record<string, React.ReactNode>>({});
+  const hasLoadedTabsRef = useRef(false);
   const [, forceUpdate] = useState(0);
 
   // Load saved tabs on initial mount
@@ -294,10 +316,11 @@ export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       localStorage.removeItem('hotel_workspace_open_tabs_v1');
       const saved = localStorage.getItem(STORAGE_KEY);
+      let initialTabs: WorkspaceTab[] = [DEFAULT_HOME_TAB];
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleaned = parsed.map((t) => {
+          initialTabs = parsed.map((t) => {
             const parsedPath = t.path?.split('?')[0] || t.id;
             const parsedSearch = t.path?.includes('?') ? t.path.split('?')[1] : '';
             const info = getTabInfoForUrl(parsedPath, parsedSearch);
@@ -310,16 +333,25 @@ export const WorkspaceTabsProvider: React.FC<{ children: React.ReactNode }> = ({
               closable: info.closable,
             };
           });
-          setTabs(cleaned);
-          return;
         }
       }
+      if (pathname && pathname !== '/super-admin' && pathname !== '/login') {
+        const currentTabInfo = getTabInfoForUrl(pathname, searchStr);
+        if (!initialTabs.some((t) => t.id === currentTabInfo.id)) {
+          initialTabs = [...initialTabs, currentTabInfo];
+        }
+      }
+      hasLoadedTabsRef.current = true;
+      setTabs(initialTabs);
+    } catch {
+      hasLoadedTabsRef.current = true;
       setTabs([DEFAULT_HOME_TAB]);
-    } catch {}
+    }
   }, []);
 
-  // Save tabs to localStorage whenever they change
+  // Save tabs to localStorage whenever they change (only after initial load)
   useEffect(() => {
+    if (!hasLoadedTabsRef.current) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
     } catch {}

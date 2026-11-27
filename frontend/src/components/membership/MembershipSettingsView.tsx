@@ -23,6 +23,10 @@ import {
   saveMembershipTiers,
   DEFAULT_MEMBERSHIP_TIERS,
   validateMembershipTiers,
+  MembershipEligibilitySettings,
+  DEFAULT_MEMBERSHIP_ELIGIBILITY_SETTINGS,
+  getMembershipEligibilitySettings,
+  saveMembershipEligibilitySettings,
 } from '@/lib/loyalty';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -42,6 +46,25 @@ export function MembershipSettingsView() {
   const [newTierHotelDiscount, setNewTierHotelDiscount] = useState(0);
   const [newTierRestDiscount, setNewTierRestDiscount] = useState(0);
   const [newTierDesc, setNewTierDesc] = useState('');
+
+  // Booking Source Eligibility & Stacking Rules State
+  const [eligibilitySettings, setEligibilitySettings] = useState<MembershipEligibilitySettings>(() => getMembershipEligibilitySettings());
+
+  useEffect(() => {
+    const handleEligibilityUpdated = () => setEligibilitySettings(getMembershipEligibilitySettings());
+    window.addEventListener('hotel_membership_eligibility_updated', handleEligibilityUpdated);
+    return () => window.removeEventListener('hotel_membership_eligibility_updated', handleEligibilityUpdated);
+  }, []);
+
+  const handleUpdateEligibilityField = <K extends keyof MembershipEligibilitySettings>(
+    key: K,
+    val: MembershipEligibilitySettings[K]
+  ) => {
+    const updated = { ...eligibilitySettings, [key]: val };
+    setEligibilitySettings(updated);
+    saveMembershipEligibilitySettings(updated);
+    toast.success('Policy Updated', 'Membership discount rule saved.');
+  };
 
   // Discount Restrictions State
   const [restrictions, setRestrictions] = useState({
@@ -448,30 +471,201 @@ export function MembershipSettingsView() {
       </div>
 
       {/* -------------------------------------------------------------------
-          SECTION C: DISCOUNT RESTRICTIONS & POLICY GOVERNANCE
+          SECTION C: MEMBERSHIP DISCOUNT ELIGIBILITY BY BOOKING SOURCE
+          ------------------------------------------------------------------- */}
+      <div className="rounded-[4px] border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card p-4 space-y-4 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-heading">
+              C. Membership Discount Eligibility by Booking Source
+            </h4>
+          </div>
+          <span className="text-[11px] font-semibold text-slate-500">
+            Default: Direct Walk-in Enabled only
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Direct / Walk-in */}
+          <div className="p-3 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between gap-3 text-xs">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-slate-900 dark:text-white">Direct / Walk-in</span>
+                <span className={cn(
+                  'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase',
+                  eligibilitySettings.allowDirectWalkin
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                )}>
+                  {eligibilitySettings.allowDirectWalkin ? 'Allowed' : 'Blocked'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Direct front-desk walk-in and online individual guest reservations.
+              </p>
+            </div>
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Allow Discount</span>
+              <button
+                type="button"
+                onClick={() => handleUpdateEligibilityField('allowDirectWalkin', !eligibilitySettings.allowDirectWalkin)}
+                className={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                  eligibilitySettings.allowDirectWalkin ? 'bg-[#0B3D32] dark:bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                )}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    eligibilitySettings.allowDirectWalkin ? 'translate-x-4' : 'translate-x-0'
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Corporate / Company */}
+          <div className="p-3 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between gap-3 text-xs">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-slate-900 dark:text-white">Corporate / Company</span>
+                <span className={cn(
+                  'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase',
+                  eligibilitySettings.allowCorporate
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                )}>
+                  {eligibilitySettings.allowCorporate ? 'Allowed' : 'Blocked'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Reservations linked to registered corporate commercial accounts.
+              </p>
+            </div>
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Allow Discount</span>
+              <button
+                type="button"
+                onClick={() => handleUpdateEligibilityField('allowCorporate', !eligibilitySettings.allowCorporate)}
+                className={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                  eligibilitySettings.allowCorporate ? 'bg-[#0B3D32] dark:bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                )}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    eligibilitySettings.allowCorporate ? 'translate-x-4' : 'translate-x-0'
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Travel Agent */}
+          <div className="p-3 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between gap-3 text-xs">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-slate-900 dark:text-white">Travel Agent</span>
+                <span className={cn(
+                  'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase',
+                  eligibilitySettings.allowTravelAgent
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                )}>
+                  {eligibilitySettings.allowTravelAgent ? 'Allowed' : 'Blocked'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Bookings made via travel agency partners where commission is payable.
+              </p>
+            </div>
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Allow Discount</span>
+              <button
+                type="button"
+                onClick={() => handleUpdateEligibilityField('allowTravelAgent', !eligibilitySettings.allowTravelAgent)}
+                className={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                  eligibilitySettings.allowTravelAgent ? 'bg-[#0B3D32] dark:bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                )}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    eligibilitySettings.allowTravelAgent ? 'translate-x-4' : 'translate-x-0'
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Individual Referral */}
+          <div className="p-3 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between gap-3 text-xs">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-slate-900 dark:text-white">Individual Referral</span>
+                <span className={cn(
+                  'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase',
+                  eligibilitySettings.allowIndividualReferral
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                )}>
+                  {eligibilitySettings.allowIndividualReferral ? 'Allowed' : 'Blocked'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Bookings sourced via freelance referral partners or tour guides.
+              </p>
+            </div>
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Allow Discount</span>
+              <button
+                type="button"
+                onClick={() => handleUpdateEligibilityField('allowIndividualReferral', !eligibilitySettings.allowIndividualReferral)}
+                className={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                  eligibilitySettings.allowIndividualReferral ? 'bg-[#0B3D32] dark:bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                )}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    eligibilitySettings.allowIndividualReferral ? 'translate-x-4' : 'translate-x-0'
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* -------------------------------------------------------------------
+          SECTION D: DISCOUNT STACKING & FINANCIAL EXCLUSIONS
           ------------------------------------------------------------------- */}
       <div className="rounded-[4px] border border-slate-200 dark:border-border-default bg-white dark:bg-surface-card p-4 space-y-4 shadow-2xs">
         <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
           <Sliders className="w-4 h-4 text-[#0B3D32] dark:text-emerald-400" />
           <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-heading">
-            C. Discount Restrictions &amp; Financial Exclusions
+            D. Discount Stacking &amp; Multi-Benefit Policy
           </h4>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <label className="flex items-start gap-2.5 p-3 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 cursor-pointer">
             <input
               type="checkbox"
-              checked={restrictions.allowPromoStacking}
-              onChange={(e) => setRestrictions({ ...restrictions, allowPromoStacking: e.target.checked })}
-              className="mt-0.5 rounded text-[#0B3D32] focus:ring-[#0B3D32]"
+              checked={eligibilitySettings.allowStackWithCorporateDiscount}
+              onChange={(e) => handleUpdateEligibilityField('allowStackWithCorporateDiscount', e.target.checked)}
+              className="mt-0.5 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
             />
             <div>
               <span className="font-bold text-slate-900 dark:text-white block">
-                Allow Stacking with Promo Codes &amp; Manual Discounts
+                Combine with Corporate Negotiated Discount
               </span>
-              <span className="text-slate-500 text-[11px]">
-                When disabled, membership discount overrides other promotional discounts rather than compounding.
+              <span className="text-slate-500 text-[11px] mt-0.5 block">
+                Calculates membership discount on the remaining room tariff after corporate discount.
               </span>
             </div>
           </label>
@@ -479,25 +673,42 @@ export function MembershipSettingsView() {
           <label className="flex items-start gap-2.5 p-3 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 cursor-pointer">
             <input
               type="checkbox"
-              checked={restrictions.excludeAlcohol}
-              onChange={(e) => setRestrictions({ ...restrictions, excludeAlcohol: e.target.checked })}
-              className="mt-0.5 rounded text-[#0B3D32] focus:ring-[#0B3D32]"
+              checked={eligibilitySettings.allowStackWithCorporateRate}
+              onChange={(e) => handleUpdateEligibilityField('allowStackWithCorporateRate', e.target.checked)}
+              className="mt-0.5 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
             />
             <div>
               <span className="font-bold text-slate-900 dark:text-white block">
-                Exclude Hard Liquor &amp; Tobacco from Dining Discount
+                Combine with Negotiated Room Rates
               </span>
-              <span className="text-slate-500 text-[11px]">
-                Discounts apply only to food and non-alcoholic beverages; bar alcohol sales remain at standard pricing.
+              <span className="text-slate-500 text-[11px] mt-0.5 block">
+                Permits loyalty discount on top of contracted fixed company room prices.
+              </span>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-2.5 p-3 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={eligibilitySettings.allowStackWithOtherPromotions}
+              onChange={(e) => handleUpdateEligibilityField('allowStackWithOtherPromotions', e.target.checked)}
+              className="mt-0.5 rounded text-[#0B3D32] accent-[#0B3D32] cursor-pointer"
+            />
+            <div>
+              <span className="font-bold text-slate-900 dark:text-white block">
+                Combine with Promotional Discounts
+              </span>
+              <span className="text-slate-500 text-[11px] mt-0.5 block">
+                Allows stacking with promotional voucher codes or manual front-desk courtesy discounts.
               </span>
             </div>
           </label>
         </div>
 
         <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0 text-amber-700" />
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-700 dark:text-amber-400" />
           <span>
-            <strong>Statutory Exclusions:</strong> Membership discounts strictly apply before government VAT and service charges. Taxes are never discounted.
+            <strong>Financial Separation:</strong> Membership discounts apply only to eligible room tariffs. Corporate benefits and travel partner commissions are governed independently and never deducted from guest folios.
           </span>
         </div>
       </div>

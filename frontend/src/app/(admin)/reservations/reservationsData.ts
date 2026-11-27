@@ -151,17 +151,27 @@ export interface RoomBooking {
   checkInTime?: string;
   securityDeposit?: number;
   bookingAgent?: string;
-  bookingSource?: 'DIRECT_WALKIN' | 'DIRECT' | 'WALK_IN' | 'CORPORATE' | 'TRAVEL_AGENT' | 'INDIVIDUAL_REFERRAL' | 'OTA' | 'OTHER';
+  bookingSource?: 'DIRECT_WALKIN' | 'DIRECT' | 'WALK_IN' | 'CORPORATE' | 'TRAVEL_AGENT' | 'GROUP' | 'INDIVIDUAL_REFERRAL' | 'OTA' | 'OTHER';
   partnerId?: string;
   partnerCode?: string;
   partnerName?: string;
-  partnerType?: 'CORPORATE' | 'TRAVEL_AGENT' | 'INDIVIDUAL_REFERRAL';
+  partnerType?: 'CORPORATE' | 'TRAVEL_AGENT' | 'GROUP' | 'INDIVIDUAL_REFERRAL';
   paymentResponsibility?: 'COMPANY_PAYS' | 'GUEST_PAYS' | 'SPLIT' | 'COMPANY_ACCOUNT' | 'GUEST_DIRECT' | 'SPLIT_BILLING';
   billingArrangement?: 'COMPANY_ACCOUNT' | 'GUEST_DIRECT' | 'SPLIT_BILLING' | 'COMPANY_PAYS' | 'GUEST_PAYS' | 'SPLIT';
   splitCompanyAmount?: number;
   splitGuestAmount?: number;
   negotiatedRate?: number;
   calculatedCommission?: number;
+  // Membership & Stacking Audit Fields
+  guestMembershipTier?: string;
+  isMembershipDiscountApplied?: boolean;
+  membershipDiscountPercent?: number;
+  membershipDiscountAmount?: number;
+  corporateDiscountPercent?: number;
+  corporateDiscountAmount?: number;
+  discountStackingPolicy?: string;
+  discountAppliedBy?: string;
+  discountAppliedAt?: string;
 }
 
 export interface AvailableRoomOption {
@@ -174,6 +184,9 @@ export interface AvailableRoomOption {
   pricePerNight: number;
   status: 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'MAINTENANCE';
   cleaningStatus: 'CLEAN' | 'DIRTY' | 'IN_CLEANING';
+  capacity?: number;
+  maxAdults?: number;
+  maxChildren?: number;
 }
 
 export interface CancellationRecord {
@@ -198,16 +211,16 @@ export interface CancellationRecord {
 
 
 export const AVAILABLE_ROOMS_CATALOG: AvailableRoomOption[] = [
-  { id: '748e33547b6b42178a3a4d991591fd25', number: '101', type: 'Deluxe Garden Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: '0b7a5291976f467092670071dcf3a6e5', number: '102', type: 'Deluxe Garden Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'fcb2247532e248aa9d7544fca47856e8', number: '103', type: 'Standard Twin Room', acType: 'Non-AC', bedType: '2 Queen Beds', floorLevel: '1st Floor', pricePerNight: 2400, status: 'AVAILABLE', cleaningStatus: 'DIRTY' },
-  { id: '6835a95a55a94faab412da5f0afcf43f', number: '104', type: 'Standard Twin Room', acType: 'Non-AC', bedType: '2 Queen Beds', floorLevel: '1st Floor', pricePerNight: 2400, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: '639d7e4058aa42b8b162e2a61a2f8b54', number: '105', type: 'Deluxe Garden Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, status: 'MAINTENANCE', cleaningStatus: 'DIRTY' },
-  { id: 'e7f73a6dcffc4309bf743d331fa0fa87', number: '201', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'Super King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, status: 'OCCUPIED', cleaningStatus: 'CLEAN' },
-  { id: '18a4eeb348c44a5f81ad82facda7be34', number: '202', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'Super King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: 'ddeeb358d00d4433b6f0870e0da8bf80', number: '203', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: '600ee80d872e4f8e87ff34f6a11fde47', number: '204', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
-  { id: '6ac773799a3747ff8f99363d3c813462', number: '205', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, status: 'MAINTENANCE', cleaningStatus: 'DIRTY' },
+  { id: '748e33547b6b42178a3a4d991591fd25', number: '101', type: 'Deluxe Garden Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, capacity: 2, maxAdults: 2, maxChildren: 1, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '0b7a5291976f467092670071dcf3a6e5', number: '102', type: 'Deluxe Garden Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, capacity: 2, maxAdults: 2, maxChildren: 1, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'fcb2247532e248aa9d7544fca47856e8', number: '103', type: 'Standard Twin Room', acType: 'Non-AC', bedType: '2 Queen Beds', floorLevel: '1st Floor', pricePerNight: 2400, capacity: 4, maxAdults: 4, maxChildren: 2, status: 'AVAILABLE', cleaningStatus: 'DIRTY' },
+  { id: '6835a95a55a94faab412da5f0afcf43f', number: '104', type: 'Standard Twin Room', acType: 'Non-AC', bedType: '2 Queen Beds', floorLevel: '1st Floor', pricePerNight: 2400, capacity: 4, maxAdults: 4, maxChildren: 2, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '639d7e4058aa42b8b162e2a61a2f8b54', number: '105', type: 'Deluxe Garden Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '1st Floor', pricePerNight: 3500, capacity: 2, maxAdults: 2, maxChildren: 1, status: 'MAINTENANCE', cleaningStatus: 'DIRTY' },
+  { id: 'e7f73a6dcffc4309bf743d331fa0fa87', number: '201', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'Super King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, capacity: 2, maxAdults: 2, maxChildren: 1, status: 'OCCUPIED', cleaningStatus: 'CLEAN' },
+  { id: '18a4eeb348c44a5f81ad82facda7be34', number: '202', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'Super King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, capacity: 2, maxAdults: 2, maxChildren: 1, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: 'ddeeb358d00d4433b6f0870e0da8bf80', number: '203', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, capacity: 2, maxAdults: 2, maxChildren: 1, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '600ee80d872e4f8e87ff34f6a11fde47', number: '204', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, capacity: 2, maxAdults: 2, maxChildren: 1, status: 'AVAILABLE', cleaningStatus: 'CLEAN' },
+  { id: '6ac773799a3747ff8f99363d3c813462', number: '205', type: 'Executive Ocean Suite', acType: 'AC', bedType: 'King Bed', floorLevel: '2nd Floor', pricePerNight: 4900, capacity: 2, maxAdults: 2, maxChildren: 1, status: 'MAINTENANCE', cleaningStatus: 'DIRTY' },
 ];
 
 export const CAFE_MENU_ITEMS = [

@@ -1381,11 +1381,6 @@ function CheckInDeskContent() {
                       searchPlaceholder="Search nationality / country..."
                       allowClear={true}
                     />
-                    {countryMaster.error && (
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
-                        {countryMaster.error}
-                      </p>
-                    )}
                   </div>
                 </div>
 

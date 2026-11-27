@@ -487,4 +487,122 @@ public class MembershipsController : ControllerBase
             QualifyingNights = completedNights
         }, wasUpgraded ? "Guest upgraded to higher membership tier!" : "Guest membership nights reconciled."));
     }
+
+    private static MembershipEligibilitySettingsDto _eligibilitySettings = new();
+
+    /// <summary>
+    /// Gets membership discount eligibility and stacking rules.
+    /// </summary>
+    [HttpGet("eligibility-settings")]
+    public IActionResult GetEligibilitySettings()
+    {
+        return Ok(ApiResponse.Ok(_eligibilitySettings));
+    }
+
+    /// <summary>
+    /// Updates membership discount eligibility and stacking rules.
+    /// </summary>
+    [HttpPost("eligibility-settings")]
+    public IActionResult UpdateEligibilitySettings([FromBody] MembershipEligibilitySettingsDto dto)
+    {
+        _eligibilitySettings = dto;
+        return Ok(ApiResponse.Ok(_eligibilitySettings, "Membership discount eligibility & stacking settings updated."));
+    }
+
+    /// <summary>
+    /// Evaluates eligibility and computes stacked reservation discounts across channels.
+    /// </summary>
+    [HttpPost("calculate-reservation-discount")]
+    public async Task<IActionResult> CalculateReservationDiscount([FromBody] CalculateReservationDiscountRequest req)
+    {
+        string tierCode = req.MembershipTierCode?.ToUpper() ?? "REGULAR";
+        var tier = await _db.MembershipTiers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Code == tierCode && t.IsActive);
+
+        double tierDiscountPercent = 0;
+        string tierName = tier?.Name ?? tierCode;
+        if (tier != null && tier.HotelDiscountEnabled)
+        {
+            tierDiscountPercent = tier.HotelDiscountValue;
+        }
+        else
+        {
+            if (tierCode.Contains("PLATINUM")) tierDiscountPercent = 15;
+            else if (tierCode.Contains("GOLD")) tierDiscountPercent = 10;
+            else if (tierCode.Contains("SILVER")) tierDiscountPercent = 5;
+        }
+
+        bool isGuestEligible = tierDiscountPercent > 0;
+
+        bool isAllowedBySource = req.BookingSource switch
+        {
+            "DIRECT_WALKIN" => _eligibilitySettings.AllowDirectWalkin,
+            "CORPORATE" => _eligibilitySettings.AllowCorporate,
+            "TRAVEL_AGENT" => _eligibilitySettings.AllowTravelAgent,
+            "INDIVIDUAL_REFERRAL" => _eligibilitySettings.AllowIndividualReferral,
+            _ => _eligibilitySettings.AllowDirectWalkin
+        };
+
+        bool isAllowedByStacking = true;
+        string? stackingReason = null;
+        if (req.BookingSource == "CORPORATE")
+        {
+            if (req.CorporateDiscountPercent > 0 && !_eligibilitySettings.AllowStackWithCorporateDiscount)
+            {
+                isAllowedByStacking = false;
+                stackingReason = "Membership discount cannot be combined with Corporate negotiated discount.";
+            }
+            else if (req.HasCorporateRate && !_eligibilitySettings.AllowStackWithCorporateRate)
+            {
+                isAllowedByStacking = false;
+                stackingReason = "Membership discount cannot be combined with Corporate negotiated room rates.";
+            }
+        }
+
+        if (req.ManualDiscountAmount > 0 && !_eligibilitySettings.AllowStackWithOtherPromotions)
+        {
+            isAllowedByStacking = false;
+            stackingReason = "Membership discount cannot be combined with promotional/manual discounts.";
+        }
+
+        string? ineligibilityReason = null;
+        if (!isGuestEligible) ineligibilityReason = $"Guest membership ({tierName}) has no room discount configured.";
+        else if (!isAllowedBySource) ineligibilityReason = $"Membership discounts are disabled for {req.BookingSource} bookings in Hotel Policy.";
+        else if (!isAllowedByStacking) ineligibilityReason = stackingReason;
+        else if (req.Subtotal <= 0) ineligibilityReason = "Subtotal must be greater than zero.";
+
+        bool canApply = isGuestEligible && isAllowedBySource && isAllowedByStacking && req.Subtotal > 0;
+
+        double corpDiscountAmount = req.CorporateDiscountPercent > 0
+            ? Math.Round(req.Subtotal * (req.CorporateDiscountPercent / 100.0), 2)
+            : 0;
+
+        double membershipBasis = (corpDiscountAmount > 0 && _eligibilitySettings.AllowStackWithCorporateDiscount)
+            ? Math.Max(0, req.Subtotal - corpDiscountAmount)
+            : req.Subtotal;
+
+        double membershipDiscountAmount = (canApply && req.ApplyMembershipDiscount && tierDiscountPercent > 0)
+            ? Math.Round(membershipBasis * (tierDiscountPercent / 100.0), 2)
+            : 0;
+
+        double totalDiscount = Math.Min(req.Subtotal, corpDiscountAmount + membershipDiscountAmount + req.ManualDiscountAmount);
+        double netRoomCharges = Math.Max(0, req.Subtotal - totalDiscount);
+
+        return Ok(ApiResponse.Ok(new CalculateReservationDiscountResponse
+        {
+            IsAllowedByBookingSource = isAllowedBySource,
+            IsAllowedByStacking = isAllowedByStacking,
+            IsGuestEligible = isGuestEligible,
+            CanApply = canApply,
+            IneligibilityReason = ineligibilityReason,
+            TierDiscountPercent = tierDiscountPercent,
+            TierName = tierName,
+            CorporateDiscountAmount = corpDiscountAmount,
+            MembershipDiscountAmount = membershipDiscountAmount,
+            ManualDiscountAmount = req.ManualDiscountAmount,
+            TotalDiscountAmount = totalDiscount,
+            NetRoomCharges = netRoomCharges
+        }));
+    }
 }

@@ -463,3 +463,267 @@ export function checkAndApplyCheckoutUpgrade(
     stayCount: completedStays,
   };
 }
+
+// ---------------------------------------------------------------------------
+// MEMBERSHIP DISCOUNT ELIGIBILITY BY BOOKING SOURCE & STACKING GOVERNANCE
+// ---------------------------------------------------------------------------
+
+export interface MembershipEligibilitySettings {
+  // Booking Source Permissions
+  allowDirectWalkin: boolean; // Direct / Walk-in: Allow Membership Discount (Default: true)
+  allowCorporate: boolean;    // Corporate / Company: Allow Membership Discount (Default: false)
+  allowTravelAgent: boolean;  // Travel Agent: Allow Membership Discount (Default: false)
+  allowIndividualReferral: boolean; // Individual Referral: Allow Membership Discount (Default: false)
+
+  // Stacking Rules
+  allowStackWithCorporateDiscount: boolean; // Combine with Corporate Negotiated Discount (Default: false)
+  allowStackWithCorporateRate: boolean;     // Combine with Negotiated Corporate Room Rates (Default: false)
+  allowStackWithOtherPromotions: boolean;   // Combine with Other Promotional / Manual Discounts (Default: false)
+  stackingOrder: 'CORPORATE_FIRST_THEN_MEMBERSHIP' | 'MEMBERSHIP_FIRST'; // Default: 'CORPORATE_FIRST_THEN_MEMBERSHIP'
+}
+
+export const DEFAULT_MEMBERSHIP_ELIGIBILITY_SETTINGS: MembershipEligibilitySettings = {
+  allowDirectWalkin: true,
+  allowCorporate: false,
+  allowTravelAgent: false,
+  allowIndividualReferral: false,
+
+  allowStackWithCorporateDiscount: false,
+  allowStackWithCorporateRate: false,
+  allowStackWithOtherPromotions: false,
+  stackingOrder: 'CORPORATE_FIRST_THEN_MEMBERSHIP',
+};
+
+const ELIGIBILITY_STORAGE_KEY = 'hotel_membership_eligibility_settings';
+
+export function getMembershipEligibilitySettings(): MembershipEligibilitySettings {
+  if (typeof window === 'undefined') return DEFAULT_MEMBERSHIP_ELIGIBILITY_SETTINGS;
+  try {
+    const raw = localStorage.getItem(ELIGIBILITY_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        ...DEFAULT_MEMBERSHIP_ELIGIBILITY_SETTINGS,
+        ...parsed,
+      };
+    }
+  } catch (err) {
+    console.error('Error loading membership eligibility settings:', err);
+  }
+  return DEFAULT_MEMBERSHIP_ELIGIBILITY_SETTINGS;
+}
+
+export function saveMembershipEligibilitySettings(settings: MembershipEligibilitySettings): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(ELIGIBILITY_STORAGE_KEY, JSON.stringify(settings));
+    window.dispatchEvent(new CustomEvent('hotel_membership_eligibility_updated', { detail: settings }));
+  } catch (err) {
+    console.error('Error saving membership eligibility settings:', err);
+  }
+}
+
+export interface EligibilityEvaluationResult {
+  isAllowedByBookingSource: boolean;
+  isAllowedByStacking: boolean;
+  isGuestEligible: boolean;
+  canApply: boolean;
+  ineligibilityReason?: string;
+  tierDiscountPercent: number;
+  tierName: string;
+}
+
+/**
+ * Evaluates whether a guest membership discount can be applied to a reservation
+ * based on the guest tier, booking source, and hotel stacking policies.
+ */
+export function evaluateMembershipDiscountEligibility(params: {
+  bookingSource: 'DIRECT_WALKIN' | 'CORPORATE' | 'TRAVEL_AGENT' | 'INDIVIDUAL_REFERRAL' | 'GROUP';
+  guestTierCode?: string;
+  hasCorporateDiscount?: boolean;
+  hasCorporateRate?: boolean;
+  hasOtherPromotions?: boolean;
+  eligibleSubtotal?: number;
+  settings?: MembershipEligibilitySettings;
+}): EligibilityEvaluationResult {
+  const {
+    bookingSource,
+    guestTierCode = 'REGULAR',
+    hasCorporateDiscount = false,
+    hasCorporateRate = false,
+    hasOtherPromotions = false,
+    eligibleSubtotal = 0,
+    settings = getMembershipEligibilitySettings(),
+  } = params;
+
+  // 1. Determine Tier Discount
+  const cleanCode = (guestTierCode || 'REGULAR').toUpperCase();
+  const tiers = getMembershipTiers();
+  const activeTier = tiers.find((t) => t.code.toUpperCase() === cleanCode && t.isActive);
+
+  let tierDiscountPercent = 0;
+  let tierName = activeTier ? activeTier.name : cleanCode;
+
+  if (activeTier && activeTier.hotelDiscountEnabled) {
+    tierDiscountPercent = activeTier.hotelDiscountValue || activeTier.discountPercent || 0;
+  } else {
+    // Standard defaults fallback
+    if (cleanCode.includes('PLATINUM')) tierDiscountPercent = 15;
+    else if (cleanCode.includes('GOLD')) tierDiscountPercent = 10;
+    else if (cleanCode.includes('SILVER')) tierDiscountPercent = 5;
+    else tierDiscountPercent = 0;
+  }
+
+  const isGuestEligible = tierDiscountPercent > 0;
+
+  // 2. Check Booking Source Permission
+  let isAllowedByBookingSource = false;
+  let sourceLabel = 'Direct / Walk-in';
+
+  switch (bookingSource) {
+    case 'DIRECT_WALKIN':
+      isAllowedByBookingSource = settings.allowDirectWalkin;
+      sourceLabel = 'Direct / Walk-in';
+      break;
+    case 'CORPORATE':
+      isAllowedByBookingSource = settings.allowCorporate;
+      sourceLabel = 'Corporate / Company';
+      break;
+    case 'TRAVEL_AGENT':
+      isAllowedByBookingSource = settings.allowTravelAgent;
+      sourceLabel = 'Travel Agent';
+      break;
+    case 'INDIVIDUAL_REFERRAL':
+      isAllowedByBookingSource = settings.allowIndividualReferral;
+      sourceLabel = 'Individual Referral';
+      break;
+    case 'GROUP':
+      isAllowedByBookingSource = settings.allowCorporate;
+      sourceLabel = 'Group Booking';
+      break;
+  }
+
+  // 3. Check Discount Stacking Permission
+  let isAllowedByStacking = true;
+  let stackingReason: string | undefined = undefined;
+
+  if (bookingSource === 'CORPORATE') {
+    if (hasCorporateDiscount && !settings.allowStackWithCorporateDiscount) {
+      isAllowedByStacking = false;
+      stackingReason = 'Discount stacking policy: Membership discount cannot be combined with Corporate negotiated discount.';
+    } else if (hasCorporateRate && !settings.allowStackWithCorporateRate) {
+      isAllowedByStacking = false;
+      stackingReason = 'Discount stacking policy: Membership discount cannot be combined with Corporate negotiated room rate.';
+    }
+  }
+
+  if (hasOtherPromotions && !settings.allowStackWithOtherPromotions) {
+    isAllowedByStacking = false;
+    stackingReason = 'Discount stacking policy: Membership discount cannot be combined with promotional discounts.';
+  }
+
+  // 4. Formulate Ineligibility Reason
+  let ineligibilityReason: string | undefined = undefined;
+
+  if (!isGuestEligible) {
+    ineligibilityReason = `Guest membership level (${tierName}) has no room discount configured.`;
+  } else if (!isAllowedByBookingSource) {
+    ineligibilityReason = `Membership discounts are disabled for ${sourceLabel} bookings in Hotel Policy.`;
+  } else if (!isAllowedByStacking) {
+    ineligibilityReason = stackingReason;
+  } else if (eligibleSubtotal <= 0) {
+    ineligibilityReason = 'Room subtotal must be greater than zero to apply discount.';
+  }
+
+  const canApply = isGuestEligible && isAllowedByBookingSource && isAllowedByStacking && eligibleSubtotal > 0;
+
+  return {
+    isAllowedByBookingSource,
+    isAllowedByStacking,
+    isGuestEligible,
+    canApply,
+    ineligibilityReason,
+    tierDiscountPercent,
+    tierName,
+  };
+}
+
+/**
+ * Computes stacked discount breakdown:
+ * 1. Base Room Tariff (Subtotal)
+ * 2. Corporate Discount Amount (if applicable)
+ * 3. Guest Membership Discount Amount (if applied)
+ * 4. Other / Manual Discount Amount
+ * 5. Final Room Tariff (Net Amount)
+ */
+export function calculateReservationDiscounts(params: {
+  subtotal: number;
+  corporateDiscountPercent?: number;
+  applyMembershipDiscount: boolean;
+  membershipDiscountPercent?: number;
+  manualDiscountAmount?: number;
+  allowStackingWithCorporate?: boolean;
+}): {
+  corporateDiscountAmount: number;
+  membershipDiscountAmount: number;
+  manualDiscountAmount: number;
+  totalDiscountAmount: number;
+  netRoomCharges: number;
+  effectiveMembershipBasis: number;
+} {
+  const {
+    subtotal,
+    corporateDiscountPercent = 0,
+    applyMembershipDiscount,
+    membershipDiscountPercent = 0,
+    manualDiscountAmount = 0,
+    allowStackingWithCorporate = false,
+  } = params;
+
+  if (subtotal <= 0) {
+    return {
+      corporateDiscountAmount: 0,
+      membershipDiscountAmount: 0,
+      manualDiscountAmount: 0,
+      totalDiscountAmount: 0,
+      netRoomCharges: 0,
+      effectiveMembershipBasis: 0,
+    };
+  }
+
+  // 1. Corporate Negotiated Discount
+  const corpPercent = Math.max(0, Math.min(100, corporateDiscountPercent));
+  const corporateDiscountAmount = corpPercent > 0 ? Math.round(subtotal * (corpPercent / 100)) : 0;
+
+  // 2. Membership Discount Calculation Basis
+  // If stacking is allowed, membership applies to remaining subtotal after corporate discount
+  // If no corporate discount, membership applies to full subtotal
+  let effectiveMembershipBasis = subtotal;
+  if (corporateDiscountAmount > 0 && allowStackingWithCorporate) {
+    effectiveMembershipBasis = Math.max(0, subtotal - corporateDiscountAmount);
+  }
+
+  let membershipDiscountAmount = 0;
+  if (applyMembershipDiscount && membershipDiscountPercent > 0) {
+    membershipDiscountAmount = Math.round(effectiveMembershipBasis * (membershipDiscountPercent / 100));
+  }
+
+  // 3. Other / Manual Discount
+  const validManual = Math.max(0, manualDiscountAmount);
+
+  // 4. Sum of discounts capped at subtotal
+  const totalDiscountAmount = Math.min(
+    subtotal,
+    corporateDiscountAmount + membershipDiscountAmount + validManual
+  );
+  const netRoomCharges = Math.max(0, subtotal - totalDiscountAmount);
+
+  return {
+    corporateDiscountAmount,
+    membershipDiscountAmount,
+    manualDiscountAmount: validManual,
+    totalDiscountAmount,
+    netRoomCharges,
+    effectiveMembershipBasis,
+  };
+}
